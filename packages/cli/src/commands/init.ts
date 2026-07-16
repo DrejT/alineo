@@ -1,5 +1,6 @@
 import { existsSync } from "fs";
 import { mkdir } from "fs/promises";
+import os from "os";
 import {
   checkDocker,
   getContainerState,
@@ -41,6 +42,12 @@ export async function init(): Promise<void> {
     await ensureServerConfig();
     await ensureServerDataDir();
     console.log("Starting OpenSandbox in Docker...");
+
+    const isWindows = os.platform() === "win32";
+    const dockerSocketMount = isWindows
+      ? "//./pipe/docker_engine://./pipe/docker_engine"
+      : "/var/run/docker.sock:/var/run/docker.sock";
+
     await runContainer([
       "-d",
       "--name",
@@ -48,7 +55,7 @@ export async function init(): Promise<void> {
       "-p",
       "8080:8080",
       "-v",
-      "/var/run/docker.sock:/var/run/docker.sock",
+      dockerSocketMount,
       "-v",
       `${serverConfigPath()}:/etc/opensandbox/config.toml:ro`,
       // Persists OpenSandbox's own snapshot-metadata db (see serverDataDir()'s doc
