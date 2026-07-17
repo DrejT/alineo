@@ -26,11 +26,18 @@ import type { CliCommand } from "./types.js";
 export async function fork(
   name: string,
   childSpecPath: string,
-  opts: { prompt?: string; depth?: number; max?: number; json?: boolean } = {},
+  opts: {
+    prompt?: string;
+    depth?: number;
+    max?: number;
+    json?: boolean;
+    timeoutSeconds?: number;
+  } = {},
 ): Promise<void> {
   if (!name || !childSpecPath)
     throw new Error(
-      "Usage: drejx fork <name> <child-spec> [--prompt <msg>] [--depth N] [--max N] [--json]",
+      "Usage: drejx fork <name> <child-spec> [--prompt <msg>] [--depth N] [--max N] " +
+        "[--timeout SECONDS] [--json]",
     );
 
   const config = await readConfig();
@@ -57,15 +64,40 @@ export async function fork(
   const self = await Agent.attach(selfSandboxId, { adapter, name });
   const child = await self.spawn(childSpecPath, { spawnDepth: opts.depth, maxAgents: opts.max });
 
-  const reply = opts.prompt ? await collectReply(child, opts.prompt) : undefined;
+  const collected = opts.prompt
+    ? await collectReply(child, opts.prompt, {
+        inactivityTimeoutMs:
+          opts.timeoutSeconds !== undefined ? opts.timeoutSeconds * 1000 : undefined,
+      })
+    : undefined;
 
   if (opts.json) {
-    console.log(JSON.stringify({ name: child.name, sandboxId: child.sandboxId, reply }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          name: child.name,
+          sandboxId: child.sandboxId,
+          reply: collected?.text,
+          toolCalls: collected?.toolCalls,
+        },
+        null,
+        2,
+      ),
+    );
     return;
   }
 
   console.log(`\n[drejx] forked: ${child.name}  sandbox: ${child.sandboxId}`);
-  if (reply !== undefined) console.log(`\n${reply}`);
+  if (collected) {
+    if (collected.text) {
+      console.log(`\n${collected.text}`);
+    } else if (collected.toolCalls.length > 0) {
+      const names = collected.toolCalls.map((t) => t.name).join(", ");
+      console.log(
+        `\n[drejx] (no final text — ${collected.toolCalls.length} tool call(s): ${names})`,
+      );
+    }
+  }
 }
 
 export const forkCommand: CliCommand = {
@@ -82,10 +114,12 @@ export const forkCommand: CliCommand = {
     const childSpec = argv.slice(1).find((a) => !a.startsWith("--")) ?? "";
     const depthFlag = flag(argv, "--depth");
     const maxFlag = flag(argv, "--max");
+    const timeoutFlag = flag(argv, "--timeout");
     await fork(name, childSpec, {
       prompt: flag(argv, "--prompt"),
       depth: depthFlag !== undefined ? Number(depthFlag) : undefined,
       max: maxFlag !== undefined ? Number(maxFlag) : undefined,
+      timeoutSeconds: timeoutFlag !== undefined ? Number(timeoutFlag) : undefined,
       json: argv.includes("--json"),
     });
   },

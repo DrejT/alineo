@@ -23,22 +23,42 @@ import type { CliCommand } from "./types.js";
 export async function prompt(
   sandboxId: string,
   message: string,
-  opts: { json?: boolean; specPath?: string } = {},
+  opts: { json?: boolean; specPath?: string; timeoutSeconds?: number } = {},
 ): Promise<void> {
   if (!sandboxId || !message)
-    throw new Error("Usage: drejx prompt <sandbox-id> <message> [--spec <path>] [--json]");
+    throw new Error(
+      "Usage: drejx prompt <sandbox-id> <message> [--spec <path>] [--timeout SECONDS] [--json]",
+    );
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
   const agent = await Agent.resume(sandboxId, { adapter, specPath: opts.specPath });
 
-  const reply = await collectReply(agent, message);
+  const collected = await collectReply(agent, message, {
+    inactivityTimeoutMs: opts.timeoutSeconds !== undefined ? opts.timeoutSeconds * 1000 : undefined,
+  });
 
   if (opts.json) {
-    console.log(JSON.stringify({ name: agent.name, sandboxId: agent.sandboxId, reply }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          name: agent.name,
+          sandboxId: agent.sandboxId,
+          reply: collected.text,
+          toolCalls: collected.toolCalls,
+        },
+        null,
+        2,
+      ),
+    );
     return;
   }
-  console.log(reply);
+  if (collected.text) {
+    console.log(collected.text);
+  } else if (collected.toolCalls.length > 0) {
+    const names = collected.toolCalls.map((t) => t.name).join(", ");
+    console.log(`[drejx] (no final text — ${collected.toolCalls.length} tool call(s): ${names})`);
+  }
 }
 
 export const promptCommand: CliCommand = {
@@ -53,9 +73,11 @@ export const promptCommand: CliCommand = {
   run: async (argv) => {
     const sandboxId = argv[0] ?? "";
     const message = argv.slice(1).find((a) => !a.startsWith("--")) ?? "";
+    const timeoutFlag = flag(argv, "--timeout");
     await prompt(sandboxId, message, {
       json: argv.includes("--json"),
       specPath: flag(argv, "--spec"),
+      timeoutSeconds: timeoutFlag !== undefined ? Number(timeoutFlag) : undefined,
     });
   },
 };

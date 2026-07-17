@@ -14,11 +14,19 @@ import type { CliCommand } from "./types.js";
  */
 export async function spawn(
   specPath: string,
-  opts: { prompt?: string; rebuild?: boolean; json?: boolean; depth?: number; max?: number } = {},
+  opts: {
+    prompt?: string;
+    rebuild?: boolean;
+    json?: boolean;
+    depth?: number;
+    max?: number;
+    timeoutSeconds?: number;
+  } = {},
 ): Promise<void> {
   if (!specPath)
     throw new Error(
-      "Usage: drejx spawn <spec> [--prompt <msg>] [--rebuild] [--depth N] [--max N] [--json]",
+      "Usage: drejx spawn <spec> [--prompt <msg>] [--rebuild] [--depth N] [--max N] " +
+        "[--timeout SECONDS] [--json]",
     );
 
   const config = await readConfig();
@@ -30,15 +38,40 @@ export async function spawn(
     maxAgents: opts.max,
   });
 
-  const reply = opts.prompt ? await collectReply(agent, opts.prompt) : undefined;
+  const collected = opts.prompt
+    ? await collectReply(agent, opts.prompt, {
+        inactivityTimeoutMs:
+          opts.timeoutSeconds !== undefined ? opts.timeoutSeconds * 1000 : undefined,
+      })
+    : undefined;
 
   if (opts.json) {
-    console.log(JSON.stringify({ name: agent.name, sandboxId: agent.sandboxId, reply }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          name: agent.name,
+          sandboxId: agent.sandboxId,
+          reply: collected?.text,
+          toolCalls: collected?.toolCalls,
+        },
+        null,
+        2,
+      ),
+    );
     return;
   }
 
   console.log(`\n[drejx] session: ${agent.name}  sandbox: ${agent.sandboxId}`);
-  if (reply !== undefined) console.log(`\n${reply}`);
+  if (collected) {
+    if (collected.text) {
+      console.log(`\n${collected.text}`);
+    } else if (collected.toolCalls.length > 0) {
+      const names = collected.toolCalls.map((t) => t.name).join(", ");
+      console.log(
+        `\n[drejx] (no final text — ${collected.toolCalls.length} tool call(s): ${names})`,
+      );
+    }
+  }
 }
 
 export const spawnCommand: CliCommand = {
@@ -55,12 +88,14 @@ export const spawnCommand: CliCommand = {
     const specPath = argv.find((a) => !a.startsWith("--")) ?? "";
     const depthFlag = flag(argv, "--depth");
     const maxFlag = flag(argv, "--max");
+    const timeoutFlag = flag(argv, "--timeout");
     await spawn(specPath, {
       prompt: flag(argv, "--prompt"),
       rebuild: argv.includes("--rebuild"),
       json: argv.includes("--json"),
       depth: depthFlag !== undefined ? Number(depthFlag) : undefined,
       max: maxFlag !== undefined ? Number(maxFlag) : undefined,
+      timeoutSeconds: timeoutFlag !== undefined ? Number(timeoutFlag) : undefined,
     });
   },
 };

@@ -16,3 +16,4 @@ export type {
 export { textOnly } from "./types";
 export type { AgentSnapshotRecord } from "./snapshots";
 export { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "./snapshots";
+export { PromptTimeoutError } from "./errors";

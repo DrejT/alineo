@@ -225,7 +225,10 @@ export class Agent {
   // --- streaming ---
 
   /** Send a prompt to Pi and stream the response. Pi manages its own session context. */
-  prompt(message: string, opts?: { streamingBehavior?: "steer" | "followUp" }): AgentStream {
+  prompt(
+    message: string,
+    opts?: { streamingBehavior?: "steer" | "followUp"; inactivityTimeoutMs?: number },
+  ): AgentStream {
     return sessionControl.prompt(this, message, opts);
   }
 
