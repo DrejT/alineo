@@ -21,12 +21,13 @@ export async function spawn(
     depth?: number;
     max?: number;
     timeoutSeconds?: number;
+    runId?: string;
   } = {},
 ): Promise<void> {
   if (!specPath)
     throw new Error(
       "Usage: drejx spawn <spec> [--prompt <msg>] [--rebuild] [--depth N] [--max N] " +
-        "[--timeout SECONDS] [--json]",
+        "[--timeout SECONDS] [--run-id ID] [--json]",
     );
 
   const config = await readConfig();
@@ -36,6 +37,7 @@ export async function spawn(
     rebuild: opts.rebuild,
     spawnDepth: opts.depth,
     maxAgents: opts.max,
+    runId: opts.runId,
   });
 
   const collected = opts.prompt
@@ -96,6 +98,7 @@ export const spawnCommand: CliCommand = {
       depth: depthFlag !== undefined ? Number(depthFlag) : undefined,
       max: maxFlag !== undefined ? Number(maxFlag) : undefined,
       timeoutSeconds: timeoutFlag !== undefined ? Number(timeoutFlag) : undefined,
+      runId: flag(argv, "--run-id"),
     });
   },
 };

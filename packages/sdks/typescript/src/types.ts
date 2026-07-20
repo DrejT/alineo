@@ -65,13 +65,22 @@ export interface SandboxOptions {
   resources: { cpu: string; memory: string; gpu?: string };
   /** Environment variables set in the container at startup. */
   env?: Record<string, string>;
-  /** Arbitrary key-value labels attached to the sandbox (e.g. `{ runId: "ci-42" }`). */
+  /** Arbitrary key-value labels attached to the sandbox. Not ledger-queryable — see `runId`. */
   metadata?: Record<string, string>;
   /**
    * User-provided name for this sandbox run. Used as the ledger key.
    * Defaults to `"sandbox-<first 8 chars of sandboxId>"` if omitted.
    */
   name?: string;
+  /**
+   * Identifies the logical run this sandbox belongs to — see `SandboxDetails.runId`.
+   * Defaults to a fresh `crypto.randomUUID()` if omitted. A resumed, forked, or
+   * restored-from-snapshot sandbox always inherits its origin's `runId` rather than getting
+   * a new one, so pass this explicitly only when correlating independent top-level sandboxes
+   * that don't share a fork/resume relationship (e.g. two agents started separately by the
+   * same host script for one logical run).
+   */
+  runId?: string;
   /** Sandbox lifetime in seconds. Defaults to the OpenSandbox server default. */
   timeout?: number;
   /** Observability hooks (e.g. `otelHooks(tracer)` from `@drej/otel`). */

@@ -26,6 +26,8 @@ export interface AgentConstructorArgs {
   env: Record<string, string>;
   adapter: PiAdapter;
   fromSnapshot: boolean;
+  /** Run-correlation ID for this agent's sandbox — see `SandboxDetails.runId`. */
+  runId: string;
 }
 
 /**
@@ -34,7 +36,13 @@ export interface AgentConstructorArgs {
  */
 export async function loadAgent(
   specPath: string,
-  opts: { adapter: IStorageAdapter; rebuild?: boolean; spawnDepth?: number; maxAgents?: number },
+  opts: {
+    adapter: IStorageAdapter;
+    rebuild?: boolean;
+    spawnDepth?: number;
+    maxAgents?: number;
+    runId?: string;
+  },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
   const spec = validateAgentSpec(await Bun.file(specPath).json());
@@ -50,6 +58,11 @@ export async function loadAgent(
     assertValidMaxAgents(effectiveMaxAgents, "Agent.load()");
     resolvedEnv.DREJX_MAX_AGENTS = String(effectiveMaxAgents);
   }
+  // Unlike spawnDepth/maxAgents (which stay unset unless the spec/caller opts in), runId is
+  // always present — call-time only, never a spec field: a run identity is inherently
+  // per-invocation.
+  const runId = opts.runId ?? crypto.randomUUID();
+  resolvedEnv.DREJX_RUN_ID = runId;
   const resources = { ...config.defaults.resources, ...(spec.resources ?? {}) };
 
   const client = new Drej({
@@ -73,7 +86,7 @@ export async function loadAgent(
       try {
         console.log(`[agent] restoring from snapshot...`);
         const t1 = Date.now();
-        sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources);
+        sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources, runId);
         console.log(`[agent] snapshot ready  ${elapsed(t1)} (${sb.sandboxId})`);
         fromSnapshot = true;
       } catch (err) {
@@ -97,6 +110,7 @@ export async function loadAgent(
       resources,
       name: spec.name,
       env: resolvedEnv,
+      runId,
     });
     console.log(`[agent] sandbox ready   ${elapsed(t1)} (${sb.sandboxId})`);
 
@@ -136,7 +150,7 @@ export async function loadAgent(
   console.log(`[agent] bridge ready    ${elapsed(t4)}`);
   console.log(`[agent] total           ${elapsed(t0)}${fromSnapshot ? " (from snapshot)" : ""}`);
 
-  return { sandbox: sb!, spec, env: resolvedEnv, adapter, fromSnapshot };
+  return { sandbox: sb!, spec, env: resolvedEnv, adapter, fromSnapshot, runId };
 }
 
 /**
@@ -145,7 +159,7 @@ export async function loadAgent(
  */
 export async function resumeAgent(
   sandboxId: string,
-  opts: { adapter: IStorageAdapter; specPath?: string },
+  opts: { adapter: IStorageAdapter; specPath?: string; runId?: string },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
   const config = await readProjectConfig();
@@ -177,10 +191,15 @@ export async function resumeAgent(
     assertValidSpawnDepth(spec.spawnDepth, "Agent.resume()");
     resolvedEnv.DREJX_SPAWN_DEPTH = String(spec.spawnDepth);
   }
+  // Same "recompute, don't preserve" convention as spawnDepth/maxAgents above: a resumed
+  // agent that doesn't get an explicit override starts a fresh run identity rather than
+  // trying to recover the original invocation's exact value.
+  const runId = opts.runId ?? crypto.randomUUID();
+  resolvedEnv.DREJX_RUN_ID = runId;
 
   console.log(`[agent] reconnecting to ${sandboxId}...`);
   const t1 = Date.now();
-  const sb = await client.connect(sandboxId, spec.name);
+  const sb = await client.connect(sandboxId, spec.name, { runId });
   console.log(`[agent] connected       ${elapsed(t1)}`);
 
   // Kill any stale bridge process before starting a fresh one.
@@ -199,7 +218,7 @@ export async function resumeAgent(
   console.log(`[agent] bridge ready    ${elapsed(t2)}`);
   console.log(`[agent] total           ${elapsed(t0)}`);
 
-  return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false };
+  return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false, runId };
 }
 
 /**
@@ -233,8 +252,18 @@ export async function attachAgent(
     envFile = "";
   }
   const env = parseShellExports(envFile);
+  // Falls back to a fresh UUID only when attaching to a sandbox created before this
+  // field existed — every sandbox created going forward always has DREJX_RUN_ID baked in.
+  const runId = env.DREJX_RUN_ID ?? crypto.randomUUID();
   const stubSpec: AgentSpec = { name: opts.name, cli: "pi" };
-  return { sandbox: sb, spec: stubSpec, env, adapter: new PiAdapter(), fromSnapshot: false };
+  return {
+    sandbox: sb,
+    spec: stubSpec,
+    env,
+    adapter: new PiAdapter(),
+    fromSnapshot: false,
+    runId,
+  };
 }
 
 /**
@@ -256,10 +285,17 @@ export async function spawnChild(
   const childEnv = resolveEnv(childSpec.env ?? {});
   childEnv.DREJX_SPAWN_DEPTH = String(parentDepth - 1);
   if (parentMax !== undefined) childEnv.DREJX_MAX_AGENTS = String(parentMax - 1);
+  // Resolved once and used for both the child's own env AND the fork call's ledger
+  // record — read from process.env, not self.env, since this code runs as a real CLI
+  // process inside the parent's sandbox (same reasoning as DREJX_SPAWN_DEPTH above),
+  // and passed explicitly to fork() because a freshly-`Agent.attach()`ed self (the
+  // `drejx fork` self-attach case) has no in-memory closure carrying it forward.
+  const runId = process.env.DREJX_RUN_ID ?? crypto.randomUUID();
+  childEnv.DREJX_RUN_ID = runId;
 
   console.log(`[agent] forking sandbox for spawn (${childSpec.name})...`);
   const t0 = Date.now();
-  const forkedSb = await self.sandbox.fork(childSpec.name);
+  const forkedSb = await self.sandbox.fork(childSpec.name, runId);
   console.log(`[agent] fork ready      ${elapsed(t0)} (${forkedSb.sandboxId})`);
 
   const adapter = new PiAdapter();
@@ -277,5 +313,12 @@ export async function spawnChild(
   // would derive a `fork-<name>-<id>` label from — report that as this
   // Agent's name, not the spec's own.
   const namedChildSpec: AgentSpec = { ...childSpec, name: forkedSb.name };
-  return { sandbox: forkedSb, spec: namedChildSpec, env: childEnv, adapter, fromSnapshot: false };
+  return {
+    sandbox: forkedSb,
+    spec: namedChildSpec,
+    env: childEnv,
+    adapter,
+    fromSnapshot: false,
+    runId,
+  };
 }

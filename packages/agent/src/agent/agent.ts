@@ -63,6 +63,13 @@ export class Agent {
 
   readonly adapter: PiAdapter;
   env: Record<string, string>;
+  /**
+   * Identifies the logical run this agent's sandbox belongs to — see
+   * `SandboxDetails.runId`. Always present; a fresh `crypto.randomUUID()` if not
+   * explicitly passed to `load()`/`resume()`. A child from `.spawn()` (and
+   * transitively, `drejx fork`) always inherits its parent's `runId`.
+   */
+  readonly runId: string;
 
   private constructor(
     sandbox: Sandbox,
@@ -70,6 +77,7 @@ export class Agent {
     env: Record<string, string>,
     adapter: PiAdapter,
     fromSnapshot: boolean,
+    runId: string,
   ) {
     this.sandbox = sandbox;
     this.sandboxId = sandbox.sandboxId;
@@ -77,6 +85,7 @@ export class Agent {
     this.adapter = adapter;
     this.env = env;
     this.fromSnapshot = fromSnapshot;
+    this.runId = runId;
   }
 
   /**
@@ -98,10 +107,16 @@ export class Agent {
    */
   static async load(
     specPath: string,
-    opts: { adapter: IStorageAdapter; rebuild?: boolean; spawnDepth?: number; maxAgents?: number },
+    opts: {
+      adapter: IStorageAdapter;
+      rebuild?: boolean;
+      spawnDepth?: number;
+      maxAgents?: number;
+      runId?: string;
+    },
   ): Promise<Agent> {
     const r = await factory.loadAgent(specPath, opts);
-    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot);
+    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
   /**
@@ -133,10 +148,10 @@ export class Agent {
    */
   static async resume(
     sandboxId: string,
-    opts: { adapter: IStorageAdapter; specPath?: string },
+    opts: { adapter: IStorageAdapter; specPath?: string; runId?: string },
   ): Promise<Agent> {
     const r = await factory.resumeAgent(sandboxId, opts);
-    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot);
+    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
   /**
@@ -178,7 +193,7 @@ export class Agent {
     },
   ): Promise<Agent> {
     const r = await factory.attachAgent(sandboxId, opts);
-    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot);
+    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
   /**
@@ -219,7 +234,7 @@ export class Agent {
     opts: { spawnDepth?: number; maxAgents?: number } = {},
   ): Promise<Agent> {
     const r = await factory.spawnChild(this, childSpecPath, opts);
-    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot);
+    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
   // --- streaming ---

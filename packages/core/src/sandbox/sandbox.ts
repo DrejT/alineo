@@ -193,9 +193,12 @@ export class Sandbox extends SandboxCore {
    * await sb.exec("npm test");         // runs on original
    * await fork.exec("npm run build");  // runs on fork
    * ```
+   *
+   * @param runId  Override the forked sandbox's run-correlation ID (see `SandboxDetails.runId`)
+   *   instead of inheriting this sandbox's own default.
    */
-  async fork(tag?: string): Promise<Sandbox> {
-    return lifecycle.fork(this, tag);
+  async fork(tag?: string, runId?: string): Promise<Sandbox> {
+    return lifecycle.fork(this, tag, runId);
   }
 
   /**

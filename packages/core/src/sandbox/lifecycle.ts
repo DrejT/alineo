@@ -65,15 +65,22 @@ export async function checkpoint(sb: SandboxInternal, name?: string): Promise<st
  * The original sandbox keeps running. Both operate on separate containers restored
  * from the same snapshot. Equivalent to `checkpoint()` followed by `Drej.restoreSnapshot()`
  * into a new sandbox, but without closing the original.
+ *
+ * @param runId  Override the forked sandbox's run correlation ID instead of inheriting
+ *   whatever this sandbox's own creation closed over. Needed when forking across a process
+ *   boundary (e.g. `drejx fork`, which re-`Agent.attach()`es in a brand-new CLI process with
+ *   no access to the original in-memory closure) — the caller reads the correct value from
+ *   `process.env.DREJX_RUN_ID` and passes it explicitly rather than relying on this sandbox's
+ *   own (possibly unknown) default.
  */
-export async function fork(sb: SandboxInternal, tag?: string): Promise<Sandbox> {
+export async function fork(sb: SandboxInternal, tag?: string, runId?: string): Promise<Sandbox> {
   if (!sb.deps.fork)
     throw new SandboxError("fork() is not supported on this sandbox", sb.sandboxId);
   const snap = await sb.deps.control.createSnapshot(sb.sandboxId);
   await sb.waitForSnapshot(snap.id);
   await sb.emit(LedgerEvent.CheckpointCreated, -1, { snapshotId: snap.id, name: tag });
   sb.deps.hooks?.onCheckpoint?.(sb.sandboxId, snap.id, tag);
-  return sb.deps.fork(snap.id, tag);
+  return sb.deps.fork(snap.id, tag, runId);
 }
 
 /**

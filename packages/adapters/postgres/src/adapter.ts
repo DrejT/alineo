@@ -29,6 +29,7 @@ type AggRow = {
   completed_at: string | null;
   is_closed: string;
   exec_count: string;
+  run_id: string | null;
 };
 
 function aggRowToDetails(row: AggRow): SandboxDetails {
@@ -39,6 +40,10 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
     startedAt: Number(row.started_at),
     completedAt: row.completed_at != null ? Number(row.completed_at) : undefined,
     execCount: Number(row.exec_count),
+    // Older ledger rows written before this field existed have no runId recorded at
+    // all — fall back to the sandboxId itself so every session still has *some*
+    // stable, unique identity rather than an empty string.
+    runId: row.run_id ?? row.sandbox_id,
   };
 }
 
@@ -46,6 +51,7 @@ function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): Sandbo
   let result = details;
   if (opts?.before != null) result = result.filter((d) => d.startedAt < opts.before!);
   if (opts?.status != null) result = result.filter((d) => d.status === opts.status);
+  if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
   if (opts?.limit != null) result = result.slice(0, opts.limit);
   return result;
 }
@@ -124,7 +130,8 @@ export class PostgresAdapter implements IStorageAdapter {
           MIN(CASE WHEN event = 'sandbox_created' THEN ts END) AS started_at,
           MAX(CASE WHEN event = 'sandbox_closed'  THEN ts END) AS completed_at,
           MAX(CASE WHEN event = 'sandbox_closed'  THEN 1 ELSE 0 END)::int AS is_closed,
-          COUNT(CASE WHEN event = 'exec_complete' THEN 1 END)::int AS exec_count
+          COUNT(CASE WHEN event = 'exec_complete' THEN 1 END)::int AS exec_count,
+          MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'runId' END) AS run_id
         FROM drej_events
         ${whereClause}
         GROUP BY name, sandbox_id

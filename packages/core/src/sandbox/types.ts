@@ -68,8 +68,13 @@ export interface SandboxDeps {
   onClose?: () => void;
   /** Default shell for all `exec()` calls on this sandbox. Defaults to `"/bin/sh"`. */
   shell?: string;
-  /** Called by `fork()` to create a new Sandbox from a snapshot — injected by `Drej`. */
-  fork?: (snapshotId: string, tag?: string) => Promise<Sandbox>;
+  /**
+   * Called by `fork()` to create a new Sandbox from a snapshot — injected by `Drej`.
+   * `runId`, if passed, overrides whatever run-correlation ID this closure would otherwise
+   * default to (see `fork()`'s own docs in `lifecycle.ts` for why an explicit override is
+   * needed across a process boundary).
+   */
+  fork?: (snapshotId: string, tag?: string, runId?: string) => Promise<Sandbox>;
   /** Route execd and proxy calls through the OpenSandbox server. Required when the server runs in Docker. */
   useServerProxy?: boolean;
 }

@@ -154,7 +154,7 @@ describe("SQLiteAdapter", () => {
       const d = await db.getSandboxDetails("my-sb", "abc-123");
       expect(d?.sandboxId).toBe("abc-123");
       expect(d?.name).toBe("my-sb");
-      expect((d as any)?.runId).toBeUndefined();
+      expect(d?.runId).toBe("abc-123");
       expect((d as any)?.workflowName).toBeUndefined();
     });
   });
