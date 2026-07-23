@@ -45,6 +45,7 @@
   "pi": {
     "extensions": [
       "./pi-extension/drejx.ts"
-    ]
+    ],
+    "extensionsDeprecationNotice": "pi-extension/drejx.ts's drejx_spawn/drejx_prompt/drejx_agents/drejx_kill typed tools have been removed in favor of bash-only CLI usage for all five drejx subcommands (drejx_fork was already bash-only) -- the typed-vs-not asymmetry between them was implicated in issue #21 Bug B (a model reached for the typed drejx_spawn tool instead of the drejx fork shell command the guidance text recommended for that scenario). Kept in place for backward compatibility -- no removal planned yet. The general Pi-extension-loading mechanism itself (this \"pi.extensions\" field, and a spec's own setup steps installing a custom .pi/extensions/*.ts file, e.g. @drej/agent-browser's) is NOT deprecated -- only this specific extension's typed-tool-registration responsibility is."
   }
 }

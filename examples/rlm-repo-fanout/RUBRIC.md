@@ -60,13 +60,17 @@ full design rationale this example implements.
 
 ## Why no Pi tools
 
-`packages/cli/pi-extension/drejx.ts` (PR #124) registers `drejx_run` /
+`packages/cli/pi-extension/drejx.ts` (PR #124) used to register `drejx_run` /
 `drejx_prompt` / `drejx_agents` / `drejx_kill` as callable tools — useful for
 a one-off "spawn a helper" UX, but structurally a parent _verbally_ deciding
 "call this tool," which the rubric explicitly disqualifies for G5. Leaving
-those tools out of `master.json` entirely means every spawn in a real run of
-this example is provably a bash/script invocation, not a tool call — there's
-nothing else the model _could_ have used.
+those tools out of `master.json` entirely meant every spawn in a real run of
+this example was provably a bash/script invocation, not a tool call — there
+was nothing else the model _could_ have used. Those typed tools have since
+been removed from the extension entirely (issue #21 Bug B — the asymmetry
+between them and the always-bash-only `drejx fork` measurably steered a
+model toward the wrong primitive elsewhere), so this is no longer a
+per-example opt-out; it's now true of every drejx-based spec by default.
 
 ## Why this model
 
