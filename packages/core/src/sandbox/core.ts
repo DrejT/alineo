@@ -78,6 +78,16 @@ export class SandboxCore implements SandboxInternal {
     this._execClient = null;
   }
 
+  /**
+   * Force-cancel any exec streams left dangling by `parseSSE`'s early-return
+   * optimization (see `ExecClient.disposeConnections()`). No-op if no exec client
+   * was ever resolved — deliberately doesn't call `getExecClient()`, which would
+   * lazily resolve a brand-new one against a sandbox that's about to be deleted.
+   */
+  disposeExecClient(): void {
+    this._execClient?.disposeConnections();
+  }
+
   nextSeq(): number {
     return ++this._seq;
   }

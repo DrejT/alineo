@@ -19,6 +19,9 @@ export function listCheckpoints(sb: SandboxInternal): Promise<CheckpointInfo[]> 
 export async function pause(sb: SandboxInternal): Promise<void> {
   await sb.deps.control.pauseSandbox(sb.sandboxId);
   sb.setPaused(true);
+  // Same dangling-connection concern as close() — the paused container can't respond
+  // to a lingering exec stream anyway, and the next exec() re-resolves a fresh client.
+  sb.disposeExecClient();
   sb.clearExecClient();
   await sb.emit(LedgerEvent.SandboxPaused, -1);
   sb.deps.hooks?.onSandboxPaused?.(sb.sandboxId);
@@ -85,6 +88,11 @@ export async function close(sb: SandboxInternal): Promise<void> {
   // Close open bash sessions (best-effort — container is being deleted anyway).
   await Promise.allSettled([...sb.openSessionClosers].map((fn) => fn()));
   sb.openSessionClosers.clear();
+  // Force-cancel any exec streams parseSSE deliberately left open (see its comment
+  // and ExecClient.disposeConnections()) — otherwise the underlying connection sits
+  // ESTABLISHED until execd's own post-completion sleep elapses, which can outlive
+  // this call and leave the host process's event loop alive with nothing left to do.
+  sb.disposeExecClient();
   try {
     await sb.deps.control.deleteSandbox(sb.sandboxId);
   } finally {
