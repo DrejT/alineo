@@ -22,6 +22,8 @@ drejx init
 
 When using a server started this way, `useServerProxy: true` is written into `drej.config.json` automatically — sandbox containers run on Docker's bridge network and aren't reachable directly from the host.
 
+OpenSandbox's own snapshot metadata (what makes `Agent.load()`'s cached-snapshot fast path possible) lives in a SQLite db bind-mounted from `~/.config/drejx/opensandbox-data` into the container — so it survives the container being stopped/started, _and_ being fully removed and recreated (a host reboot with no restart policy, `docker system prune`, a stray `docker rm`). It's only lost if that host directory itself is deleted, or you point a different machine/user at a fresh one. If a cached snapshot ever does fail to restore for some other reason, `Agent.load()` now logs the real error (`[agent] snapshot restore failed (<real error>), rebuilding...`) instead of an undiagnosable `snapshot stale, rebuilding...`.
+
 ### `drejx add <url> [--name <n>]`
 
 Fetches an agent spec (JSON) from a URL or local file and saves it under `agentsDir` (default `./agents`).

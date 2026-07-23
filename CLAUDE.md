@@ -221,6 +221,8 @@ packages/cli/                     — drejx CLI (published to npm as "drejx", no
 
 When using a server started this way, pass `useServerProxy: true` to `new Drej(...)` — direct container IPs are not reachable from the host over Docker's bridge network.
 
+OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/drejx/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli/src/config.ts`), so `Agent.load()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
+
 ### Option 2 — uvx (manual)
 
 Run `uvx opensandbox-server` with `~/.sandbox.toml`:

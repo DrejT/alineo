@@ -86,6 +86,23 @@ export function serverConfigPath(): string {
   return join(serverConfigDir(), "server.toml");
 }
 
+/**
+ * Host directory bind-mounted into the OpenSandbox container at `/data` (see
+ * `commands/init.ts`), backing the `[store].path` set below. OpenSandbox itself persists
+ * snapshot metadata durably (a SQLite db, meant to survive the server process restarting —
+ * see opensandbox-group/OpenSandbox's `PersistedSnapshotService`), but that guarantee is
+ * only as good as where the db file actually lives: without this mount, it sits in the
+ * `drejx-opensandbox` container's own writable layer, so restart is fine but any time the
+ * container itself is recreated (host reboot with no restart policy, `docker system prune`,
+ * a stray `docker rm`) silently loses every cached snapshot record — every `Agent.load()`
+ * snapshot fast path pays a full cold rebuild next time, indistinguishable from a genuinely
+ * changed spec (see issue #20). Bind-mounting this directory makes that data outlive the
+ * container's own lifecycle, matching OpenSandbox's own intent.
+ */
+export function serverDataDir(): string {
+  return join(serverConfigDir(), "opensandbox-data");
+}
+
 export function serverConfigContent(): string {
   return `[server]
 host = "0.0.0.0"
@@ -98,5 +115,9 @@ execd_image = "opensandbox/execd:v1.0.19"
 
 [docker]
 network_mode = "bridge"
+
+[store]
+type = "sqlite"
+path = "/data/opensandbox.db"
 `;
 }

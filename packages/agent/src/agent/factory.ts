@@ -76,8 +76,13 @@ export async function loadAgent(
         sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources);
         console.log(`[agent] snapshot ready  ${elapsed(t1)} (${sb.sandboxId})`);
         fromSnapshot = true;
-      } catch {
-        console.log(`[agent] snapshot stale, rebuilding...`);
+      } catch (err) {
+        // Surface the real reason instead of a bare "stale" — a genuinely stale record
+        // (e.g. the spec's setup actually changed) looks identical from here to the
+        // OpenSandbox server having lost its snapshot store entirely (issue #20), and
+        // only the underlying error tells them apart.
+        const reason = err instanceof Error ? err.message : String(err);
+        console.log(`[agent] snapshot restore failed (${reason}), rebuilding...`);
         await store.delete(spec.name);
       }
     }
