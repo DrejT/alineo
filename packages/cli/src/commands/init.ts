@@ -1,5 +1,6 @@
 import { existsSync } from "fs";
 import { mkdir } from "fs/promises";
+import os from "os";
 import {
   checkDocker,
   getContainerState,
@@ -13,6 +14,7 @@ import {
   serverConfigDir,
   serverConfigPath,
   serverConfigContent,
+  serverDataDir,
 } from "../config.js";
 import type { CliCommand } from "./types.js";
 
@@ -38,7 +40,14 @@ export async function init(): Promise<void> {
     await startContainer(CONTAINER_NAME);
   } else {
     await ensureServerConfig();
+    await ensureServerDataDir();
     console.log("Starting OpenSandbox in Docker...");
+
+    const isWindows = os.platform() === "win32";
+    const dockerSocketMount = isWindows
+      ? "//./pipe/docker_engine://./pipe/docker_engine"
+      : "/var/run/docker.sock:/var/run/docker.sock";
+
     await runContainer([
       "-d",
       "--name",
@@ -46,9 +55,13 @@ export async function init(): Promise<void> {
       "-p",
       "8080:8080",
       "-v",
-      "/var/run/docker.sock:/var/run/docker.sock",
+      dockerSocketMount,
       "-v",
       `${serverConfigPath()}:/etc/opensandbox/config.toml:ro`,
+      // Persists OpenSandbox's own snapshot-metadata db (see serverDataDir()'s doc
+      // comment) across the container being recreated, not just stopped/started.
+      "-v",
+      `${serverDataDir()}:/data`,
       "-e",
       "SANDBOX_CONFIG_PATH=/etc/opensandbox/config.toml",
       "-e",
@@ -68,6 +81,17 @@ async function ensureServerConfig(): Promise<void> {
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
   const path = serverConfigPath();
   if (!existsSync(path)) await Bun.write(path, serverConfigContent());
+}
+
+/**
+ * Host-side half of the `serverDataDir()` bind mount. `docker run -v` would auto-create
+ * a missing host path anyway, but doing it explicitly here matches `ensureServerConfig()`'s
+ * pattern and keeps directory creation in one place rather than relying on Docker's
+ * legacy-`-v`-specific behavior (unlike `--mount`, which requires the source to pre-exist).
+ */
+async function ensureServerDataDir(): Promise<void> {
+  const dir = serverDataDir();
+  if (!existsSync(dir)) await mkdir(dir, { recursive: true });
 }
 
 async function ensureProjectConfig(): Promise<void> {

@@ -11,13 +11,14 @@ export type {
 export { LogLevel, ConsoleLogger, noopLogger } from "./logger";
 export type { ILogger } from "./logger";
 
-export { Sandbox, BashSession, resolveExecClient } from "./sandbox/index";
+export { Sandbox, BashSession, resolveExecClient, composeHooks } from "./sandbox/index";
 export type {
   ExecOptions,
   ExecCodeOptions,
   SandboxDeps,
   SandboxHooks,
   PendingInteractiveExec,
+  ComposeHooksOptions,
 } from "./sandbox/index";
 export type { FileInfo, DiagnosticLog, DiagnosticEvent, Metrics } from "@drej/opensandbox";
 

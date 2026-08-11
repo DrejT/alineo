@@ -54,6 +54,14 @@ Or run the server directly with `uvx opensandbox-server` — see [`drejx`](packa
 
 ---
 
+## Windows Support
+
+`drej-private` features native cross-platform support and can be developed directly on Windows without requiring WSL or Git Bash.
+- **Native Scripts**: All repository scripts (e.g., `bun run setup`, `bun run build`) leverage Bun's native shell APIs.
+- **Docker Integration**: The local `drejx init` command dynamically detects Windows and uses Named Pipes (`//./pipe/docker_engine`) for Docker socket injection automatically.
+
+---
+
 ## License
 
 Apache 2.0

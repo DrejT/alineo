@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Sandbox } from "@drej/core";
+import { PromptTimeoutError } from "../errors";
 import type { AgentSpec } from "../schema";
 import type {
   AgentEvent,
@@ -137,11 +138,16 @@ export class PiAdapter {
 
   // --- streaming ---
 
-  prompt(message: string, opts?: { streamingBehavior?: "steer" | "followUp" }): AgentStream {
-    return sseStream(this.bridgeUrl, "/prompt", {
-      message,
-      streamingBehavior: opts?.streamingBehavior,
-    });
+  prompt(
+    message: string,
+    opts?: { streamingBehavior?: "steer" | "followUp"; inactivityTimeoutMs?: number },
+  ): AgentStream {
+    return sseStream(
+      this.bridgeUrl,
+      "/prompt",
+      { message, streamingBehavior: opts?.streamingBehavior },
+      opts?.inactivityTimeoutMs,
+    );
   }
 
   bash(command: string): AgentStream {
@@ -320,7 +326,22 @@ async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
   return payload.data as T;
 }
 
-async function* sseStream(bridgeUrl: string, path: string, body: unknown): AgentStream {
+/**
+ * How long to tolerate zero real `AgentEvent`s before treating the stream as stuck. The
+ * bridge's own `: ping` keep-alive (every 3s, see pi-bridge.js's `startHeartbeat`) exists only
+ * to defeat OpenSandbox's proxy idle-timeout -- it keeps `reader.read()` resolving regardless
+ * of whether Pi itself is making progress, so this can't just be "no read() in N seconds". The
+ * timer below is instead reset only when a real event is parsed and yielded (or `[DONE]`
+ * arrives), so a connection that's alive-but-silent for this long still times out.
+ */
+const DEFAULT_INACTIVITY_TIMEOUT_MS = 60_000;
+
+async function* sseStream(
+  bridgeUrl: string,
+  path: string,
+  body: unknown,
+  inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
+): AgentStream {
   const res = await fetch(`${bridgeUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -331,20 +352,35 @@ async function* sseStream(bridgeUrl: string, path: string, body: unknown): Agent
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
+  let lastEventAt = Date.now();
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop()!;
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const payload = line.slice(6).trim();
-      if (payload === "[DONE]") return;
-      const raw = JSON.parse(payload) as AgentEvent & { error?: string };
-      if (raw.error) throw new Error(`Bridge error: ${raw.error}`);
-      yield raw as AgentEvent;
+  try {
+    while (true) {
+      const remainingMs = inactivityTimeoutMs - (Date.now() - lastEventAt);
+      if (remainingMs <= 0) throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
+
+      const result = await Promise.race([
+        reader.read(),
+        new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), remainingMs)),
+      ]);
+      if (result === "timeout") throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
+
+      const { done, value } = result;
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop()!;
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") return;
+        const raw = JSON.parse(payload) as AgentEvent & { error?: string };
+        if (raw.error) throw new Error(`Bridge error: ${raw.error}`);
+        lastEventAt = Date.now();
+        yield raw as AgentEvent;
+      }
     }
+  } finally {
+    await reader.cancel().catch(() => {});
   }
 }

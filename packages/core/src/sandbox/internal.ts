@@ -24,4 +24,5 @@ export interface SandboxInternal {
   isClosed(): boolean;
   setClosed(closed: boolean): void;
   clearExecClient(): void;
+  disposeExecClient(): void;
 }

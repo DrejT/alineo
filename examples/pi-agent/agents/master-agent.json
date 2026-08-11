@@ -2,7 +2,7 @@
   "$schema": "https://registry.drej.dev/spec/agent.json",
   "name": "master-agent",
   "title": "Master Agent",
-  "description": "A Pi agent with the drejx CLI + Pi extension installed, demonstrating an agent orchestrating its own child agent sessions via typed drejx_* tools instead of raw osb bash commands.",
+  "description": "A Pi agent with the drejx CLI + Pi extension installed, demonstrating an agent orchestrating its own child agent sessions via drejx CLI bash commands (spawn/prompt/agents/kill/fork) instead of raw osb bash commands. The extension's typed drejx_* tools were removed (see packages/cli/pi-extension/drejx.ts's deprecation note) -- this now exercises its remaining before_agent_start guidance injection only.",
   "author": "drej",
   "cli": "pi",
   "provider": "nvidia",
@@ -24,7 +24,7 @@
       "run": "mkdir -p agents && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.drej/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > drej.config.json"
     },
     {
-      "name": "Add a child spec for drejx_spawn to launch",
+      "name": "Add a child spec for drejx spawn to launch",
       "run": "printf '{\"name\":\"hello-agent\",\"cli\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3-nano-30b-a3b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/hello-agent.json"
     }
   ]

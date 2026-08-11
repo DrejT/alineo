@@ -87,6 +87,9 @@ packages/core/                    — Sandbox primitive (no runtime deps outside
   src/sandbox/files.ts            — writeFile/readFile/deleteFile/moveFile/listDirectory/searchFiles/...
   src/sandbox/lifecycle.ts        — pause/resume/checkpoint/fork/close/listCheckpoints
   src/sandbox/observability.ts    — metrics/watchMetrics/diagnosticLogs/diagnosticEvents/proxy
+  src/sandbox/hooks.ts            — composeHooks(): merges multiple SandboxHooks into one, each hook invocation
+                                    isolated in its own try/catch so one broken adapter can't break siblings or
+                                    the sandbox operation that triggered them
   src/sandbox/bash-session.ts     — BashSession class
   src/sandbox/resolve.ts          — resolveExecClient()
   src/sandbox/types.ts            — ExecOptions, SandboxHooks, SandboxDeps, PendingInteractiveExec, ExecCodeOptions
@@ -220,6 +223,8 @@ packages/cli/                     — drejx CLI (published to npm as "drejx", no
 `bunx drejx init` starts OpenSandbox in a Docker container (`opensandbox/server:latest`) and writes `~/.config/drejx/server.toml` and `.drej/config.json` automatically. This is the preferred path for users running the full drejx workflow.
 
 When using a server started this way, pass `useServerProxy: true` to `new Drej(...)` — direct container IPs are not reachable from the host over Docker's bridge network.
+
+OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/drejx/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli/src/config.ts`), so `Agent.load()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
 
 ### Option 2 — uvx (manual)
 

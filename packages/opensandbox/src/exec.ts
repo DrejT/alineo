@@ -17,17 +17,27 @@ import type {
  * `isTerminal` lets one-shot command/code streams cancel the underlying
  * connection as soon as their terminal event arrives, instead of reading to
  * EOF: execd holds the HTTP stream open for a fixed interval after the last
- * event is sent (a server-side post-completion sleep), so waiting for `done`
- * tacks that delay onto every exec. Long-lived streams (metrics watch) pass
- * no predicate and read until the server actually closes the connection.
+ * event is sent (a server-side post-completion sleep — see
+ * opensandbox-group/OpenSandbox#1277: `/command`'s handler does a blind
+ * `time.Sleep` instead of signalling completion the way `/code` and
+ * `/session/:id/run` do), so waiting for `done` tacks that delay onto every
+ * exec. Long-lived streams (metrics watch) pass no predicate and read until
+ * the server actually closes the connection.
+ *
+ * `pendingReaders` lets the owning `ExecClient` force these dangling readers
+ * shut later (see `disposeConnections()`) instead of leaving them open until
+ * the server's own delayed close — see that method's doc comment for why.
  */
 async function* parseSSE(
   stream: ReadableStream<Uint8Array>,
+  pendingReaders: Set<ReadableStreamDefaultReader<Uint8Array>>,
   isTerminal?: (event: SSEEvent) => boolean,
 ): AsyncGenerator<SSEEvent> {
   const reader = stream.getReader();
+  pendingReaders.add(reader);
   const decoder = new TextDecoder();
   let buffer = "";
+  let terminatedEarly = false;
 
   try {
     while (true) {
@@ -67,12 +77,23 @@ async function* parseSSE(
           // client abort as a broken upstream read and throw. Just stop reading:
           // we resolve now either way, and the server closes the connection on
           // its own terms shortly after (see the comment on parseSSE above).
+          //
+          // That "shortly after" is exactly execd's fixed post-completion sleep
+          // (OpenSandbox#1277 again), so the reader is left registered in
+          // `pendingReaders` — still holding its lock, not released — rather than
+          // released here, so `disposeConnections()` can still reach it and force
+          // the underlying connection shut once nobody cares if the proxy's relay
+          // of execd's still-open response errors out.
+          terminatedEarly = true;
           return;
         }
       }
     }
   } finally {
-    reader.releaseLock();
+    if (!terminatedEarly) {
+      pendingReaders.delete(reader);
+      reader.releaseLock();
+    }
   }
 }
 
@@ -84,6 +105,8 @@ export class ExecClient {
   private baseUrl: string;
   private accessToken: string;
   private signal?: AbortSignal;
+  /** Readers left dangling by `parseSSE`'s early-return optimization — see `disposeConnections()`. */
+  private pendingReaders = new Set<ReadableStreamDefaultReader<Uint8Array>>();
 
   constructor(options: { baseUrl?: string; accessToken: string; signal?: AbortSignal }) {
     this.baseUrl = (options.baseUrl ?? "http://localhost:44772").replace(/\/$/, "");
@@ -94,6 +117,19 @@ export class ExecClient {
   /** Return a new `ExecClient` instance that passes `signal` to every fetch call. */
   withSignal(signal: AbortSignal): ExecClient {
     return new ExecClient({ baseUrl: this.baseUrl, accessToken: this.accessToken, signal });
+  }
+
+  /**
+   * Force-cancel any exec streams `parseSSE` deliberately left open (its early return
+   * on `isTerminal`, to dodge OpenSandbox#1277's proxy behavior — see its comment).
+   * Those connections sit ESTABLISHED, keeping Bun's event loop alive, until execd's
+   * own fixed post-completion sleep elapses server-side; calling this once the sandbox
+   * is being torn down anyway (e.g. from `Sandbox.close()`) skips that wait instead of
+   * leaving the process to hang on whichever exec's delay hadn't yet elapsed.
+   */
+  disposeConnections(): void {
+    for (const reader of this.pendingReaders) reader.cancel().catch(() => {});
+    this.pendingReaders.clear();
   }
 
   private get authHeader(): Record<string, string> {
@@ -138,7 +174,7 @@ export class ExecClient {
       throw new Error(text || `execd error ${res.status}`);
     }
     if (!res.body) return;
-    yield* parseSSE(res.body, isTerminal);
+    yield* parseSSE(res.body, this.pendingReaders, isTerminal);
   }
 
   ping(): Promise<{ status: string }> {

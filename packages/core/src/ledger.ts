@@ -16,6 +16,15 @@ export interface SandboxDetails {
   completedAt?: number;
   /** Number of exec() calls that completed. */
   execCount: number;
+  /**
+   * Identifies the logical run this sandbox belongs to. Always present — a fresh
+   * `crypto.randomUUID()` if the caller didn't supply one via `SandboxOptions.runId`.
+   * A resumed, forked, or restored-from-snapshot sandbox always inherits its origin's
+   * `runId` rather than getting a new one, so every sandbox descended from the same
+   * root call (directly or via `sb.fork()`/`Agent.spawn()`/`drejx fork`) shares it —
+   * the mechanism `client.sandboxes.list({ runId })` correlates on.
+   */
+  runId: string;
 }
 
 /** Options for filtering session listings. */
@@ -25,6 +34,8 @@ export interface ListSandboxOptions {
   limit?: number;
   /** Return only sessions that started before this Unix timestamp (ms). */
   before?: number;
+  /** Return only sessions belonging to this run — see `SandboxDetails.runId`. */
+  runId?: string;
 }
 
 /** Events emitted during execution and stored in the ledger. */

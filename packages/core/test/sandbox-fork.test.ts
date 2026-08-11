@@ -65,7 +65,7 @@ describe("Sandbox.fork()", () => {
     );
     expect((cpEntry![0] as any).payload.snapshotId).toBe("snap-xyz");
 
-    expect(forkFn).toHaveBeenCalledWith("snap-xyz", undefined);
+    expect(forkFn).toHaveBeenCalledWith("snap-xyz", undefined, undefined);
   });
 
   it("passes the tag to the fork dep and stores it in the checkpoint payload", async () => {
@@ -82,7 +82,7 @@ describe("Sandbox.fork()", () => {
 
     await sb.fork("after-install");
 
-    expect(forkFn).toHaveBeenCalledWith("snap-tagged", "after-install");
+    expect(forkFn).toHaveBeenCalledWith("snap-tagged", "after-install", undefined);
 
     const appendCalls = (adapter.append as ReturnType<typeof vi.fn>).mock.calls;
     const cpEntry = appendCalls.find(

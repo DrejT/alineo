@@ -5,7 +5,7 @@ import type { AgentInternal } from "./internal";
 export function prompt(
   a: AgentInternal,
   message: string,
-  opts?: { streamingBehavior?: "steer" | "followUp" },
+  opts?: { streamingBehavior?: "steer" | "followUp"; inactivityTimeoutMs?: number },
 ): AgentStream {
   return a.adapter.prompt(message, opts);
 }
