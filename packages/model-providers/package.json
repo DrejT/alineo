@@ -1,0 +1,22 @@
+{
+  "name": "@drej/model-providers",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^3.0.104",
+    "@ai-sdk/groq": "^3.0.56",
+    "@ai-sdk/openai": "^3.0.85",
+    "ai": "^6.0.226"
+  },
+  "devDependencies": {
+    "bun-types": "1.3.14",
+    "typescript": "6.0.3"
+  }
+}
