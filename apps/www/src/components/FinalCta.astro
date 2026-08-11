@@ -1,0 +1,84 @@
+---
+---
+
+<section class="final-cta">
+  <div class="inner">
+    <h2 class="heading">Ready to orchestrate?</h2>
+    <p class="subhead">Spawn your first sandbox in a few lines of TypeScript.</p>
+    <div class="ctas">
+      <a href="https://docs.drej.dev" class="btn-primary">Read the docs</a>
+      <a href="https://github.com/DrejT/drej" class="btn-secondary">GitHub →</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .final-cta {
+    padding: 6rem 2rem;
+    background: oklch(0.08 0 0);
+    color: oklch(0.96 0 0);
+    text-align: center;
+  }
+
+  .inner {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .heading {
+    font-size: clamp(1.9rem, 4vw, 2.75rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.75rem;
+  }
+
+  .subhead {
+    font-size: 1.05rem;
+    color: oklch(0.65 0 0);
+    margin-bottom: 2.25rem;
+  }
+
+  .ctas {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.7rem 1.5rem;
+    background: var(--color-accent);
+    color: oklch(1 0 0);
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: var(--radius-btn);
+    transition: background 0.15s;
+  }
+
+  .btn-primary:hover {
+    background: var(--color-accent-hover);
+  }
+
+  .btn-secondary {
+    font-size: 0.9rem;
+    color: oklch(0.65 0 0);
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+    transition:
+      color 0.15s,
+      border-color 0.15s;
+  }
+
+  .btn-secondary:hover {
+    color: oklch(0.96 0 0);
+    border-color: oklch(0.96 0 0);
+  }
+
+  @media (max-width: 480px) {
+    .ctas {
+      flex-direction: column;
+    }
+  }
+</style>

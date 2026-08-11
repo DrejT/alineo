@@ -1,0 +1,870 @@
+---
+const cases = [
+  {
+    tag: "spawn",
+    keyword: "Decomposition",
+    desc: "One task, split recursively across forked sandboxes. The root agent decides how to split the task at runtime — not a pipeline you hard-coded in advance.",
+    big: true,
+  },
+  {
+    tag: "fork",
+    keyword: "Isolated, stateful branches",
+    desc: "Each child inherits the parent's exact checkpoint, then runs and fails independently of it.",
+  },
+  {
+    tag: "shard",
+    keyword: "Eval shards",
+    desc: "Fan out parallel test or eval runs from a single checkpoint.",
+  },
+  {
+    tag: "resume",
+    keyword: "Long-running agents",
+    desc: "Checkpoint mid-task, resume exactly where they left off.",
+  },
+  {
+    tag: "ledger",
+    keyword: "Auditability",
+    desc: "Every exec, checkpoint, and spawn is a row in the ledger.",
+  },
+];
+---
+
+<section class="bento">
+  <div class="inner">
+    <span class="eyebrow">Built for</span>
+    <h2 class="heading">Real workloads, not demos.</h2>
+    <div class="grid">
+      {
+        cases.map((c) => (
+          <div class:list={["cell", { big: c.big }]}>
+            <div class="cell-top">
+              <span class="tag">{c.tag}</span>
+              <span class="keyword">{c.keyword}</span>
+            </div>
+            <span class="desc">{c.desc}</span>
+
+            <div class:list={["motif-wrap", `motif-wrap-${c.tag}`]} aria-hidden="true">
+              {c.tag === "spawn" && (
+                // A tree growing from a single root, splitting twice. The shape is
+                // always fully drawn (legible at rest) — hovering sends a wave of
+                // accent color up the trunk and out through the branches to the
+                // leaves, on a loop, like the split recursing over and over.
+                <svg class="motif motif-tree" viewBox="0 0 64 48">
+                  <path class="t-line t-trunk" d="M32,7 V18" />
+                  <path class="t-line t-b1" d="M32,18 L20,28" />
+                  <path class="t-line t-b1" d="M32,18 L44,28" />
+                  <path class="t-line t-b2" d="M20,28 L12,40" />
+                  <path class="t-line t-b2" d="M20,28 L26,40" />
+                  <path class="t-line t-b2" d="M44,28 L38,40" />
+                  <path class="t-line t-b2" d="M44,28 L50,40" />
+                  <circle class="t-root" cx="32" cy="6" r="3" />
+                  <circle class="t-node" cx="20" cy="28" r="2.5" />
+                  <circle class="t-node" cx="44" cy="28" r="2.5" />
+                  <circle class="t-leaf" cx="12" cy="40" r="3" />
+                  <circle class="t-leaf" cx="26" cy="40" r="3" />
+                  <circle class="t-leaf" cx="38" cy="40" r="3" />
+                  <circle class="t-leaf" cx="50" cy="40" r="3" />
+                </svg>
+              )}
+              {c.tag === "fork" && (
+                // A git-style graph: "main" runs straight down the left lane the
+                // whole time; a "feature" lane splits off to the right, carries its
+                // own commits, then rejoins — the shape real git-graph renderers
+                // draw, not a symmetric parent/child tree. Hover sends commits
+                // pulsing along each lane on their own timing.
+                <svg class="motif motif-git" viewBox="0 0 64 72">
+                  <path class="g-line g-main" d="M22,4 V68" />
+                  <path class="g-line g-split" d="M22,18 L42,26" />
+                  <path class="g-line g-feature" d="M42,26 V42" />
+                  <path class="g-line g-join" d="M42,42 L22,50" />
+                  <circle class="g-node g-branch-node" cx="22" cy="18" r="2.5" />
+                  <circle class="g-node g-merge-node" cx="22" cy="50" r="2.5" />
+                  <circle class="g-commit g-commit-main1" cx="22" cy="10" r="2.2" />
+                  <circle class="g-commit g-commit-feat1" cx="42" cy="31" r="2.2" />
+                  <circle class="g-commit g-commit-feat2" cx="42" cy="37" r="2.2" />
+                  <circle class="g-commit g-commit-main2" cx="22" cy="60" r="2.2" />
+                </svg>
+              )}
+              {c.tag === "shard" && (
+                // A filled pie chart with an uneven split across shards. It's one
+                // persistent chart the whole time — hovering morphs its slice
+                // boundaries through a couple of different distributions and back,
+                // rather than fading out and drawing a new chart.
+                <svg class="motif motif-pie" viewBox="0 0 64 64">
+                  <path class="p-slice p-s1" d="M32,32 L32,12 A20,20 0 0,1 48.18,43.76 Z" />
+                  <path class="p-slice p-s2" d="M32,32 L48.18,43.76 A20,20 0 0,1 32,52 Z" />
+                  <path class="p-slice p-s3" d="M32,32 L32,52 A20,20 0 0,1 12.98,25.82 Z" />
+                  <path class="p-slice p-s4" d="M32,32 L12.98,25.82 A20,20 0 0,1 32,12 Z" />
+                </svg>
+              )}
+              {c.tag === "resume" && (
+                // A timer: the track and center are always visible at rest (idle,
+                // not running). Hover starts the sweep, hitting a checkpoint tick
+                // every quarter turn, with a steady heartbeat at the center.
+                <svg class="motif motif-timer" viewBox="0 0 64 64">
+                  <circle class="tm-track" cx="32" cy="32" r="22" />
+                  <circle
+                    class="tm-progress"
+                    cx="32"
+                    cy="32"
+                    r="22"
+                    pathLength="1"
+                    transform="rotate(-90 32 32)"
+                  />
+                  <line class="tm-tick" x1="32" y1="8" x2="32" y2="13" />
+                  <line class="tm-tick" x1="56" y1="32" x2="51" y2="32" />
+                  <line class="tm-tick" x1="32" y1="56" x2="32" y2="51" />
+                  <line class="tm-tick" x1="8" y1="32" x2="13" y2="32" />
+                  <circle class="tm-center" cx="32" cy="32" r="3" />
+                </svg>
+              )}
+              {c.tag === "ledger" && (
+                // Telemetry lines, always visible as a static log listing at rest.
+                // Hover sends an accent highlight sweeping top to bottom through
+                // them in sequence, like new entries updating live.
+                <svg class="motif motif-telemetry" viewBox="0 0 64 56">
+                  <path class="tel-line" d="M2,6 H40" />
+                  <path class="tel-line" d="M2,17 H28" />
+                  <path class="tel-line" d="M2,28 H34" />
+                  <path class="tel-line" d="M2,39 H20" />
+                  <path class="tel-line" d="M2,50 H44" />
+                </svg>
+              )}
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .bento {
+    padding: 6rem 2rem;
+    border-top: 1px solid var(--color-border);
+    overflow: hidden;
+  }
+
+  .inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+  }
+
+  .eyebrow {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .heading {
+    font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 2.5rem;
+  }
+
+  /* A single hairline-bordered panel with the grid gap doubling as the
+     divider between cells — reads as one instrument panel rather than five
+     separate floating cards. */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, minmax(160px, auto)) auto;
+    grid-template-areas:
+      "big big branches"
+      "big big eval"
+      "long long audit";
+    gap: 1px;
+    background: var(--color-border);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.75rem;
+    background: var(--color-bg);
+    transition: background-color 0.2s ease;
+  }
+
+  .cell:hover {
+    background: oklch(0.985 0 0);
+  }
+
+  .cell-top {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+  }
+
+  .tag::before {
+    content: "";
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    margin-right: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-accent);
+  }
+
+  .cell:nth-child(1) {
+    grid-area: big;
+    justify-content: center;
+  }
+
+  .cell:nth-child(1)::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--color-accent);
+  }
+
+  .cell:nth-child(2) {
+    grid-area: branches;
+  }
+
+  .cell:nth-child(3) {
+    grid-area: eval;
+  }
+
+  .cell:nth-child(4) {
+    grid-area: long;
+  }
+
+  .cell:nth-child(5) {
+    grid-area: audit;
+  }
+
+  .cell.big .cell-top {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  .cell.big .keyword {
+    font-size: 1.6rem;
+  }
+
+  .cell.big .desc {
+    font-size: 1.05rem;
+    max-width: 42ch;
+  }
+
+  .keyword {
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .desc {
+    font-size: 0.95rem;
+    color: var(--color-muted);
+    line-height: 1.55;
+  }
+
+  /* Reserve a fixed right-side margin for the icon so wrapped text can never
+     brush against it, regardless of how tall the icon or the text gets. */
+  .cell:not(.big) .cell-top,
+  .cell:not(.big) .desc {
+    max-width: calc(100% - 96px);
+  }
+
+  /* ---- per-card motifs: five distinct, hand-built icons sharing one visual
+     language (1.5px structural strokes, border/muted/accent from the same
+     token set) so they read as one coherent system. Each shape is always
+     fully drawn and legible at rest, in idle monochrome tones — hovering the
+     card is what starts the animation (a color wave, a sweep, a morph),
+     looping for as long as the card is hovered. ---- */
+  .motif-wrap {
+    position: absolute;
+    top: 50%;
+    right: 1.25rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .motif {
+    display: block;
+    overflow: visible;
+  }
+
+  /* Every animated part starts paused (frozen on its calm, idle keyframe) and
+     only plays while the card is hovered — one rule covers all five icons
+     regardless of which animation each element uses. */
+  .motif-wrap * {
+    animation-play-state: paused;
+  }
+
+  .cell:hover .motif-wrap * {
+    animation-play-state: running;
+  }
+
+  .motif-wrap-spawn {
+    right: 2.25rem;
+  }
+
+  .motif-wrap-spawn .motif {
+    width: 112px;
+    height: 84px;
+  }
+
+  .motif-wrap-fork .motif {
+    width: 52px;
+    height: 58.5px;
+  }
+
+  .motif-wrap-shard .motif,
+  .motif-wrap-resume .motif {
+    width: 56px;
+    height: 56px;
+  }
+
+  .motif-wrap-ledger .motif {
+    width: 60px;
+    height: 52.5px;
+  }
+
+  /* Decomposition — a wave of accent color travels up the trunk and out
+     through the branches to the leaves, on a loop, while hovered. */
+  .motif-tree .t-line {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+
+  .motif-tree .t-root,
+  .motif-tree .t-node {
+    fill: var(--color-muted);
+  }
+
+  .motif-tree .t-leaf {
+    fill: var(--color-border);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .motif-tree .t-trunk {
+    animation-name: t-wave;
+    animation-duration: 3.6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-tree .t-root {
+    animation-name: t-fill-wave;
+    animation-duration: 3.6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-tree .t-b1 {
+    animation-name: t-wave;
+    animation-duration: 3.6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 0.35s;
+  }
+
+  .motif-tree .t-node {
+    animation-name: t-fill-wave;
+    animation-duration: 3.6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 0.35s;
+  }
+
+  .motif-tree .t-b2 {
+    animation-name: t-wave;
+    animation-duration: 3.6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 0.7s;
+  }
+
+  .motif-tree .t-leaf {
+    animation-name: t-leaf-wave;
+    animation-duration: 3.6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 0.7s;
+  }
+
+  @keyframes t-wave {
+    0%,
+    80%,
+    100% {
+      stroke: var(--color-border);
+    }
+    25%,
+    45% {
+      stroke: var(--color-accent);
+    }
+  }
+
+  @keyframes t-fill-wave {
+    0%,
+    80%,
+    100% {
+      fill: var(--color-muted);
+    }
+    25%,
+    45% {
+      fill: var(--color-accent);
+    }
+  }
+
+  @keyframes t-leaf-wave {
+    0%,
+    80%,
+    100% {
+      fill: var(--color-border);
+      transform: scale(1);
+    }
+    25%,
+    45% {
+      fill: var(--color-accent);
+      transform: scale(1.2);
+    }
+  }
+
+  /* Isolated, stateful branches — a straight main lane the whole time, with a
+     feature lane that splits off, carries its own commits, then rejoins.
+     Commits pulse along each lane on independent timing while hovered. */
+  .motif-git .g-line {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+
+  .motif-git .g-node,
+  .motif-git .g-commit {
+    fill: var(--color-muted);
+  }
+
+  .motif-git .g-commit {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .motif-git .g-main {
+    animation-name: g-wave;
+    animation-duration: 4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-git .g-split,
+  .motif-git .g-join {
+    animation-name: g-wave;
+    animation-duration: 4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 0.3s;
+  }
+
+  .motif-git .g-branch-node {
+    animation-name: g-fill-wave;
+    animation-duration: 4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 0.3s;
+  }
+
+  .motif-git .g-feature {
+    animation-name: g-wave;
+    animation-duration: 4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 0.6s;
+  }
+
+  .motif-git .g-merge-node {
+    animation-name: g-fill-wave;
+    animation-duration: 4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 1.6s;
+  }
+
+  .motif-git .g-commit-main1 {
+    animation-name: g-commit-wave;
+    animation-duration: 4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-git .g-commit-feat1,
+  .motif-git .g-commit-feat2 {
+    animation-name: g-commit-wave;
+    animation-duration: 4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 0.8s;
+  }
+
+  .motif-git .g-commit-main2 {
+    animation-name: g-commit-wave;
+    animation-duration: 4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 1.8s;
+  }
+
+  @keyframes g-wave {
+    0%,
+    85%,
+    100% {
+      stroke: var(--color-border);
+    }
+    30%,
+    55% {
+      stroke: var(--color-accent);
+    }
+  }
+
+  @keyframes g-fill-wave {
+    0%,
+    85%,
+    100% {
+      fill: var(--color-muted);
+    }
+    30%,
+    55% {
+      fill: var(--color-accent);
+    }
+  }
+
+  @keyframes g-commit-wave {
+    0%,
+    85%,
+    100% {
+      fill: var(--color-border);
+      transform: scale(1);
+    }
+    30%,
+    55% {
+      fill: var(--color-accent);
+      transform: scale(1.25);
+    }
+  }
+
+  /* Eval shards — a filled pie, always showing a valid distribution at rest.
+     Hovering morphs the same chart's slice boundaries through a couple of
+     different splits and back — it never fades out or redraws from scratch. */
+  .motif-pie .p-slice {
+    stroke: var(--color-bg);
+    stroke-width: 1;
+  }
+
+  .motif-pie .p-s1 {
+    fill: var(--color-accent);
+    animation-name: pie-s1;
+    animation-duration: 4.5s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-pie .p-s2 {
+    fill: oklch(0.62 0.14 259);
+    animation-name: pie-s2;
+    animation-duration: 4.5s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-pie .p-s3 {
+    fill: oklch(0.78 0.09 259);
+    animation-name: pie-s3;
+    animation-duration: 4.5s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-pie .p-s4 {
+    fill: var(--color-border);
+    animation-name: pie-s4;
+    animation-duration: 4.5s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  @keyframes pie-s1 {
+    0%,
+    100% {
+      d: path("M32,32 L32,12 A20,20 0 0,1 48.18,43.76 Z");
+    }
+    33% {
+      d: path("M32,32 L32,12 A20,20 0 0,1 51.02,25.82 Z");
+    }
+    66% {
+      d: path("M32,32 L32,12 A20,20 0 0,1 52,32 Z");
+    }
+  }
+
+  @keyframes pie-s2 {
+    0%,
+    100% {
+      d: path("M32,32 L48.18,43.76 A20,20 0 0,1 32,52 Z");
+    }
+    33% {
+      d: path("M32,32 L51.02,25.82 A20,20 0 0,1 25.82,51.02 Z");
+    }
+    66% {
+      d: path("M32,32 L52,32 A20,20 0 0,1 32,52 Z");
+    }
+  }
+
+  @keyframes pie-s3 {
+    0%,
+    100% {
+      d: path("M32,32 L32,52 A20,20 0 0,1 12.98,25.82 Z");
+    }
+    33% {
+      d: path("M32,32 L25.82,51.02 A20,20 0 0,1 12.98,38.18 Z");
+    }
+    66% {
+      d: path("M32,32 L32,52 A20,20 0 0,1 12,32 Z");
+    }
+  }
+
+  @keyframes pie-s4 {
+    0%,
+    100% {
+      d: path("M32,32 L12.98,25.82 A20,20 0 0,1 32,12 Z");
+    }
+    33% {
+      d: path("M32,32 L12.98,38.18 A20,20 0 0,1 32,12 Z");
+    }
+    66% {
+      d: path("M32,32 L12,32 A20,20 0 0,1 32,12 Z");
+    }
+  }
+
+  /* Long-running agents — idle shows just the track and a resting center dot
+     (not running yet). Hover starts the sweep, hitting a checkpoint tick
+     every quarter turn, with a steady heartbeat at the center. */
+  .motif-timer .tm-track {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 2;
+    opacity: 0.5;
+  }
+
+  .motif-timer .tm-progress {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation-name: tm-sweep;
+    animation-duration: 6s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+
+  @keyframes tm-sweep {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .motif-timer .tm-tick {
+    stroke: var(--color-border);
+    stroke-width: 2;
+    stroke-linecap: round;
+    animation-name: tm-tick-pulse;
+    animation-duration: 6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-timer .tm-tick:nth-of-type(2) {
+    animation-delay: 1.5s;
+  }
+
+  .motif-timer .tm-tick:nth-of-type(3) {
+    animation-delay: 3s;
+  }
+
+  .motif-timer .tm-tick:nth-of-type(4) {
+    animation-delay: 4.5s;
+  }
+
+  @keyframes tm-tick-pulse {
+    0%,
+    88%,
+    100% {
+      stroke: var(--color-border);
+    }
+    4%,
+    12% {
+      stroke: var(--color-accent);
+    }
+  }
+
+  .motif-timer .tm-center {
+    fill: var(--color-accent);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation-name: tm-heartbeat;
+    animation-duration: 1.4s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  @keyframes tm-heartbeat {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.25);
+    }
+  }
+
+  /* Auditability — the log lines are always visible at rest. Hover sends an
+     accent highlight sweeping top to bottom through them in sequence, like
+     new telemetry entries updating live. */
+  .motif-telemetry .tel-line {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 2;
+    stroke-linecap: round;
+    animation-name: tel-wave;
+    animation-duration: 3.2s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+
+  .motif-telemetry .tel-line:nth-of-type(2) {
+    animation-delay: 0.25s;
+  }
+
+  .motif-telemetry .tel-line:nth-of-type(3) {
+    animation-delay: 0.5s;
+  }
+
+  .motif-telemetry .tel-line:nth-of-type(4) {
+    animation-delay: 0.75s;
+  }
+
+  .motif-telemetry .tel-line:nth-of-type(5) {
+    animation-delay: 1s;
+  }
+
+  @keyframes tel-wave {
+    0%,
+    70%,
+    100% {
+      stroke: var(--color-border);
+    }
+    20%,
+    40% {
+      stroke: var(--color-accent);
+    }
+  }
+
+  @media (max-width: 720px) {
+    .grid {
+      grid-template-columns: 1fr;
+      grid-template-rows: none;
+      grid-template-areas:
+        "big"
+        "branches"
+        "eval"
+        "long"
+        "audit";
+    }
+
+    /* Stacked single-column cards lose the dedicated empty side column the
+       desktop layout relies on to keep these clear of the text — simplest to
+       drop them rather than risk overlap at every wrap width. Touch devices
+       also have no hover state to trigger the animation anyway. */
+    .motif-wrap {
+      display: none;
+    }
+
+    .cell:not(.big) .cell-top,
+    .cell:not(.big) .desc {
+      max-width: 100%;
+    }
+  }
+</style>
+
+<script>
+  import { gsap } from "gsap";
+  import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  const section = document.querySelector<HTMLElement>(".bento");
+  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (section) {
+    const head = section.querySelectorAll<HTMLElement>(".eyebrow, .heading");
+    const cells = section.querySelectorAll<HTMLElement>(".cell");
+
+    if (prefersReduced) {
+      gsap.set([...head, ...cells], { opacity: 1, y: 0 });
+    } else {
+      gsap.set(head, { opacity: 0, y: 20 });
+      gsap.set(cells, { opacity: 0, y: 28 });
+
+      // Tied directly to scroll position (not a fixed-duration reveal) so it feels
+      // continuous with the scrubbed 3D sequence right before this section, rather
+      // than popping in whenever an IntersectionObserver threshold happens to fire.
+      gsap.to(head, {
+        opacity: 1,
+        y: 0,
+        ease: "none",
+        scrollTrigger: {
+          trigger: section,
+          start: "top bottom",
+          end: "top 55%",
+          scrub: true,
+        },
+      });
+
+      gsap.to(cells, {
+        opacity: 1,
+        y: 0,
+        stagger: 0.08,
+        ease: "none",
+        scrollTrigger: {
+          trigger: section,
+          start: "top 85%",
+          end: "top 20%",
+          scrub: true,
+        },
+      });
+    }
+  }
+</script>

@@ -1,0 +1,890 @@
+---
+const ledgerTokens = [
+  "sandbox_created",
+  "exec_start",
+  "checkpoint_created",
+  "agent_spawned",
+  "exec_complete",
+  "exec_complete",
+];
+---
+
+<section
+  class="agent-scene"
+  style="--color-fg: oklch(0.96 0 0); --color-muted: oklch(0.65 0 0); --color-border: oklch(0.26 0 0);"
+>
+  <div class="head">
+    <span class="eyebrow">How it works</span>
+    <h2 class="heading">One task, split recursively.</h2>
+    <p class="intro">
+      Every spawn, exec, and checkpoint is written to the ledger as it happens. Scroll to watch it
+      happen.
+    </p>
+  </div>
+
+  <!-- Desktop: scroll-scrubbed 3D scene -->
+  <div class="scene-3d">
+    <canvas class="scene-canvas"></canvas>
+    <div class="overlay">
+      <div class="label" data-label="root">
+        <div class="node-header">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="node-filename">Master Agent</span>
+          <span class="node-tag">sandbox</span>
+        </div>
+        <div class="node-body">
+          <span class="label-status" data-status></span>
+          <span class="node-meta">0.5 vCPU · 256Mi</span>
+        </div>
+      </div>
+      <div class="label" data-label="child-a">
+        <div class="node-header">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="node-filename">Worker Agent A</span>
+          <span class="node-tag">sandbox</span>
+        </div>
+        <div class="node-body">
+          <span class="label-status" data-status></span>
+          <span class="node-meta">0.5 vCPU · 256Mi</span>
+        </div>
+      </div>
+      <div class="label" data-label="child-b">
+        <div class="node-header">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="node-filename">Worker Agent B</span>
+          <span class="node-tag">sandbox</span>
+        </div>
+        <div class="node-body">
+          <span class="label-status" data-status></span>
+          <span class="node-meta">0.5 vCPU · 256Mi</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile / reduced-motion fallback: static 2D diagram -->
+  <div class="scene-2d">
+    <div class="diagram">
+      <div class="node root" data-node="root">
+        <div class="node-header">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="node-filename">Master Agent</span>
+          <span class="node-tag">sandbox</span>
+        </div>
+        <div class="node-body">
+          <span class="node-line"
+            ><span class="tok-str">"Review PR #482"</span></span
+          >
+          <span class="node-meta">0.5 vCPU · 256Mi</span>
+        </div>
+      </div>
+
+      <svg class="lines" viewBox="0 0 620 80" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M310,0 V26 M140,26 H480 M140,26 V80 M480,26 V80"></path>
+      </svg>
+
+      <div class="children">
+        <div class="node child" data-node="child-a">
+          <div class="node-header">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="node-filename">Worker Agent A</span>
+            <span class="node-tag">sandbox</span>
+          </div>
+          <div class="node-body">
+            <span class="node-line"
+              ><span class="tok-fn">prompt</span><span class="tok-punct">(</span><span
+                class="tok-str">"Review src/api"</span
+              ><span class="tok-punct">)</span></span
+            >
+            <span class="node-line result">✓ 14 files reviewed</span>
+            <span class="node-meta">0.5 vCPU · 256Mi</span>
+          </div>
+        </div>
+        <div class="node child" data-node="child-b">
+          <div class="node-header">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="node-filename">Worker Agent B</span>
+            <span class="node-tag">sandbox</span>
+          </div>
+          <div class="node-body">
+            <span class="node-line"
+              ><span class="tok-fn">prompt</span><span class="tok-punct">(</span><span
+                class="tok-str">"Review src/db"</span
+              ><span class="tok-punct">)</span></span
+            >
+            <span class="node-line result">✓ 1 migration flagged</span>
+            <span class="node-meta">0.5 vCPU · 256Mi</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ledger" aria-hidden="true">
+    {
+      ledgerTokens.map((token, i) => (
+        <>
+          {i > 0 && <span class="sep">·</span>}
+          <span class="ledger-token" data-token={i}>
+            {token}
+          </span>
+        </>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .agent-scene {
+    padding: 5rem 0 6rem;
+    border-top: 1px solid var(--color-border);
+    background:
+      radial-gradient(50% 40% at 50% 0%, oklch(0.35 0.15 259 / 0.35), transparent 75%),
+      oklch(0.07 0 0);
+    color: var(--color-fg);
+  }
+
+  .head {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  .eyebrow {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .heading {
+    font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.6rem;
+  }
+
+  .intro {
+    font-size: 1.05rem;
+    max-width: 46ch;
+    color: var(--color-muted);
+    line-height: 1.5;
+    margin-bottom: 2.5rem;
+  }
+
+  /* ---- 3D scene (desktop) ---- */
+  .scene-3d {
+    display: none;
+    position: relative;
+    width: 100%;
+    height: 100vh;
+  }
+
+  .scene-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 240px;
+    opacity: 0;
+  }
+
+  .label[data-label="root"] {
+    opacity: 1;
+  }
+
+  /* The terminals are the only visible thing in the 3D scene now (no cube
+     behind them anymore), so they need to read as a substantial focal point
+     rather than a small label — scaled up from the shared .node/.label
+     chrome used by the 2D fallback diagram. */
+  .label .node-header {
+    height: 38px;
+    padding: 0 0.9rem;
+    gap: 0.5rem;
+  }
+
+  .label .node-filename {
+    font-size: 0.78rem;
+  }
+
+  .label .node-tag {
+    font-size: 0.68rem;
+    padding: 0.15rem 0.5rem;
+  }
+
+  .label .node-body {
+    padding: 0.9rem 1rem 1rem;
+    gap: 0.6rem;
+  }
+
+  .label .label-status {
+    font-size: 0.95rem;
+  }
+
+  .label .node-meta {
+    font-size: 0.74rem;
+  }
+
+  .label .status-dot {
+    width: 7px;
+    height: 7px;
+  }
+
+  /* ---- 2D fallback (mobile / reduced motion) ---- */
+  .scene-2d {
+    padding: 0 2rem;
+  }
+
+  .diagram {
+    max-width: 620px;
+    margin: 0 auto 2.5rem;
+  }
+
+  /* ---- shared node/label chrome ---- */
+  .node,
+  .label {
+    border: 1px solid var(--color-code-border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--color-code-bg);
+    box-shadow: 0 14px 32px oklch(0 0 0 / 0.35);
+  }
+
+  .node {
+    opacity: 0;
+  }
+
+  .node.root {
+    width: 300px;
+    margin: 0 auto;
+  }
+
+  .node-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 30px;
+    padding: 0 0.7rem;
+    background: var(--color-code-header-bg);
+    border-bottom: 1px solid var(--color-code-border);
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--color-code-accent);
+    box-shadow: 0 0 0 0 oklch(0.72 0.13 259 / 0.55);
+    animation: pulse 2.2s ease-out infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 oklch(0.72 0.13 259 / 0.45);
+    }
+    70% {
+      box-shadow: 0 0 0 6px oklch(0.72 0.13 259 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 oklch(0.72 0.13 259 / 0);
+    }
+  }
+
+  .node-filename {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--color-code-muted);
+  }
+
+  .node-tag {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--color-code-muted);
+    border: 1px solid var(--color-code-border);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .node-body {
+    padding: 0.7rem 0.85rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .node-line {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    opacity: 0;
+  }
+
+  .node-line.result {
+    display: block;
+    font-size: 0.76rem;
+    color: var(--color-code-muted);
+    margin-top: 0.15rem;
+  }
+
+  .label-status {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--color-code-fg);
+  }
+
+  .node-meta {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--color-code-muted);
+  }
+
+  .lines {
+    display: block;
+    width: 100%;
+    height: 80px;
+  }
+
+  .lines path {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 2;
+    opacity: 0.7;
+  }
+
+  .children {
+    display: flex;
+    justify-content: space-between;
+    gap: 40px;
+  }
+
+  .node.child {
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .ledger {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    margin-top: 1rem;
+  }
+
+  .ledger-token {
+    color: var(--color-fg);
+    opacity: 0;
+  }
+
+  .ledger .sep {
+    color: var(--color-border);
+  }
+
+  @media (min-width: 900px) {
+    .agent-scene {
+      height: 100vh;
+      padding-top: 2.5rem;
+      padding-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .head {
+      flex-shrink: 0;
+      margin-bottom: 0;
+    }
+
+    .intro {
+      margin-bottom: 1rem;
+    }
+
+    .scene-3d {
+      display: block;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: auto;
+    }
+
+    .ledger {
+      flex-shrink: 0;
+    }
+
+    .scene-2d {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scene-3d {
+      display: none !important;
+    }
+
+    .scene-2d {
+      display: block !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .diagram {
+      max-width: 300px;
+    }
+
+    .lines {
+      display: none;
+    }
+
+    .children {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .node.child {
+      max-width: none;
+      width: 100%;
+    }
+
+    .node.root {
+      width: 100%;
+      margin-bottom: 0.75rem;
+    }
+  }
+</style>
+
+<script>
+  import { createTimeline, stagger, svg } from "animejs";
+  import { gsap } from "gsap";
+  import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+  // Shared with Features.astro/BentoGrid.astro's static imports of the same
+  // modules — must stay a static import here too, or the bundler splits off a
+  // separate gsap/ScrollTrigger instance for this async chunk, and the two
+  // copies end up with disconnected ScrollTrigger registries (refreshing one
+  // never updates triggers registered on the other).
+  gsap.registerPlugin(ScrollTrigger);
+
+  const section = document.querySelector<HTMLElement>(".agent-scene");
+  const scene3dEl = document.querySelector<HTMLElement>(".scene-3d");
+  const scene2dEl = document.querySelector<HTMLElement>(".scene-2d");
+  const tokens = Array.from(document.querySelectorAll<HTMLElement>(".agent-scene .ledger-token"));
+
+  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const use3D = !prefersReduced && window.matchMedia("(min-width: 900px)").matches && !!section;
+
+  if (use3D && section && scene3dEl) {
+    init3D(section, scene3dEl);
+  } else {
+    run2DFallback(scene2dEl, prefersReduced);
+  }
+
+  function run2DFallback(root: HTMLElement | null, reduced: boolean) {
+    if (!root) return;
+
+    const rootNode = root.querySelector<HTMLElement>(".node.root");
+    const rootLine = root.querySelector<HTMLElement>(".node.root .node-line");
+    const childNodes = Array.from(root.querySelectorAll<HTMLElement>(".node.child"));
+    const childLines = Array.from(root.querySelectorAll<HTMLElement>(".node.child .node-line"));
+    const [drawable] = svg.createDrawable(".agent-scene .lines path");
+
+    const allNodes = [rootNode, ...childNodes].filter((el): el is HTMLElement => el !== null);
+    const allLines = [rootLine, ...childLines].filter((el): el is HTMLElement => el !== null);
+
+    function setFinalState() {
+      allNodes.forEach((el) => {
+        el.style.opacity = "1";
+        el.style.transform = "none";
+      });
+      allLines.forEach((el) => {
+        el.style.opacity = "1";
+        el.style.transform = "none";
+      });
+      tokens.forEach((el) => (el.style.opacity = "1"));
+      if (drawable) drawable.draw = "0 1";
+    }
+
+    if (reduced) {
+      setFinalState();
+      return;
+    }
+
+    function resetState() {
+      allNodes.forEach((el) => {
+        el.style.opacity = "0";
+        el.style.transform = "scale(0.96)";
+      });
+      allLines.forEach((el) => {
+        el.style.opacity = "0";
+        el.style.transform = "translateY(6px)";
+      });
+      tokens.forEach((el) => (el.style.opacity = "0"));
+      if (drawable) drawable.draw = "0 0";
+    }
+
+    function playTrace() {
+      resetState();
+
+      const tl = createTimeline({ defaults: { ease: "outQuad" } });
+
+      if (rootNode) tl.add(rootNode, { opacity: [0, 1], scale: [0.96, 1], duration: 320 });
+      if (rootLine)
+        tl.add(rootLine, { opacity: [0, 1], translateY: [6, 0], duration: 220 }, "-=140");
+      if (tokens[0]) tl.add(tokens[0], { opacity: [0, 1], duration: 160 });
+      if (tokens[1]) tl.add(tokens[1], { opacity: [0, 1], duration: 160 }, "-=40");
+      if (drawable) tl.add(drawable, { draw: ["0 0", "0 1"], duration: 500, ease: "inOutQuad" });
+      if (tokens[2]) tl.add(tokens[2], { opacity: [0, 1], duration: 160 }, "-=200");
+      if (childNodes.length)
+        tl.add(childNodes, {
+          opacity: [0, 1],
+          scale: [0.96, 1],
+          duration: 320,
+          delay: stagger(60),
+        });
+      if (childLines.length)
+        tl.add(
+          childLines,
+          { opacity: [0, 1], translateY: [6, 0], duration: 220, delay: stagger(60) },
+          "-=200",
+        );
+      if (tokens[3]) tl.add(tokens[3], { opacity: [0, 1], duration: 160 }, "-=60");
+      if (tokens[4] && tokens[5])
+        tl.add([tokens[4], tokens[5]], { opacity: [0, 1], duration: 160, delay: stagger(90) });
+    }
+
+    let isInView = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        if (entry.isIntersecting && !isInView) {
+          isInView = true;
+          playTrace();
+        } else if (!entry.isIntersecting) {
+          isInView = false;
+        }
+      },
+      { threshold: 0.35 },
+    );
+    observer.observe(root);
+  }
+
+  function init3D(sectionEl: HTMLElement, container: HTMLElement) {
+    const canvas = container.querySelector<HTMLCanvasElement>(".scene-canvas");
+    const overlay = container.querySelector<HTMLElement>(".overlay");
+    if (!canvas || !overlay) return;
+
+    const labelRoot = overlay.querySelector<HTMLElement>('[data-label="root"]');
+    const labelA = overlay.querySelector<HTMLElement>('[data-label="child-a"]');
+    const labelB = overlay.querySelector<HTMLElement>('[data-label="child-b"]');
+    const statusRoot = labelRoot?.querySelector<HTMLElement>("[data-status]") ?? null;
+    const statusA = labelA?.querySelector<HTMLElement>("[data-status]") ?? null;
+    const statusB = labelB?.querySelector<HTMLElement>("[data-status]") ?? null;
+
+    // Created synchronously — before three.js has even started loading — so the
+    // pin's spacer (reserving window.innerHeight * 4 of extra scroll height)
+    // exists in the DOM the moment later sections (BentoGrid, Features) run
+    // their own ScrollTrigger setup. GSAP never re-measures an already-created
+    // trigger's start/end on its own; if the spacer were inserted later (e.g.
+    // from inside the async three.js loader below), everything after it in the
+    // document would permanently freeze in wrong, too-early scroll positions —
+    // which is exactly the "section snaps into place all at once" bug this
+    // fixes, no refresh() call after the fact can undo it once mismeasured.
+    const tl = gsap.timeline({
+      defaults: { ease: "none" },
+      scrollTrigger: {
+        trigger: sectionEl,
+        start: "top top",
+        end: () => `+=${window.innerHeight * 4}`,
+        scrub: 0.6,
+        pin: true,
+        anticipatePin: 1,
+      },
+    });
+
+    // Phase 1 — the trunk arrow grows straight down out of the root sandbox.
+    // Real task text, not a generic "Plan" label.
+    if (statusRoot) tl.call(() => (statusRoot.textContent = "Review PR #482"), undefined, 0.15);
+    if (tokens[0]) tl.to(tokens[0], { opacity: 1, duration: 0.2 }, 0.15);
+    if (tokens[1]) tl.to(tokens[1], { opacity: 1, duration: 0.2 }, 0.35);
+
+    // Phase 2 — the trunk splits into two elbow branches; children are born at
+    // the tips the instant each branch finishes growing (handled in loadScene).
+    // Each gets the actual prompt it was spawned with, not a vague "Execute".
+    if (labelA) tl.to(labelA, { opacity: 1, duration: 0.5 }, 1.6);
+    if (labelB) tl.to(labelB, { opacity: 1, duration: 0.5 }, 1.6);
+    tl.call(
+      () => {
+        if (statusRoot) statusRoot.textContent = "→ spawned 2 agents";
+        if (statusA) statusA.textContent = "Review src/api";
+        if (statusB) statusB.textContent = "Review src/db";
+      },
+      undefined,
+      1.75,
+    );
+    if (tokens[2]) tl.to(tokens[2], { opacity: 1, duration: 0.2 }, 1.8);
+    if (tokens[3]) tl.to(tokens[3], { opacity: 1, duration: 0.2 }, 1.95);
+
+    // Phase 3 — complete, with the actual result each agent produced.
+    tl.call(
+      () => {
+        if (statusA) statusA.textContent = "✓ 14 files reviewed";
+        if (statusB) statusB.textContent = "✓ 1 migration flagged";
+      },
+      undefined,
+      3.3,
+    );
+
+    if (tokens[4]) tl.to(tokens[4], { opacity: 1, duration: 0.2 }, 3.4);
+    if (tokens[5]) tl.to(tokens[5], { opacity: 1, duration: 0.2 }, 3.6);
+
+    // Hold the completed state for a beat before the pin releases — without this,
+    // the last token lands at 100% scroll and the section un-pins immediately,
+    // which reads as an abrupt cut into whatever comes next.
+    tl.to({}, { duration: 1.3 });
+
+    loadScene(container, labelRoot, labelA, labelB, tl);
+  }
+
+  async function loadScene(
+    container: HTMLElement,
+    labelRoot: HTMLElement | null | undefined,
+    labelA: HTMLElement | null | undefined,
+    labelB: HTMLElement | null | undefined,
+    tl: gsap.core.Timeline,
+  ) {
+    const THREE = await import("three");
+    const canvas = container.querySelector<HTMLCanvasElement>(".scene-canvas");
+    if (!canvas) return;
+
+    const accent = 0x4f7fe8;
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
+    camera.position.set(0, 0.4, 7.5);
+    camera.lookAt(0, 0.1, 0);
+
+    // Hierarchy: master agent on top, children born lower down the tree — not
+    // parked at the same height off to the side. Kept in a single z=0 plane so
+    // the connector below reads as a true orthogonal elbow, not a diagonal.
+    const ROOT_POS = new THREE.Vector3(0, 2.1, 0);
+    const CHILD_A_POS = new THREE.Vector3(-2.4, -1.85, 0);
+    const CHILD_B_POS = new THREE.Vector3(2.4, -1.85, 0);
+
+    // The terminals (the HTML overlay cards) are the whole visual now — these
+    // groups carry no visible mesh of their own, just a position for the
+    // elbow arrows to connect to and for project() to anchor each terminal.
+    function makeAnchor() {
+      return { group: new THREE.Group() };
+    }
+
+    const root = makeAnchor();
+    root.group.position.copy(ROOT_POS);
+    scene.add(root.group);
+
+    const childA = makeAnchor();
+    childA.group.position.copy(CHILD_A_POS);
+    scene.add(childA.group);
+
+    const childB = makeAnchor();
+    childB.group.position.copy(CHILD_B_POS);
+    scene.add(childB.group);
+
+    // Each terminal is positioned in CSS via translate(-50%, -100%) from its
+    // anchor's projected screen point — i.e. the card sits entirely above the
+    // anchor, bottom edge exactly at the anchor. A 3D offset tuned to look
+    // right can't stay pixel-accurate as the camera dollies through the
+    // sequence, so instead this converts the terminal's actual rendered
+    // height (a real DOM measurement) into a 3D point at the anchor's own
+    // depth, by nudging its screen-space position and unprojecting back —
+    // guaranteeing the line always lands exactly on the card's edge.
+    function worldPointAtScreenOffset(
+      anchor: InstanceType<typeof THREE.Vector3>,
+      pixelOffsetY: number,
+    ): InstanceType<typeof THREE.Vector3> {
+      const ndc = anchor.clone().project(camera);
+      const h = container.clientHeight || 1;
+      const pixelY = (-ndc.y * 0.5 + 0.5) * h;
+      const newPixelY = pixelY - pixelOffsetY;
+      const newNdcY = 1 - (2 * newPixelY) / h;
+      return new THREE.Vector3(ndc.x, newNdcY, ndc.z).unproject(camera);
+    }
+
+    function cardHeight(el: HTMLElement | null | undefined): number {
+      return el?.offsetHeight || 150;
+    }
+
+    // A straight growing line: a two-point segment whose end point lerps from
+    // `start` to `end` as `growth.value` advances 0 -> 1. Used for the trunk,
+    // which is a pass-through down to the elbow row — it doesn't "deliver"
+    // anywhere, so it gets no arrowhead. `start`/`end` are supplied fresh each
+    // frame in update() since they now track the camera-dependent card edges.
+    function makeGrowLine() {
+      const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      const mat = new THREE.LineBasicMaterial({ color: accent, transparent: true, opacity: 0.85 });
+      const line = new THREE.Line(geo, mat);
+      const growth = { value: 0 };
+
+      function update(start: InstanceType<typeof THREE.Vector3>, end: InstanceType<typeof THREE.Vector3>) {
+        const tip = start.clone().lerp(end, growth.value);
+        const posAttr = line.geometry.attributes.position;
+        posAttr.setXYZ(0, start.x, start.y, start.z);
+        posAttr.setXYZ(1, tip.x, tip.y, tip.z);
+        posAttr.needsUpdate = true;
+      }
+
+      return { line, growth, update };
+    }
+
+    // An orthogonal elbow connector: sideways from the trunk, then straight
+    // down into the child — matching the same V/H/V routing as the 2D
+    // fallback diagram, instead of a diagonal line cutting across. The
+    // arrowhead only appears on the final vertical drop, right at the child,
+    // since that's the only segment that actually "delivers" into an agent.
+    // `start`/`corner`/`end` are supplied fresh each frame in update().
+    function makeElbowArrow() {
+      const geo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(),
+        new THREE.Vector3(),
+        new THREE.Vector3(),
+      ]);
+      const mat = new THREE.LineBasicMaterial({ color: accent, transparent: true, opacity: 0.85 });
+      const line = new THREE.Line(geo, mat);
+
+      const coneGeo = new THREE.ConeGeometry(0.09, 0.24, 14);
+      const coneMat = new THREE.MeshBasicMaterial({ color: accent });
+      const cone = new THREE.Mesh(coneGeo, coneMat);
+      cone.visible = false;
+
+      const growth = { value: 0 };
+
+      function update(
+        start: InstanceType<typeof THREE.Vector3>,
+        corner: InstanceType<typeof THREE.Vector3>,
+        end: InstanceType<typeof THREE.Vector3>,
+      ) {
+        const len1 = start.distanceTo(corner);
+        const len2 = corner.distanceTo(end);
+        const total = len1 + len2;
+        const dist = growth.value * total;
+        let v1: InstanceType<typeof THREE.Vector3>;
+        let v2: InstanceType<typeof THREE.Vector3>;
+        if (dist <= len1) {
+          v1 = start.clone().lerp(corner, len1 ? dist / len1 : 0);
+          v2 = v1.clone();
+          cone.visible = false;
+        } else {
+          v1 = corner.clone();
+          const remaining = dist - len1;
+          v2 = corner.clone().lerp(end, len2 ? remaining / len2 : 0);
+          cone.visible = remaining > 0.02;
+          cone.position.copy(v2);
+          const finalDirection = end.clone().sub(corner).normalize();
+          cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), finalDirection);
+        }
+        const posAttr = line.geometry.attributes.position;
+        posAttr.setXYZ(0, start.x, start.y, start.z);
+        posAttr.setXYZ(1, v1.x, v1.y, v1.z);
+        posAttr.setXYZ(2, v2.x, v2.y, v2.z);
+        posAttr.needsUpdate = true;
+      }
+
+      return { line, cone, growth, update };
+    }
+
+    const trunk = makeGrowLine();
+    const branchA = makeElbowArrow();
+    const branchB = makeElbowArrow();
+    scene.add(trunk.line, branchA.line, branchA.cone, branchB.line, branchB.cone);
+
+    function resize() {
+      const w = container.clientWidth;
+      const h = container.clientHeight || 1;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    function project(obj: InstanceType<typeof THREE.Object3D>, el: HTMLElement | null) {
+      if (!el) return;
+      const v = obj.position.clone().project(camera);
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      const x = (v.x * 0.5 + 0.5) * w;
+      const y = (-v.y * 0.5 + 0.5) * h;
+      el.style.transform = `translate(-50%, -100%) translate(${x}px, ${y}px)`;
+    }
+
+    function tick() {
+      // Recomputed every frame from the terminals' actual DOM height, so the
+      // lines stay locked to the card edges even as the camera dollies.
+      const rootBottom = worldPointAtScreenOffset(ROOT_POS, cardHeight(labelRoot) * 0.1);
+      const childATop = worldPointAtScreenOffset(CHILD_A_POS, cardHeight(labelA) * 1.1);
+      const childBTop = worldPointAtScreenOffset(CHILD_B_POS, cardHeight(labelB) * 1.1);
+
+      // The elbow row sits a fixed *fraction* of the way from the children up
+      // to the root — not a fixed 3D height — so the final vertical drop into
+      // each child always reads as a real drop instead of shrinking to a
+      // sliver whenever the terminal cards (and so the dynamic childTop
+      // points above) get taller.
+      const childTopY = Math.max(childATop.y, childBTop.y);
+      const elbowY = childTopY + (rootBottom.y - childTopY) * 0.32;
+      const trunkEnd = new THREE.Vector3(0, elbowY, 0);
+      const cornerA = new THREE.Vector3(CHILD_A_POS.x, elbowY, 0);
+      const cornerB = new THREE.Vector3(CHILD_B_POS.x, elbowY, 0);
+
+      trunk.update(rootBottom, trunkEnd);
+      branchA.update(trunkEnd, cornerA, childATop);
+      branchB.update(trunkEnd, cornerB, childBTop);
+
+      project(root.group, labelRoot);
+      project(childA.group, labelA);
+      project(childB.group, labelB);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    tick();
+
+    // The pin itself (and its scroll-position bookkeeping) was already created
+    // synchronously in init3D, above — these just add the three.js-dependent
+    // tweens to that same timeline at their fixed positions.
+
+    // Slow continuous dolly-out across the whole sequence.
+    tl.to(camera.position, { z: 10.5, y: 0.75, duration: 3.2 }, 0.4);
+
+    // Phase 1 — trunk grows down out of the root.
+    tl.to(trunk.growth, { value: 1, duration: 0.9 }, 0.15);
+
+    // Phase 2 — trunk splits into two branch arrows; the children's terminal
+    // cards (labelA/labelB) fade in right as each branch tip arrives, via the
+    // gsap tweens already set up in init3D, so they read as being born out of
+    // the arrowhead rather than simply appearing beside it.
+    tl.to(branchA.growth, { value: 1, duration: 0.9 }, 1.05).to(branchB.growth, { value: 1, duration: 0.9 }, 1.05);
+  }
+</script>

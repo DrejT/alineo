@@ -18,15 +18,25 @@
   }
 
   :root {
-    --color-bg: oklch(0.985 0 0);
-    --color-fg: oklch(0.16 0.005 286);
-    --color-muted: oklch(0.52 0.013 286);
-    --color-border: oklch(0.92 0.005 286);
-    --color-accent: oklch(0.5 0.26 292);
-    --color-accent-hover: oklch(0.44 0.24 292);
+    --color-bg: oklch(1 0 0);
+    --color-fg: oklch(0.15 0 0);
+    --color-muted: oklch(0.5 0 0);
+    --color-border: oklch(0.9 0 0);
+    --color-accent: oklch(0.47 0.17 259);
+    --color-accent-hover: oklch(0.39 0.16 259);
+
+    /* Terminal/code-window surface — monochrome, same single accent tinted for dark contrast */
+    --color-code-bg: oklch(0.16 0 0);
+    --color-code-header-bg: oklch(0.11 0 0);
+    --color-code-border: oklch(0.3 0 0);
+    --color-code-fg: oklch(0.93 0 0);
+    --color-code-dim: oklch(0.78 0 0);
+    --color-code-muted: oklch(0.55 0 0);
+    --color-code-accent: oklch(0.72 0.13 259);
+
     --font-sans: "Geist Variable", "Inter", system-ui, sans-serif;
     --font-mono: "Geist Mono Variable", "Fira Code", ui-monospace, monospace;
-    --max-width: 860px;
+    --max-width: 1140px;
     --radius-btn: 6px;
   }
 
@@ -37,7 +47,6 @@
     font-size: 16px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
-    scroll-behavior: smooth;
     transition: background-color 0.4s ease;
   }
 
@@ -51,6 +60,15 @@
   }
 }
 
+/* GSAP ScrollTrigger wraps every pinned element in a `.pin-spacer` div with no
+   background of its own. Both of our pinned sections (AgentScene, Features)
+   are dark full-bleed bands sitting on an otherwise-white page — without
+   this, the page's white background shows through the spacer for a frame
+   during the pin/unpin transition, reading as a white flash. */
+.pin-spacer {
+  background: oklch(0.08 0 0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -61,28 +79,30 @@
   }
 }
 
-/* Syntax-highlighting tokens for hand-marked-up code snippets (Tokyo Night palette). */
+/* Syntax "highlighting" for hand-marked-up code snippets — monochrome terminal text,
+   with the single brand accent reserved for string literals only. */
 @utility tok-kw {
-  color: oklch(0.73 0.18 294);
+  color: var(--color-code-fg);
 }
 @utility tok-var {
-  color: oklch(0.78 0.07 278);
+  color: var(--color-code-dim);
 }
 @utility tok-fn {
-  color: oklch(0.67 0.16 255);
+  color: var(--color-code-fg);
 }
 @utility tok-str {
-  color: oklch(0.79 0.17 135);
+  color: var(--color-code-accent);
 }
 @utility tok-prop {
-  color: oklch(0.83 0.12 186);
+  color: var(--color-code-dim);
 }
 @utility tok-op {
-  color: oklch(0.78 0.07 278);
+  color: var(--color-code-muted);
 }
 @utility tok-punct {
-  color: oklch(0.68 0.07 262);
+  color: var(--color-code-muted);
 }
 @utility tok-cmt {
-  color: oklch(0.5 0.05 266);
+  color: var(--color-code-muted);
+  font-style: italic;
 }

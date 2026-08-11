@@ -3,45 +3,52 @@
 
 <section class="hero">
   <div class="inner">
-    <h1 class="heading">Sandboxes as objects.</h1>
+    <h1 class="heading">The <span class="accent">RLM</span> agent orchestration framework.</h1>
     <p class="subhead">
-      Spawn live containers, run code, checkpoint state —&nbsp;from TypeScript.
+      Spawn a sandbox, let an agent decompose the task, and fork children that
+      inherit its exact state — every exec ledgered, every checkpoint&nbsp;resumable.
     </p>
-
-    <div class="code-wrapper">
-      <div class="code-header">
-        <div class="dots">
-          <span class="dot red"></span>
-          <span class="dot yellow"></span>
-          <span class="dot green"></span>
-        </div>
-        <span class="filename">index.ts</span>
-        <div class="dots-spacer"></div>
-      </div>
-      <pre
-        class="code-block"
-      ><code><span class="line"><span class="kw">const</span> <span class="var">sb</span> <span class="op">=</span> <span class="kw">await</span> <span class="var">client</span><span class="p">.</span><span class="fn">sandbox</span><span class="p">(&#123;</span></span>
-<span class="line">  <span class="prop">image</span><span class="p">:</span> <span class="str">"node:22"</span><span class="p">,</span></span>
-<span class="line">  <span class="prop">resources</span><span class="p">: &#123;</span> <span class="prop">cpu</span><span class="p">:</span> <span class="str">"500m"</span><span class="p">,</span> <span class="prop">memory</span><span class="p">:</span> <span class="str">"256Mi"</span> <span class="p">&#125;,</span></span>
-<span class="line"><span class="p">&#125;);</span></span>
-<span class="line empty"> </span>
-<span class="line"><span class="kw">await</span> <span class="var">sb</span><span class="p">.</span><span class="fn">exec</span><span class="p">(</span><span class="str">"node index.js"</span><span class="p">);</span></span>
-<span class="line"><span class="kw">await</span> <span class="var">sb</span><span class="p">.</span><span class="fn">checkpoint</span><span class="p">();</span></span>
-<span class="line"><span class="kw">await</span> <span class="var">sb</span><span class="p">.</span><span class="fn">close</span><span class="p">();</span></span>
-</code></pre>
-    </div>
+    <p class="meta">Open source · Apache 2.0 licensed.</p>
 
     <div class="ctas">
       <a href="https://docs.drej.dev" class="btn-primary">Read the docs</a>
       <a href="https://github.com/DrejT/drej" class="btn-secondary">GitHub →</a>
+      <button type="button" class="btn-copy" data-copy="bunx drejx init">
+        <span class="copy-icon" aria-hidden="true">⧉</span>
+        <span class="copy-label">bunx drejx init</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<section class="hero-demo">
+  <div class="demo-inner">
+    <div class="code-wrapper">
+      <div class="code-header">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="filename">index.ts</span>
+        <span class="node-tag">sandbox · 0.5 vCPU · 256Mi</span>
+      </div>
+      <pre
+        class="code-block"
+      ><code><span class="line"><span class="kw">const</span> <span class="var">root</span> <span class="op">=</span> <span class="kw">await</span> <span class="var">Agent</span><span class="p">.</span><span class="fn">load</span><span class="p">(</span><span class="str">"planner.json"</span><span class="p">);</span></span>
+<span class="line empty"> </span>
+<span class="line"><span class="kw">const</span> <span class="p">[</span><span class="var">a</span><span class="p">,</span> <span class="var">b</span><span class="p">]</span> <span class="op">=</span> <span class="kw">await</span> <span class="var">Promise</span><span class="p">.</span><span class="fn">all</span><span class="p">([</span></span>
+<span class="line">  <span class="var">root</span><span class="p">.</span><span class="fn">spawn</span><span class="p">(</span><span class="str">"worker.json"</span><span class="p">),</span></span>
+<span class="line">  <span class="var">root</span><span class="p">.</span><span class="fn">spawn</span><span class="p">(</span><span class="str">"worker.json"</span><span class="p">),</span></span>
+<span class="line"><span class="p">]);</span></span>
+<span class="line empty"> </span>
+<span class="line"><span class="kw">await</span> <span class="var">a</span><span class="p">.</span><span class="fn">prompt</span><span class="p">(</span><span class="str">"Review src/api"</span><span class="p">);</span></span>
+<span class="line"><span class="kw">await</span> <span class="var">b</span><span class="p">.</span><span class="fn">prompt</span><span class="p">(</span><span class="str">"Review src/db"</span><span class="p">);</span></span>
+</code></pre>
     </div>
   </div>
 </section>
 
 <style>
   .hero {
-    padding-top: 56px;
-    min-height: 100vh;
+    padding-top: 96px;
+    padding-bottom: 3rem;
     display: flex;
     align-items: center;
   }
@@ -50,86 +57,199 @@
     width: 100%;
     max-width: var(--max-width);
     margin: 0 auto;
-    padding: 2.5rem 2rem;
+    padding: 0 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 
   .heading {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-size: clamp(2.5rem, 6vw, 4.25rem);
     font-weight: 600;
     letter-spacing: -0.03em;
     line-height: 1.1;
-    margin-bottom: 0.6rem;
+    max-width: 16ch;
+    margin-bottom: 1rem;
+  }
+
+  .heading .accent {
+    color: var(--color-accent);
   }
 
   .subhead {
     font-size: clamp(1rem, 2vw, 1.15rem);
     color: var(--color-muted);
-    max-width: 500px;
+    max-width: 46ch;
     line-height: 1.65;
-    margin-bottom: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    opacity: 0.8;
+    margin-bottom: 2rem;
+  }
+
+  /* CTAs */
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-copy {
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: var(--radius-btn);
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      color 0.15s;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.65rem 1.35rem;
+    background: var(--color-fg);
+    color: var(--color-bg);
+  }
+
+  .btn-primary:hover {
+    background: var(--color-accent);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.65rem 1.35rem;
+    border: 1px solid var(--color-border);
+    color: var(--color-fg);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .btn-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.1rem;
+    background: none;
+    border: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    cursor: pointer;
+  }
+
+  .btn-copy:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .copy-icon {
+    font-size: 0.9rem;
+  }
+
+  /* Full-bleed demo band */
+  .hero-demo {
+    width: 100%;
+    padding: 4rem 2rem 5rem;
+    background:
+      radial-gradient(46% 42% at 50% -6%, oklch(0.62 0.22 259 / 0.65), transparent 72%),
+      radial-gradient(75% 65% at 50% 8%, oklch(0.38 0.17 259 / 0.5), transparent 76%),
+      oklch(0.07 0 0);
+  }
+
+  .demo-inner {
+    max-width: 640px;
+    margin: 0 auto;
   }
 
   /* Code wrapper */
   .code-wrapper {
-    border: 1px solid oklch(0.24 0.05 270);
-    border-radius: 12px;
+    border: 1px solid var(--color-code-border);
+    border-radius: 10px;
     overflow: hidden;
-    margin-bottom: 1.75rem;
-    max-width: 580px;
-    box-shadow:
-      0 0 0 1px oklch(0.17 0.04 266),
-      0 16px 48px oklch(0.17 0.04 266 / 0.32),
-      0 2px 8px oklch(0 0 0 / 0.12);
+    width: 100%;
+    text-align: left;
+    box-shadow: 0 24px 60px oklch(0 0 0 / 0.45);
   }
 
   /* Header chrome */
   .code-header {
-    background: oklch(0.13 0.03 270);
+    background: var(--color-code-header-bg);
     padding: 0 1rem;
-    height: 38px;
+    height: 34px;
     display: flex;
     align-items: center;
-    gap: 0;
-    border-bottom: 1px solid oklch(0.24 0.05 270);
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--color-code-border);
   }
 
-  .dots {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex: 1;
-  }
-
-  .dots-spacer {
-    flex: 1;
-  }
-
-  .dot {
-    width: 11px;
-    height: 11px;
+  .status-dot {
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
+    background: var(--color-code-accent);
+    box-shadow: 0 0 0 0 oklch(0.72 0.13 259 / 0.45);
+    animation: hero-pulse 2.2s ease-out infinite;
   }
 
-  .dot.red    { background: oklch(0.63 0.22 25); }
-  .dot.yellow { background: oklch(0.84 0.17 84); }
-  .dot.green  { background: oklch(0.73 0.22 142); }
+  @keyframes hero-pulse {
+    0% {
+      box-shadow: 0 0 0 0 oklch(0.72 0.13 259 / 0.45);
+    }
+    70% {
+      box-shadow: 0 0 0 6px oklch(0.72 0.13 259 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 oklch(0.72 0.13 259 / 0);
+    }
+  }
 
   .filename {
     font-family: var(--font-mono);
     font-size: 0.72rem;
-    color: oklch(0.41 0 0);
+    color: var(--color-code-muted);
     letter-spacing: 0.01em;
+  }
+
+  .node-tag {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--color-code-muted);
+    border: 1px solid var(--color-code-border);
+    border-radius: 4px;
+    padding: 0.15rem 0.5rem;
   }
 
   /* Code body */
   .code-block {
-    background: oklch(0.17 0.04 266);
+    background: var(--color-code-bg);
     margin: 0;
-    padding: 1.25rem 0;
+    padding: 1.5rem 0;
     font-family: var(--font-mono);
-    font-size: 0.875rem;
-    line-height: 1.6;
-    overflow-x: auto;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    /* The <pre> tag's UA default is white-space: pre, which renders the literal
+       newlines between the .line spans below as their own blank line breaks —
+       stacking on top of each span's own display:block break and doubling every
+       line's height. Each .line already sets its own white-space: pre-wrap, so
+       the parent doesn't need to preserve whitespace too. */
+    white-space: normal;
     counter-reset: line;
   }
 
@@ -142,6 +262,8 @@
     padding: 0 1.5rem 0 0;
     counter-increment: line;
     opacity: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .line::before {
@@ -151,64 +273,40 @@
     margin-right: 1.5rem;
     padding-left: 1rem;
     text-align: right;
-    color: oklch(0.32 0.07 260);
+    color: var(--color-code-muted);
     font-size: 0.78rem;
     user-select: none;
   }
 
   .line.empty {
-    min-height: 1.6em;
+    min-height: 1.7em;
   }
 
-  /* Syntax tokens — Tokyo Night */
-  .kw   { color: oklch(0.73 0.18 294); }
-  .var  { color: oklch(0.78 0.07 278); }
-  .fn   { color: oklch(0.67 0.16 255); }
-  .str  { color: oklch(0.79 0.17 135); }
-  .prop { color: oklch(0.83 0.12 186); }
-  .op   { color: oklch(0.78 0.07 278); }
-  .p    { color: oklch(0.68 0.07 262); }
+  /* Syntax "highlighting" — monochrome, accent reserved for strings only */
+  .kw   { color: var(--color-code-fg); }
+  .var  { color: var(--color-code-dim); }
+  .fn   { color: var(--color-code-fg); }
+  .str  { color: var(--color-code-accent); }
+  .prop { color: var(--color-code-dim); }
+  .op   { color: var(--color-code-muted); }
+  .p    { color: var(--color-code-muted); }
 
-  /* CTAs */
-  .ctas {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    opacity: 0;
-  }
+  @media (max-width: 640px) {
+    .ctas {
+      flex-direction: column;
+      align-items: stretch;
+    }
 
-  .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.65rem 1.35rem;
-    background: var(--color-accent);
-    color: oklch(1 0 0);
-    font-size: 0.875rem;
-    font-weight: 500;
-    border-radius: var(--radius-btn);
-    transition: background 0.15s;
-  }
-
-  .btn-primary:hover {
-    background: var(--color-accent-hover);
-  }
-
-  .btn-secondary {
-    font-size: 0.875rem;
-    color: var(--color-muted);
-    border-bottom: 1px solid transparent;
-    padding-bottom: 1px;
-    transition: color 0.15s, border-color 0.15s;
-  }
-
-  .btn-secondary:hover {
-    color: var(--color-accent);
-    border-color: var(--color-accent);
+    .btn-primary,
+    .btn-secondary,
+    .btn-copy {
+      justify-content: center;
+    }
   }
 </style>
 
 <script>
-  import anime from "animejs";
+  import { createTimeline, stagger } from "animejs";
 
   const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -216,25 +314,29 @@
     document.querySelectorAll<HTMLElement>(".code-block .line").forEach((el) => {
       el.style.opacity = "1";
     });
-    const ctas = document.querySelector<HTMLElement>(".ctas");
-    if (ctas) ctas.style.opacity = "1";
   } else {
-    anime({
-      targets: ".code-block .line",
+    createTimeline({ defaults: { ease: "outQuad" } }).add(".code-block .line", {
       opacity: [0, 1],
       translateY: [6, 0],
-      delay: anime.stagger(45),
+      delay: stagger(45),
       duration: 300,
-      easing: "easeOutQuad",
-      complete() {
-        anime({
-          targets: ".ctas",
-          opacity: [0, 1],
-          translateY: [6, 0],
-          duration: 240,
-          easing: "easeOutQuad",
-        });
-      },
     });
   }
+
+  const copyBtn = document.querySelector<HTMLButtonElement>(".btn-copy");
+  copyBtn?.addEventListener("click", async () => {
+    const text = copyBtn.dataset.copy ?? "";
+    const label = copyBtn.querySelector<HTMLElement>(".copy-label");
+    if (!label) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const original = label.textContent;
+      label.textContent = "Copied!";
+      setTimeout(() => {
+        label.textContent = original;
+      }, 1500);
+    } catch {
+      // clipboard API unavailable — no-op, the command is still visible to copy by hand
+    }
+  });
 </script>

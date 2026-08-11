@@ -13,23 +13,25 @@ html {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* drej palette — fumadocs token overrides */
-  --color-fd-background: #ffffff;
-  --color-fd-foreground: #111318;
-  --color-fd-muted: #edf4f6;
-  --color-fd-muted-foreground: #687680;
-  --color-fd-popover: #ffffff;
-  --color-fd-popover-foreground: #111318;
-  --color-fd-card: #f5fafb;
-  --color-fd-card-foreground: #111318;
-  --color-fd-border: #dde6e9;
-  --color-fd-primary: #0c5164;
-  --color-fd-primary-foreground: #ffffff;
-  --color-fd-secondary: #edf4f6;
-  --color-fd-secondary-foreground: #111318;
-  --color-fd-accent: #e0edf0;
-  --color-fd-accent-foreground: #111318;
-  --color-fd-ring: #0c5164;
+  /* drej palette — fumadocs token overrides, matching apps/www's brand tokens
+     (apps/www/src/styles/global.css): monochrome + single blue accent,
+     reserved for primary actions/links only. */
+  --color-fd-background: oklch(1 0 0);
+  --color-fd-foreground: oklch(0.15 0 0);
+  --color-fd-muted: oklch(0.97 0 0);
+  --color-fd-muted-foreground: oklch(0.5 0 0);
+  --color-fd-popover: oklch(1 0 0);
+  --color-fd-popover-foreground: oklch(0.15 0 0);
+  --color-fd-card: oklch(0.985 0 0);
+  --color-fd-card-foreground: oklch(0.15 0 0);
+  --color-fd-border: oklch(0.9 0 0);
+  --color-fd-primary: oklch(0.47 0.17 259);
+  --color-fd-primary-foreground: oklch(1 0 0);
+  --color-fd-secondary: oklch(0.97 0 0);
+  --color-fd-secondary-foreground: oklch(0.15 0 0);
+  --color-fd-accent: oklch(0.94 0 0);
+  --color-fd-accent-foreground: oklch(0.15 0 0);
+  --color-fd-ring: oklch(0.47 0.17 259);
 }
 
 @layer base {
@@ -47,15 +49,16 @@ html {
   }
 
   .nd-docs-layout .prose a {
-    @apply text-[#0C5164] underline decoration-[#DDE6E9] hover:decoration-[#0C5164];
+    @apply text-fd-primary underline decoration-fd-border hover:decoration-fd-primary;
   }
 
-  /* Teal-tinted code block backgrounds */
+  /* Neutral code block backgrounds — light shiki theme's per-token colors stay
+     baked in, only the panel background is overridden here. */
   .shiki {
-    @apply bg-[#EDF4F6]!;
+    @apply bg-fd-secondary!;
   }
 
   :not(pre) > code {
-    @apply bg-[#EDF4F6] text-[#0C5164] rounded-sm px-[0.4em] py-[0.15em] text-[0.875em];
+    @apply bg-fd-secondary text-fd-primary rounded-sm px-[0.4em] py-[0.15em] text-[0.875em];
   }
 }

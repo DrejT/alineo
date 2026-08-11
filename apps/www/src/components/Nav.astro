@@ -2,10 +2,12 @@
 ---
 
 <nav>
-  <a href="/" class="logo">drej</a>
-  <div class="links">
-    <a href="https://docs.drej.dev">Docs</a>
-    <a href="https://github.com/DrejT/drej">GitHub</a>
+  <div class="inner">
+    <a href="/" class="logo">drej</a>
+    <div class="links">
+      <a href="https://docs.drej.dev">Docs</a>
+      <a href="https://github.com/DrejT/drej">GitHub</a>
+    </div>
   </div>
 </nav>
 
@@ -16,15 +18,24 @@
     left: 0;
     right: 0;
     z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 2rem;
     height: 56px;
     background: oklch(0.985 0 0 / 0.88);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--color-border);
+  }
+
+  /* Same centered column as every other section, so the logo/links line up
+     with the content edges below instead of sitting flush with the true
+     viewport edges on wide screens. */
+  .inner {
+    max-width: var(--max-width);
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .logo {
