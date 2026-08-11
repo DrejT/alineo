@@ -87,6 +87,9 @@ packages/core/                    — Sandbox primitive (no runtime deps outside
   src/sandbox/files.ts            — writeFile/readFile/deleteFile/moveFile/listDirectory/searchFiles/...
   src/sandbox/lifecycle.ts        — pause/resume/checkpoint/fork/close/listCheckpoints
   src/sandbox/observability.ts    — metrics/watchMetrics/diagnosticLogs/diagnosticEvents/proxy
+  src/sandbox/hooks.ts            — composeHooks(): merges multiple SandboxHooks into one, each hook invocation
+                                    isolated in its own try/catch so one broken adapter can't break siblings or
+                                    the sandbox operation that triggered them
   src/sandbox/bash-session.ts     — BashSession class
   src/sandbox/resolve.ts          — resolveExecClient()
   src/sandbox/types.ts            — ExecOptions, SandboxHooks, SandboxDeps, PendingInteractiveExec, ExecCodeOptions
