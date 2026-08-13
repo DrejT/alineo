@@ -12,7 +12,7 @@ const HELP_NOTES = `  Add --json to spawn/prompt/fork/agents/logs for machine-re
   across sibling branches spawned in parallel).
   Add --spec <path> to prompt to skip the ledger lookup for the spec file
   (needed when the sandbox's own creation event lives in a different ledger,
-  e.g. a child spawned via 'drejx fork' from inside another sandbox).`;
+  e.g. a child spawned via 'alineo fork' from inside another sandbox).`;
 
 const GROUPS: { key: CliCommand["group"]; label: string }[] = [
   { key: "sdk", label: "SDK — OpenSandbox config and the local spec cache:" },
@@ -20,9 +20,9 @@ const GROUPS: { key: CliCommand["group"]; label: string }[] = [
 ];
 
 function printHelp(): void {
-  console.log(`drejx — drej agent registry CLI\n`);
-  console.log(`  drejx                              Launch the interactive TUI (in a terminal)`);
-  console.log(`  drejx --version                    Print the installed version`);
+  console.log(`alineo — alineo agent registry CLI\n`);
+  console.log(`  alineo                              Launch the interactive TUI (in a terminal)`);
+  console.log(`  alineo --version                    Print the installed version`);
 
   for (const { key, label } of GROUPS) {
     const groupCommands = commands.filter((c) => c.group === key);
@@ -40,7 +40,7 @@ function printHelp(): void {
 }
 
 async function main(): Promise<void> {
-  // Bare `drejx` in an interactive terminal launches the TUI; piped/scripted
+  // Bare `alineo` in an interactive terminal launches the TUI; piped/scripted
   // invocations with no subcommand (no TTY) fall through to the help text below.
   if (!cmd && process.stdout.isTTY) {
     const { launchTui } = await import("./tui/index.js");

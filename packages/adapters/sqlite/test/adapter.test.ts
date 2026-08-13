@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { LedgerEvent, SandboxStatus, type LedgerEntry } from "@drej/core";
+import { LedgerEvent, SandboxStatus, type LedgerEntry } from "@alineo-labs/core";
 import { SQLiteAdapter } from "../src/adapter.ts";
 
 function entry(overrides?: Partial<LedgerEntry>): LedgerEntry {

@@ -1,5 +1,5 @@
-import type { IStorageAdapter, SandboxHooks } from "@drej/core";
-import { SandboxStatus } from "@drej/core";
+import type { IStorageAdapter, SandboxHooks } from "@alineo-labs/core";
+import { SandboxStatus } from "@alineo-labs/core";
 
 export { SandboxStatus };
 
@@ -8,21 +8,21 @@ export { SandboxStatus };
  * invariant/state failures such as a sandbox missing from the local ledger
  * (404), a sandbox not in `Running` state (409), or a client-side timeout
  * (408). This does not wrap non-2xx OpenSandbox API responses — those throw
- * `OpenSandboxError` from `@drej/opensandbox`, which is never rethrown as a
- * `DrejError`.
+ * `OpenSandboxError` from `@alineo-labs/opensandbox`, which is never rethrown as a
+ * `AlineoError`.
  */
-export class DrejError extends Error {
+export class AlineoError extends Error {
   constructor(
     message: string,
     public readonly status: number,
   ) {
     super(message);
-    this.name = "DrejError";
+    this.name = "AlineoError";
   }
 }
 
-/** Options for constructing a {@link Drej} client. */
-export interface DrejOptions {
+/** Options for constructing a {@link Alineo} client. */
+export interface AlineoOptions {
   /** Base URL of your OpenSandbox server (e.g. `http://localhost:8080`). */
   baseUrl: string;
   /** OpenSandbox API key. Pass an empty string for local dev with no auth. */
@@ -30,8 +30,8 @@ export interface DrejOptions {
   /**
    * Storage adapter for persisting sandbox events.
    *
-   * Pass `new SQLiteAdapter("./drej.db")` from `@drej/sqlite` for local use, or
-   * `new PostgresAdapter(connectionString)` from `@drej/postgres` for production.
+   * Pass `new SQLiteAdapter("./alineo.db")` from `@alineo-labs/sqlite` for local use, or
+   * `new PostgresAdapter(connectionString)` from `@alineo-labs/postgres` for production.
    */
   adapter: IStorageAdapter;
   /**
@@ -43,18 +43,18 @@ export interface DrejOptions {
   /**
    * Route execd and proxy traffic through the OpenSandbox server instead of
    * connecting to sandbox containers directly. Required when the server runs
-   * in Docker (e.g. started via `drejx init`). Defaults to `false`.
+   * in Docker (e.g. started via `alineo init`). Defaults to `false`.
    */
   useServerProxy?: boolean;
 }
 
-/** Options for `Drej.resume()`. */
+/** Options for `Alineo.resume()`. */
 export interface ResumeOptions {
   /** Resume from the checkpoint with this tag. Defaults to the most recent checkpoint. */
   tag?: string;
 }
 
-/** Options for `Drej.sandbox()`. */
+/** Options for `Alineo.sandbox()`. */
 export interface SandboxOptions {
   /**
    * Container image to run. Pass a string (`"node:22"`) or a full `ImageSpec`
@@ -83,7 +83,7 @@ export interface SandboxOptions {
   runId?: string;
   /** Sandbox lifetime in seconds. Defaults to the OpenSandbox server default. */
   timeout?: number;
-  /** Observability hooks (e.g. `otelHooks(tracer)` from `@drej/otel`). */
+  /** Observability hooks (e.g. `otelHooks(tracer)` from `@alineo-labs/otel`). */
   hooks?: SandboxHooks;
   /**
    * Default shell for all `sb.exec()` calls on this sandbox.

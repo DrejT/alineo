@@ -1,5 +1,5 @@
 {
-  "name": "drej",
+  "name": "alineo",
   "private": true,
   "workspaces": [
     "packages/core",

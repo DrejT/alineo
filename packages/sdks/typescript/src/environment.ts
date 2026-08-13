@@ -1,6 +1,6 @@
-import type { Sandbox, EnvironmentRecord } from "@drej/core";
-import type { Drej } from "./client";
-import type { SandboxHooks } from "@drej/core";
+import type { Sandbox, EnvironmentRecord } from "@alineo-labs/core";
+import type { Alineo } from "./client";
+import type { SandboxHooks } from "@alineo-labs/core";
 
 export type { EnvironmentRecord };
 
@@ -70,7 +70,7 @@ export class Environment {
     /** The environment name, as passed to `client.environment()`. */
     readonly name: string,
     private readonly opts: EnvironmentOptions,
-    private readonly client: Drej,
+    private readonly client: Alineo,
   ) {}
 
   /**

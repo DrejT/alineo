@@ -7,5 +7,5 @@ export default defineConfig({
   outDir: "dist",
   platform: "node",
   clean: true,
-  deps: { neverBundle: ["@drej/core", "postgres"] },
+  deps: { neverBundle: ["@alineo-labs/core", "postgres"] },
 });

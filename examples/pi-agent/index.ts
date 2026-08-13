@@ -1,5 +1,5 @@
 /**
- * Pi agent example — exercises every @drej/agent command:
+ * Pi agent example — exercises every @alineo-labs/agent command:
  *
  *   prompt, bash, steer, followUp, abort, newSession
  *   getMessages, getAvailableModels
@@ -13,16 +13,16 @@
  *   sandbox.exec, sandbox.writeFile, sandbox.readFile
  *
  * Run:  cd examples/pi-agent && bun index.ts
- * Needs: OpenSandbox running (drejx init) and NVIDIA_API_KEY in .env
+ * Needs: OpenSandbox running (alineo init) and NVIDIA_API_KEY in .env
  */
-import { Agent, textOnly } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent, textOnly } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 function section(label: string) {
   console.log(`\n── ${label} ${"─".repeat(Math.max(0, 58 - label.length))}\n`);
 }
 
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const agent = await Agent.load("./agents/hello-agent.json", { adapter });
 console.log(`\nSandbox: ${agent.sandboxId}\n${"─".repeat(60)}`);
 await agent.sandbox.exec("mkdir -p /workspace");

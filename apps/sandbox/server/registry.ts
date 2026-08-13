@@ -1,6 +1,6 @@
-import { Drej, SandboxStatus, type Sandbox } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
-import { Agent } from "@drej/agent";
+import { Alineo, SandboxStatus, type Sandbox } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+import { Agent } from "@alineo-labs/agent";
 import * as config from "./config";
 
 export class CapacityError extends Error {
@@ -19,7 +19,7 @@ export class NotFoundError extends Error {
 
 const adapter = new SQLiteAdapter(config.LEDGER_PATH);
 
-export const client = new Drej({
+export const client = new Alineo({
   baseUrl: config.OPENSANDBOX_URL,
   apiKey: config.OPENSANDBOX_API_KEY,
   adapter,

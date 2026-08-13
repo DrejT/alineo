@@ -9,12 +9,12 @@
  * Run: bun examples/sandbox-extensions/index.ts
  * Needs: OpenSandbox server running (uvx opensandbox-server)
  */
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
-import { Agent } from "@drej/agent";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+import { Agent } from "@alineo-labs/agent";
 
-const adapter = new SQLiteAdapter("./.drej/test-extensions.db");
-const client = new Drej({
+const adapter = new SQLiteAdapter("./.alineo/test-extensions.db");
+const client = new Alineo({
   baseUrl: "http://127.0.0.1:8080",
   apiKey: "",
   adapter,
@@ -127,7 +127,7 @@ console.log("\n");
 // Simulate the host process exiting by NOT calling agent.close() — instead we
 // forcibly kill the bridge inside the container, then reconnect via resume().
 console.log("Simulating bridge crash (pkill)...");
-await agent.sandbox.exec("pkill -f 'node /drej-bridge.js' 2>/dev/null; true", { strict: false });
+await agent.sandbox.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; true", { strict: false });
 
 // Wait a moment so the process is fully dead.
 await new Promise<void>((r) => setTimeout(r, 500));

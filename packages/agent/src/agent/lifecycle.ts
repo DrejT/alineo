@@ -44,12 +44,12 @@ export async function compact(
 }
 
 /**
- * Set or update env vars in the running container. Writes to /etc/drej-env and restarts
+ * Set or update env vars in the running container. Writes to /etc/alineo-env and restarts
  * the Pi subprocess so it picks up the new env. Waits until Pi is ready before returning.
  */
 export async function setEnv(a: AgentInternal, vars: Record<string, string>): Promise<void> {
   a.env = { ...a.env, ...vars };
-  await a.sandbox.writeFile("/etc/drej-env", toShellExports(a.env));
+  await a.sandbox.writeFile("/etc/alineo-env", toShellExports(a.env));
   await a.adapter.reloadEnv(a.env);
 }
 

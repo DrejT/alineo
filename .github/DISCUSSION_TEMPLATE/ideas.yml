@@ -4,7 +4,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Have an idea for drej? Describe it below and let's brainstorm — this is the place
+        Have an idea for alineo? Describe it below and let's brainstorm — this is the place
         for early-stage ideas, before they're concrete enough to become an issue.
 
   - type: textarea

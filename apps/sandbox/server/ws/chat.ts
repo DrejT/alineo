@@ -1,4 +1,4 @@
-import type { Agent, AgentStream, ThinkingLevel } from "@drej/agent";
+import type { Agent, AgentStream, ThinkingLevel } from "@alineo-labs/agent";
 import type { Server, ServerWebSocket } from "bun";
 import * as registry from "../registry";
 import type { WSData } from "./types";

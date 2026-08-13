@@ -1,6 +1,6 @@
-import { Drej } from "drej";
+import { Alineo } from "alineo";
 import { readFileSync } from "node:fs";
-import type { IStorageAdapter, Sandbox } from "@drej/core";
+import type { IStorageAdapter, Sandbox } from "@alineo-labs/core";
 import { readProjectConfig } from "../config";
 import { validateAgentSpec, type AgentSpec } from "../schema";
 import { PiAdapter, resolveEnv, parseShellExports } from "../adapters/pi";
@@ -51,21 +51,21 @@ export async function loadAgent(
   const effectiveSpawnDepth = opts.spawnDepth ?? spec.spawnDepth;
   if (effectiveSpawnDepth !== undefined) {
     assertValidSpawnDepth(effectiveSpawnDepth, "Agent.load()");
-    resolvedEnv.DREJX_SPAWN_DEPTH = String(effectiveSpawnDepth);
+    resolvedEnv.ALINEO_SPAWN_DEPTH = String(effectiveSpawnDepth);
   }
   const effectiveMaxAgents = opts.maxAgents ?? spec.maxAgents;
   if (effectiveMaxAgents !== undefined) {
     assertValidMaxAgents(effectiveMaxAgents, "Agent.load()");
-    resolvedEnv.DREJX_MAX_AGENTS = String(effectiveMaxAgents);
+    resolvedEnv.ALINEO_MAX_AGENTS = String(effectiveMaxAgents);
   }
   // Unlike spawnDepth/maxAgents (which stay unset unless the spec/caller opts in), runId is
   // always present — call-time only, never a spec field: a run identity is inherently
   // per-invocation.
   const runId = opts.runId ?? crypto.randomUUID();
-  resolvedEnv.DREJX_RUN_ID = runId;
+  resolvedEnv.ALINEO_RUN_ID = runId;
   const resources = { ...config.defaults.resources, ...(spec.resources ?? {}) };
 
-  const client = new Drej({
+  const client = new Alineo({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter: opts.adapter,
@@ -140,7 +140,7 @@ export async function loadAgent(
   }
 
   // ── Always: write fresh config + start bridge ─────────────────────────────
-  resolvedEnv.DREJ_SANDBOX_ID = sb!.sandboxId;
+  resolvedEnv.ALINEO_SANDBOX_ID = sb!.sandboxId;
   await adapter.configure(sb!, spec, resolvedEnv);
 
   console.log(`[agent] starting bridge...`);
@@ -164,7 +164,7 @@ export async function resumeAgent(
   const t0 = Date.now();
   const config = await readProjectConfig();
 
-  const client = new Drej({
+  const client = new Alineo({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter: opts.adapter,
@@ -185,17 +185,17 @@ export async function resumeAgent(
   const resolvedEnv = resolveEnv(spec.env ?? {});
   if (spec.maxAgents !== undefined) {
     assertValidMaxAgents(spec.maxAgents, "Agent.resume()");
-    resolvedEnv.DREJX_MAX_AGENTS = String(spec.maxAgents);
+    resolvedEnv.ALINEO_MAX_AGENTS = String(spec.maxAgents);
   }
   if (spec.spawnDepth !== undefined) {
     assertValidSpawnDepth(spec.spawnDepth, "Agent.resume()");
-    resolvedEnv.DREJX_SPAWN_DEPTH = String(spec.spawnDepth);
+    resolvedEnv.ALINEO_SPAWN_DEPTH = String(spec.spawnDepth);
   }
   // Same "recompute, don't preserve" convention as spawnDepth/maxAgents above: a resumed
   // agent that doesn't get an explicit override starts a fresh run identity rather than
   // trying to recover the original invocation's exact value.
   const runId = opts.runId ?? crypto.randomUUID();
-  resolvedEnv.DREJX_RUN_ID = runId;
+  resolvedEnv.ALINEO_RUN_ID = runId;
 
   console.log(`[agent] reconnecting to ${sandboxId}...`);
   const t1 = Date.now();
@@ -203,12 +203,12 @@ export async function resumeAgent(
   console.log(`[agent] connected       ${elapsed(t1)}`);
 
   // Kill any stale bridge process before starting a fresh one.
-  await sb.exec("pkill -f 'node /drej-bridge.js' 2>/dev/null; sleep 0.1; true", {
+  await sb.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; sleep 0.1; true", {
     strict: false,
   });
 
   const adapter = new PiAdapter();
-  resolvedEnv.DREJ_SANDBOX_ID = sandboxId;
+  resolvedEnv.ALINEO_SANDBOX_ID = sandboxId;
   await adapter.configure(sb, spec, resolvedEnv, { resume: true });
 
   console.log(`[agent] starting bridge...`);
@@ -234,7 +234,7 @@ export async function attachAgent(
   },
 ): Promise<AgentConstructorArgs> {
   const config = await readProjectConfig();
-  const client = new Drej({
+  const client = new Alineo({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter: opts.adapter,
@@ -245,16 +245,16 @@ export async function attachAgent(
   let envFile: string;
   try {
     envFile =
-      sandboxId === process.env.DREJ_SANDBOX_ID
-        ? readFileSync("/etc/drej-env", "utf8")
-        : await sb.readFile("/etc/drej-env");
+      sandboxId === process.env.ALINEO_SANDBOX_ID
+        ? readFileSync("/etc/alineo-env", "utf8")
+        : await sb.readFile("/etc/alineo-env");
   } catch {
     envFile = "";
   }
   const env = parseShellExports(envFile);
   // Falls back to a fresh UUID only when attaching to a sandbox created before this
-  // field existed — every sandbox created going forward always has DREJX_RUN_ID baked in.
-  const runId = env.DREJX_RUN_ID ?? crypto.randomUUID();
+  // field existed — every sandbox created going forward always has ALINEO_RUN_ID baked in.
+  const runId = env.ALINEO_RUN_ID ?? crypto.randomUUID();
   const stubSpec: AgentSpec = { name: opts.name, cli: "pi" };
   return {
     sandbox: sb,
@@ -275,23 +275,23 @@ export async function spawnChild(
   childSpecPath: string,
   opts: { spawnDepth?: number; maxAgents?: number } = {},
 ): Promise<AgentConstructorArgs> {
-  const parentDepth = resolveParentSpawnDepth(process.env.DREJX_SPAWN_DEPTH, opts.spawnDepth);
-  const parentMax = resolveParentMaxAgents(process.env.DREJX_MAX_AGENTS, opts.maxAgents);
+  const parentDepth = resolveParentSpawnDepth(process.env.ALINEO_SPAWN_DEPTH, opts.spawnDepth);
+  const parentMax = resolveParentMaxAgents(process.env.ALINEO_MAX_AGENTS, opts.maxAgents);
   if (parentMax !== undefined && parentMax <= 0) {
     throw new Error(`Agent.spawn() refused: max-agents budget exhausted (0 remaining).`);
   }
 
   const childSpec = validateAgentSpec(await Bun.file(childSpecPath).json());
   const childEnv = resolveEnv(childSpec.env ?? {});
-  childEnv.DREJX_SPAWN_DEPTH = String(parentDepth - 1);
-  if (parentMax !== undefined) childEnv.DREJX_MAX_AGENTS = String(parentMax - 1);
+  childEnv.ALINEO_SPAWN_DEPTH = String(parentDepth - 1);
+  if (parentMax !== undefined) childEnv.ALINEO_MAX_AGENTS = String(parentMax - 1);
   // Resolved once and used for both the child's own env AND the fork call's ledger
   // record — read from process.env, not self.env, since this code runs as a real CLI
-  // process inside the parent's sandbox (same reasoning as DREJX_SPAWN_DEPTH above),
+  // process inside the parent's sandbox (same reasoning as ALINEO_SPAWN_DEPTH above),
   // and passed explicitly to fork() because a freshly-`Agent.attach()`ed self (the
-  // `drejx fork` self-attach case) has no in-memory closure carrying it forward.
-  const runId = process.env.DREJX_RUN_ID ?? crypto.randomUUID();
-  childEnv.DREJX_RUN_ID = runId;
+  // `alineo fork` self-attach case) has no in-memory closure carrying it forward.
+  const runId = process.env.ALINEO_RUN_ID ?? crypto.randomUUID();
+  childEnv.ALINEO_RUN_ID = runId;
 
   console.log(`[agent] forking sandbox for spawn (${childSpec.name})...`);
   const t0 = Date.now();
@@ -299,7 +299,7 @@ export async function spawnChild(
   console.log(`[agent] fork ready      ${elapsed(t0)} (${forkedSb.sandboxId})`);
 
   const adapter = new PiAdapter();
-  childEnv.DREJ_SANDBOX_ID = forkedSb.sandboxId;
+  childEnv.ALINEO_SANDBOX_ID = forkedSb.sandboxId;
   await adapter.configure(forkedSb, childSpec, childEnv);
 
   console.log(`[agent] starting bridge...`);
@@ -309,7 +309,7 @@ export async function spawnChild(
   console.log(`[agent] bridge ready    ${elapsed(t1)}`);
 
   // The forked sandbox's actual ledger name (auto-generated by fork, not
-  // childSpec.name) is what `drejx agents` displays and what future forks
+  // childSpec.name) is what `alineo agents` displays and what future forks
   // would derive a `fork-<name>-<id>` label from — report that as this
   // Agent's name, not the spec's own.
   const namedChildSpec: AgentSpec = { ...childSpec, name: forkedSb.name };

@@ -1,6 +1,6 @@
 import type { SandboxApi, SandboxFactory, FileStat } from "@flue/runtime";
 import { createSandboxSessionEnv } from "@flue/runtime";
-import type { Sandbox } from "drej";
+import type { Sandbox } from "alineo";
 
 // POSIX single-quote escaping for shell arguments.
 function esc(p: string): string {
@@ -28,7 +28,7 @@ function base64ToUint8(b64: string): Uint8Array {
   return buf;
 }
 
-class DrejSandboxApi implements SandboxApi {
+class AlineoSandboxApi implements SandboxApi {
   constructor(private readonly sb: Sandbox) {}
 
   async exec(
@@ -116,7 +116,7 @@ class DrejSandboxApi implements SandboxApi {
 }
 
 /**
- * Flue `SandboxFactory` backed by a drej `Sandbox`.
+ * Flue `SandboxFactory` backed by a alineo `Sandbox`.
  *
  * Pass an already-created `Sandbox` (lifecycle is the caller's responsibility —
  * the adapter never calls `sb.close()`). Returns a factory suitable for
@@ -124,22 +124,22 @@ class DrejSandboxApi implements SandboxApi {
  *
  * @example
  * ```ts
- * // src/sandboxes/drej.ts  (Flue adapter file)
- * import { drej } from "@drej/flue";
- * import { Drej } from "drej";
- * import { SQLiteAdapter } from "@drej/sqlite";
+ * // src/sandboxes/alineo.ts  (Flue adapter file)
+ * import { alineo } from "@alineo-labs/flue";
+ * import { Alineo } from "alineo";
+ * import { SQLiteAdapter } from "@alineo-labs/sqlite";
  *
- * const client = new Drej({ baseUrl: "http://localhost:8080", adapter: new SQLiteAdapter("./drej.db") });
+ * const client = new Alineo({ baseUrl: "http://localhost:8080", adapter: new SQLiteAdapter("./alineo.db") });
  *
- * export default drej(
+ * export default alineo(
  *   await client.sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } }),
  * );
  * ```
  */
-export function drej(sandbox: Sandbox, opts?: { cwd?: string }): SandboxFactory {
+export function alineo(sandbox: Sandbox, opts?: { cwd?: string }): SandboxFactory {
   return {
     async createSessionEnv(_: { id: string }) {
-      return createSandboxSessionEnv(new DrejSandboxApi(sandbox), opts?.cwd ?? "/");
+      return createSandboxSessionEnv(new AlineoSandboxApi(sandbox), opts?.cwd ?? "/");
     },
   };
 }

@@ -2,7 +2,7 @@
  * Master/child agent test — verifies that a Pi agent can spawn and drive its
  * OWN child sandboxes from inside its own container, using OpenSandbox's
  * official `osb` CLI (installed as a setup step) invoked through Pi's bash
- * tool. No new drej/OpenSandbox code is needed for this to work — it's a
+ * tool. No new alineo/OpenSandbox code is needed for this to work — it's a
  * capability check on the existing platform, not a new feature.
  *
  * This requires the OpenSandbox server to be reachable *from inside a
@@ -29,19 +29,19 @@
  *   - Pi runs `osb sandbox create`, `osb command run`, `osb sandbox kill`
  *     against a brand new sibling sandbox, entirely through its bash tool.
  *   - Independently verified from the host via the raw OpenSandbox API
- *     (not drej's own ledger, which never sees a sandbox created this way)
+ *     (not alineo's own ledger, which never sees a sandbox created this way)
  *     that a new sandbox existed during the run.
  */
-import { Agent } from "@drej/agent";
-import { ControlClient } from "@drej/opensandbox";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent } from "@alineo-labs/agent";
+import { ControlClient } from "@alineo-labs/opensandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 process.env.MASTER_AGENT_OPENSANDBOX_DOMAIN ??= "172.17.0.1:8080";
 
 const SPEC = "./agents/master-agent.json";
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
-// Raw OpenSandbox client, independent of drej's ledger — used only to verify
+// Raw OpenSandbox client, independent of alineo's ledger — used only to verify
 // what actually happened, from the host side. The master agent creates its
 // child entirely on its own via bash + osb.
 const control = new ControlClient({ baseUrl: "http://127.0.0.1:8080", apiKey: "" });

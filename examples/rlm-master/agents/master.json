@@ -2,8 +2,8 @@
   "$schema": "https://registry.drej.dev/spec/agent.json",
   "name": "rlm-master",
   "title": "RLM Master (generic)",
-  "description": "Reusable RLM orchestrator master. Not tied to any one task — spawn it with `drejx spawn ./agents/master.json --prompt \"<any goal>\"` and it decides for itself whether the goal is worth decomposing, using drejx fork to spin up children from its own live state if so.",
-  "author": "drej",
+  "description": "Reusable RLM orchestrator master. Not tied to any one task — spawn it with `alineo spawn ./agents/master.json --prompt \"<any goal>\"` and it decides for itself whether the goal is worth decomposing, using alineo fork to spin up children from its own live state if so.",
+  "author": "alineo",
   "cli": "pi",
   "provider": "nvidia",
   "model": "nvidia/nvidia-nemotron-nano-9b-v2",
@@ -11,25 +11,25 @@
   "env": {
     "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
     "MASTER_AGENT_OPENSANDBOX_DOMAIN": "${MASTER_AGENT_OPENSANDBOX_DOMAIN}",
-    "DREJX_RLM_MASTER": "1",
-    "DREJX_RLM_SYSTEM_PROMPT": "${DREJX_RLM_SYSTEM_PROMPT}"
+    "ALINEO_RLM_MASTER": "1",
+    "ALINEO_RLM_SYSTEM_PROMPT": "${ALINEO_RLM_SYSTEM_PROMPT}"
   },
   "spawnDepth": 2,
   "maxAgents": 10,
   "resources": { "cpu": "1000m", "memory": "2Gi" },
   "setup": [
     {
-      "name": "Install bun (drejx's own shebang requires it)",
+      "name": "Install bun (alineo's own shebang requires it)",
       "run": "curl -fsSL https://bun.sh/install | bash && ln -sf /root/.bun/bin/bun /usr/local/bin/bun"
     },
-    { "name": "Install drejx", "run": "npm install -g drejx" },
+    { "name": "Install alineo", "run": "npm install -g alineo-cli" },
     {
-      "name": "Configure drejx",
-      "run": "mkdir -p .drej && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.drej/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > drej.config.json"
+      "name": "Configure alineo",
+      "run": "mkdir -p .alineo && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.alineo/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > alineo.config.json"
     },
     {
-      "name": "Enable the drejx Pi extension (dynamic drejx fork guidance, no hardcoded task syntax)",
-      "run": "mkdir -p .pi/extensions && cp \"$(npm root -g)/drejx/pi-extension/drejx.ts\" .pi/extensions/drejx.ts"
+      "name": "Enable the alineo Pi extension (dynamic alineo fork guidance, no hardcoded task syntax)",
+      "run": "mkdir -p .pi/extensions && cp \"$(npm root -g)/alineo-cli/pi-extension/alineo.ts\" .pi/extensions/alineo.ts"
     },
     {
       "name": "Add the default worker spec",

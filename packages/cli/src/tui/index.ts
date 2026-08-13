@@ -1,7 +1,7 @@
 import { createCliRenderer, BoxRenderable } from "@opentui/core";
-import type { SandboxDetails } from "drej";
-import { Agent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import type { SandboxDetails } from "alineo";
+import { Agent } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { createDashboardView, type DashboardView } from "./dashboard.js";
 import { createChatView, type ChatView } from "./chat.js";

@@ -1,13 +1,13 @@
 {
-  "name": "drej-example-control-flow",
+  "name": "alineo-example-control-flow",
   "version": "0.0.11",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
   },
   "dependencies": {
-    "@drej/sqlite": "workspace:*",
-    "@drej/workflow": "workspace:*",
-    "drej": "workspace:*"
+    "@alineo-labs/sqlite": "workspace:*",
+    "@alineo-labs/workflow": "workspace:*",
+    "alineo": "workspace:*"
   }
 }

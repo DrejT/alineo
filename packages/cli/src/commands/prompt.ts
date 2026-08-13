@@ -1,5 +1,5 @@
-import { Agent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { collectReply } from "../agent-prompt.js";
 import { flag } from "./args.js";
@@ -7,7 +7,7 @@ import type { CliCommand } from "./types.js";
 
 /**
  * Addressed by sandbox ID, not session name — names aren't unique (re-running
- * `drejx spawn` on the same spec produces two sandboxes with the same name)
+ * `alineo spawn` on the same spec produces two sandboxes with the same name)
  * and a name-based ledger lookup can hand back a sandbox that died ungracefully
  * (crashed before its `close()` ran, expired via OpenSandbox's own TTL) since
  * nothing ever told the ledger it stopped. `Agent.resume()`'s own `connect()`
@@ -17,7 +17,7 @@ import type { CliCommand } from "./types.js";
  * `opts.specPath` lets a caller skip `Agent.resume()`'s own ledger lookup for
  * the spec file entirely — necessary when prompting a sandbox whose
  * `sandbox_created` event lives in a different ledger than this CLI
- * invocation's own (e.g. a child spawned via `drejx fork` from inside
+ * invocation's own (e.g. a child spawned via `alineo fork` from inside
  * another sandbox).
  */
 export async function prompt(
@@ -27,7 +27,7 @@ export async function prompt(
 ): Promise<void> {
   if (!sandboxId || !message)
     throw new Error(
-      "Usage: drejx prompt <sandbox-id> <message> [--spec <path>] [--timeout SECONDS] [--json]",
+      "Usage: alineo prompt <sandbox-id> <message> [--spec <path>] [--timeout SECONDS] [--json]",
     );
 
   const config = await readConfig();
@@ -57,7 +57,7 @@ export async function prompt(
     console.log(collected.text);
   } else if (collected.toolCalls.length > 0) {
     const names = collected.toolCalls.map((t) => t.name).join(", ");
-    console.log(`[drejx] (no final text — ${collected.toolCalls.length} tool call(s): ${names})`);
+    console.log(`[alineo] (no final text — ${collected.toolCalls.length} tool call(s): ${names})`);
   }
 }
 
@@ -66,7 +66,7 @@ export const promptCommand: CliCommand = {
   group: "agent",
   variants: [
     {
-      usage: "drejx prompt <sandbox-id> <msg>",
+      usage: "alineo prompt <sandbox-id> <msg>",
       summary: "Send one prompt to a running sandbox, print the reply",
     },
   ],

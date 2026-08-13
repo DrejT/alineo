@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import type { Agent, AgentEvent } from "@drej/agent";
+import type { Agent, AgentEvent } from "@alineo-labs/agent";
 import { collectReply } from "../src/agent-prompt";
 
 function fakeAgent(events: AgentEvent[]): Agent {

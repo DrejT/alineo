@@ -1,5 +1,5 @@
 {
-  "name": "@drej/www",
+  "name": "@alineo-labs/www",
   "private": true,
   "scripts": {
     "dev": "astro dev",

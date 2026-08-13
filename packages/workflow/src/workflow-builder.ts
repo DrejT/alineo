@@ -1,4 +1,4 @@
-import type { Drej, SandboxOptions } from "drej";
+import type { Alineo, SandboxOptions } from "alineo";
 import { SandboxBuilder, flushOps, type FlushContext } from "./sandbox-builder";
 
 export interface WorkflowResult {
@@ -25,12 +25,12 @@ type WorkflowStage =
 
 /**
  * Lazy workflow builder. Collects stages and executes them all when `.pipe()` or
- * `.result()` is awaited. Sandboxes are created via the `Drej` client internally
+ * `.result()` is awaited. Sandboxes are created via the `Alineo` client internally
  * — the user never manages sandbox lifecycle when using this layer.
  *
  * @example
  * ```ts
- * import { workflow } from "@drej/workflow";
+ * import { workflow } from "@alineo-labs/workflow";
  *
  * await workflow(client)
  *   .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {
@@ -42,10 +42,10 @@ type WorkflowStage =
  * ```
  */
 export class WorkflowBuilder {
-  private readonly _client: Drej;
+  private readonly _client: Alineo;
   private readonly _stages: WorkflowStage[] = [];
 
-  constructor(client: Drej) {
+  constructor(client: Alineo) {
     this._client = client;
   }
 
@@ -184,11 +184,11 @@ export class WorkflowBuilder {
 }
 
 /**
- * Create a workflow builder attached to a `Drej` client.
+ * Create a workflow builder attached to a `Alineo` client.
  *
  * @example
  * ```ts
- * import { workflow } from "@drej/workflow";
+ * import { workflow } from "@alineo-labs/workflow";
  *
  * await workflow(client)
  *   .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {
@@ -198,6 +198,6 @@ export class WorkflowBuilder {
  *   .pipe(process.stdout);
  * ```
  */
-export function workflow(client: Drej): WorkflowBuilder {
+export function workflow(client: Alineo): WorkflowBuilder {
   return new WorkflowBuilder(client);
 }

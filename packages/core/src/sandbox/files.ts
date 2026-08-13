@@ -1,4 +1,4 @@
-import type { FileInfo } from "@drej/opensandbox";
+import type { FileInfo } from "@alineo-labs/opensandbox";
 import type { SandboxInternal } from "./internal";
 
 /** Write a file into the sandbox. */

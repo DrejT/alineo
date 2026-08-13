@@ -62,13 +62,13 @@ export interface AgentSpec {
   env?: Record<string, string>;
   /**
    * CPU/memory/GPU resource limits for the sandbox container.
-   * Falls back to defaults in `drej.config.json` if omitted.
+   * Falls back to defaults in `alineo.config.json` if omitted.
    */
   resources?: { cpu: string; memory: string; gpu?: string };
-  /** Not read anywhere in `@drej/agent`; has no effect on the sandbox. */
+  /** Not read anywhere in `@alineo-labs/agent`; has no effect on the sandbox. */
   metadata?: Record<string, string>;
   /**
-   * Not read by `@drej/agent` itself — used by `drejx add`, which fetches
+   * Not read by `@alineo-labs/agent` itself — used by `alineo add`, which fetches
    * and saves each dependency spec first, depth-first.
    */
   registryDependencies?: string[];
@@ -80,7 +80,7 @@ export interface AgentSpec {
   setup?: SetupStep[];
   /**
    * Remaining budget for `Agent.spawn()` calls made from inside this agent's sandbox.
-   * Translated by `Agent.load()`/`Agent.resume()` into the `DREJX_SPAWN_DEPTH` env var.
+   * Translated by `Agent.load()`/`Agent.resume()` into the `ALINEO_SPAWN_DEPTH` env var.
    * `Agent.spawn()` reads that value, refuses unless it's a positive integer, and
    * force-injects `value - 1` into the spawned child — a tamper-resistant counter,
    * not something a spec or the model can hand-propagate. Omit to disable spawning
@@ -90,7 +90,7 @@ export interface AgentSpec {
   /**
    * Remaining budget for total agents this lineage may spawn — a resource
    * ceiling, distinct from `spawnDepth`'s nesting-depth limit. Translated by
-   * `Agent.load()`/`Agent.resume()` into the `DREJX_MAX_AGENTS` env var and
+   * `Agent.load()`/`Agent.resume()` into the `ALINEO_MAX_AGENTS` env var and
    * force-decremented into each spawned child, the same tamper-resistant
    * pattern as `spawnDepth`. Unlike `spawnDepth`, omitting this means
    * "uncapped" for this dimension, not "spawning disabled" — `spawnDepth`

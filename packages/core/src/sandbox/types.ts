@@ -1,4 +1,4 @@
-import type { ControlClient } from "@drej/opensandbox";
+import type { ControlClient } from "@alineo-labs/opensandbox";
 import type { IStorageAdapter } from "../ledger";
 import type { ExecResult } from "../exec-handle";
 import type { Sandbox } from "./sandbox";
@@ -31,7 +31,7 @@ export interface ExecOptions {
   interactive?: boolean;
 }
 
-/** A session still open at the last checkpoint — reconstructed on resume. See `Drej.resume()`. */
+/** A session still open at the last checkpoint — reconstructed on resume. See `Alineo.resume()`. */
 export interface PendingInteractiveExec {
   cmd: string;
   cwd?: string;
@@ -44,7 +44,7 @@ export interface PendingInteractiveExec {
 
 export interface ExecCodeOptions {
   /** Execution context (stateful interpreter session). */
-  context?: { id: string; language: import("@drej/opensandbox").CodeLanguage };
+  context?: { id: string; language: import("@alineo-labs/opensandbox").CodeLanguage };
 }
 
 /** Lifecycle hooks for observability. Pass via `SandboxDeps.hooks`. */
@@ -59,17 +59,17 @@ export interface SandboxHooks {
   onSandboxResumed?(sandboxId: string): void;
 }
 
-/** Internal dependencies injected by `Drej`. */
+/** Internal dependencies injected by `Alineo`. */
 export interface SandboxDeps {
   control: ControlClient;
   adapter: IStorageAdapter;
   hooks?: SandboxHooks;
-  /** Called when `close()` completes — used by `Drej` for concurrency accounting. */
+  /** Called when `close()` completes — used by `Alineo` for concurrency accounting. */
   onClose?: () => void;
   /** Default shell for all `exec()` calls on this sandbox. Defaults to `"/bin/sh"`. */
   shell?: string;
   /**
-   * Called by `fork()` to create a new Sandbox from a snapshot — injected by `Drej`.
+   * Called by `fork()` to create a new Sandbox from a snapshot — injected by `Alineo`.
    * `runId`, if passed, overrides whatever run-correlation ID this closure would otherwise
    * default to (see `fork()`'s own docs in `lifecycle.ts` for why an explicit override is
    * needed across a process boundary).

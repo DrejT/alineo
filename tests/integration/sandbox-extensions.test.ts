@@ -1,5 +1,5 @@
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
 // Covers the pure-Sandbox extension surface: diagnostics, metrics, pause/resume,
@@ -8,7 +8,7 @@ import { test, expect } from "bun:test";
 // real LLM API key and is a distinct scenario from agent.test.ts, which already
 // exercises Agent.load()/prompt()/setEnv() against a live provider.
 test("sandbox extensions: diagnostics, metrics, pause/resume, BashSession", async () => {
-  const client = new Drej({
+  const client = new Alineo({
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),

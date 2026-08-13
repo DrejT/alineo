@@ -1,5 +1,5 @@
-import { SSEEventType } from "@drej/opensandbox";
-import type { SSEEvent } from "@drej/opensandbox";
+import { SSEEventType } from "@alineo-labs/opensandbox";
+import type { SSEEvent } from "@alineo-labs/opensandbox";
 
 export interface ExecResult {
   stdout: string;

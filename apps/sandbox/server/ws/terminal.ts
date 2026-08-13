@@ -1,5 +1,5 @@
 import type { Server, ServerWebSocket } from "bun";
-import type { Sandbox } from "drej";
+import type { Sandbox } from "alineo";
 import * as registry from "../registry";
 import type { WSData } from "./types";
 

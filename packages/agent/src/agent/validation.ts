@@ -13,7 +13,7 @@ export function assertValidMaxAgents(value: number, context: string): void {
 /**
  * Resolves and validates the spawn-depth budget available to `Agent.spawn()` —
  * `override` (a `--depth` CLI flag) wins if given, else whatever value was
- * materialised into `DREJX_SPAWN_DEPTH` by `Agent.load()`/`Agent.resume()`. Throws
+ * materialised into `ALINEO_SPAWN_DEPTH` by `Agent.load()`/`Agent.resume()`. Throws
  * unless the result is a positive integer: `0` means "no budget left", not "spawn
  * one more time" — spawning stops one level before the counter would go negative.
  */

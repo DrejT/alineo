@@ -37,7 +37,7 @@ body:
     attributes:
       label: Environment
       description: |
-        - drej version:
+        - alineo version:
         - Node / Bun version:
         - OS:
         - OpenSandbox server version (if known):

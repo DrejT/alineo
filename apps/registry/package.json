@@ -1,5 +1,5 @@
 {
-  "name": "@drej/registry",
+  "name": "@alineo-labs/registry",
   "private": true,
   "scripts": {
     "dev": "astro dev",

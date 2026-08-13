@@ -10,11 +10,11 @@
  *   - A tool_end event for each tool_start
  *   - The final text answer from Pi
  */
-import { Agent, textOnly, type AgentEvent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent, textOnly, type AgentEvent } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 const agent = await Agent.load(SPEC, { adapter });
 console.log(
@@ -24,7 +24,7 @@ console.log(
 // Write a small Python script for Pi to discover and run.
 await agent.sandbox.writeFile(
   "/workspace/greet.py",
-  'name = "drej"\nprint(f"Hello from {name}! 2 + 2 = {2 + 2}")\n',
+  'name = "alineo"\nprint(f"Hello from {name}! 2 + 2 = {2 + 2}")\n',
 );
 
 // ── Run a prompt that forces Pi to use tools ──────────────────────────────────

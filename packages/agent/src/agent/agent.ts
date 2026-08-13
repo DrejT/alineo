@@ -1,4 +1,4 @@
-import type { IStorageAdapter, Sandbox } from "@drej/core";
+import type { IStorageAdapter, Sandbox } from "@alineo-labs/core";
 import type { PiAdapter } from "../adapters/pi";
 import type { AgentSpec } from "../schema";
 import type { AgentSnapshotRecord } from "../snapshots";
@@ -33,7 +33,7 @@ export { resolveParentSpawnDepth, resolveParentMaxAgents } from "./validation";
  *
  * @example
  * ```ts
- * import { Agent } from "@drej/agent";
+ * import { Agent } from "@alineo-labs/agent";
  *
  * const agent = await Agent.load("./agents/my-agent.json", { adapter });
  * try {
@@ -50,7 +50,7 @@ export class Agent {
   readonly sandboxId: string;
   readonly name: string;
   /**
-   * Direct access to the underlying `Sandbox` — full drej Sandbox API, bypasses Pi.
+   * Direct access to the underlying `Sandbox` — full alineo Sandbox API, bypasses Pi.
    * Use this to read or write files, run shell commands, or inspect container state
    * independently of the Pi conversation.
    */
@@ -67,7 +67,7 @@ export class Agent {
    * Identifies the logical run this agent's sandbox belongs to — see
    * `SandboxDetails.runId`. Always present; a fresh `crypto.randomUUID()` if not
    * explicitly passed to `load()`/`resume()`. A child from `.spawn()` (and
-   * transitively, `drejx fork`) always inherits its parent's `runId`.
+   * transitively, `alineo fork`) always inherits its parent's `runId`.
    */
   readonly runId: string;
 
@@ -159,19 +159,19 @@ export class Agent {
    * `resume()`, which kills and restarts the bridge process. Use this when you only
    * need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()`.
    *
-   * The main caller is `drejx fork`: it runs as a fresh CLI process started BY the
+   * The main caller is `alineo fork`: it runs as a fresh CLI process started BY the
    * very Pi bash-tool call it's attaching to (a master agent spawning a child from
    * inside its own turn). Going through `resume()` there would `pkill` the bridge
    * that's currently running the Pi process making the call — self-destructive.
    *
    * The returned `Agent` has no bridge, so `.prompt()`/`.bash()`/etc. all throw.
-   * Its env is read back from `/etc/drej-env` on the sandbox itself (the ground
+   * Its env is read back from `/etc/alineo-env` on the sandbox itself (the ground
    * truth for what's actually running there) rather than re-derived from a spec
    * file, which may not even exist inside this particular sandbox.
    *
-   * When `sandboxId` matches `DREJ_SANDBOX_ID` in this process's own env (true
-   * self-attach, e.g. `drejx fork` running from inside its own container),
-   * `/etc/drej-env` is read straight off the local filesystem instead of via
+   * When `sandboxId` matches `ALINEO_SANDBOX_ID` in this process's own env (true
+   * self-attach, e.g. `alineo fork` running from inside its own container),
+   * `/etc/alineo-env` is read straight off the local filesystem instead of via
    * `sb.readFile()`. A self-referential exec call would need this sandbox to
    * reach itself through its own externally-facing bridge IP, which Docker's
    * default bridge network generally can't hairpin back to the originating
@@ -181,7 +181,7 @@ export class Agent {
    * `opts.resources` sizes a subsequent `.spawn()`'s forked container — the
    * control API doesn't echo back a running sandbox's own resource limits, so
    * there's no way to discover this agent's *actual* footprint here. Defaults to
-   * `drej.config.json`'s `defaults.resources`, same fallback `Agent.load()` uses
+   * `alineo.config.json`'s `defaults.resources`, same fallback `Agent.load()` uses
    * for a spec that doesn't set its own.
    */
   static async attach(
@@ -211,14 +211,14 @@ export class Agent {
    * `opts.spawnDepth` says. Every name this agent's own env declares is also
    * explicitly `unset` in the shell command that starts the child's bridge, since
    * the forked container's OS-level env still carries whatever was baked in at
-   * snapshot time independent of what gets written to `/etc/drej-env`.
+   * snapshot time independent of what gets written to `/etc/alineo-env`.
    *
    * Refuses immediately unless this agent's own spawn-depth budget
-   * (`DREJX_SPAWN_DEPTH`, or `opts.spawnDepth` to override it) is a positive
+   * (`ALINEO_SPAWN_DEPTH`, or `opts.spawnDepth` to override it) is a positive
    * integer — `0` means no budget left, `undefined` means spawning was never
    * enabled for this agent.
    *
-   * If `DREJX_MAX_AGENTS` (or `opts.maxAgents`) is set, also refuses once it
+   * If `ALINEO_MAX_AGENTS` (or `opts.maxAgents`) is set, also refuses once it
    * hits `0` — a separate, optional ceiling on total descendants for this
    * lineage, independent of nesting depth. Unset means uncapped for this
    * dimension; only `spawnDepth` gates whether spawning is allowed at all.
@@ -430,7 +430,7 @@ export class Agent {
   // --- env & lifecycle ---
 
   /**
-   * Set or update env vars in the running container. Writes to /etc/drej-env and restarts
+   * Set or update env vars in the running container. Writes to /etc/alineo-env and restarts
    * the Pi subprocess so it picks up the new env. Waits until Pi is ready before returning.
    */
   async setEnv(vars: Record<string, string>): Promise<void> {

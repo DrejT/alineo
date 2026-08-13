@@ -10,17 +10,17 @@ import {
   type EnvironmentRecord,
   type CheckpointInfo,
   type PendingInteractiveExec,
-} from "@drej/core";
-import { ControlClient, SandboxState, SnapshotState } from "@drej/opensandbox";
+} from "@alineo-labs/core";
+import { ControlClient, SandboxState, SnapshotState } from "@alineo-labs/opensandbox";
 
-import { DrejError, type DrejOptions, type SandboxOptions, type ResumeOptions } from "./types";
+import { AlineoError, type AlineoOptions, type SandboxOptions, type ResumeOptions } from "./types";
 import {
   Environment,
   type EnvironmentOptions,
   type EnvironmentSandboxOptions,
 } from "./environment";
 
-export { Sandbox, BashSession } from "@drej/core";
+export { Sandbox, BashSession } from "@alineo-labs/core";
 export type {
   ExecHandle,
   InteractiveExecHandle,
@@ -28,7 +28,7 @@ export type {
   ExecOptions,
   ExecCodeOptions,
   PendingInteractiveExec,
-} from "@drej/core";
+} from "@alineo-labs/core";
 export {
   LedgerEvent,
   SandboxStatus,
@@ -36,7 +36,7 @@ export {
   ExecConnectionError,
   CommandError,
   StepTimeoutError,
-} from "@drej/core";
+} from "@alineo-labs/core";
 export type {
   IStorageAdapter,
   SandboxDetails,
@@ -47,9 +47,9 @@ export type {
   DiagnosticLog,
   DiagnosticEvent,
   Metrics,
-} from "@drej/core";
-export { DrejError, type DrejOptions, type SandboxOptions, type ResumeOptions } from "./types";
-export type { CheckpointInfo } from "@drej/core";
+} from "@alineo-labs/core";
+export { AlineoError, type AlineoOptions, type SandboxOptions, type ResumeOptions } from "./types";
+export type { CheckpointInfo } from "@alineo-labs/core";
 export {
   Environment,
   type EnvironmentOptions,
@@ -57,16 +57,16 @@ export {
 } from "./environment";
 
 /**
- * Main entry point for drej. Manages sandbox lifecycle and session history.
+ * Main entry point for alineo. Manages sandbox lifecycle and session history.
  *
  * @example
  * ```ts
- * import { Drej } from "drej";
- * import { SQLiteAdapter } from "@drej/sqlite";
+ * import { Alineo } from "alineo";
+ * import { SQLiteAdapter } from "@alineo-labs/sqlite";
  *
- * const client = new Drej({
+ * const client = new Alineo({
  *   baseUrl: "http://localhost:8080",
- *   adapter: new SQLiteAdapter("./drej.db"),
+ *   adapter: new SQLiteAdapter("./alineo.db"),
  * });
  *
  * const sb = await client.sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } });
@@ -76,7 +76,7 @@ export {
  * await sb.close();
  * ```
  */
-export class Drej {
+export class Alineo {
   private readonly _control: ControlClient;
   private readonly _adapter: IStorageAdapter;
   private readonly _maxConcurrency: number | undefined;
@@ -87,7 +87,7 @@ export class Drej {
   private _adapterClosed = false;
   private readonly _envBuilds = new Map<string, Promise<string>>();
 
-  constructor(options: DrejOptions) {
+  constructor(options: AlineoOptions) {
     this._control = new ControlClient({
       baseUrl: options.baseUrl,
       apiKey: options.apiKey ?? "",
@@ -218,7 +218,7 @@ export class Drej {
     await this._ensureConnected();
     const allSessions = await this._adapter.listAllSandboxDetails();
     const session = allSessions.find((s) => s.sandboxId === sandboxId);
-    if (!session) throw new DrejError(`Session ${sandboxId} not found`, 404);
+    if (!session) throw new AlineoError(`Session ${sandboxId} not found`, 404);
 
     return this._resumeSession(session.name, sandboxId, opts?.tag);
   }
@@ -234,11 +234,14 @@ export class Drej {
           (e.payload as { name?: string } | undefined)?.name === tag,
       );
       if (checkpointIdx === -1)
-        throw new DrejError(`No checkpoint with tag '${tag}' found for session ${sandboxId}`, 404);
+        throw new AlineoError(
+          `No checkpoint with tag '${tag}' found for session ${sandboxId}`,
+          404,
+        );
     } else {
       checkpointIdx = entries.map((e) => e.event).lastIndexOf(LedgerEvent.CheckpointCreated);
       if (checkpointIdx === -1)
-        throw new DrejError(`No checkpoint found for session ${sandboxId}`, 404);
+        throw new AlineoError(`No checkpoint found for session ${sandboxId}`, 404);
     }
 
     const { snapshotId } = entries[checkpointIdx].payload as { snapshotId: string };
@@ -364,17 +367,17 @@ export class Drej {
    * is still running. Unlike `resume()`, no snapshot is involved — the container keeps
    * its current state. The execd endpoint is resolved lazily on first use.
    *
-   * @throws `DrejError` (409) if the sandbox is not in Running state.
+   * @throws `AlineoError` (409) if the sandbox is not in Running state.
    *
    * @param opts.resources  CPU/memory/GPU to use if `.fork()` is later called on the
    *   returned `Sandbox`. The control API doesn't echo back a running sandbox's own
    *   resource limits, so there's no way to discover them automatically here — omit
-   *   this and `.fork()` will throw. Pass it (e.g. from `drej.config.json`'s
+   *   this and `.fork()` will throw. Pass it (e.g. from `alineo.config.json`'s
    *   defaults) when the caller needs fork support on a merely-connected sandbox.
    * @param opts.runId  Default run-correlation ID for any later `.fork()` call on the
    *   returned `Sandbox`. `connect()` has no way to discover the sandbox's original
    *   `runId` (no ledger lookup is attempted — the caller may be using a completely
-   *   different adapter than whatever originally created it, as `drejx fork` does when
+   *   different adapter than whatever originally created it, as `alineo fork` does when
    *   self-attaching). Omit this and pass `runId` explicitly to `.fork()` itself instead.
    *
    * @example
@@ -393,7 +396,7 @@ export class Drej {
     await this._ensureConnected();
     const info = await this._control.getSandbox(sandboxId);
     if (info.status.state !== SandboxState.Running) {
-      throw new DrejError(
+      throw new AlineoError(
         `Sandbox ${sandboxId} is ${info.status.state} — can only connect to Running sandboxes`,
         409,
       );
@@ -636,7 +639,7 @@ export class Drej {
 
     const checkpoint = await this._adapter.lastCheckpoint(buildName, sb.sandboxId);
     if (!checkpoint)
-      throw new DrejError(`Environment build for '${name}' produced no checkpoint`, 500);
+      throw new AlineoError(`Environment build for '${name}' produced no checkpoint`, 500);
     const { snapshotId } = checkpoint.payload as { snapshotId: string };
 
     await this._adapter.saveEnvironment({ name, snapshotId, image, builtAt: Date.now() });
@@ -751,7 +754,7 @@ export class Drej {
       const s = await this._control.getSandbox(sandboxId);
       if (s.status.state === SandboxState.Running) return;
       if (s.status.state === SandboxState.Failed || s.status.state === SandboxState.Terminated) {
-        throw new DrejError(
+        throw new AlineoError(
           `Sandbox ${sandboxId} entered state ${s.status.state}: ${s.status.message ?? ""}`,
           500,
         );
@@ -759,7 +762,7 @@ export class Drej {
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, 1_000);
     }
-    throw new DrejError(`Sandbox ${sandboxId} did not reach Running within ${timeoutMs}ms`, 408);
+    throw new AlineoError(`Sandbox ${sandboxId} did not reach Running within ${timeoutMs}ms`, 408);
   }
 
   private async _acquireSlot(): Promise<void> {

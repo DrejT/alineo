@@ -1,7 +1,7 @@
 {
   "serverUrl": "http://127.0.0.1:8080",
   "useServerProxy": true,
-  "adapterPath": "./.drej/ledger.db",
+  "adapterPath": "./.alineo/ledger.db",
   "agentsDir": "./agents",
   "defaults": {
     "resources": {

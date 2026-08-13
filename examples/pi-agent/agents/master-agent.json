@@ -2,8 +2,8 @@
   "$schema": "https://registry.drej.dev/spec/agent.json",
   "name": "master-agent",
   "title": "Master Agent",
-  "description": "A Pi agent with the drejx CLI + Pi extension installed, demonstrating an agent orchestrating its own child agent sessions via drejx CLI bash commands (spawn/prompt/agents/kill/fork) instead of raw osb bash commands. The extension's typed drejx_* tools were removed (see packages/cli/pi-extension/drejx.ts's deprecation note) -- this now exercises its remaining before_agent_start guidance injection only.",
-  "author": "drej",
+  "description": "A Pi agent with the alineo CLI + Pi extension installed, demonstrating an agent orchestrating its own child agent sessions via alineo CLI bash commands (spawn/prompt/agents/kill/fork) instead of raw osb bash commands. The extension's typed alineo_* tools were removed (see packages/cli/pi-extension/alineo.ts's deprecation note) -- this now exercises its remaining before_agent_start guidance injection only.",
+  "author": "alineo",
   "cli": "pi",
   "provider": "nvidia",
   "model": "nvidia/nemotron-3-nano-30b-a3b",
@@ -14,17 +14,17 @@
   },
   "resources": { "cpu": "1000m", "memory": "2Gi" },
   "setup": [
-    { "name": "Install drejx", "run": "npm install -g drejx" },
+    { "name": "Install alineo", "run": "npm install -g alineo-cli" },
     {
-      "name": "Enable drejx Pi extension",
-      "run": "mkdir -p .pi/extensions && cp \"$(npm root -g)/drejx/pi-extension/drejx.ts\" .pi/extensions/drejx.ts"
+      "name": "Enable alineo Pi extension",
+      "run": "mkdir -p .pi/extensions && cp \"$(npm root -g)/alineo-cli/pi-extension/alineo.ts\" .pi/extensions/alineo.ts"
     },
     {
-      "name": "Configure drejx",
-      "run": "mkdir -p agents && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.drej/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > drej.config.json"
+      "name": "Configure alineo",
+      "run": "mkdir -p agents && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.alineo/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > alineo.config.json"
     },
     {
-      "name": "Add a child spec for drejx spawn to launch",
+      "name": "Add a child spec for alineo spawn to launch",
       "run": "printf '{\"name\":\"hello-agent\",\"cli\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3-nano-30b-a3b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/hello-agent.json"
     }
   ]

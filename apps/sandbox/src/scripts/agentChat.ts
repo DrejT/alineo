@@ -1,6 +1,12 @@
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import type { AgentEvent, PiModel, PiSessionState, SessionStats, ThinkingLevel } from "@drej/agent";
+import type {
+  AgentEvent,
+  PiModel,
+  PiSessionState,
+  SessionStats,
+  ThinkingLevel,
+} from "@alineo-labs/agent";
 import { api, wsUrl, type ForkPoint } from "./api";
 
 type BridgeErrorEvent = { type: "bridge_error"; message: string };

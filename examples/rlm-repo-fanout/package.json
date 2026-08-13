@@ -1,13 +1,13 @@
 {
-  "name": "drej-example-rlm-repo-fanout",
+  "name": "alineo-example-rlm-repo-fanout",
   "version": "0.0.5",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
   },
   "dependencies": {
-    "@drej/agent": "workspace:*",
-    "@drej/sqlite": "workspace:*",
-    "drej": "workspace:*"
+    "@alineo-labs/agent": "workspace:*",
+    "@alineo-labs/sqlite": "workspace:*",
+    "alineo": "workspace:*"
   }
 }

@@ -1,2 +1,2 @@
 export * from "./client";
-export { CodeLanguage } from "@drej/opensandbox";
+export { CodeLanguage } from "@alineo-labs/opensandbox";
