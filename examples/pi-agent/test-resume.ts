@@ -8,11 +8,11 @@
  * Run: bun examples/pi-agent/test-resume.ts
  * Needs: OpenSandbox server running (uvx opensandbox-server)
  */
-import { Agent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // ── Step 1: Spawn a fresh agent and seed its session ─────────────────────────
 console.log("=== Step 1: Load agent and seed session ===\n");
@@ -28,7 +28,7 @@ console.log("\n");
 
 // ── Step 2: Simulate host process crash ──────────────────────────────────────
 console.log("=== Step 2: Simulate bridge crash (pkill) ===\n");
-await agent.sandbox.exec("pkill -f 'node /drej-bridge.js' 2>/dev/null; true", { strict: false });
+await agent.sandbox.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; true", { strict: false });
 
 // Give the process a moment to die.
 await new Promise<void>((r) => setTimeout(r, 800));

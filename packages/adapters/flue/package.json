@@ -1,6 +1,7 @@
 {
-  "name": "@drej/flue",
+  "name": "@alineo-labs/flue",
   "version": "3.0.0",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -29,13 +30,13 @@
   },
   "devDependencies": {
     "@flue/runtime": "1.0.0-beta.9",
+    "alineo": "workspace:*",
     "bun-types": "1.3.14",
-    "drej": "workspace:*",
     "tsdown": "0.22.3",
     "typescript": "6.0.3"
   },
   "peerDependencies": {
     "@flue/runtime": ">=1.0.0-beta",
-    "drej": ">=0.10.4"
+    "alineo": ">=0.10.4"
   }
 }

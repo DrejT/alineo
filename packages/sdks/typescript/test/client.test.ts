@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { Drej } from "../src/client.ts";
+import { Alineo } from "../src/client.ts";
 import { Environment } from "../src/environment.ts";
-import { SandboxState } from "@drej/opensandbox";
-import { SandboxStatus, type IStorageAdapter, type SandboxDetails } from "@drej/core";
+import { SandboxState } from "@alineo-labs/opensandbox";
+import { SandboxStatus, type IStorageAdapter, type SandboxDetails } from "@alineo-labs/core";
 
 function makeAdapter(overrides: Partial<IStorageAdapter> = {}): IStorageAdapter {
   return {
@@ -24,7 +24,7 @@ function makeAdapter(overrides: Partial<IStorageAdapter> = {}): IStorageAdapter 
 }
 
 function makeClient(adapter: IStorageAdapter, opts: { maxConcurrency?: number } = {}) {
-  return new Drej({
+  return new Alineo({
     baseUrl: "http://localhost:8080",
     adapter,
     ...opts,
@@ -33,7 +33,7 @@ function makeClient(adapter: IStorageAdapter, opts: { maxConcurrency?: number } 
 
 // ── lazy connect ───────────────────────────────────────────────────────────
 
-describe("Drej lazy connect", () => {
+describe("Alineo lazy connect", () => {
   it("does not call adapter.connect before first use", () => {
     const adapter = makeAdapter();
     makeClient(adapter);
@@ -51,9 +51,9 @@ describe("Drej lazy connect", () => {
 
 // ── sessions delegation ────────────────────────────────────────────────────
 
-describe("Drej.sandboxes", () => {
+describe("Alineo.sandboxes", () => {
   let adapter: IStorageAdapter;
-  let client: Drej;
+  let client: Alineo;
 
   beforeEach(() => {
     adapter = makeAdapter();
@@ -123,7 +123,7 @@ describe("Drej.sandboxes", () => {
 
 // ── concurrency semaphore ──────────────────────────────────────────────────
 
-describe("Drej concurrency slot", () => {
+describe("Alineo concurrency slot", () => {
   it("_acquireSlot / _releaseSlot tracks active count", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter, { maxConcurrency: 2 });
@@ -173,7 +173,7 @@ describe("Drej concurrency slot", () => {
 
 // ── environment factory ────────────────────────────────────────────────────
 
-describe("Drej.environment()", () => {
+describe("Alineo.environment()", () => {
   it("returns an Environment instance with the given name", () => {
     const client = makeClient(makeAdapter());
     const env = client.environment("py", {
@@ -219,7 +219,7 @@ describe("Environment.info()", () => {
 
 // ── environments namespace ─────────────────────────────────────────────────
 
-describe("Drej.environments", () => {
+describe("Alineo.environments", () => {
   it("list() delegates to adapter.listEnvironments()", async () => {
     const records = [
       { name: "py", snapshotId: "snap-1", image: "debian:slim", builtAt: 2000 },
@@ -244,7 +244,7 @@ describe("Drej.environments", () => {
 
 // ── _getOrBuildEnvironment concurrency guard ──────────────────────────────
 
-describe("Drej._getOrBuildEnvironment concurrency guard", () => {
+describe("Alineo._getOrBuildEnvironment concurrency guard", () => {
   it("concurrent calls share a single build promise", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
@@ -310,7 +310,7 @@ function makeFakeControl(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("Drej.restoreSnapshot() fork wiring", () => {
+describe("Alineo.restoreSnapshot() fork wiring", () => {
   it("wires a working fork() closure onto the restored Sandbox", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
@@ -325,7 +325,7 @@ describe("Drej.restoreSnapshot() fork wiring", () => {
   });
 });
 
-describe("Drej.connect() fork wiring", () => {
+describe("Alineo.connect() fork wiring", () => {
   it("does not wire fork() when no resources are given", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);

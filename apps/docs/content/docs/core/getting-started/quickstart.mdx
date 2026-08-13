@@ -6,7 +6,7 @@ description: Run your first sandbox command in under five minutes.
 ## 1. Install
 
 ```bash
-bun add drej @drej/sqlite
+bun add alineo @alineo-labs/sqlite
 ```
 
 ## 2. Start a local sandbox server
@@ -16,10 +16,10 @@ Run OpenSandbox locally with `uvx opensandbox-server`. See [Installation](/docs/
 ## 3. Hello world
 
 ```ts title="hello.ts"
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -67,9 +67,9 @@ const sb = await client.sandbox({
   resources: { cpu: "500m", memory: "256Mi" },
 });
 try {
-  await sb.writeFile("/tmp/hello.txt", "hello from drej\n");
+  await sb.writeFile("/tmp/hello.txt", "hello from alineo\n");
   const content = await sb.readFile("/tmp/hello.txt");
-  console.log(content.trim()); // "hello from drej"
+  console.log(content.trim()); // "hello from alineo"
 } finally {
   await sb.close();
 }
@@ -77,14 +77,14 @@ try {
 
 ## Orchestrate with the workflow builder
 
-For multi-step workflows with control flow, use `@drej/workflow`:
+For multi-step workflows with control flow, use `@alineo-labs/workflow`:
 
 ```bash
-bun add @drej/workflow
+bun add @alineo-labs/workflow
 ```
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 await workflow(client)
   .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "512Mi" } }, (sb) => {

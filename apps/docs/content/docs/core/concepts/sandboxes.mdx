@@ -82,12 +82,12 @@ try {
 
 ## Concurrency limits
 
-`DrejOptions.maxConcurrency` caps how many sandboxes may be active at once. When at capacity, `client.sandbox()` awaits until a slot is free (released by `sb.close()`):
+`AlineoOptions.maxConcurrency` caps how many sandboxes may be active at once. When at capacity, `client.sandbox()` awaits until a slot is free (released by `sb.close()`):
 
 ```ts
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
-  adapter: new SQLiteAdapter("./drej.db"),
+  adapter: new SQLiteAdapter("./alineo.db"),
   maxConcurrency: 5, // at most 5 active sandboxes
 });
 ```

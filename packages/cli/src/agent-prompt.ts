@@ -1,4 +1,4 @@
-import type { Agent } from "@drej/agent";
+import type { Agent } from "@alineo-labs/agent";
 
 export interface CollectedReply {
   /** Concatenated `text` deltas. Empty if the run produced tool activity but no final prose --

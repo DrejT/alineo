@@ -8,10 +8,10 @@ import {
   type CliRenderer,
   type SelectOption,
 } from "@opentui/core";
-import type { AgentSpec } from "@drej/agent";
-import { readConfig, type DrejxConfig } from "../config.js";
+import type { AgentSpec } from "@alineo-labs/agent";
+import { readConfig, type AlineoConfig } from "../config.js";
 
-const REGISTRY_INDEX_URL = "https://registry.drej.dev/agents/index.json";
+const REGISTRY_INDEX_URL = "https://registry.alineo.dev/agents/index.json";
 
 interface RegistryItem {
   name: string;
@@ -43,7 +43,7 @@ async function fetchRegistryItems(): Promise<RegistryItem[]> {
 }
 
 async function listLocalSpecs(
-  config: DrejxConfig,
+  config: AlineoConfig,
 ): Promise<{ name: string; specPath: string; title: string; description: string }[]> {
   if (!existsSync(config.agentsDir)) return [];
   const out: { name: string; specPath: string; title: string; description: string }[] = [];
@@ -54,16 +54,16 @@ async function listLocalSpecs(
       const name = spec.name ?? f.replace(/\.json$/, "");
       out.push({ name, specPath, title: spec.title ?? name, description: spec.description ?? "" });
     } catch {
-      // skip unreadable specs — same tolerance as `drejx list`
+      // skip unreadable specs — same tolerance as `alineo list`
     }
   }
   return out;
 }
 
 /**
- * Combines locally-`add`ed specs with the registry.drej.dev catalog into one
+ * Combines locally-`add`ed specs with the registry.alineo.dev catalog into one
  * pick list. Selecting a registry entry fetches + saves it (via the same
- * `add()` command `drejx add` uses) before launching, so it becomes a local
+ * `add()` command `alineo add` uses) before launching, so it becomes a local
  * spec from then on.
  */
 export function createNewSessionView(
@@ -82,7 +82,7 @@ export function createNewSessionView(
   box.add(
     new TextRenderable(renderer, {
       id: "new-session-title",
-      content: "drejx — start an agent   (↑/↓ move · enter run · esc cancel)",
+      content: "alineo — start an agent   (↑/↓ move · enter run · esc cancel)",
     }),
   );
 
@@ -135,7 +135,7 @@ export function createNewSessionView(
         : [
             {
               name: "(no specs found)",
-              description: "add one at registry.drej.dev, or 'drejx add <url>'",
+              description: "add one at registry.alineo.dev, or 'alineo add <url>'",
               value: null,
             },
           ];

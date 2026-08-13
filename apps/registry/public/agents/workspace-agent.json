@@ -1,9 +1,9 @@
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "workspace-agent",
   "title": "Workspace Agent",
   "description": "Demonstrates setup steps: a small Node.js project is created before the snapshot.",
-  "author": "drej",
+  "author": "alineo",
   "categories": ["agent", "setup-steps"],
   "cli": "pi",
   "model": "gemini-flash-latest",

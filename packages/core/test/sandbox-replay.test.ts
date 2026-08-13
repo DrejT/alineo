@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Sandbox } from "../src/sandbox/index.ts";
-import { SSEEventType } from "@drej/opensandbox";
-import type { SSEEvent } from "@drej/opensandbox";
+import { SSEEventType } from "@alineo-labs/opensandbox";
+import type { SSEEvent } from "@alineo-labs/opensandbox";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter } from "../src/ledger.ts";
 import { ExecResult } from "../src/exec-handle.ts";

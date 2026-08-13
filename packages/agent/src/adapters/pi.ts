@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { Sandbox } from "@drej/core";
+import type { Sandbox } from "@alineo-labs/core";
 import { PromptTimeoutError } from "../errors";
 import type { AgentSpec } from "../schema";
 import type {
@@ -15,7 +15,7 @@ import type {
   ThinkingLevel,
 } from "../types";
 
-// Node.js CJS bridge script — written into the sandbox at /drej-bridge.js and run with `node`.
+// Node.js CJS bridge script — written into the sandbox at /alineo-bridge.js and run with `node`.
 // Wraps `pi --mode rpc` in an HTTP server so the host can communicate bidirectionally
 // without needing interactive stdin support from the sandbox exec API.
 //
@@ -46,7 +46,7 @@ export function resolveEnv(env: Record<string, string>): Record<string, string> 
   return result;
 }
 
-/** Inverse of `toShellExports` — parses `/etc/drej-env`'s content back into a plain object. */
+/** Inverse of `toShellExports` — parses `/etc/alineo-env`'s content back into a plain object. */
 export function parseShellExports(content: string): Record<string, string> {
   const result: Record<string, string> = {};
   const re = /^export ([A-Za-z_][A-Za-z0-9_]*)="((?:[^"\\]|\\.)*)"$/gm;
@@ -96,9 +96,9 @@ export class PiAdapter {
     if (spec.provider) piConfig.provider = spec.provider;
     if (spec.model) piConfig.model = spec.model;
     if (opts?.resume) piConfig.resume = true;
-    await sb.writeFile("/etc/drej-pi.json", JSON.stringify(piConfig));
-    await sb.writeFile("/etc/drej-env", toShellExports(resolvedEnv));
-    await sb.writeFile("/drej-bridge.js", BRIDGE_SCRIPT);
+    await sb.writeFile("/etc/alineo-pi.json", JSON.stringify(piConfig));
+    await sb.writeFile("/etc/alineo-env", toShellExports(resolvedEnv));
+    await sb.writeFile("/alineo-bridge.js", BRIDGE_SCRIPT);
   }
 
   /**
@@ -106,7 +106,7 @@ export class PiAdapter {
    * *same* exec command that starts `node` — required for `Agent.spawn()`'s forked
    * sandboxes, where the container's OS-level env still carries whatever the parent
    * had baked into it at snapshot time (`env` passed to `createSandbox` at fork time
-   * has no effect on this — verified live, see `plans/drejx-rlm-substrate.md`). A
+   * has no effect on this — verified live, see `plans/alineo-rlm-substrate.md`). A
    * plain `sb.exec("unset ...")` beforehand would not work: `unset` only clears the
    * shell session it runs in, and each `exec()` call is its own session — it has to
    * be part of the exact command that spawns the bridge process so the bridge (and
@@ -114,7 +114,7 @@ export class PiAdapter {
    */
   async startBridge(sb: Sandbox, unsetVars?: string[]): Promise<void> {
     const prefix = unsetVars && unsetVars.length > 0 ? `unset ${unsetVars.join(" ")}; ` : "";
-    await sb.exec(`${prefix}node /drej-bridge.js &`);
+    await sb.exec(`${prefix}node /alineo-bridge.js &`);
     const { url } = await sb.proxy(3001);
     this._bridgeUrl = url;
   }
@@ -133,7 +133,7 @@ export class PiAdapter {
       }
       await new Promise<void>((r) => setTimeout(r, 500));
     }
-    throw new Error(`drej-bridge did not become ready within ${timeoutMs / 1_000}s`);
+    throw new Error(`alineo-bridge did not become ready within ${timeoutMs / 1_000}s`);
   }
 
   // --- streaming ---

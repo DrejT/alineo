@@ -1,27 +1,27 @@
 ---
 title: Installation
-description: Install drej and a storage adapter, then wire up the client.
+description: Install alineo and a storage adapter, then wire up the client.
 ---
 
 ## Install packages
 
 ```bash
-bun add drej @drej/sqlite
+bun add alineo @alineo-labs/sqlite
 ```
 
 For production, use the Postgres adapter instead:
 
 ```bash
-bun add drej @drej/postgres
+bun add alineo @alineo-labs/postgres
 ```
 
 ## Create the client
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://localhost:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -42,13 +42,13 @@ try {
 
 ## Options
 
-| Option           | Type              | Description                                                                                                                      |
-| ---------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `baseUrl`        | `string`          | OpenSandbox server URL                                                                                                           |
-| `apiKey`         | `string`          | OpenSandbox API key (empty string for local dev)                                                                                 |
-| `adapter`        | `IStorageAdapter` | Storage adapter for the run ledger                                                                                               |
-| `maxConcurrency` | `number`          | Max simultaneous active sandboxes (default: unlimited)                                                                           |
-| `useServerProxy` | `boolean`         | Route execd and proxy traffic through the server. Required when the server runs in Docker via `drejx init`. Defaults to `false`. |
+| Option           | Type              | Description                                                                                                                       |
+| ---------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `baseUrl`        | `string`          | OpenSandbox server URL                                                                                                            |
+| `apiKey`         | `string`          | OpenSandbox API key (empty string for local dev)                                                                                  |
+| `adapter`        | `IStorageAdapter` | Storage adapter for the run ledger                                                                                                |
+| `maxConcurrency` | `number`          | Max simultaneous active sandboxes (default: unlimited)                                                                            |
+| `useServerProxy` | `boolean`         | Route execd and proxy traffic through the server. Required when the server runs in Docker via `alineo init`. Defaults to `false`. |
 
 ## Local OpenSandbox
 

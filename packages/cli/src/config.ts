@@ -3,7 +3,7 @@ import { homedir } from "os";
 import { existsSync } from "fs";
 import { mkdir } from "fs/promises";
 
-export interface DrejxConfig {
+export interface AlineoConfig {
   serverUrl: string;
   useServerProxy: boolean;
   apiKey: string;
@@ -14,8 +14,8 @@ export interface DrejxConfig {
   };
 }
 
-const CONFIG_DIR = ".drej";
-const CONFIG_FILE = "drej.config.json";
+const CONFIG_DIR = ".alineo";
+const CONFIG_FILE = "alineo.config.json";
 
 export function configPath(): string {
   return CONFIG_FILE;
@@ -25,12 +25,12 @@ export function globalConfigPath(): string {
   return join(serverConfigDir(), "config.json");
 }
 
-function fillDefaults(data: Partial<DrejxConfig>): DrejxConfig {
+function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
   return {
     serverUrl: data.serverUrl ?? "http://127.0.0.1:8080",
     useServerProxy: data.useServerProxy ?? true,
     apiKey: data.apiKey ?? "",
-    adapterPath: data.adapterPath ?? "./.drej/ledger.db",
+    adapterPath: data.adapterPath ?? "./.alineo/ledger.db",
     agentsDir: data.agentsDir ?? "./agents",
     defaults: {
       resources: {
@@ -42,26 +42,26 @@ function fillDefaults(data: Partial<DrejxConfig>): DrejxConfig {
 }
 
 /**
- * Resolves, in order: a project-local `drej.config.json` (written by `drejx init`
+ * Resolves, in order: a project-local `alineo.config.json` (written by `alineo init`
  * for repos that want their own agents dir / ledger), then a global
- * `~/.config/drejx/config.json`. If neither exists yet, bootstraps the global
- * one so a fresh `bunx drejx` works without requiring `init` in every directory.
+ * `~/.config/alineo/config.json`. If neither exists yet, bootstraps the global
+ * one so a fresh `bunx alineo-cli` works without requiring `init` in every directory.
  */
-export async function readConfig(): Promise<DrejxConfig> {
+export async function readConfig(): Promise<AlineoConfig> {
   const localFile = Bun.file(configPath());
   if (await localFile.exists()) {
-    return fillDefaults((await localFile.json()) as Partial<DrejxConfig>);
+    return fillDefaults((await localFile.json()) as Partial<AlineoConfig>);
   }
 
   const globalPath = globalConfigPath();
   const globalFile = Bun.file(globalPath);
   if (await globalFile.exists()) {
-    return fillDefaults((await globalFile.json()) as Partial<DrejxConfig>);
+    return fillDefaults((await globalFile.json()) as Partial<AlineoConfig>);
   }
 
   const dir = serverConfigDir();
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
-  const config: DrejxConfig = {
+  const config: AlineoConfig = {
     serverUrl: "http://127.0.0.1:8080",
     useServerProxy: true,
     apiKey: "",
@@ -73,13 +73,13 @@ export async function readConfig(): Promise<DrejxConfig> {
   return config;
 }
 
-export async function writeConfig(config: DrejxConfig): Promise<void> {
+export async function writeConfig(config: AlineoConfig): Promise<void> {
   if (!existsSync(CONFIG_DIR)) await mkdir(CONFIG_DIR, { recursive: true });
   await Bun.write(configPath(), JSON.stringify(config, null, 2) + "\n");
 }
 
 export function serverConfigDir(): string {
-  return join(homedir(), ".config", "drejx");
+  return join(homedir(), ".config", "alineo");
 }
 
 export function serverConfigPath(): string {
@@ -92,7 +92,7 @@ export function serverConfigPath(): string {
  * snapshot metadata durably (a SQLite db, meant to survive the server process restarting —
  * see opensandbox-group/OpenSandbox's `PersistedSnapshotService`), but that guarantee is
  * only as good as where the db file actually lives: without this mount, it sits in the
- * `drejx-opensandbox` container's own writable layer, so restart is fine but any time the
+ * `alineo-opensandbox` container's own writable layer, so restart is fine but any time the
  * container itself is recreated (host reboot with no restart policy, `docker system prune`,
  * a stray `docker rm`) silently loses every cached snapshot record — every `Agent.load()`
  * snapshot fast path pays a full cold rebuild next time, indistinguishable from a genuinely

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://docs.drej.dev/sitemap.xml
+Sitemap: https://docs.alineo.tech/sitemap.xml

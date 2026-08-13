@@ -1,5 +1,5 @@
-import { ExecClient } from "@drej/opensandbox";
-import type { ControlClient } from "@drej/opensandbox";
+import { ExecClient } from "@alineo-labs/opensandbox";
+import type { ControlClient } from "@alineo-labs/opensandbox";
 import { ExecConnectionError } from "../errors";
 
 /**
@@ -8,7 +8,7 @@ import { ExecConnectionError } from "../errors";
  * execd is ready to accept connections.
  *
  * Defaults give ~80s of total patience (retries=45, capped at 2s/attempt), not the ~11s this
- * had before (retries=15, capped at 1s/attempt). Bumped after a live `drejx fork` failure
+ * had before (retries=15, capped at 1s/attempt). Bumped after a live `alineo fork` failure
  * (issue #32): a child forked while its parent sandbox was busy running a real Chrome session
  * took ~35s just to reach `Running`, then immediately exhausted the old ~11s execd-readiness
  * budget before the exec daemon inside it had actually started accepting connections. An

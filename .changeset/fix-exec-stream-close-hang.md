@@ -1,6 +1,6 @@
 ---
-"@drej/opensandbox": patch
-"@drej/core": patch
+"@alineo-labs/opensandbox": patch
+"@alineo-labs/core": patch
 ---
 
 Fix `Sandbox.close()` (and `pause()`) not disposing of exec-stream connections left

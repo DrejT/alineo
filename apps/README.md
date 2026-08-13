@@ -1,12 +1,11 @@
 # apps
 
-Deployable sites for drej, separate from the publishable SDK packages in `packages/`.
+Deployable sites for alineo, separate from the publishable SDK packages in `packages/`.
 
-| App                    | Description                                                                                   | Stack              | Deploy                             |
-| ---------------------- | --------------------------------------------------------------------------------------------- | ------------------ | ---------------------------------- |
-| [`www`](www)           | Marketing landing page ([drej.dev](https://drej.dev))                                         | Astro              | Cloudflare Pages (`drej-www`)      |
-| [`docs`](docs)         | Documentation site ([docs.drej.dev](https://docs.drej.dev))                                   | Next.js + Fumadocs | Cloudflare Pages (`drej-docs`)     |
-| [`registry`](registry) | Curated `AgentSpec` examples for `drejx add` ([registry.drej.dev](https://registry.drej.dev)) | Astro              | Cloudflare Pages (`drej-registry`) |
+| App                    | Description                                                                                          | Stack              | Deploy                             |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- | ------------------ | ---------------------------------- |
+| [`docs`](docs)         | Documentation site ([docs.alineo.tech](https://docs.alineo.tech))                                    | Next.js + Fumadocs | Cloudflare Pages (`drej-docs`)     |
+| [`registry`](registry) | Curated `AgentSpec` examples for `alineo add` ([registry.alineo.tech](https://registry.alineo.tech)) | Astro              | Cloudflare Pages (`drej-registry`) |
 
 ## Commands
 
@@ -20,4 +19,4 @@ cd apps/<app> && bun run deploy   # build + wrangler pages deploy
 
 ## Registry structure
 
-`apps/registry/public/agents/*.json` holds the example `AgentSpec` files served at `registry.drej.dev/agents/*.json`. The JSON Schema for `AgentSpec` lives at `apps/registry/public/spec/agent.json`, served at `registry.drej.dev/spec/agent.json`.
+`apps/registry/public/agents/*.json` holds the example `AgentSpec` files served at `registry.alineo.tech/agents/*.json`. The JSON Schema for `AgentSpec` lives at `apps/registry/public/spec/agent.json`, served at `registry.alineo.tech/spec/agent.json`.

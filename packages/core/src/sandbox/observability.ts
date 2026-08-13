@@ -1,4 +1,4 @@
-import type { DiagnosticLog, DiagnosticEvent, Metrics } from "@drej/opensandbox";
+import type { DiagnosticLog, DiagnosticEvent, Metrics } from "@alineo-labs/opensandbox";
 import type { SandboxInternal } from "./internal";
 
 /** Return current CPU and memory usage for this sandbox. */

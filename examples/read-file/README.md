@@ -5,7 +5,7 @@ Demonstrates `sb.readFile()` — reading a file written inside the sandbox back 
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

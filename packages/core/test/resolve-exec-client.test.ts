@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { resolveExecClient } from "../src/sandbox/resolve.ts";
 import { ExecConnectionError } from "../src/errors.ts";
-import type { ControlClient } from "@drej/opensandbox";
+import type { ControlClient } from "@alineo-labs/opensandbox";
 
 function makeControl(): ControlClient {
   return {

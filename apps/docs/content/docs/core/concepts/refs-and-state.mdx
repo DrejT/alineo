@@ -3,7 +3,7 @@ title: Refs & state
 description: Capture exec output and thread values between steps using ExecResult and the workflow builder's vars.
 ---
 
-drej doesn't have a special `Ref<T>` type. Output from one step is just a TypeScript variable — you capture it from the `ExecResult` and pass it to the next step however you like.
+alineo doesn't have a special `Ref<T>` type. Output from one step is just a TypeScript variable — you capture it from the `ExecResult` and pass it to the next step however you like.
 
 ## Capturing stdout
 
@@ -42,10 +42,10 @@ console.log(version.trim()); // "v20.x.x"
 
 ## State in the workflow builder
 
-When using `@drej/workflow`, the `SandboxBuilder` doesn't return values from `exec()` — steps are queued, not executed yet. Use `readFile(path, as)` to capture a file into the `vars` map, then read from `vars` after the workflow resolves:
+When using `@alineo-labs/workflow`, the `SandboxBuilder` doesn't return values from `exec()` — steps are queued, not executed yet. Use `readFile(path, as)` to capture a file into the `vars` map, then read from `vars` after the workflow resolves:
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 const { vars } = await workflow(client)
   .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {

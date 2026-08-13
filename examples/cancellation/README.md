@@ -5,7 +5,7 @@ Demonstrates resource cleanup and error handling patterns when commands fail or 
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

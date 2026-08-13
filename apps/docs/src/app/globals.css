@@ -13,7 +13,7 @@ html {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* drej palette — fumadocs token overrides, matching apps/www's brand tokens
+  /* alineo palette — fumadocs token overrides, matching apps/www's brand tokens
      (apps/www/src/styles/global.css): monochrome + single blue accent,
      reserved for primary actions/links only. */
   --color-fd-background: oklch(1 0 0);

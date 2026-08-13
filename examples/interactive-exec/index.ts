@@ -14,8 +14,8 @@
  * split or reordered by transport-level interleaving the way separate
  * commands and their echoes can.
  */
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 function assertEqual(actual: string, expected: string, label: string) {
   if (actual !== expected) {
@@ -26,7 +26,7 @@ function assertEqual(actual: string, expected: string, label: string) {
   console.log(`  ok — ${label}`);
 }
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

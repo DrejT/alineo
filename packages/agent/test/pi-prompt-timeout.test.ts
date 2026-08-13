@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import type { Sandbox } from "@drej/core";
+import type { Sandbox } from "@alineo-labs/core";
 import { PiAdapter } from "../src/adapters/pi";
 import { PromptTimeoutError } from "../src/errors";
 

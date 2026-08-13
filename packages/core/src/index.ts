@@ -20,7 +20,7 @@ export type {
   PendingInteractiveExec,
   ComposeHooksOptions,
 } from "./sandbox/index";
-export type { FileInfo, DiagnosticLog, DiagnosticEvent, Metrics } from "@drej/opensandbox";
+export type { FileInfo, DiagnosticLog, DiagnosticEvent, Metrics } from "@alineo-labs/opensandbox";
 
 export { ExecHandle, InteractiveExecHandle } from "./exec-handle";
 export type { ExecResult, PtyControls, AttachableSource } from "./exec-handle";

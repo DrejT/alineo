@@ -1,6 +1,6 @@
 ---
 title: Custom adapter
-description: Implement IStorageAdapter to use any storage backend with drej.
+description: Implement IStorageAdapter to use any storage backend with alineo.
 ---
 
 `IStorageAdapter` is the interface that both `SQLiteAdapter` and `PostgresAdapter` implement. You can implement it yourself to use any storage backend — Redis, DynamoDB, a REST API, etc.
@@ -26,7 +26,7 @@ export interface IStorageAdapter {
 }
 ```
 
-Import types from `@drej/core`:
+Import types from `@alineo-labs/core`:
 
 ```ts
 import type {
@@ -37,7 +37,7 @@ import type {
   ListSandboxOptions,
   CheckpointInfo,
   EnvironmentRecord,
-} from "@drej/core";
+} from "@alineo-labs/core";
 ```
 
 ## Method reference
@@ -86,8 +86,8 @@ import type {
   ListSandboxOptions,
   CheckpointInfo,
   EnvironmentRecord,
-} from "@drej/core";
-import { SandboxStatus, LedgerEvent } from "@drej/core";
+} from "@alineo-labs/core";
+import { SandboxStatus, LedgerEvent } from "@alineo-labs/core";
 
 export class MemoryAdapter implements IStorageAdapter {
   private readonly _events: LedgerEntry[] = [];
@@ -188,10 +188,10 @@ export class MemoryAdapter implements IStorageAdapter {
 
 ## Using a custom adapter
 
-Pass it to `Drej` the same way as the built-in adapters:
+Pass it to `Alineo` the same way as the built-in adapters:
 
 ```ts
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new MemoryAdapter(),
 });

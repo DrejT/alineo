@@ -1,14 +1,14 @@
 {
-  "name": "drej-example-pi-agent",
+  "name": "alineo-example-pi-agent",
   "version": "0.0.11",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
   },
   "dependencies": {
-    "@drej/agent": "workspace:*",
-    "@drej/opensandbox": "workspace:*",
-    "@drej/sqlite": "workspace:*",
-    "drej": "workspace:*"
+    "@alineo-labs/agent": "workspace:*",
+    "@alineo-labs/opensandbox": "workspace:*",
+    "@alineo-labs/sqlite": "workspace:*",
+    "alineo": "workspace:*"
   }
 }

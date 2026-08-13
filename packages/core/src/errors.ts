@@ -1,4 +1,4 @@
-/** Base class for all drej workflow runtime errors. */
+/** Base class for all alineo workflow runtime errors. */
 export class WorkflowError extends Error {
   constructor(message: string) {
     super(message);
@@ -54,7 +54,7 @@ export class CommandError extends WorkflowError {
 
 /**
  * Reserved for a per-step timeout mechanism — not currently thrown anywhere
- * in this codebase. `SandboxOptions.timeout`/`step.timeout` in `@drej/workflow`
+ * in this codebase. `SandboxOptions.timeout`/`step.timeout` in `@alineo-labs/workflow`
  * bound sandbox container lifetime, which is a related but distinct concept.
  */
 export class StepTimeoutError extends WorkflowError {

@@ -35,7 +35,7 @@
       },
     },
     "apps/registry": {
-      "name": "@drej/registry",
+      "name": "@alineo-labs/registry",
       "dependencies": {
         "@astrojs/sitemap": "^3.7.3",
         "@fontsource-variable/geist": "^5.1.1",
@@ -48,18 +48,18 @@
       },
     },
     "apps/sandbox": {
-      "name": "@drej/sandbox",
+      "name": "@alineo-labs/sandbox",
       "dependencies": {
-        "@drej/agent": "workspace:*",
-        "@drej/core": "workspace:*",
-        "@drej/sqlite": "workspace:*",
+        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
         "@fontsource-variable/geist": "^5.1.1",
         "@fontsource-variable/geist-mono": "^5.2.2",
         "@xterm/addon-fit": "^0.10.0",
         "@xterm/xterm": "^5.5.0",
+        "alineo": "workspace:*",
         "astro": "^6.4.8",
         "dompurify": "^3.4.11",
-        "drej": "workspace:*",
         "marked": "^18.0.5",
       },
       "devDependencies": {
@@ -71,192 +71,175 @@
         "typescript": "^5.7.0",
       },
     },
-    "apps/www": {
-      "name": "@drej/www",
-      "dependencies": {
-        "@astrojs/sitemap": "^3.7.3",
-        "@fontsource-variable/geist": "^5.2.9",
-        "@fontsource-variable/geist-mono": "^5.2.8",
-        "animejs": "^4.5.0",
-        "astro": "^6.4.8",
-        "gsap": "^3.15.0",
-        "three": "^0.185.1",
-      },
-      "devDependencies": {
-        "@tailwindcss/vite": "^4.3.2",
-        "@types/three": "^0.185.1",
-        "tailwindcss": "^4.3.2",
-      },
-    },
     "examples/benchmark": {
-      "name": "drej-example-benchmark",
+      "name": "alineo-example-benchmark",
       "version": "0.0.2",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/cancellation": {
-      "name": "drej-example-cancellation",
+      "name": "alineo-example-cancellation",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/capture": {
-      "name": "drej-example-capture",
+      "name": "alineo-example-capture",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/control-flow": {
-      "name": "drej-example-control-flow",
+      "name": "alineo-example-control-flow",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "@drej/workflow": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "@alineo-labs/workflow": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/environments": {
-      "name": "drej-example-environments",
+      "name": "alineo-example-environments",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/error-handling": {
-      "name": "drej-example-error-handling",
+      "name": "alineo-example-error-handling",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/exec-code": {
-      "name": "drej-example-exec-code",
+      "name": "alineo-example-exec-code",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/file-ops": {
-      "name": "drej-example-file-ops",
+      "name": "alineo-example-file-ops",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/hello-world": {
-      "name": "drej-example-hello-world",
+      "name": "alineo-example-hello-world",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/interactive-exec": {
-      "name": "drej-example-interactive-exec",
+      "name": "alineo-example-interactive-exec",
       "version": "0.0.6",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/pi-agent": {
-      "name": "drej-example-pi-agent",
+      "name": "alineo-example-pi-agent",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/agent": "workspace:*",
-        "@drej/opensandbox": "workspace:*",
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/ports": {
-      "name": "drej-example-ports",
+      "name": "alineo-example-ports",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/read-file": {
-      "name": "drej-example-read-file",
+      "name": "alineo-example-read-file",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/rlm-repo-fanout": {
-      "name": "drej-example-rlm-repo-fanout",
+      "name": "alineo-example-rlm-repo-fanout",
       "version": "0.0.5",
       "dependencies": {
-        "@drej/agent": "workspace:*",
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/run-bash-script": {
-      "name": "drej-example-run-bash-script",
+      "name": "alineo-example-run-bash-script",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/sandbox-extensions": {
-      "name": "drej-example-sandbox-extensions",
+      "name": "alineo-example-sandbox-extensions",
       "version": "0.0.10",
       "dependencies": {
-        "@drej/agent": "workspace:*",
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/sandbox-fork": {
-      "name": "drej-example-sandbox-fork",
+      "name": "alineo-example-sandbox-fork",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "examples/snapshot-replay": {
-      "name": "drej-example-snapshot-replay",
+      "name": "alineo-example-snapshot-replay",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/sqlite": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
       },
     },
     "packages/adapters/flue": {
-      "name": "@drej/flue",
+      "name": "@alineo-labs/flue",
       "version": "3.0.0",
       "devDependencies": {
         "@flue/runtime": "1.0.0-beta.9",
+        "alineo": "workspace:*",
         "bun-types": "1.3.14",
-        "drej": "workspace:*",
         "tsdown": "0.22.3",
         "typescript": "6.0.3",
       },
       "peerDependencies": {
         "@flue/runtime": ">=1.0.0-beta",
-        "drej": ">=0.10.4",
+        "alineo": ">=0.10.4",
       },
     },
     "packages/adapters/otel": {
-      "name": "@drej/otel",
+      "name": "@alineo-labs/otel",
       "version": "0.2.8",
       "dependencies": {
-        "@drej/core": "workspace:*",
+        "@alineo-labs/core": "workspace:*",
       },
       "devDependencies": {
         "@opentelemetry/api": "1.9.1",
@@ -269,10 +252,10 @@
       },
     },
     "packages/adapters/postgres": {
-      "name": "@drej/postgres",
+      "name": "@alineo-labs/postgres",
       "version": "0.3.8",
       "dependencies": {
-        "@drej/core": "workspace:*",
+        "@alineo-labs/core": "workspace:*",
         "postgres": "3.4.9",
       },
       "devDependencies": {
@@ -282,10 +265,10 @@
       },
     },
     "packages/adapters/sqlite": {
-      "name": "@drej/sqlite",
+      "name": "@alineo-labs/sqlite",
       "version": "0.3.8",
       "dependencies": {
-        "@drej/core": "workspace:*",
+        "@alineo-labs/core": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -294,11 +277,11 @@
       },
     },
     "packages/agent": {
-      "name": "@drej/agent",
+      "name": "@alineo-labs/agent",
       "version": "0.6.2",
       "dependencies": {
-        "@drej/core": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/core": "workspace:*",
+        "alineo": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -307,10 +290,10 @@
       },
     },
     "packages/agent-browser": {
-      "name": "@drej/agent-browser",
+      "name": "@alineo-labs/agent-browser",
       "version": "0.1.0",
       "dependencies": {
-        "@drej/core": "workspace:*",
+        "@alineo-labs/core": "workspace:*",
       },
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "^0.80.3",
@@ -320,17 +303,17 @@
       },
     },
     "packages/cli": {
-      "name": "drejx",
+      "name": "alineo-cli",
       "version": "0.7.2",
       "bin": {
-        "drejx": "./dist/index.mjs",
+        "alineo": "./dist/index.mjs",
       },
       "dependencies": {
-        "@drej/agent": "workspace:*",
-        "@drej/opensandbox": "workspace:*",
-        "@drej/sqlite": "workspace:*",
+        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
         "@opentui/core": "^0.4.3",
-        "drej": "workspace:*",
+        "alineo": "workspace:*",
       },
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "^0.80.3",
@@ -341,10 +324,10 @@
       },
     },
     "packages/core": {
-      "name": "@drej/core",
+      "name": "@alineo-labs/core",
       "version": "0.6.3",
       "dependencies": {
-        "@drej/opensandbox": "workspace:*",
+        "@alineo-labs/opensandbox": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -354,7 +337,7 @@
       },
     },
     "packages/harness": {
-      "name": "@drej/harness",
+      "name": "@alineo-labs/harness",
       "version": "0.1.0",
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -362,7 +345,7 @@
       },
     },
     "packages/model-providers": {
-      "name": "@drej/model-providers",
+      "name": "@alineo-labs/model-providers",
       "version": "0.1.0",
       "dependencies": {
         "@ai-sdk/google": "^3.0.104",
@@ -376,7 +359,7 @@
       },
     },
     "packages/opensandbox": {
-      "name": "@drej/opensandbox",
+      "name": "@alineo-labs/opensandbox",
       "version": "0.3.1",
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -386,11 +369,11 @@
       },
     },
     "packages/sdks/typescript": {
-      "name": "drej",
+      "name": "alineo",
       "version": "0.10.4",
       "dependencies": {
-        "@drej/core": "workspace:*",
-        "@drej/opensandbox": "workspace:*",
+        "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/opensandbox": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -400,10 +383,10 @@
       },
     },
     "packages/workflow": {
-      "name": "@drej/workflow",
+      "name": "@alineo-labs/workflow",
       "version": "1.1.9",
       "dependencies": {
-        "drej": "workspace:*",
+        "alineo": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -413,13 +396,13 @@
       },
     },
     "tests/integration": {
-      "name": "@drej/integration-tests",
+      "name": "@alineo-labs/integration-tests",
       "version": "0.0.11",
       "dependencies": {
-        "@drej/agent": "workspace:*",
-        "@drej/sqlite": "workspace:*",
-        "@drej/workflow": "workspace:*",
-        "drej": "workspace:*",
+        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "@alineo-labs/workflow": "workspace:*",
+        "alineo": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "1.3.14",
@@ -446,6 +429,34 @@
     "@ai-sdk/provider": ["@ai-sdk/provider@3.0.15", "", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-XeZW1CcDF2GMbH4wejW6xBRI2QCOgnkVYUnxoeDadB1mf85riL2bMUeDoh+6gJ/r4mjNfzUPW8OjLjvwTP0u1Q=="],
 
     "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.44", "", { "dependencies": { "@ai-sdk/provider": "3.0.15", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.8", "undici": "^5.29.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-f59ud5yuRih2R++3Nmh5qHryjQZ4UbhGo27PYfWw86lSWQeBrf8SlwWxiOT/k1fCVDkghHZuSfLlmERWS+1RRQ=="],
+
+    "@alineo-labs/agent": ["@alineo-labs/agent@workspace:packages/agent"],
+
+    "@alineo-labs/agent-browser": ["@alineo-labs/agent-browser@workspace:packages/agent-browser"],
+
+    "@alineo-labs/core": ["@alineo-labs/core@workspace:packages/core"],
+
+    "@alineo-labs/flue": ["@alineo-labs/flue@workspace:packages/adapters/flue"],
+
+    "@alineo-labs/harness": ["@alineo-labs/harness@workspace:packages/harness"],
+
+    "@alineo-labs/integration-tests": ["@alineo-labs/integration-tests@workspace:tests/integration"],
+
+    "@alineo-labs/model-providers": ["@alineo-labs/model-providers@workspace:packages/model-providers"],
+
+    "@alineo-labs/opensandbox": ["@alineo-labs/opensandbox@workspace:packages/opensandbox"],
+
+    "@alineo-labs/otel": ["@alineo-labs/otel@workspace:packages/adapters/otel"],
+
+    "@alineo-labs/postgres": ["@alineo-labs/postgres@workspace:packages/adapters/postgres"],
+
+    "@alineo-labs/registry": ["@alineo-labs/registry@workspace:apps/registry"],
+
+    "@alineo-labs/sandbox": ["@alineo-labs/sandbox@workspace:apps/sandbox"],
+
+    "@alineo-labs/sqlite": ["@alineo-labs/sqlite@workspace:packages/adapters/sqlite"],
+
+    "@alineo-labs/workflow": ["@alineo-labs/workflow@workspace:packages/workflow"],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 
@@ -594,38 +605,6 @@
     "@clack/core": ["@clack/core@1.4.2", "", { "dependencies": { "fast-wrap-ansi": "^0.2.0", "sisteransi": "^1.0.5" } }, "sha512-0Ty/1Gfm+Kb07sXcuESjyKfwEhSy4Ns1AgeEisHb/bDY5fWme0tTeTkU14T1Gmcs17YIjB/teiDe4uaCghbYqQ=="],
 
     "@clack/prompts": ["@clack/prompts@1.6.0", "", { "dependencies": { "@clack/core": "1.4.2", "fast-string-width": "^3.0.2", "fast-wrap-ansi": "^0.2.0", "sisteransi": "^1.0.5" } }, "sha512-EYlRokl8szrP9Z25qT5aepMdBjzBvHF9ZEhzIiUBc9guz/T31EqRgvD0QSgZcpE93xiwrr+OkB4nz0BZyF6fSA=="],
-
-    "@dimforge/rapier3d-compat": ["@dimforge/rapier3d-compat@0.12.0", "", {}, "sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow=="],
-
-    "@drej/agent": ["@drej/agent@workspace:packages/agent"],
-
-    "@drej/agent-browser": ["@drej/agent-browser@workspace:packages/agent-browser"],
-
-    "@drej/core": ["@drej/core@workspace:packages/core"],
-
-    "@drej/flue": ["@drej/flue@workspace:packages/adapters/flue"],
-
-    "@drej/harness": ["@drej/harness@workspace:packages/harness"],
-
-    "@drej/integration-tests": ["@drej/integration-tests@workspace:tests/integration"],
-
-    "@drej/model-providers": ["@drej/model-providers@workspace:packages/model-providers"],
-
-    "@drej/opensandbox": ["@drej/opensandbox@workspace:packages/opensandbox"],
-
-    "@drej/otel": ["@drej/otel@workspace:packages/adapters/otel"],
-
-    "@drej/postgres": ["@drej/postgres@workspace:packages/adapters/postgres"],
-
-    "@drej/registry": ["@drej/registry@workspace:apps/registry"],
-
-    "@drej/sandbox": ["@drej/sandbox@workspace:apps/sandbox"],
-
-    "@drej/sqlite": ["@drej/sqlite@workspace:packages/adapters/sqlite"],
-
-    "@drej/workflow": ["@drej/workflow@workspace:packages/workflow"],
-
-    "@drej/www": ["@drej/www@workspace:apps/www"],
 
     "@earendil-works/pi-agent-core": ["@earendil-works/pi-agent-core@0.80.3", "", { "dependencies": { "@earendil-works/pi-ai": "^0.80.3", "ignore": "7.0.5", "typebox": "1.1.38", "yaml": "2.9.0" } }, "sha512-3qw0/GeRQBU/nlGjDe5Yb7ePKTmoxefx2YxyKMFAviFUMXpFexBG/hS7mBtwFahFvzrrTPPoRT6sFIDjwoDWPQ=="],
 
@@ -1261,8 +1240,6 @@
 
     "@tokenizer/token": ["@tokenizer/token@0.3.0", "", {}, "sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A=="],
 
-    "@tweenjs/tween.js": ["@tweenjs/tween.js@23.1.3", "", {}, "sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA=="],
-
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.2", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg=="],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
@@ -1305,15 +1282,9 @@
 
     "@types/sax": ["@types/sax@1.2.7", "", { "dependencies": { "@types/node": "*" } }, "sha512-rO73L89PJxeYM3s3pPPjiPgVVcymqU490g0YO5n5By0k2Erzj6tay/4lr1CHAAU4JyOWd1rpQ8bCf6cZfHU96A=="],
 
-    "@types/stats.js": ["@types/stats.js@0.17.4", "", {}, "sha512-jIBvWWShCvlBqBNIZt0KAshWpvSjhkwkEu4ZUcASoAvhmrgAUI2t1dXrjSL4xXVLB4FznPrIsX3nKXFl/Dt4vA=="],
-
-    "@types/three": ["@types/three@0.185.1", "", { "dependencies": { "@dimforge/rapier3d-compat": "~0.12.0", "@tweenjs/tween.js": "~23.1.3", "@types/stats.js": "*", "@types/webxr": ">=0.5.17", "fflate": "~0.8.2", "meshoptimizer": "~1.1.1" } }, "sha512-db1xTb+EgYF2didW+eudSvVPtn75zo+fGsY8ShQrJY/B5ZBmC2Fiaykv3aImHAlCNEGuMPkPGXBJGLwzu5mC7A=="],
-
     "@types/trusted-types": ["@types/trusted-types@2.0.7", "", {}, "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="],
 
     "@types/unist": ["@types/unist@3.0.3", "", {}, "sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q=="],
-
-    "@types/webxr": ["@types/webxr@0.5.24", "", {}, "sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg=="],
 
     "@typescript-eslint/eslint-plugin": ["@typescript-eslint/eslint-plugin@8.62.0", "", { "dependencies": { "@eslint-community/regexpp": "^4.12.2", "@typescript-eslint/scope-manager": "8.62.0", "@typescript-eslint/type-utils": "8.62.0", "@typescript-eslint/utils": "8.62.0", "@typescript-eslint/visitor-keys": "8.62.0", "ignore": "^7.0.5", "natural-compare": "^1.4.0", "ts-api-utils": "^2.5.0" }, "peerDependencies": { "@typescript-eslint/parser": "^8.62.0", "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0", "typescript": ">=4.8.4 <6.1.0" } }, "sha512-o+mpz7EYiMzXoySXiKmzlabIvTVqUuK5yLrAedRPRDA0IpPFMUV1IXt6OqljIxX/kumN6EjUYp41Hqelh6p/Dw=="],
 
@@ -1437,7 +1408,45 @@
 
     "ajv-i18n": ["ajv-i18n@4.2.0", "", { "peerDependencies": { "ajv": "^8.0.0-beta.0" } }, "sha512-v/ei2UkCEeuKNXh8RToiFsUclmU+G57LO1Oo22OagNMENIw+Yb8eMwvHu7Vn9fmkjJyv6XclhJ8TbuigSglPkg=="],
 
-    "animejs": ["animejs@4.5.0", "", { "peerDependencies": { "@types/three": ">=0.150.0", "three": ">=0.150.0" }, "optionalPeers": ["@types/three", "three"] }, "sha512-NQimYX+lz8WaXonGS9zVVoviCIAjONeJayxacUditaivYLqyXgGjFKjuyl0aUUhFKm5MriX9ty1TGovNzoJQWA=="],
+    "alineo": ["alineo@workspace:packages/sdks/typescript"],
+
+    "alineo-cli": ["alineo-cli@workspace:packages/cli"],
+
+    "alineo-example-benchmark": ["alineo-example-benchmark@workspace:examples/benchmark"],
+
+    "alineo-example-cancellation": ["alineo-example-cancellation@workspace:examples/cancellation"],
+
+    "alineo-example-capture": ["alineo-example-capture@workspace:examples/capture"],
+
+    "alineo-example-control-flow": ["alineo-example-control-flow@workspace:examples/control-flow"],
+
+    "alineo-example-environments": ["alineo-example-environments@workspace:examples/environments"],
+
+    "alineo-example-error-handling": ["alineo-example-error-handling@workspace:examples/error-handling"],
+
+    "alineo-example-exec-code": ["alineo-example-exec-code@workspace:examples/exec-code"],
+
+    "alineo-example-file-ops": ["alineo-example-file-ops@workspace:examples/file-ops"],
+
+    "alineo-example-hello-world": ["alineo-example-hello-world@workspace:examples/hello-world"],
+
+    "alineo-example-interactive-exec": ["alineo-example-interactive-exec@workspace:examples/interactive-exec"],
+
+    "alineo-example-pi-agent": ["alineo-example-pi-agent@workspace:examples/pi-agent"],
+
+    "alineo-example-ports": ["alineo-example-ports@workspace:examples/ports"],
+
+    "alineo-example-read-file": ["alineo-example-read-file@workspace:examples/read-file"],
+
+    "alineo-example-rlm-repo-fanout": ["alineo-example-rlm-repo-fanout@workspace:examples/rlm-repo-fanout"],
+
+    "alineo-example-run-bash-script": ["alineo-example-run-bash-script@workspace:examples/run-bash-script"],
+
+    "alineo-example-sandbox-extensions": ["alineo-example-sandbox-extensions@workspace:examples/sandbox-extensions"],
+
+    "alineo-example-sandbox-fork": ["alineo-example-sandbox-fork@workspace:examples/sandbox-fork"],
+
+    "alineo-example-snapshot-replay": ["alineo-example-snapshot-replay@workspace:examples/snapshot-replay"],
 
     "ansi-colors": ["ansi-colors@4.1.3", "", {}, "sha512-/6w/C21Pm1A7aZitlI5Ni/2J6FFQN8i1Cvz3kHABAAbw93v/NlvKdVOqz7CCWz/3iv/JplRSEEZ83XION15ovw=="],
 
@@ -1685,46 +1694,6 @@
 
     "domutils": ["domutils@3.2.2", "", { "dependencies": { "dom-serializer": "^2.0.0", "domelementtype": "^2.3.0", "domhandler": "^5.0.3" } }, "sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw=="],
 
-    "drej": ["drej@workspace:packages/sdks/typescript"],
-
-    "drej-example-benchmark": ["drej-example-benchmark@workspace:examples/benchmark"],
-
-    "drej-example-cancellation": ["drej-example-cancellation@workspace:examples/cancellation"],
-
-    "drej-example-capture": ["drej-example-capture@workspace:examples/capture"],
-
-    "drej-example-control-flow": ["drej-example-control-flow@workspace:examples/control-flow"],
-
-    "drej-example-environments": ["drej-example-environments@workspace:examples/environments"],
-
-    "drej-example-error-handling": ["drej-example-error-handling@workspace:examples/error-handling"],
-
-    "drej-example-exec-code": ["drej-example-exec-code@workspace:examples/exec-code"],
-
-    "drej-example-file-ops": ["drej-example-file-ops@workspace:examples/file-ops"],
-
-    "drej-example-hello-world": ["drej-example-hello-world@workspace:examples/hello-world"],
-
-    "drej-example-interactive-exec": ["drej-example-interactive-exec@workspace:examples/interactive-exec"],
-
-    "drej-example-pi-agent": ["drej-example-pi-agent@workspace:examples/pi-agent"],
-
-    "drej-example-ports": ["drej-example-ports@workspace:examples/ports"],
-
-    "drej-example-read-file": ["drej-example-read-file@workspace:examples/read-file"],
-
-    "drej-example-rlm-repo-fanout": ["drej-example-rlm-repo-fanout@workspace:examples/rlm-repo-fanout"],
-
-    "drej-example-run-bash-script": ["drej-example-run-bash-script@workspace:examples/run-bash-script"],
-
-    "drej-example-sandbox-extensions": ["drej-example-sandbox-extensions@workspace:examples/sandbox-extensions"],
-
-    "drej-example-sandbox-fork": ["drej-example-sandbox-fork@workspace:examples/sandbox-fork"],
-
-    "drej-example-snapshot-replay": ["drej-example-snapshot-replay@workspace:examples/snapshot-replay"],
-
-    "drejx": ["drejx@workspace:packages/cli"],
-
     "dset": ["dset@3.1.4", "", {}, "sha512-2QF/g9/zTaPDc3BjNcVTGoBbXBgYfMTTceLaYcFJ/W9kggFUkhxD/hMEeuLKbugyef9SqAx8cpgwlIP/jinUTA=="],
 
     "dts-resolver": ["dts-resolver@3.0.0", "", { "peerDependencies": { "oxc-resolver": ">=11.0.0" }, "optionalPeers": ["oxc-resolver"] }, "sha512-1T1f+z+4tl9XD+m+0HBgWoL/nm0bOIffyWaUuUSBlFg/86IWvfx+wjNaO/ybU0AJzG9/Mi5hBUgGV6zCmWEN7Q=="],
@@ -1739,7 +1708,7 @@
 
     "emmet": ["emmet@2.4.11", "", { "dependencies": { "@emmetio/abbreviation": "^2.3.3", "@emmetio/css-abbreviation": "^2.1.8" } }, "sha512-23QPJB3moh/U9sT4rQzGgeyyGIrcM+GH5uVYg2C6wZIxAIJq7Ng3QLT79tl8FUwDXhyq9SusfknOrofAKqvgyQ=="],
 
-    "emoji-regex": ["emoji-regex@9.2.2", "", {}, "sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg=="],
+    "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
     "empathic": ["empathic@2.0.1", "", {}, "sha512-YGRs8knHhKHVShLkFET/rWAU8kmHbOV5LwN938RHI0pljAJ1Gf6SzXsSmRaEzcXTtOOmVqJ5+WtQPL5uigY50Q=="],
 
@@ -1881,8 +1850,6 @@
 
     "fetch-blob": ["fetch-blob@3.2.0", "", { "dependencies": { "node-domexception": "^1.0.0", "web-streams-polyfill": "^3.0.3" } }, "sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ=="],
 
-    "fflate": ["fflate@0.8.3", "", {}, "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA=="],
-
     "file-entry-cache": ["file-entry-cache@8.0.0", "", { "dependencies": { "flat-cache": "^4.0.0" } }, "sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ=="],
 
     "file-type": ["file-type@21.3.4", "", { "dependencies": { "@tokenizer/inflate": "^0.4.1", "strtok3": "^10.3.4", "token-types": "^6.1.1", "uint8array-extras": "^1.4.0" } }, "sha512-Ievi/yy8DS3ygGvT47PjSfdFoX+2isQueoYP1cntFW1JLYAuS4GD7NUPGg4zv2iZfV52uDyk5w5Z0TdpRS6Q1g=="],
@@ -1974,8 +1941,6 @@
     "gopd": ["gopd@1.2.0", "", {}, "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg=="],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
-
-    "gsap": ["gsap@3.15.0", "", {}, "sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A=="],
 
     "h3": ["h3@1.15.11", "", { "dependencies": { "cookie-es": "^1.2.3", "crossws": "^0.3.5", "defu": "^6.1.6", "destr": "^2.0.5", "iron-webcrypto": "^1.2.1", "node-mock-http": "^1.0.4", "radix3": "^1.1.2", "ufo": "^1.6.3", "uncrypto": "^0.1.3" } }, "sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg=="],
 
@@ -2300,8 +2265,6 @@
     "merge-descriptors": ["merge-descriptors@2.0.0", "", {}, "sha512-Snk314V5ayFLhp3fkUREub6WtjBfPdCPY1Ln8/8munuLuiYhsABgBVWsozAG+MWMbVEvcdcpbi9R7ww22l9Q3g=="],
 
     "merge2": ["merge2@1.4.1", "", {}, "sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg=="],
-
-    "meshoptimizer": ["meshoptimizer@1.1.1", "", {}, "sha512-oRFNWJRDA/WTrVj7NWvqa5HqE1t9MYDj2VaWirQCzCCrAd2GHrqR/sQezCxiWATPNlKTcRaPRHPJwIRoPBAp5g=="],
 
     "micromark": ["micromark@4.0.2", "", { "dependencies": { "@types/debug": "^4.0.0", "debug": "^4.0.0", "decode-named-character-reference": "^1.0.0", "devlop": "^1.0.0", "micromark-core-commonmark": "^2.0.0", "micromark-factory-space": "^2.0.0", "micromark-util-character": "^2.0.0", "micromark-util-chunked": "^2.0.0", "micromark-util-combine-extensions": "^2.0.0", "micromark-util-decode-numeric-character-reference": "^2.0.0", "micromark-util-encode": "^2.0.0", "micromark-util-normalize-identifier": "^2.0.0", "micromark-util-resolve-all": "^2.0.0", "micromark-util-sanitize-uri": "^2.0.0", "micromark-util-subtokenize": "^2.0.0", "micromark-util-symbol": "^2.0.0", "micromark-util-types": "^2.0.0" } }, "sha512-zpe98Q6kvavpCr1NPVSCMebCKfD7CA2NqZ+rykeNhONIJBpc1tFKt9hucLGwha3jNTNI8lHpctWJWoimVF4PfA=="],
 
@@ -2835,8 +2798,6 @@
 
     "term-size": ["term-size@2.2.1", "", {}, "sha512-wK0Ri4fOGjv/XPy8SBHZChl8CM7uMc5VML7SqiQ0zG7+J5Vr+RMQDoHa2CNT6KHUnTGIXH34UDMkPzAUyapBZg=="],
 
-    "three": ["three@0.185.1", "", {}, "sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg=="],
-
     "tiny-inflate": ["tiny-inflate@1.0.3", "", {}, "sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw=="],
 
     "tinybench": ["tinybench@2.9.0", "", {}, "sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg=="],
@@ -3065,6 +3026,8 @@
 
     "@ai-sdk/provider-utils/undici": ["undici@5.29.0", "", { "dependencies": { "@fastify/busboy": "^2.0.0" } }, "sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg=="],
 
+    "@alineo-labs/sandbox/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
     "@astrojs/language-server/@astrojs/compiler": ["@astrojs/compiler@2.13.1", "", {}, "sha512-f3FN83d2G/v32ipNClRKgYv30onQlMZX1vCeZMjPsMMPl1mDpmbl0+N5BYo4S/ofzqJyS5hvwacEo0CCVDn/Qg=="],
 
     "@aws-sdk/credential-provider-http/@smithy/node-http-handler": ["@smithy/node-http-handler@4.8.2", "", { "dependencies": { "@smithy/core": "^3.26.0", "@smithy/types": "^4.15.0", "tslib": "^2.6.2" } }, "sha512-wfl1uwrAqMH9/pi4kqBo5LBcFwrJLxuDLqL7p7qNcJIFcyZDUc6pzhYk4CYv+DP7fIUpQCZumwNnkhPKS52osQ=="],
@@ -3100,8 +3063,6 @@
     "@babel/traverse/@babel/parser": ["@babel/parser@7.29.7", "", { "dependencies": { "@babel/types": "^7.29.7" }, "bin": "./bin/babel-parser.js" }, "sha512-hnORnjP/1P/zFEndoeX+n+t1RwWRJiJpM/jO7FW32Kn9r5+sJB2JWOdYo4L6k78j15eCwY3Gm/7364B1EMwtNg=="],
 
     "@babel/types/@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.29.7", "", {}, "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg=="],
-
-    "@drej/sandbox/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@earendil-works/pi-agent-core/typebox": ["typebox@1.1.38", "", {}, "sha512-pZ0aQPmMmXoUvSbeuWf/Hzsc+avNw/Zd6VeE8CFgkVGWyuHPJvqeJJDeJqLve+K70LvjYIoleGcoJHPT17cWoA=="],
 
@@ -3215,6 +3176,8 @@
 
     "eslint-plugin-import/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 
+    "eslint-plugin-jsx-a11y/emoji-regex": ["emoji-regex@9.2.2", "", {}, "sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg=="],
+
     "eslint-plugin-jsx-a11y/eslint": ["eslint@9.39.4", "", { "dependencies": { "@eslint-community/eslint-utils": "^4.8.0", "@eslint-community/regexpp": "^4.12.1", "@eslint/config-array": "^0.21.2", "@eslint/config-helpers": "^0.4.2", "@eslint/core": "^0.17.0", "@eslint/eslintrc": "^3.3.5", "@eslint/js": "9.39.4", "@eslint/plugin-kit": "^0.4.1", "@humanfs/node": "^0.16.6", "@humanwhocodes/module-importer": "^1.0.1", "@humanwhocodes/retry": "^0.4.2", "@types/estree": "^1.0.6", "ajv": "^6.14.0", "chalk": "^4.0.0", "cross-spawn": "^7.0.6", "debug": "^4.3.2", "escape-string-regexp": "^4.0.0", "eslint-scope": "^8.4.0", "eslint-visitor-keys": "^4.2.1", "espree": "^10.4.0", "esquery": "^1.5.0", "esutils": "^2.0.2", "fast-deep-equal": "^3.1.3", "file-entry-cache": "^8.0.0", "find-up": "^5.0.0", "glob-parent": "^6.0.2", "ignore": "^5.2.0", "imurmurhash": "^0.1.4", "is-glob": "^4.0.0", "json-stable-stringify-without-jsonify": "^1.0.1", "lodash.merge": "^4.6.2", "minimatch": "^3.1.5", "natural-compare": "^1.4.0", "optionator": "^0.9.3" }, "peerDependencies": { "jiti": "*" }, "optionalPeers": ["jiti"], "bin": { "eslint": "bin/eslint.js" } }, "sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ=="],
 
     "eslint-plugin-jsx-a11y/minimatch": ["minimatch@3.1.5", "", { "dependencies": { "brace-expansion": "^1.1.7" } }, "sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w=="],
@@ -3276,8 +3239,6 @@
     "seek-bzip/commander": ["commander@6.2.1", "", {}, "sha512-U7VdrJFnJgo4xjrHpTzu0yrHPGImdsmD95ZlgYSEajAn2JKzDhDTPG9kBTefmObL2w/ngeZnilk+OV9CG3d7UA=="],
 
     "sitemap/@types/node": ["@types/node@24.13.2", "", { "dependencies": { "undici-types": "~7.18.0" } }, "sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA=="],
-
-    "string-width/emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
     "type-is/content-type": ["content-type@2.0.0", "", {}, "sha512-j/O/d7GcZCyNl7/hwZAb606rzqkyvaDctLmckbxLzHvFBzTJHuGEdodATcP3yIRoDrLHkIATJuvzbFlp/ki2cQ=="],
 

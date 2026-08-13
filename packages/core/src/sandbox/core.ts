@@ -1,5 +1,5 @@
-import { ExecClient, PtyClient, SnapshotState, SandboxState } from "@drej/opensandbox";
-import type { SSEEvent, RunInSessionRequest } from "@drej/opensandbox";
+import { ExecClient, PtyClient, SnapshotState, SandboxState } from "@alineo-labs/opensandbox";
+import type { SSEEvent, RunInSessionRequest } from "@alineo-labs/opensandbox";
 import { SandboxError, CommandError } from "../errors";
 import type { LedgerEntry } from "../ledger";
 import { LedgerEvent } from "../ledger";
@@ -25,9 +25,9 @@ export class SandboxCore implements SandboxInternal {
   readonly sandboxId: string;
   readonly name: string;
   readonly deps: SandboxDeps;
-  /** Cached exec results for replay mode (populated by `Drej.resume()`). */
+  /** Cached exec results for replay mode (populated by `Alineo.resume()`). */
   readonly replayCache: Map<number, ExecResult>;
-  /** Interactive sessions still open at the last checkpoint (populated by `Drej.resume()`). */
+  /** Interactive sessions still open at the last checkpoint (populated by `Alineo.resume()`). */
   readonly pendingInteractive: Map<number, PendingInteractiveExec>;
   readonly openSessionClosers = new Set<() => Promise<void>>();
 
@@ -203,7 +203,7 @@ export class SandboxCore implements SandboxInternal {
   exec(cmd: string, opts?: ExecOptions & { interactive?: false }): ExecHandle;
   exec(cmd: string, opts: ExecOptions & { interactive: true }): InteractiveExecHandle;
   // Fallback for callers holding a plain `ExecOptions` whose `interactive` flag isn't
-  // known at the type level (e.g. passed through from a queued op) — see `@drej/workflow`.
+  // known at the type level (e.g. passed through from a queued op) — see `@alineo-labs/workflow`.
   exec(cmd: string, opts: ExecOptions): ExecHandle | InteractiveExecHandle;
   exec(cmd: string, opts: ExecOptions = {}): ExecHandle {
     if (opts.interactive) return this._execInteractive(cmd, opts);
@@ -376,8 +376,8 @@ export class SandboxCore implements SandboxInternal {
    * ```
    */
   async createCodeContext(
-    language: import("@drej/opensandbox").CodeLanguage,
-  ): Promise<import("@drej/opensandbox").CodeContext> {
+    language: import("@alineo-labs/opensandbox").CodeLanguage,
+  ): Promise<import("@alineo-labs/opensandbox").CodeContext> {
     const ec = await this.getExecClient();
     return ec.createContext(language as string);
   }

@@ -1,4 +1,4 @@
-import type { Sandbox } from "@drej/core";
+import type { Sandbox } from "@alineo-labs/core";
 
 /** Everything a caller needs to reach agent-browser's live-view WebSocket stream through
  * OpenSandbox's port proxy. */
@@ -78,15 +78,15 @@ const RELAY_SCRIPT = [
   '  client.on("error", () => upstream.destroy());',
   "});",
   'server.listen(listenPort, "0.0.0.0", () => {',
-  '  console.log("drej browser-stream relay", listenPort, "->", targetPort);',
+  '  console.log("alineo browser-stream relay", listenPort, "->", targetPort);',
   "});",
 ].join("\n");
 
 const DEFAULT_RELAY_PORT = 19222;
-const RELAY_SCRIPT_PATH = "/tmp/drej-browser-stream-relay.cjs";
-const RELAY_PIDFILE = "/tmp/drej-browser-stream-relay.pid";
-const RELAY_TARGETFILE = "/tmp/drej-browser-stream-relay.target";
-const RELAY_LOGFILE = "/tmp/drej-browser-stream-relay.log";
+const RELAY_SCRIPT_PATH = "/tmp/alineo-browser-stream-relay.cjs";
+const RELAY_PIDFILE = "/tmp/alineo-browser-stream-relay.pid";
+const RELAY_TARGETFILE = "/tmp/alineo-browser-stream-relay.target";
+const RELAY_LOGFILE = "/tmp/alineo-browser-stream-relay.log";
 
 /**
  * Starts the relay (see above) if it isn't already running and forwarding to `targetPort` --
@@ -112,7 +112,7 @@ async function ensureRelay(sandbox: Sandbox, targetPort: number, relayPort: numb
     `[ -f ${RELAY_PIDFILE} ] && kill "$(cat ${RELAY_PIDFILE})" 2>/dev/null; sleep 0.1; true`,
   );
   await sandbox.exec(
-    `cat > ${RELAY_SCRIPT_PATH} <<'DREJ_RELAY_EOF'\n${RELAY_SCRIPT}\nDREJ_RELAY_EOF`,
+    `cat > ${RELAY_SCRIPT_PATH} <<'ALINEO_RELAY_EOF'\n${RELAY_SCRIPT}\nALINEO_RELAY_EOF`,
   );
   await sandbox.exec(
     `setsid nohup node ${RELAY_SCRIPT_PATH} ${targetPort} ${relayPort} > ${RELAY_LOGFILE} 2>&1 < /dev/null & ` +
@@ -139,7 +139,7 @@ async function ensureRelay(sandbox: Sandbox, targetPort: number, relayPort: numb
  * `stream enable` itself exits nonzero (`{"success":false,"error":"Streaming is already enabled
  * for this session"}`) when a stream is already active -- confirmed live -- rather than being
  * idempotent. The `stream status` check above is what normally avoids ever hitting that path,
- * but `@drej/core`'s `sandbox.exec()` throws `CommandError` (no stdout/stderr attached) on a
+ * but `@alineo-labs/core`'s `sandbox.exec()` throws `CommandError` (no stdout/stderr attached) on a
  * nonzero exit, so if `enable` is ever raced against another caller enabling it first, this
  * falls back to re-reading `status` once more before giving up, rather than surfacing a
  * misleading "command failed" error for what's actually a successful, already-streaming state.

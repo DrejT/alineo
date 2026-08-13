@@ -1,9 +1,9 @@
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
 test("checkpoint + resume: replayed execs return cached output, new execs run live", async () => {
-  const client = new Drej({
+  const client = new Alineo({
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),

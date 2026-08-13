@@ -20,8 +20,8 @@ export interface ComposeHooksOptions {
  *
  * @example
  * ```ts
- * import { composeHooks } from "@drej/core";
- * import { otelHooks } from "@drej/otel";
+ * import { composeHooks } from "@alineo-labs/core";
+ * import { otelHooks } from "@alineo-labs/otel";
  *
  * const sb = await client.sandbox({
  *   image: "ubuntu:22.04",

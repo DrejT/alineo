@@ -9,10 +9,10 @@
  *   bun examples/environments/index.ts   # ~2–3 s  (restore from snapshot)
  */
 
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

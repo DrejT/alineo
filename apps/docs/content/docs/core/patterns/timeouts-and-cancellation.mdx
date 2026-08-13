@@ -91,10 +91,10 @@ try {
 
 ## Retry with backoff
 
-For flaky operations, use `retry` from `@drej/workflow` instead of manual retry loops. It handles backoff and re-runs cleanly:
+For flaky operations, use `retry` from `@alineo-labs/workflow` instead of manual retry loops. It handles backoff and re-runs cleanly:
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 await workflow(client)
   .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {

@@ -1,19 +1,19 @@
 /**
- * Integration tests for @drej/agent.
+ * Integration tests for @alineo-labs/agent.
  *
- * Requires OpenSandbox running (drejx init or uvx opensandbox-server).
+ * Requires OpenSandbox running (alineo init or uvx opensandbox-server).
  * Uses Google Gemini (gemini-flash-latest = gemini-3.5-flash) — free tier, works with GEMINI_API_KEY.
  *
  * Run with: bun test tests/integration/agent.test.ts --timeout 600000
  */
-import { Agent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { beforeAll, afterAll, test, expect, describe } from "bun:test";
 
 const GEMINI_API_KEY = "AIzaSyBNyRoeeX_gsuL1Dqj9ElcjBGtw1cAdKhc";
 
 const SPEC = {
-  $schema: "https://registry.drej.dev/spec/agent.json",
+  $schema: "https://registry.alineo.tech/spec/agent.json",
   name: "test-agent",
   cli: "pi" as const,
   packages: [],
@@ -30,7 +30,7 @@ beforeAll(async () => {
 
   const specPath = "/tmp/test-agent-spec.json";
   await Bun.write(specPath, JSON.stringify(SPEC));
-  agent = await Agent.load(specPath, { adapter: new SQLiteAdapter("./.drej/ledger.db") });
+  agent = await Agent.load(specPath, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
 }, 600_000);
 
 afterAll(async () => {
@@ -39,8 +39,8 @@ afterAll(async () => {
 
 describe("agent.sandbox (direct container access — no Pi involved)", () => {
   test("exec returns stdout", async () => {
-    const { stdout } = await agent.sandbox.exec('echo "drej-works"');
-    expect(stdout.trim()).toBe("drej-works");
+    const { stdout } = await agent.sandbox.exec('echo "alineo-works"');
+    expect(stdout.trim()).toBe("alineo-works");
   }, 30_000);
 
   test("writeFile and readFile round-trip", async () => {
@@ -62,9 +62,9 @@ describe("agent.sandbox (direct container access — no Pi involved)", () => {
 });
 
 describe("agent.setEnv", () => {
-  test("env var is written to /etc/drej-env", async () => {
-    await agent.setEnv({ DREJ_TEST_VAR: "integration-test-value" });
-    const { stdout } = await agent.sandbox.exec(". /etc/drej-env && echo $DREJ_TEST_VAR");
+  test("env var is written to /etc/alineo-env", async () => {
+    await agent.setEnv({ ALINEO_TEST_VAR: "integration-test-value" });
+    const { stdout } = await agent.sandbox.exec(". /etc/alineo-env && echo $ALINEO_TEST_VAR");
     expect(stdout.trim()).toBe("integration-test-value");
   }, 30_000);
 });

@@ -5,10 +5,10 @@
  * The first run installs deps and checkpoints. The resume skips the install
  * (replayed from ledger cache) and runs the test script on the restored container.
  */
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

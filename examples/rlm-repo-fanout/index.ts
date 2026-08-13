@@ -1,10 +1,10 @@
 /**
  * RLM fan-out: a master agent clones a repo, decides how to split a task
- * across it, and forks child agents (via `drejx fork`, itself built on
+ * across it, and forks child agents (via `alineo fork`, itself built on
  * `Agent.spawn()`) that each work on one slice from the *exact same*
  * checked-out commit — not a fresh clone each. See TASK.md for the actual
  * goal handed to the master (G2: externalized as a file, not pasted into
- * the prompt) and plans/drejx-rlm-substrate.md for the full design.
+ * the prompt) and plans/alineo-rlm-substrate.md for the full design.
  *
  * This script is both the demo and the integration test — it inspects real
  * evidence from the sandboxes afterward rather than trusting the model's
@@ -12,8 +12,8 @@
  *   - every spawned child's `repo` is at the master's exact commit (G5 proof)
  *   - a master-only secret (RLM_FANOUT_SECRET) is genuinely absent from a
  *     child's actual Pi/bridge environment (env-leak negative control)
- *   - a spawned child's own `DREJX_SPAWN_DEPTH` is exactly 0 (not absent)
- *   - a worker has no `drejx` installed at all, so it cannot itself spawn
+ *   - a spawned child's own `ALINEO_SPAWN_DEPTH` is exactly 0 (not absent)
+ *   - a worker has no `alineo` installed at all, so it cannot itself spawn
  *     (worker.json's own scoping, a second, structural negative control)
  *   - the master never committed anything to `repo` itself (report-only)
  *
@@ -22,8 +22,8 @@
  *        examples/pi-agent/test-spawn-child.ts for the two things that have
  *        to be true for that), NVIDIA_API_KEY in .env.
  */
-import { Agent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { randomBytes } from "crypto";
 
 // Relative paths below (agent specs, ledger) are resolved against this
@@ -51,14 +51,14 @@ const SECRET = `rlm-fanout-secret-${randomBytes(8).toString("hex")}`;
 process.env.RLM_FANOUT_SECRET = SECRET;
 
 const MASTER_SPEC = "./agents/master.json";
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const baseUrl = process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080";
 const apiKey = process.env.OPEN_SANDBOX_API_KEY ?? "";
 
-// `drejx fork` (run FROM INSIDE the master's own sandbox) opens its own
+// `alineo fork` (run FROM INSIDE the master's own sandbox) opens its own
 // SQLiteAdapter, pointed at a ledger file that lives inside that sandbox's
 // container filesystem — a completely separate file from this host script's
-// own `./.drej/ledger.db`. A forked child's `sandbox_created` ledger event
+// own `./.alineo/ledger.db`. A forked child's `sandbox_created` ledger event
 // lands there, not here, so a ledger-backed `sandboxes.list()` call (which
 // reads THIS host's adapter) can never see it. The OpenSandbox control plane
 // itself, though, genuinely registers every sandbox regardless of which
@@ -162,7 +162,7 @@ try {
 
     let probeOut = "";
     for await (const ev of child.bash(
-      `echo "SECRET=[$RLM_FANOUT_SECRET]"; echo "DEPTH=[$DREJX_SPAWN_DEPTH]"; which drejx > /dev/null 2>&1; echo "DREJX_FOUND=[$?]"`,
+      `echo "SECRET=[$RLM_FANOUT_SECRET]"; echo "DEPTH=[$ALINEO_SPAWN_DEPTH]"; which alineo > /dev/null 2>&1; echo "ALINEO_FOUND=[$?]"`,
     )) {
       if (ev.type === "text") probeOut += ev.text;
     }
@@ -172,8 +172,8 @@ try {
     );
     check(`${name}: spawn depth is exactly 0`, probeOut.includes("DEPTH=[0]"));
     check(
-      `${name}: has no drejx installed (cannot itself spawn)`,
-      probeOut.includes("DREJX_FOUND=[1]"),
+      `${name}: has no alineo installed (cannot itself spawn)`,
+      probeOut.includes("ALINEO_FOUND=[1]"),
     );
   }
 

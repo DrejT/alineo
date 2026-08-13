@@ -5,7 +5,7 @@ Run a multi-line bash script inside an isolated sandbox and stream its output.
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

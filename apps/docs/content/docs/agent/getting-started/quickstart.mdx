@@ -3,12 +3,12 @@ title: Quick start
 description: Load an agent spec, send a prompt, and stream the response in minutes.
 ---
 
-`@drej/agent` wraps a [Pi](https://pi.ai) coding agent CLI in an OpenSandbox container and exposes it through a simple TypeScript API. The agent can read and write files inside the sandbox, run shell commands and Python scripts autonomously, and stream its responses back to the host.
+`@alineo-labs/agent` wraps a [Pi](https://pi.ai) coding agent CLI in an OpenSandbox container and exposes it through a simple TypeScript API. The agent can read and write files inside the sandbox, run shell commands and Python scripts autonomously, and stream its responses back to the host.
 
 ## 1. Install
 
 ```bash
-bun add @drej/agent
+bun add @alineo-labs/agent
 ```
 
 ## 2. Start a local sandbox server
@@ -18,7 +18,7 @@ Run OpenSandbox locally. See [Core SDK — Installation](/docs/core/getting-star
 The quickest path:
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker, writes drej.config.json
+bunx alineo-cli init   # starts OpenSandbox in Docker, writes alineo.config.json
 ```
 
 ## 3. Write an agent spec
@@ -27,7 +27,7 @@ Create `agents/hello-agent.json`:
 
 ```json title="agents/hello-agent.json"
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "hello-agent",
   "cli": "pi",
   "model": "gemini-flash-latest",
@@ -44,10 +44,10 @@ Create `agents/hello-agent.json`:
 ## 4. Load the agent and send a prompt
 
 ```ts title="run.ts"
-import { Agent, textOnly } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent, textOnly } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const agent = await Agent.load("./agents/hello-agent.json", { adapter });
 console.log(`Sandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}`);
 

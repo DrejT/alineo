@@ -7,8 +7,8 @@ import type {
   ListSandboxOptions,
   EnvironmentRecord,
   CheckpointInfo,
-} from "@drej/core";
-import { SandboxStatus } from "@drej/core";
+} from "@alineo-labs/core";
+import { SandboxStatus } from "@alineo-labs/core";
 import { MIGRATION_SQL } from "./migrations";
 
 type EnvRow = {
@@ -49,7 +49,7 @@ const AGG_SQL = (whereClause: string) => `
       MAX(CASE WHEN event = 'sandbox_closed'  THEN 1 ELSE 0 END) AS is_closed,
       CAST(COUNT(CASE WHEN event = 'exec_complete' THEN 1 END) AS INTEGER) AS exec_count,
       MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.runId') END) AS run_id
-    FROM drej_events
+    FROM alineo_events
     ${whereClause}
     GROUP BY name, sandbox_id
   )
@@ -113,7 +113,7 @@ export class SQLiteAdapter implements IStorageAdapter {
   async append(entry: LedgerEntry): Promise<void> {
     this.db
       .prepare(
-        `INSERT INTO drej_events (sandbox_id, name, step_idx, branch, event, payload, error, ts)
+        `INSERT INTO alineo_events (sandbox_id, name, step_idx, branch, event, payload, error, ts)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
@@ -132,7 +132,7 @@ export class SQLiteAdapter implements IStorageAdapter {
     const rows = this.db
       .prepare<Row, [string, string]>(
         `SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
-         FROM drej_events
+         FROM alineo_events
          WHERE name = ? AND sandbox_id = ?
          ORDER BY ts ASC`,
       )
@@ -144,7 +144,7 @@ export class SQLiteAdapter implements IStorageAdapter {
     const row = this.db
       .prepare<Row, [string, string]>(
         `SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
-         FROM drej_events
+         FROM alineo_events
          WHERE name = ? AND sandbox_id = ? AND event = 'checkpoint_created'
          ORDER BY ts DESC
          LIMIT 1`,
@@ -172,7 +172,9 @@ export class SQLiteAdapter implements IStorageAdapter {
 
   async deleteSandbox(name: string, sandboxId: string): Promise<void> {
     this.db
-      .prepare<void, [string, string]>(`DELETE FROM drej_events WHERE name = ? AND sandbox_id = ?`)
+      .prepare<void, [string, string]>(
+        `DELETE FROM alineo_events WHERE name = ? AND sandbox_id = ?`,
+      )
       .run(name, sandboxId);
   }
 
@@ -180,7 +182,7 @@ export class SQLiteAdapter implements IStorageAdapter {
     const rows = this.db
       .prepare<Row, [string, string]>(
         `SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
-         FROM drej_events
+         FROM alineo_events
          WHERE name = ? AND sandbox_id = ? AND event = 'checkpoint_created'
          ORDER BY ts ASC`,
       )
@@ -197,7 +199,7 @@ export class SQLiteAdapter implements IStorageAdapter {
   async getEnvironment(name: string): Promise<EnvironmentRecord | null> {
     const row = this.db
       .prepare<EnvRow, [string]>(
-        "SELECT name, snapshot_id, image, built_at FROM drej_environments WHERE name = ?",
+        "SELECT name, snapshot_id, image, built_at FROM alineo_environments WHERE name = ?",
       )
       .get(name);
     return row
@@ -208,20 +210,20 @@ export class SQLiteAdapter implements IStorageAdapter {
   async saveEnvironment(record: EnvironmentRecord): Promise<void> {
     this.db
       .prepare<void, [string, string, string, number]>(
-        `INSERT INTO drej_environments (name, snapshot_id, image, built_at) VALUES (?, ?, ?, ?)
+        `INSERT INTO alineo_environments (name, snapshot_id, image, built_at) VALUES (?, ?, ?, ?)
          ON CONFLICT(name) DO UPDATE SET snapshot_id = excluded.snapshot_id, image = excluded.image, built_at = excluded.built_at`,
       )
       .run(record.name, record.snapshotId, record.image, record.builtAt);
   }
 
   async deleteEnvironment(name: string): Promise<void> {
-    this.db.prepare<void, [string]>("DELETE FROM drej_environments WHERE name = ?").run(name);
+    this.db.prepare<void, [string]>("DELETE FROM alineo_environments WHERE name = ?").run(name);
   }
 
   async listEnvironments(): Promise<EnvironmentRecord[]> {
     const rows = this.db
       .prepare<EnvRow, []>(
-        "SELECT name, snapshot_id, image, built_at FROM drej_environments ORDER BY built_at DESC",
+        "SELECT name, snapshot_id, image, built_at FROM alineo_environments ORDER BY built_at DESC",
       )
       .all();
     return rows.map((r) => ({

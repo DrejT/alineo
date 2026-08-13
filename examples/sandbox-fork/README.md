@@ -5,7 +5,7 @@ Demonstrates `sb.fork()`: install dependencies once into a base sandbox, then br
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

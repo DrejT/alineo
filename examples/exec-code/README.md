@@ -5,7 +5,7 @@ Demonstrates `sb.execCode()` for running code through the sandbox's built-in int
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

@@ -18,7 +18,7 @@ import {
 } from "../config.js";
 import type { CliCommand } from "./types.js";
 
-const CONTAINER_NAME = "drejx-opensandbox";
+const CONTAINER_NAME = "alineo-opensandbox";
 // 127.0.0.1, not "localhost" — some hosts resolve "localhost" to ::1 first,
 // and OpenSandbox only listens on IPv4.
 const SERVER_URL = "http://127.0.0.1:8080";
@@ -100,20 +100,20 @@ async function ensureProjectConfig(): Promise<void> {
       serverUrl: SERVER_URL,
       useServerProxy: true,
       apiKey: "",
-      adapterPath: "./.drej/ledger.db",
+      adapterPath: "./.alineo/ledger.db",
       agentsDir: "./agents",
       defaults: {
         resources: { cpu: "1000m", memory: "1Gi" },
       },
     });
-    console.log("Created drej.config.json");
+    console.log("Created alineo.config.json");
   }
 }
 
 export const initCommand: CliCommand = {
   name: "init",
   group: "sdk",
-  variants: [{ usage: "drejx init", summary: "Start OpenSandbox locally via Docker" }],
+  variants: [{ usage: "alineo init", summary: "Start OpenSandbox locally via Docker" }],
   run: async () => {
     await init();
   },

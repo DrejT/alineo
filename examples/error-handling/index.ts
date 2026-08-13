@@ -3,10 +3,10 @@
  *   Pattern A — non-strict exec: check exitCode in result
  *   Pattern B — strict exec (default): CommandError thrown on non-zero exit
  */
-import { Drej, CommandError, SandboxError, ExecConnectionError } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo, CommandError, SandboxError, ExecConnectionError } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

@@ -1,5 +1,5 @@
 {
-  "name": "@drej/sandbox",
+  "name": "@alineo-labs/sandbox",
   "private": true,
   "scripts": {
     "dev": "astro dev",
@@ -10,16 +10,16 @@
     "deploy": "astro build && wrangler pages deploy"
   },
   "dependencies": {
-    "@drej/agent": "workspace:*",
-    "@drej/core": "workspace:*",
-    "@drej/sqlite": "workspace:*",
+    "@alineo-labs/agent": "workspace:*",
+    "@alineo-labs/core": "workspace:*",
+    "@alineo-labs/sqlite": "workspace:*",
     "@fontsource-variable/geist": "^5.1.1",
     "@fontsource-variable/geist-mono": "^5.2.2",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
+    "alineo": "workspace:*",
     "astro": "^6.4.8",
     "dompurify": "^3.4.11",
-    "drej": "workspace:*",
     "marked": "^18.0.5"
   },
   "devDependencies": {

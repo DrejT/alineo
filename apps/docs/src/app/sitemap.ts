@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
-import { coreSource, workflowSource, drejxSource, agentSource } from "@/lib/source";
+import { coreSource, workflowSource, alineoSource, agentSource } from "@/lib/source";
 
 export const dynamic = "force-static";
 
-const BASE_URL = "https://docs.drej.dev";
+const BASE_URL = "https://docs.alineo.tech";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const sources = [coreSource, workflowSource, drejxSource, agentSource];
+  const sources = [coreSource, workflowSource, alineoSource, agentSource];
 
   const docPages = sources.flatMap((source) =>
     source.getPages().map((page) => ({

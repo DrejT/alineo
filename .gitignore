@@ -7,7 +7,7 @@ plans/
 *.db
 *.db-shm
 *.db-wal
-.drej
+.alineo
 apps/www/.astro/
 apps/registry/.astro/
 apps/sandbox/.astro/

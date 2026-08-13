@@ -1,6 +1,6 @@
 import type { Tracer, Span } from "@opentelemetry/api";
 import { SpanStatusCode as StatusCode, context, trace } from "@opentelemetry/api";
-import type { SandboxHooks, ExecResult } from "@drej/core";
+import type { SandboxHooks, ExecResult } from "@alineo-labs/core";
 
 export interface OtelHooksOptions {
   /** Include exit code as a span attribute on exec spans. Default: true. */
@@ -21,7 +21,7 @@ export interface OtelHooksOptions {
  *
  * @example
  * ```ts
- * import { otelHooks } from "@drej/otel";
+ * import { otelHooks } from "@alineo-labs/otel";
  * import { trace } from "@opentelemetry/api";
  *
  * const tracer = trace.getTracer("my-app");
@@ -42,8 +42,8 @@ export function otelHooks(tracer: Tracer, opts: OtelHooksOptions = {}): SandboxH
         "sandbox.run",
         {
           attributes: {
-            "drej.sandbox.id": sandboxId,
-            "drej.sandbox.name": name,
+            "alineo.sandbox.id": sandboxId,
+            "alineo.sandbox.name": name,
           },
         },
         rootCtx,
@@ -57,9 +57,9 @@ export function otelHooks(tracer: Tracer, opts: OtelHooksOptions = {}): SandboxH
         "sandbox.exec",
         {
           attributes: {
-            "drej.sandbox.id": sandboxId,
-            "drej.exec.seq": seq,
-            "drej.exec.cmd": cmd,
+            "alineo.sandbox.id": sandboxId,
+            "alineo.exec.seq": seq,
+            "alineo.exec.cmd": cmd,
           },
         },
         spanCtx,
@@ -83,9 +83,9 @@ export function otelHooks(tracer: Tracer, opts: OtelHooksOptions = {}): SandboxH
         "sandbox.checkpoint",
         {
           attributes: {
-            "drej.sandbox.id": sandboxId,
-            "drej.snapshot.id": snapshotId,
-            ...(name ? { "drej.checkpoint.name": name } : {}),
+            "alineo.sandbox.id": sandboxId,
+            "alineo.snapshot.id": snapshotId,
+            ...(name ? { "alineo.checkpoint.name": name } : {}),
           },
         },
         spanCtx,

@@ -59,7 +59,7 @@ describe("serverDataDir", () => {
 });
 
 describe("configPath", () => {
-  it("equals drej.config.json", () => {
-    expect(configPath()).toBe("drej.config.json");
+  it("equals alineo.config.json", () => {
+    expect(configPath()).toBe("alineo.config.json");
   });
 });

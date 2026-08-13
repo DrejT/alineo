@@ -1,16 +1,16 @@
 /**
- * Demonstrates @drej/workflow control-flow primitives:
+ * Demonstrates @alineo-labs/workflow control-flow primitives:
  *   retry   — retries a flaky command with exponential backoff
  *   when    — branches based on last exitCode
  *   forEach — iterates over a list of items
  *
  * For multi-sandbox parallelism, use workflow(client).parallel([...]).
  */
-import { Drej } from "drej";
-import { workflow } from "@drej/workflow";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { workflow } from "@alineo-labs/workflow";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

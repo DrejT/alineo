@@ -1,6 +1,7 @@
 {
-  "name": "@drej/otel",
+  "name": "@alineo-labs/otel",
   "version": "0.2.8",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -27,7 +28,7 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@drej/core": "workspace:*"
+    "@alineo-labs/core": "workspace:*"
   },
   "devDependencies": {
     "@opentelemetry/api": "1.9.1",

@@ -5,11 +5,11 @@
  * Run: bun examples/pi-agent/test-snapshot.ts
  * Needs: OpenSandbox server running (uvx opensandbox-server)
  */
-import { Agent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // ── First load: full install + checkpoint ─────────────────────────────────────
 console.log("=== Load 1: full install ===\n");
@@ -20,7 +20,7 @@ console.log(`\nLoad 1 total: ${elapsed1}ms  fromSnapshot=${agent1.fromSnapshot}`
 
 if (agent1.fromSnapshot) {
   console.log(
-    "(snapshot already existed from a previous run — delete .drej/agent-snapshots.json to reset)",
+    "(snapshot already existed from a previous run — delete .alineo/agent-snapshots.json to reset)",
   );
 }
 
@@ -60,5 +60,5 @@ if (agent2.fromSnapshot && elapsed2 < elapsed1 / 3) {
 } else if (agent2.fromSnapshot) {
   console.log(`\n✓ Load 2 used snapshot (fromSnapshot=true)`);
 } else {
-  console.log(`\n✗ Load 2 did not use a snapshot — check .drej/agent-snapshots.json`);
+  console.log(`\n✗ Load 2 did not use a snapshot — check .alineo/agent-snapshots.json`);
 }

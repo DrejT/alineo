@@ -1,4 +1,4 @@
-import type { Sandbox } from "@drej/core";
+import type { Sandbox } from "@alineo-labs/core";
 import type { PiAdapter } from "../adapters/pi";
 
 /**

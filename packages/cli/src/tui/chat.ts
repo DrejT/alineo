@@ -6,7 +6,7 @@ import {
   InputRenderableEvents,
   type CliRenderer,
 } from "@opentui/core";
-import type { Agent } from "@drej/agent";
+import type { Agent } from "@alineo-labs/agent";
 
 export interface ChatView {
   box: BoxRenderable;

@@ -9,11 +9,11 @@
  *   Load 1: fromSnapshot=false, setup steps logged, workspace files present
  *   Load 2: fromSnapshot=true,  no setup steps logged, workspace files still present
  */
-import { Agent, textOnly } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent, textOnly } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/workspace-agent.json";
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // ── Load 1: full install + setup steps + checkpoint ───────────────────────────
 console.log("=== Load 1 — full install ===\n");

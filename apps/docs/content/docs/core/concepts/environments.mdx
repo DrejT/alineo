@@ -3,7 +3,7 @@ title: Environments
 description: Define a named setup recipe once, snapshot it, and spawn cheap isolated sandboxes from it on demand.
 ---
 
-An **environment** is a named sandbox configuration with a setup recipe. drej builds it once — installs packages, writes config, compiles assets — snapshots the result, and restores from that snapshot on every subsequent call. Setup never runs again unless you explicitly rebuild.
+An **environment** is a named sandbox configuration with a setup recipe. alineo builds it once — installs packages, writes config, compiles assets — snapshots the result, and restores from that snapshot on every subsequent call. Setup never runs again unless you explicitly rebuild.
 
 Each sandbox spawned from an environment is fully isolated. Changes in one do not affect others or the snapshot.
 
@@ -57,7 +57,7 @@ const sb = await env.sandbox({
 | Option  | Type                     | Description                                                                     |
 | ------- | ------------------------ | ------------------------------------------------------------------------------- |
 | `env`   | `Record<string, string>` | Environment variables set at container startup.                                 |
-| `hooks` | `SandboxHooks`           | Observability hooks (e.g. `otelHooks(tracer)` from `@drej/otel`).               |
+| `hooks` | `SandboxHooks`           | Observability hooks (e.g. `otelHooks(tracer)` from `@alineo-labs/otel`).        |
 | `shell` | `string`                 | Shell override for this sandbox only. Falls back to `EnvironmentOptions.shell`. |
 
 ## Rebuilding after setup changes
@@ -95,10 +95,10 @@ await client.environments.delete("python-data-science");
 ## Example
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });

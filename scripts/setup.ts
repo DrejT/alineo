@@ -31,7 +31,7 @@ async function main() {
   if (await checkCmd("docker")) {
     info("docker found");
   } else {
-    warn("Docker not found — needed for 'bunx drejx init' (local OpenSandbox) and integration tests");
+    warn("Docker not found — needed for 'bunx alineo-cli init' (local OpenSandbox) and integration tests");
   }
 
   if (await checkCmd("uv")) {
@@ -51,7 +51,7 @@ async function main() {
     await Bun.write(
       ".env",
       `# OpenSandbox server used by examples and local dev.
-# These defaults match \`bunx drejx init\` (Docker) and \`uvx opensandbox-server\` (manual).
+# These defaults match \`bunx alineo-cli init\` (Docker) and \`uvx opensandbox-server\` (manual).
 # Leave as-is unless you're pointing at a remote/hosted OpenSandbox instance.
 OPEN_SANDBOX_URL=http://localhost:8080
 OPEN_SANDBOX_API_KEY=
@@ -71,7 +71,7 @@ OPEN_SANDBOX_API_KEY=
   console.log(`
 Next steps:
   1. Start a local OpenSandbox server (pick one):
-       bunx drejx init          # Docker-based, recommended
+       bunx alineo-cli init          # Docker-based, recommended
        uvx opensandbox-server   # manual — needs ~/.sandbox.toml, see CLAUDE.md
 
   2. Run an example against it:

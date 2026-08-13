@@ -8,15 +8,15 @@ whatever goal you actually want done.
 
 ## Setup
 
-Install the drejx Pi extension on your host machine once:
+Install the alineo Pi extension on your host machine once:
 
 ```bash
-pi install npm:drejx
+pi install npm:alineo
 ```
 
 This installs at **user** scope (`~/.pi/agent/extensions`), so it's
 available in every Pi session afterward — the extension itself bootstraps
-`drejx` (installs it, runs `drejx init`) the first time a session starts, so
+`alineo` (installs it, runs `alineo init`) the first time a session starts, so
 there's no separate manual setup step.
 
 Needs `NVIDIA_API_KEY` in your environment (or whichever provider your own
@@ -27,29 +27,29 @@ copy of `agents/master.json` is configured for).
 From your own Pi session:
 
 ```
-> use drejx to spawn ./examples/rlm-master/agents/master.json and give it this goal: <your actual goal>
+> use alineo to spawn ./examples/rlm-master/agents/master.json and give it this goal: <your actual goal>
 ```
 
-Pi already knows the `drejx spawn` syntax (injected by the extension — see
-`SPAWN_ONLY_GUIDANCE` in `packages/cli/pi-extension/drejx.ts`), so this
+Pi already knows the `alineo spawn` syntax (injected by the extension — see
+`SPAWN_ONLY_GUIDANCE` in `packages/cli/pi-extension/alineo.ts`), so this
 doesn't need to be a literal command; describing the goal is enough for a
-model to write the right `drejx spawn ./examples/rlm-master/agents/master.json
+model to write the right `alineo spawn ./examples/rlm-master/agents/master.json
 --prompt "<goal>" --json` call itself.
 
 The master's own sandbox also has the extension installed (baked in by a
-setup step), so once it's running, it has `drejx fork` guidance injected the
+setup step), so once it's running, it has `alineo fork` guidance injected the
 same way — see `FORK_GUIDANCE` in the same file. It decides for itself
 whether the goal is worth decomposing; nothing forces it to fork anything.
 
 ## Customizing the master's mindset
 
 The master's system prompt gets an RLM-orchestrator mindset appended
-automatically (`DREJX_RLM_MASTER: "1"` in its `env` — see
+automatically (`ALINEO_RLM_MASTER: "1"` in its `env` — see
 `DEFAULT_RLM_MINDSET` in the extension). To use your own wording instead, set
-`DREJX_RLM_SYSTEM_PROMPT` before spawning:
+`ALINEO_RLM_SYSTEM_PROMPT` before spawning:
 
 ```bash
-export DREJX_RLM_SYSTEM_PROMPT="Your own custom orchestrator instructions..."
+export ALINEO_RLM_SYSTEM_PROMPT="Your own custom orchestrator instructions..."
 ```
 
 ## What's still a placeholder

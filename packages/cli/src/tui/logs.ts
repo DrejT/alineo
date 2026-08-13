@@ -4,9 +4,9 @@ import {
   ScrollBoxRenderable,
   type CliRenderer,
 } from "@opentui/core";
-import { Drej } from "drej";
-import type { SandboxDetails } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import type { SandboxDetails } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 
 export interface LogsView {
@@ -30,7 +30,7 @@ export function createLogsView(
   box.add(
     new TextRenderable(renderer, {
       id: "logs-title",
-      content: `drejx — logs: ${session.name} (${session.sandboxId.slice(0, 8)})   (↑/↓ scroll · esc back)`,
+      content: `alineo — logs: ${session.name} (${session.sandboxId.slice(0, 8)})   (↑/↓ scroll · esc back)`,
     }),
   );
 
@@ -49,7 +49,7 @@ export function createLogsView(
   async function load(): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
-    const client = new Drej({
+    const client = new Alineo({
       baseUrl: config.serverUrl,
       apiKey: config.apiKey,
       adapter,

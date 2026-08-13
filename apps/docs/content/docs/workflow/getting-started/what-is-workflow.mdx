@@ -1,12 +1,12 @@
 ---
 title: What is the Workflow Builder?
-description: "@drej/workflow adds a lazy declarative layer over the Core SDK — one await at the end, lifecycle managed automatically."
+description: "@alineo-labs/workflow adds a lazy declarative layer over the Core SDK — one await at the end, lifecycle managed automatically."
 ---
 
-`@drej/workflow` is a separate package that sits on top of the `drej` Core SDK. It gives you a builder API where you describe what should happen synchronously, then flush everything with a single `await` at the end.
+`@alineo-labs/workflow` is a separate package that sits on top of the `alineo` Core SDK. It gives you a builder API where you describe what should happen synchronously, then flush everything with a single `await` at the end.
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 await workflow(client)
   .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "512Mi" } }, (sb) => {
@@ -18,18 +18,18 @@ await workflow(client)
 
 ## Core SDK vs Workflow Builder
 
-|               | Core SDK (`drej`)                       | Workflow Builder (`@drej/workflow`)    |
-| ------------- | --------------------------------------- | -------------------------------------- |
-| Style         | Imperative — hold objects, call methods | Declarative — describe ops, flush once |
-| Await         | Per-operation                           | Once at the end                        |
-| Lifecycle     | Manual `try/finally sb.close()`         | Managed automatically                  |
-| Multi-sandbox | Multiple variables                      | `.parallel()`, `.sequence()`           |
-| Streaming     | `ExecHandle.pipe()`                     | `.pipe(writable)` on the workflow      |
-| Values        | `await sb.exec(...)`                    | `readFile(path, as)` → `vars`          |
+|               | Core SDK (`alineo`)                     | Workflow Builder (`@alineo-labs/workflow`) |
+| ------------- | --------------------------------------- | ------------------------------------------ |
+| Style         | Imperative — hold objects, call methods | Declarative — describe ops, flush once     |
+| Await         | Per-operation                           | Once at the end                            |
+| Lifecycle     | Manual `try/finally sb.close()`         | Managed automatically                      |
+| Multi-sandbox | Multiple variables                      | `.parallel()`, `.sequence()`               |
+| Streaming     | `ExecHandle.pipe()`                     | `.pipe(writable)` on the workflow          |
+| Values        | `await sb.exec(...)`                    | `readFile(path, as)` → `vars`              |
 
 ## When to use the Workflow Builder
 
-Use `@drej/workflow` when:
+Use `@alineo-labs/workflow` when:
 
 - You want the simplest possible multi-sandbox orchestration
 - You need `.parallel()` across N containers without managing each one manually
@@ -45,9 +45,9 @@ Use the Core SDK directly when:
 ## Installation
 
 ```bash
-npm install @drej/workflow
+npm install @alineo-labs/workflow
 # or
-bun add @drej/workflow
+bun add @alineo-labs/workflow
 ```
 
-The workflow builder requires `drej` as a peer dependency — you'll already have it if you're using the Core SDK.
+The workflow builder requires `alineo` as a peer dependency — you'll already have it if you're using the Core SDK.

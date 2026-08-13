@@ -6,17 +6,17 @@ description: Run your first workflow — install, configure, and run a multi-ste
 ## Install
 
 ```bash
-npm install drej @drej/workflow
+npm install alineo @alineo-labs/workflow
 ```
 
 ## Configure
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
-import { workflow } from "@drej/workflow";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+import { workflow } from "@alineo-labs/workflow";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -35,7 +35,7 @@ await workflow(client)
   .pipe(process.stdout);
 ```
 
-No `close()` call needed either — `Drej` has no such method; the adapter closes itself automatically when the process exits.
+No `close()` call needed either — `Alineo` has no such method; the adapter closes itself automatically when the process exits.
 
 The callback receives a `SandboxBuilder`. All calls inside it queue operations synchronously — nothing runs until `.pipe()` or `.result()` is awaited. The sandbox is created, all ops are flushed in order, then the sandbox is closed automatically.
 

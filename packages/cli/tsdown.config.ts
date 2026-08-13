@@ -8,6 +8,12 @@ export default defineConfig({
   platform: "node",
   clean: true,
   deps: {
-    neverBundle: ["drej", "@drej/agent", "@drej/sqlite", "@drej/opensandbox", "@opentui/core"],
+    neverBundle: [
+      "alineo",
+      "@alineo-labs/agent",
+      "@alineo-labs/sqlite",
+      "@alineo-labs/opensandbox",
+      "@opentui/core",
+    ],
   },
 });

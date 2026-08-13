@@ -1,12 +1,12 @@
-# @drej/agent
+# @alineo-labs/agent
 
-Run [Pi](https://pi.ai) coding agents inside isolated [drej](https://drej.dev) sandbox containers. Pi can read and write files, run shell commands, and execute scripts — streamed back through a simple TypeScript API.
+Run [Pi](https://pi.ai) coding agents inside isolated [alineo](https://alineo.tech) sandbox containers. Pi can read and write files, run shell commands, and execute scripts — streamed back through a simple TypeScript API.
 
 ```bash
-bun add @drej/agent
+bun add @alineo-labs/agent
 ```
 
-**[Full documentation →](https://docs.drej.dev/docs/agent)**
+**[Full documentation →](https://docs.alineo.tech/docs/agent)**
 
 ---
 
@@ -16,7 +16,7 @@ Create an agent spec (`agents/my-agent.json`):
 
 ```json
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "my-agent",
   "cli": "pi",
   "model": "gemini-flash-latest",
@@ -27,10 +27,10 @@ Create an agent spec (`agents/my-agent.json`):
 ```
 
 ```ts
-import { Agent, textOnly } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Agent, textOnly } from "@alineo-labs/agent";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const agent = await Agent.load("./agents/my-agent.json", { adapter });
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
@@ -41,7 +41,7 @@ try {
 }
 ```
 
-`opts.adapter` is required — `@drej/agent` has no storage-adapter dependency of its own, so you choose: `new SQLiteAdapter(path)` from `@drej/sqlite` for local dev, or `new PostgresAdapter(connectionString)` from `@drej/postgres` for production.
+`opts.adapter` is required — `@alineo-labs/agent` has no storage-adapter dependency of its own, so you choose: `new SQLiteAdapter(path)` from `@alineo-labs/sqlite` for local dev, or `new PostgresAdapter(connectionString)` from `@alineo-labs/postgres` for production.
 
 ---
 
@@ -152,7 +152,7 @@ type AgentEvent =
 Use `textOnly()` to filter to just the text chunks (equivalent to the old `PromptStream` behavior):
 
 ```ts
-import { Agent, textOnly } from "@drej/agent";
+import { Agent, textOnly } from "@alineo-labs/agent";
 
 for await (const chunk of textOnly(agent.prompt("Summarise this repo."))) {
   process.stdout.write(chunk);
@@ -209,10 +209,10 @@ const agent = await Agent.resume(savedSandboxId, { adapter, specPath: "./agents/
 
 Connect to an already-running sandbox **without** touching its Pi bridge — unlike `resume()`, which kills and restarts the bridge process. Use this when you only need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()` (the returned `Agent` has no bridge, so those throw).
 
-The main caller is `drejx fork`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
+The main caller is `alineo fork`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
 
 ```ts
-const self = await Agent.attach(process.env.DREJ_SANDBOX_ID!, {
+const self = await Agent.attach(process.env.ALINEO_SANDBOX_ID!, {
   adapter,
   name: "my-session",
 });
@@ -466,7 +466,7 @@ const result = await agent.sandbox.readFile("/workspace/output.txt");
 | -------------------- | --------- | ---------------------------------------------- |
 | `agent.sandboxId`    | `string`  | OpenSandbox container ID                       |
 | `agent.name`         | `string`  | Agent name from the spec                       |
-| `agent.sandbox`      | `Sandbox` | Underlying drej `Sandbox` object               |
+| `agent.sandbox`      | `Sandbox` | Underlying alineo `Sandbox` object             |
 | `agent.fromSnapshot` | `boolean` | `true` when restored from snapshot (fast path) |
 
 ---

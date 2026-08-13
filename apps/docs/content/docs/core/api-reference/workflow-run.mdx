@@ -4,7 +4,7 @@ description: The object returned by sb.exec() and sb.execCode() — PromiseLike<
 ---
 
 ```ts
-import type { ExecHandle, ExecResult } from "drej";
+import type { ExecHandle, ExecResult } from "alineo";
 ```
 
 `ExecHandle` is returned by `sb.exec()` and `sb.execCode()`. It implements `PromiseLike<ExecResult>` — you can `await` it directly, pipe it, or consume it as an async generator.
@@ -81,7 +81,7 @@ const { exitCode } = await handle.result(); // get result when done
 
 ## In the workflow builder
 
-The `SandboxBuilder` in `@drej/workflow` queues `exec()` calls but doesn't return `ExecHandle` instances — ops are executed during flush. Use `readFile(path, as)` to capture values into `vars`:
+The `SandboxBuilder` in `@alineo-labs/workflow` queues `exec()` calls but doesn't return `ExecHandle` instances — ops are executed during flush. Use `readFile(path, as)` to capture values into `vars`:
 
 ```ts
 const { vars } = await workflow(client)

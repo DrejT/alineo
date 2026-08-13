@@ -1,4 +1,4 @@
-import { WorkflowError } from "@drej/core";
+import { WorkflowError } from "@alineo-labs/core";
 
 /**
  * Thrown when a prompt/bash SSE stream from a sandbox's Pi bridge goes quiet for longer than
@@ -7,7 +7,7 @@ import { WorkflowError } from "@drej/core";
  * about whether Pi itself is making progress) for that long. Previously this surfaced as an
  * indefinite hang with zero visibility: `sseStream()` had no timeout at all, so a genuinely
  * stuck Pi process (e.g. blocked in a credential refresh, or any other silent stall) blocked
- * every caller up the chain -- `Agent.prompt()`, `collectReply()`, `drejx fork --prompt` --
+ * every caller up the chain -- `Agent.prompt()`, `collectReply()`, `alineo fork --prompt` --
  * forever, with no error and no partial output.
  */
 export class PromptTimeoutError extends WorkflowError {

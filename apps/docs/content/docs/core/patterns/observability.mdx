@@ -1,6 +1,6 @@
 ---
 title: Observability
-description: SandboxHooks lifecycle callbacks and OpenTelemetry tracing with @drej/otel.
+description: SandboxHooks lifecycle callbacks and OpenTelemetry tracing with @alineo-labs/otel.
 ---
 
 ## SandboxHooks
@@ -8,7 +8,7 @@ description: SandboxHooks lifecycle callbacks and OpenTelemetry tracing with @dr
 `SandboxHooks` is a set of lifecycle callbacks you can pass to `client.sandbox()` to observe what's happening during a run. All hooks are optional.
 
 ```ts
-import type { SandboxHooks } from "drej";
+import type { SandboxHooks } from "alineo";
 
 const hooks: SandboxHooks = {
   onSandboxCreated(sandboxId, name) {
@@ -49,16 +49,16 @@ const sb = await client.sandbox({
 | `onSandboxClosed`  | `sb.close()` completed          | `(sandboxId)`                    |
 | `onSandboxFailed`  | sandbox creation or boot failed | `(sandboxId, error)`             |
 
-## OpenTelemetry with @drej/otel
+## OpenTelemetry with @alineo-labs/otel
 
-`@drej/otel` provides an `otelHooks()` factory that produces `SandboxHooks` emitting OTEL traces:
+`@alineo-labs/otel` provides an `otelHooks()` factory that produces `SandboxHooks` emitting OTEL traces:
 
 ```bash
-bun add @drej/otel @opentelemetry/api
+bun add @alineo-labs/otel @opentelemetry/api
 ```
 
 ```ts
-import { otelHooks } from "@drej/otel";
+import { otelHooks } from "@alineo-labs/otel";
 import { trace } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("my-app");
@@ -73,9 +73,9 @@ const sb = await client.sandbox({
 ### Span structure
 
 ```
-sandbox.run            ← root span (drej.sandbox.id, drej.sandbox.name)
-  sandbox.exec         ← child per exec (drej.exec.cmd, drej.exec.seq, process.exit_code)
-  sandbox.checkpoint   ← child per checkpoint (drej.snapshot.id, drej.checkpoint.name)
+sandbox.run            ← root span (alineo.sandbox.id, alineo.sandbox.name)
+  sandbox.exec         ← child per exec (alineo.exec.cmd, alineo.exec.seq, process.exit_code)
+  sandbox.checkpoint   ← child per checkpoint (alineo.snapshot.id, alineo.checkpoint.name)
 ```
 
 ### OtelHooksOptions
@@ -96,7 +96,7 @@ const hooks = otelHooks(tracer, { recordExitCode: false });
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { trace } from "@opentelemetry/api";
-import { otelHooks } from "@drej/otel";
+import { otelHooks } from "@alineo-labs/otel";
 
 const sdk = new NodeSDK({
   traceExporter: new OTLPTraceExporter({ url: "http://localhost:4318/v1/traces" }),

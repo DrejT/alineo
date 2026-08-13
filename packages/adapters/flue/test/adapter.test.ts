@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { Sandbox } from "drej";
+import type { Sandbox } from "alineo";
 
 // ── Module mock ──────────────────────────────────────────────────────────────
 // Must be set up before the import of the module under test so bun can hoist it.
@@ -12,7 +12,7 @@ mock.module("@flue/runtime", () => ({
   },
 }));
 
-import { drej } from "../src/index.ts";
+import { alineo } from "../src/index.ts";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ function buildApi(sb: Sandbox) {
 
 async function getApi(sb: Sandbox): Promise<any> {
   capturedApi = null;
-  const factory = drej(sb);
+  const factory = alineo(sb);
   await factory.createSessionEnv({ id: "test-ctx" });
   return capturedApi!;
 }
@@ -420,19 +420,19 @@ describe("rm", () => {
   });
 });
 
-// ── drej factory ──────────────────────────────────────────────────────────────
+// ── alineo factory ──────────────────────────────────────────────────────────────
 
-describe("drej factory", () => {
+describe("alineo factory", () => {
   it("passes cwd '/' by default to createSandboxSessionEnv", async () => {
     const sb = makeStub();
-    const factory = drej(sb);
+    const factory = alineo(sb);
     const env = (await factory.createSessionEnv({ id: "x" })) as any;
     expect(env._cwd).toBe("/");
   });
 
   it("forwards custom cwd option", async () => {
     const sb = makeStub();
-    const factory = drej(sb, { cwd: "/workspace" });
+    const factory = alineo(sb, { cwd: "/workspace" });
     const env = (await factory.createSessionEnv({ id: "x" })) as any;
     expect(env._cwd).toBe("/workspace");
   });

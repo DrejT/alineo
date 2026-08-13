@@ -1,4 +1,4 @@
-import type { Metrics, DiagnosticLog, DiagnosticEvent, FileInfo } from "@drej/opensandbox";
+import type { Metrics, DiagnosticLog, DiagnosticEvent, FileInfo } from "@alineo-labs/opensandbox";
 import type { CheckpointInfo } from "../ledger";
 import { SandboxCore } from "./core";
 import * as files from "./files";
@@ -6,7 +6,7 @@ import * as lifecycle from "./lifecycle";
 import * as observability from "./observability";
 
 /**
- * A live sandbox container. Returned by `Drej.sandbox()` and `Drej.resume()`.
+ * A live sandbox container. Returned by `Alineo.sandbox()` and `Alineo.resume()`.
  *
  * Call `exec()` to run commands, `checkpoint()` to snapshot state, and `close()`
  * when done. Multiple sandboxes can be held simultaneously — just assign to
@@ -182,7 +182,7 @@ export class Sandbox extends SandboxCore {
    * Snapshot the current sandbox and return a new independent `Sandbox` from that state.
    *
    * The original sandbox keeps running. Both operate on separate containers restored
-   * from the same snapshot. Equivalent to `checkpoint()` followed by `Drej.restoreSnapshot()`
+   * from the same snapshot. Equivalent to `checkpoint()` followed by `Alineo.restoreSnapshot()`
    * into a new sandbox, but without closing the original.
    *
    * @example
@@ -205,8 +205,8 @@ export class Sandbox extends SandboxCore {
    * Capture a snapshot of the sandbox's current filesystem state.
    *
    * Writes a `checkpoint_created` event to the ledger with the snapshot ID and
-   * returns the snapshot ID. Use `Drej.resume(sandboxId)` to restore from
-   * the latest checkpoint, or pass the returned ID to `Drej.restoreSnapshot()`.
+   * returns the snapshot ID. Use `Alineo.resume(sandboxId)` to restore from
+   * the latest checkpoint, or pass the returned ID to `Alineo.restoreSnapshot()`.
    */
   async checkpoint(name?: string): Promise<string> {
     return lifecycle.checkpoint(this, name);

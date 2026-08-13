@@ -1,5 +1,5 @@
 ---
-"@drej/core": minor
+"@alineo-labs/core": minor
 ---
 
 Add `composeHooks(hooks, opts?)` to merge multiple `SandboxHooks` into one, so more than one

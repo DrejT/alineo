@@ -1,4 +1,4 @@
-/** Local copy of `@drej/agent`'s `SetupStep` shape — avoids a cross-package dependency for a
+/** Local copy of `@alineo-labs/agent`'s `SetupStep` shape — avoids a cross-package dependency for a
  * trivial shared interface, same call `pack-local-package.ts` already makes. */
 export interface SetupStep {
   name: string;
@@ -15,7 +15,7 @@ const CHROME_APT_PACKAGES =
   "fonts-freefont-ttf";
 
 /**
- * Setup steps that make agent-browser's browser tools usable inside a drej sandbox: Chrome's
+ * Setup steps that make agent-browser's browser tools usable inside a alineo sandbox: Chrome's
  * system dependencies, then agent-browser itself. Any spec whose agent will use the
  * `browser_*` tools (see `pi-extension/agent-browser.ts`) should splice these into its own
  * `setup` array — e.g. `setup: [...otherSteps, ...browserSetupSteps()]`.

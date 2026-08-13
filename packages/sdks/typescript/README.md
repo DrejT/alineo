@@ -1,22 +1,22 @@
-# drej
+# alineo
 
 Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.
 
 ```bash
-bun add drej @drej/sqlite
+bun add alineo @alineo-labs/sqlite
 ```
 
-**[Full documentation →](https://docs.drej.dev/docs/core)**
+**[Full documentation →](https://docs.alineo.tech/docs/core)**
 
 ---
 
 ## Quickstart
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -131,7 +131,7 @@ await Promise.all([sb.close(), fork.close()]);
 ## Error handling
 
 ```ts
-import { CommandError } from "drej";
+import { CommandError } from "alineo";
 
 try {
   await sb.exec("exit 1"); // strict: true by default
@@ -150,12 +150,12 @@ const { exitCode } = await sb.exec("exit 1", { strict: false });
 ## Configuration
 
 ```ts
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080", // OpenSandbox server URL
   apiKey: "", // API key (empty for local dev)
-  adapter: new SQLiteAdapter("./drej.db"),
+  adapter: new SQLiteAdapter("./alineo.db"),
   maxConcurrency: 4, // cap simultaneous active sandboxes
-  useServerProxy: true, // required when server runs in Docker via drejx init
+  useServerProxy: true, // required when server runs in Docker via alineo init
 });
 ```
 
@@ -166,7 +166,7 @@ const client = new Drej({
 Requires a running [OpenSandbox](https://open-sandbox.ai) instance:
 
 ```bash
-bunx drejx init        # starts OpenSandbox in Docker, recommended
+bunx alineo-cli init        # starts OpenSandbox in Docker, recommended
 # or
 uvx opensandbox-server # manual, see docs for ~/.sandbox.toml config
 ```

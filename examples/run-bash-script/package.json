@@ -1,12 +1,12 @@
 {
-  "name": "drej-example-run-bash-script",
+  "name": "alineo-example-run-bash-script",
   "version": "0.0.11",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
   },
   "dependencies": {
-    "@drej/sqlite": "workspace:*",
-    "drej": "workspace:*"
+    "@alineo-labs/sqlite": "workspace:*",
+    "alineo": "workspace:*"
   }
 }

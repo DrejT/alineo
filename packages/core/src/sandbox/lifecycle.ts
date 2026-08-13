@@ -48,8 +48,8 @@ export async function resume(sb: SandboxInternal): Promise<void> {
  * Capture a snapshot of the sandbox's current filesystem state.
  *
  * Writes a `checkpoint_created` event to the ledger with the snapshot ID and
- * returns the snapshot ID. Use `Drej.resume(sandboxId)` to restore from
- * the latest checkpoint, or pass the returned ID to `Drej.restoreSnapshot()`.
+ * returns the snapshot ID. Use `Alineo.resume(sandboxId)` to restore from
+ * the latest checkpoint, or pass the returned ID to `Alineo.restoreSnapshot()`.
  */
 export async function checkpoint(sb: SandboxInternal, name?: string): Promise<string> {
   const snap = await sb.deps.control.createSnapshot(sb.sandboxId);
@@ -63,14 +63,14 @@ export async function checkpoint(sb: SandboxInternal, name?: string): Promise<st
  * Snapshot the current sandbox and return a new independent `Sandbox` from that state.
  *
  * The original sandbox keeps running. Both operate on separate containers restored
- * from the same snapshot. Equivalent to `checkpoint()` followed by `Drej.restoreSnapshot()`
+ * from the same snapshot. Equivalent to `checkpoint()` followed by `Alineo.restoreSnapshot()`
  * into a new sandbox, but without closing the original.
  *
  * @param runId  Override the forked sandbox's run correlation ID instead of inheriting
  *   whatever this sandbox's own creation closed over. Needed when forking across a process
- *   boundary (e.g. `drejx fork`, which re-`Agent.attach()`es in a brand-new CLI process with
+ *   boundary (e.g. `alineo fork`, which re-`Agent.attach()`es in a brand-new CLI process with
  *   no access to the original in-memory closure) — the caller reads the correct value from
- *   `process.env.DREJX_RUN_ID` and passes it explicitly rather than relying on this sandbox's
+ *   `process.env.ALINEO_RUN_ID` and passes it explicitly rather than relying on this sandbox's
  *   own (possibly unknown) default.
  */
 export async function fork(sb: SandboxInternal, tag?: string, runId?: string): Promise<Sandbox> {

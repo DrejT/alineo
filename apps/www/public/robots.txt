@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://drej.dev/sitemap-index.xml

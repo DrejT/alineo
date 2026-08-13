@@ -1,4 +1,4 @@
-# @drej/harness
+# @alineo-labs/harness
 
 A small, domain-agnostic primitive for building a structured system prompt out of named,
 independently-addressable sections instead of hand-concatenated template strings gated by ad
@@ -10,7 +10,7 @@ format/examples sections, XML-tag rendering) is a reasonable general-purpose bui
 rather than tied to any one model provider's conventions.
 
 ```ts
-import { harness } from "@drej/harness";
+import { harness } from "@alineo-labs/harness";
 
 const h = harness()
   .role("You are a careful code-review assistant.")
@@ -90,7 +90,7 @@ provider's official docs advise against XML tags. Llama is the one soft outlier
 
 This means the _builder itself_ (`packages/harness/src/index.ts`) is legitimately portable
 — any vendor-specific coupling belongs in a future caller's own prompt content, not in this
-package. (In `drej`'s private/commercial fork, that caller is `packages/cli`'s
+package. (In `alineo`'s private/commercial fork, that caller is `packages/cli`'s
 `harness-setup.ts`, which renders Pi-specific `.pi/SYSTEM.md` content — deliberately not
 brought over here, since it's product-specific rather than a general-purpose primitive.)
 

@@ -1,12 +1,12 @@
 {
-  "name": "drej-example-file-ops",
+  "name": "alineo-example-file-ops",
   "version": "0.0.11",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
   },
   "dependencies": {
-    "@drej/sqlite": "workspace:*",
-    "drej": "workspace:*"
+    "@alineo-labs/sqlite": "workspace:*",
+    "alineo": "workspace:*"
   }
 }

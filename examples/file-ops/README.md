@@ -5,7 +5,7 @@ Demonstrates the full sandbox file operations API — no `exec`/`sed` needed for
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

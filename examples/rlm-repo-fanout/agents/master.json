@@ -1,9 +1,9 @@
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "rlm-fanout-master",
   "title": "RLM Fan-out Master",
-  "description": "Clones a repo, decides how to split a task across it, and forks child agents (via drejx fork) that each work on one slice from the exact same checked-out commit.",
-  "author": "drej",
+  "description": "Clones a repo, decides how to split a task across it, and forks child agents (via alineo fork) that each work on one slice from the exact same checked-out commit.",
+  "author": "alineo",
   "cli": "pi",
   "provider": "nvidia",
   "model": "nvidia/nvidia-nemotron-nano-9b-v2",
@@ -25,13 +25,13 @@
       "run": "find ./repo/examples -mindepth 1 -maxdepth 1 -type d | while read d; do [ -f \"$d/README.md\" ] || basename \"$d\"; done > MISSING_READMES.txt"
     },
     {
-      "name": "Install bun (drejx's own shebang requires it)",
+      "name": "Install bun (alineo's own shebang requires it)",
       "run": "curl -fsSL https://bun.sh/install | bash && ln -sf /root/.bun/bin/bun /usr/local/bin/bun"
     },
-    { "name": "Install drejx", "run": "npm install -g drejx" },
+    { "name": "Install alineo", "run": "npm install -g alineo-cli" },
     {
-      "name": "Configure drejx",
-      "run": "mkdir -p .drej && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.drej/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > drej.config.json"
+      "name": "Configure alineo",
+      "run": "mkdir -p .alineo && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.alineo/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > alineo.config.json"
     },
     {
       "name": "Add the worker spec",
@@ -39,7 +39,7 @@
     },
     {
       "name": "Write TASK.md",
-      "run": "printf '# Task: backfill missing example READMEs\\n\\nThe repo is cloned at ./repo (drej, a sandbox execution substrate). Every folder under ./repo/examples/ should have a README.md describing, in one short paragraph, what capability that example demonstrates (base it on the index.ts file in that folder).\\n\\nThe examples missing a README.md are listed, one per line, in ./MISSING_READMES.txt (already computed for you -- no need to search for them). Decide how to split this list among spawned child agents (one child per example, or grouped -- your call), and have each child write the missing README.md for its assigned example(s) inside its own copy of the repo (children start from your exact checked-out commit, so their edits apply to the same tree).\\n\\nTo fork a child, run exactly this (your own session name is rlm-fanout-master):\\ndrejx fork rlm-fanout-master ./agents/worker.json --prompt \"<plain instruction>\" --json\\n\\nKeep each --prompt value plain English, naming the example and the file to write. Do not embed literal shell commands or shell operators like && inside the --prompt text -- the child will run its own commands once it starts, you do not need to script that for it.\\n\\nDo not write any README.md file yourself directly -- every missing README must be written by a spawned child, even if there is only one missing file. Your own job is to read MISSING_READMES.txt, decide the split, spawn one or more children to do the writing, and collect their results.\\n\\nEach child should:\\n- Write repo/examples/<name>/README.md (a short paragraph, no more).\\n- Run \"cd repo && git diff\" and report the full diff as its final answer.\\n- NOT commit or push anything.\\n\\nWhen all children report back, combine their diffs and report the combined patch set as your OWN final answer, in a fenced code block. Do not apply, commit, or push anything yourself either -- this task is about producing a reviewable patch set, not merging it.\\n' > TASK.md"
+      "run": "printf '# Task: backfill missing example READMEs\\n\\nThe repo is cloned at ./repo (alineo, a sandbox execution substrate). Every folder under ./repo/examples/ should have a README.md describing, in one short paragraph, what capability that example demonstrates (base it on the index.ts file in that folder).\\n\\nThe examples missing a README.md are listed, one per line, in ./MISSING_READMES.txt (already computed for you -- no need to search for them). Decide how to split this list among spawned child agents (one child per example, or grouped -- your call), and have each child write the missing README.md for its assigned example(s) inside its own copy of the repo (children start from your exact checked-out commit, so their edits apply to the same tree).\\n\\nTo fork a child, run exactly this (your own session name is rlm-fanout-master):\\nalineo fork rlm-fanout-master ./agents/worker.json --prompt \"<plain instruction>\" --json\\n\\nKeep each --prompt value plain English, naming the example and the file to write. Do not embed literal shell commands or shell operators like && inside the --prompt text -- the child will run its own commands once it starts, you do not need to script that for it.\\n\\nDo not write any README.md file yourself directly -- every missing README must be written by a spawned child, even if there is only one missing file. Your own job is to read MISSING_READMES.txt, decide the split, spawn one or more children to do the writing, and collect their results.\\n\\nEach child should:\\n- Write repo/examples/<name>/README.md (a short paragraph, no more).\\n- Run \"cd repo && git diff\" and report the full diff as its final answer.\\n- NOT commit or push anything.\\n\\nWhen all children report back, combine their diffs and report the combined patch set as your OWN final answer, in a fenced code block. Do not apply, commit, or push anything yourself either -- this task is about producing a reviewable patch set, not merging it.\\n' > TASK.md"
     }
   ]
 }

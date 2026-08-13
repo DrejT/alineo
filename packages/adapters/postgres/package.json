@@ -1,6 +1,7 @@
 {
-  "name": "@drej/postgres",
+  "name": "@alineo-labs/postgres",
   "version": "0.3.8",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -27,7 +28,7 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@drej/core": "workspace:*",
+    "@alineo-labs/core": "workspace:*",
     "postgres": "3.4.9"
   },
   "devDependencies": {

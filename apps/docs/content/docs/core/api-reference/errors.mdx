@@ -1,10 +1,16 @@
 ---
 title: Errors
-description: CommandError, SandboxError, ExecConnectionError, WorkflowError, and DrejError — the full drej error hierarchy.
+description: CommandError, SandboxError, ExecConnectionError, WorkflowError, and AlineoError — the full alineo error hierarchy.
 ---
 
 ```ts
-import { CommandError, SandboxError, ExecConnectionError, WorkflowError, DrejError } from "drej";
+import {
+  CommandError,
+  SandboxError,
+  ExecConnectionError,
+  WorkflowError,
+  AlineoError,
+} from "alineo";
 ```
 
 ## Error hierarchy
@@ -15,23 +21,23 @@ Error
 │   ├── SandboxError        — sandbox lifecycle failure: create/boot/Running, paused, unsupported fork(), or snapshot
 │   ├── ExecConnectionError — execd not ready after retry window
 │   └── CommandError        — non-zero exit code in strict mode
-└── DrejError                — client-level errors from Drej itself (not a WorkflowError)
+└── AlineoError                — client-level errors from Alineo itself (not a WorkflowError)
 ```
 
-`SandboxError`, `ExecConnectionError`, and `CommandError` all extend `WorkflowError`, which extends `Error` — catch all three with `e instanceof WorkflowError`. `DrejError` is a separate, sibling class thrown by `Drej` client methods (`sandbox()`, `resume()`, `sandboxes.*`, `environment()`) rather than by `Sandbox` methods — see [DrejError](#drejerror) below.
+`SandboxError`, `ExecConnectionError`, and `CommandError` all extend `WorkflowError`, which extends `Error` — catch all three with `e instanceof WorkflowError`. `AlineoError` is a separate, sibling class thrown by `Alineo` client methods (`sandbox()`, `resume()`, `sandboxes.*`, `environment()`) rather than by `Sandbox` methods — see [AlineoError](#alineoerror) below.
 
 ## WorkflowError
 
 Base class. Has `message` and `name` properties. `name` is always `"WorkflowError"`.
 
 ```ts
-import { WorkflowError } from "drej";
+import { WorkflowError } from "alineo";
 
 try {
   await sb.exec("cmd");
 } catch (e) {
   if (e instanceof WorkflowError) {
-    console.error("drej error:", e.message);
+    console.error("alineo error:", e.message);
   } else {
     throw e;
   }
@@ -43,7 +49,7 @@ try {
 Thrown when `sb.exec()` exits with a non-zero code and `strict: true` (the default).
 
 ```ts
-import { CommandError } from "drej";
+import { CommandError } from "alineo";
 
 try {
   await sb.exec("exit 42");
@@ -78,10 +84,10 @@ const { exitCode } = await sb.exec("test -f /etc/hosts", { strict: false });
 
 Thrown by methods on `Sandbox` itself: `resume()` if the container never reaches `Running` (or enters `Failed`/`Terminated`), an exec call while the sandbox is paused, `fork()` when the deps don't support it, or a failed snapshot wait.
 
-A failure during `client.sandbox()`'s own initial creation throws `DrejError`, not `SandboxError` — see below.
+A failure during `client.sandbox()`'s own initial creation throws `AlineoError`, not `SandboxError` — see below.
 
 ```ts
-import { SandboxError } from "drej";
+import { SandboxError } from "alineo";
 
 try {
   await sb.resume(); // sandbox previously pause()d, now stuck
@@ -106,7 +112,7 @@ try {
 Thrown when the execd daemon inside the container never becomes ready within the retry window (~15 seconds). The container is `Running` from OpenSandbox's perspective, but the exec daemon isn't accepting connections.
 
 ```ts
-import { ExecConnectionError } from "drej";
+import { ExecConnectionError } from "alineo";
 
 try {
   await sb.exec("echo test");
@@ -128,21 +134,21 @@ try {
 
 This usually means the container image doesn't include execd, or the container started but the execd process crashed.
 
-## DrejError
+## AlineoError
 
-Thrown by the `Drej` client for API-level errors (404 not found, timeouts waiting for Running state):
+Thrown by the `Alineo` client for API-level errors (404 not found, timeouts waiting for Running state):
 
 ```ts
-import { DrejError } from "drej";
+import { AlineoError } from "alineo";
 
 try {
   await client.resume("nonexistent-id");
 } catch (e) {
-  if (e instanceof DrejError) {
+  if (e instanceof AlineoError) {
     console.error(e.message); // "Session nonexistent-id not found"
     console.error(e.status); // 404
   }
 }
 ```
 
-`DrejError` is not a `WorkflowError` — it's a separate class for client-level errors.
+`AlineoError` is not a `WorkflowError` — it's a separate class for client-level errors.

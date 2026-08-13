@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ExecHandle } from "../src/exec-handle.ts";
-import { SSEEventType } from "@drej/opensandbox";
-import type { SSEEvent } from "@drej/opensandbox";
+import { SSEEventType } from "@alineo-labs/opensandbox";
+import type { SSEEvent } from "@alineo-labs/opensandbox";
 
 function makeStream(events: SSEEvent[]): AsyncGenerator<SSEEvent> {
   return (async function* () {

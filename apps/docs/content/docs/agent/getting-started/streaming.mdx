@@ -73,7 +73,7 @@ type AgentEvent =
 If you only care about the text output, use the `textOnly()` helper to filter the stream:
 
 ```ts
-import { Agent, textOnly } from "@drej/agent";
+import { Agent, textOnly } from "@alineo-labs/agent";
 
 for await (const chunk of textOnly(agent.prompt("Summarise this repo."))) {
   process.stdout.write(chunk);

@@ -38,10 +38,10 @@ await sb.execCode(`data = [1, 2, 3]`, { context: ctx });
 await sb.execCode(`print(sum(data))`, { context: ctx }).pipe(process.stdout); // 6
 ```
 
-Import `CodeLanguage` from `drej`:
+Import `CodeLanguage` from `alineo`:
 
 ```ts
-import { CodeLanguage } from "drej";
+import { CodeLanguage } from "alineo";
 ```
 
 Requires a code-interpreter image (e.g. `opensandbox/code-interpreter`).
@@ -73,10 +73,10 @@ Use `client.resume(sandboxId)` to restore from the last checkpoint. See [Snapsho
 
 ## Control flow (workflow builder)
 
-The `@drej/workflow` package adds queued control-flow steps: `retry`, `when`, `forEach`. These are only available in the workflow builder (`SandboxBuilder`), not on the `Sandbox` class directly.
+The `@alineo-labs/workflow` package adds queued control-flow steps: `retry`, `when`, `forEach`. These are only available in the workflow builder (`SandboxBuilder`), not on the `Sandbox` class directly.
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 await workflow(client)
   .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {

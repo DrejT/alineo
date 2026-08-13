@@ -6,7 +6,7 @@ export default function WorkflowLayout({ children }: { children: React.ReactNode
   return (
     <DocsLayout
       tree={workflowSource.pageTree}
-      nav={{ title: "drej", url: "/" }}
+      nav={{ title: "alineo", url: "/" }}
       themeSwitch={{ enabled: false }}
       searchToggle={{ enabled: true }}
       sidebar={{ banner: <PackageSwitcher key="package-switcher" /> }}

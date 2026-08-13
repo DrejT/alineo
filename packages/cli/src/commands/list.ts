@@ -9,14 +9,14 @@ export async function list(): Promise<void> {
   const dir = config.agentsDir;
 
   if (!existsSync(dir)) {
-    console.log(`No agents dir found at '${dir}'. Run 'drejx add <url>' to add an agent spec.`);
+    console.log(`No agents dir found at '${dir}'. Run 'alineo add <url>' to add an agent spec.`);
     return;
   }
 
   const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
 
   if (files.length === 0) {
-    console.log("No agent specs found. Run 'drejx add <url>' to add one.");
+    console.log("No agent specs found. Run 'alineo add <url>' to add one.");
     return;
   }
 
@@ -41,7 +41,7 @@ export async function list(): Promise<void> {
 export const listCommand: CliCommand = {
   name: "list",
   group: "sdk",
-  variants: [{ usage: "drejx list", summary: "List saved agent specs" }],
+  variants: [{ usage: "alineo list", summary: "List saved agent specs" }],
   run: async () => {
     await list();
   },
