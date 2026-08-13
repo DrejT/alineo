@@ -71,6 +71,14 @@
         "typescript": "^5.7.0",
       },
     },
+    "apps/telemetry": {
+      "name": "@alineo-labs/telemetry",
+      "version": "0.1.0",
+      "devDependencies": {
+        "bun-types": "1.3.14",
+        "typescript": "6.0.3",
+      },
+    },
     "examples/benchmark": {
       "name": "alineo-example-benchmark",
       "version": "0.0.2",
@@ -455,6 +463,8 @@
     "@alineo-labs/sandbox": ["@alineo-labs/sandbox@workspace:apps/sandbox"],
 
     "@alineo-labs/sqlite": ["@alineo-labs/sqlite@workspace:packages/adapters/sqlite"],
+
+    "@alineo-labs/telemetry": ["@alineo-labs/telemetry@workspace:apps/telemetry"],
 
     "@alineo-labs/workflow": ["@alineo-labs/workflow@workspace:packages/workflow"],
 

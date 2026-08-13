@@ -99,4 +99,14 @@ export const commands: CliCommand[] = [
     ],
     run: async (argv) => (await import("./logs.js")).logsCommand.run(argv),
   },
+  {
+    name: "telemetry",
+    group: "sdk",
+    variants: [
+      { usage: "alineo telemetry status", summary: "Show whether telemetry is enabled" },
+      { usage: "alineo telemetry enable", summary: "Enable anonymous usage telemetry" },
+      { usage: "alineo telemetry disable", summary: "Disable anonymous usage telemetry" },
+    ],
+    run: async (argv) => (await import("./telemetry.js")).telemetryCommand.run(argv),
+  },
 ];
