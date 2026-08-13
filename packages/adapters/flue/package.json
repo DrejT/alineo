@@ -1,6 +1,7 @@
 {
   "name": "@alineo-labs/flue",
   "version": "3.0.0",
+  "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
