@@ -1,6 +1,6 @@
 # @alineo-labs/registry
 
-Curated `AgentSpec` examples for `bunx alineo-cli add`, deployed to [registry.drej.dev](https://registry.drej.dev).
+Curated `AgentSpec` examples for `bunx alineo-cli add`, deployed to [registry.alineo.tech](https://registry.alineo.tech).
 
 This is not a required central service — `alineo add` accepts any URL that returns an `AgentSpec` JSON object (GitHub raw file, Gist, your own server). This site just hosts a small, searchable set of starter specs plus the schema they conform to.
 

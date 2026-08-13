@@ -1,5 +1,5 @@
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "rlm-master",
   "title": "RLM Master (generic)",
   "description": "Reusable RLM orchestrator master. Not tied to any one task — spawn it with `alineo spawn ./agents/master.json --prompt \"<any goal>\"` and it decides for itself whether the goal is worth decomposing, using alineo fork to spin up children from its own live state if so.",

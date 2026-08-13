@@ -1,5 +1,5 @@
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "rlm-fanout-master",
   "title": "RLM Fan-out Master",
   "description": "Clones a repo, decides how to split a task across it, and forks child agents (via alineo fork) that each work on one slice from the exact same checked-out commit.",

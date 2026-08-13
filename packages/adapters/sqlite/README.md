@@ -1,6 +1,6 @@
 # @alineo-labs/sqlite
 
-SQLite storage adapter for [alineo](https://drej.dev). Stores the sandbox ledger in a local `.db` file — zero infrastructure, works out of the box.
+SQLite storage adapter for [alineo](https://alineo.tech). Stores the sandbox ledger in a local `.db` file — zero infrastructure, works out of the box.
 
 ```bash
 bun add @alineo-labs/sqlite

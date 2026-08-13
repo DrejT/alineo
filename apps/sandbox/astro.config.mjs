@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   output: "static",
-  site: "https://sandbox.drej.dev",
+  site: "https://sandbox.alineo.tech",
   vite: {
     plugins: [tailwindcss()],
   },

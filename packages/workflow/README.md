@@ -1,12 +1,12 @@
 # @alineo-labs/workflow
 
-Lazy pipeline builder for [alineo](https://drej.dev) — retry, conditional branching, fan-out, and parallel sandboxes, all flushed in one `await`.
+Lazy pipeline builder for [alineo](https://alineo.tech) — retry, conditional branching, fan-out, and parallel sandboxes, all flushed in one `await`.
 
 ```bash
 bun add @alineo-labs/workflow
 ```
 
-**[Full documentation →](https://docs.drej.dev/docs/workflow)**
+**[Full documentation →](https://docs.alineo.tech/docs/workflow)**
 
 ---
 

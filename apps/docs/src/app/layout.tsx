@@ -10,7 +10,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://docs.drej.dev"),
+  metadataBase: new URL("https://docs.alineo.tech"),
   title: {
     default: "alineo docs",
     template: "%s — alineo docs",

@@ -1,6 +1,6 @@
 # alineo
 
-CLI for [alineo](https://drej.dev) — start a local OpenSandbox server, manage saved agent specs, and run/orchestrate `@alineo-labs/agent` sessions.
+CLI for [alineo](https://alineo.tech) — start a local OpenSandbox server, manage saved agent specs, and run/orchestrate `@alineo-labs/agent` sessions.
 
 ```bash
 bunx alineo-cli init
@@ -29,7 +29,7 @@ OpenSandbox's own snapshot metadata (what makes `Agent.load()`'s cached-snapshot
 Fetches an agent spec (JSON) from a URL or local file and saves it under `agentsDir` (default `./agents`).
 
 ```bash
-alineo add https://registry.drej.dev/agents/python-data.json
+alineo add https://registry.alineo.tech/agents/python-data.json
 ```
 
 ### `alineo list`

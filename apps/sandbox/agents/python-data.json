@@ -1,5 +1,5 @@
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "python-data",
   "title": "Python Data Agent",
   "description": "A Pi agent on node:22 with Python 3 and pandas/numpy pre-installed for data analysis tasks.",

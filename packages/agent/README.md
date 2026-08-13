@@ -1,12 +1,12 @@
 # @alineo-labs/agent
 
-Run [Pi](https://pi.ai) coding agents inside isolated [alineo](https://drej.dev) sandbox containers. Pi can read and write files, run shell commands, and execute scripts — streamed back through a simple TypeScript API.
+Run [Pi](https://pi.ai) coding agents inside isolated [alineo](https://alineo.tech) sandbox containers. Pi can read and write files, run shell commands, and execute scripts — streamed back through a simple TypeScript API.
 
 ```bash
 bun add @alineo-labs/agent
 ```
 
-**[Full documentation →](https://docs.drej.dev/docs/agent)**
+**[Full documentation →](https://docs.alineo.tech/docs/agent)**
 
 ---
 
@@ -16,7 +16,7 @@ Create an agent spec (`agents/my-agent.json`):
 
 ```json
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "my-agent",
   "cli": "pi",
   "model": "gemini-flash-latest",

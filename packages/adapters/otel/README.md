@@ -1,6 +1,6 @@
 # @alineo-labs/otel
 
-OpenTelemetry hooks adapter for [alineo](https://drej.dev). Emits distributed traces for sandbox lifecycle events — sandbox creation, exec calls, and checkpoints.
+OpenTelemetry hooks adapter for [alineo](https://alineo.tech). Emits distributed traces for sandbox lifecycle events — sandbox creation, exec calls, and checkpoints.
 
 ```bash
 bun add @alineo-labs/otel

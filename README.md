@@ -23,7 +23,7 @@ await sb.exec('echo "hello from a sandbox"').pipe(process.stdout);
 await sb.close();
 ```
 
-**[Full documentation →](https://docs.drej.dev)**
+**[Full documentation →](https://docs.alineo.tech)**
 
 ---
 

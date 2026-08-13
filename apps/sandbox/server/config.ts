@@ -30,4 +30,4 @@ export const PORT = Number(process.env.PORT ?? 3000);
  * from this API), so CORS is required. Override for local dev against
  * `astro dev` (typically http://localhost:4321).
  */
-export const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "https://sandbox.drej.dev";
+export const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "https://sandbox.alineo.tech";

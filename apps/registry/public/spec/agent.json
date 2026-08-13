@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://registry.drej.dev/spec/agent.json",
+  "$id": "https://registry.alineo.tech/spec/agent.json",
   "title": "AgentSpec",
-  "description": "JSON spec for an alineo agent, fetched by `alineo add` and run by `@alineo-labs/agent`'s Agent.load(). See https://docs.drej.dev/docs/drejx/registry/schema for the full field reference.",
+  "description": "JSON spec for an alineo agent, fetched by `alineo add` and run by `@alineo-labs/agent`'s Agent.load(). See https://docs.alineo.tech/docs/alineo/registry/schema for the full field reference.",
   "type": "object",
   "required": ["name", "cli"],
   "properties": {

@@ -3,7 +3,7 @@ import { coreSource, workflowSource, alineoSource, agentSource } from "@/lib/sou
 
 export const dynamic = "force-static";
 
-const BASE_URL = "https://docs.drej.dev";
+const BASE_URL = "https://docs.alineo.tech";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const sources = [coreSource, workflowSource, alineoSource, agentSource];

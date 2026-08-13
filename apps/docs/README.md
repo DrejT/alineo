@@ -1,6 +1,6 @@
 # docs
 
-Documentation site for alineo, deployed to [docs.drej.dev](https://docs.drej.dev).
+Documentation site for alineo, deployed to [docs.alineo.tech](https://docs.alineo.tech).
 
 Next.js + [Fumadocs](https://fumadocs.dev), content authored as MDX.
 

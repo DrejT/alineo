@@ -13,7 +13,7 @@ import { beforeAll, afterAll, test, expect, describe } from "bun:test";
 const GEMINI_API_KEY = "AIzaSyBNyRoeeX_gsuL1Dqj9ElcjBGtw1cAdKhc";
 
 const SPEC = {
-  $schema: "https://registry.drej.dev/spec/agent.json",
+  $schema: "https://registry.alineo.tech/spec/agent.json",
   name: "test-agent",
   cli: "pi" as const,
   packages: [],

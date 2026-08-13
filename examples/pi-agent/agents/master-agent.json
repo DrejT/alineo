@@ -1,5 +1,5 @@
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "master-agent",
   "title": "Master Agent",
   "description": "A Pi agent with the alineo CLI + Pi extension installed, demonstrating an agent orchestrating its own child agent sessions via alineo CLI bash commands (spawn/prompt/agents/kill/fork) instead of raw osb bash commands. The extension's typed alineo_* tools were removed (see packages/cli/pi-extension/alineo.ts's deprecation note) -- this now exercises its remaining before_agent_start guidance injection only.",
