@@ -19,7 +19,8 @@
     "tests/integration",
     "apps/docs",
     "apps/registry",
-    "apps/sandbox"
+    "apps/sandbox",
+    "apps/telemetry"
   ],
   "scripts": {
     "setup": "bun scripts/setup.ts",

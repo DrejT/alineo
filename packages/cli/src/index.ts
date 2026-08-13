@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { commands } from "./commands/registry.js";
 import type { CliCommand } from "./commands/types.js";
+import { recordTuiLaunch, withTelemetry } from "./telemetry.js";
 
 const [, , cmd, ...argv] = process.argv;
 
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
   // Bare `alineo` in an interactive terminal launches the TUI; piped/scripted
   // invocations with no subcommand (no TTY) fall through to the help text below.
   if (!cmd && process.stdout.isTTY) {
+    await recordTuiLaunch();
     const { launchTui } = await import("./tui/index.js");
     await launchTui();
     return;
@@ -56,7 +58,7 @@ async function main(): Promise<void> {
 
   const found = commands.find((c) => c.name === cmd);
   if (found) {
-    await found.run(argv);
+    await withTelemetry(found.name, argv, () => found.run(argv));
     return;
   }
 
