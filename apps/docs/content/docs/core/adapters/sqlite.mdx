@@ -3,21 +3,21 @@ title: SQLite adapter
 description: Zero-config storage with WAL mode. The right default for local dev and single-process deploys.
 ---
 
-`@drej/sqlite` is the recommended adapter for local development and single-process applications. It requires no external services — just a file path.
+`@alineo-labs/sqlite` is the recommended adapter for local development and single-process applications. It requires no external services — just a file path.
 
 ## Install
 
 ```bash
-bun add @drej/sqlite
+bun add @alineo-labs/sqlite
 ```
 
 ## Usage
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -55,7 +55,7 @@ const adapter = new SQLiteAdapter(":memory:");
 
 ## When to switch to Postgres
 
-Switch to `@drej/postgres` when:
+Switch to `@alineo-labs/postgres` when:
 
 - Multiple processes need to share the same ledger
 - You're deploying to a platform without persistent local disk
@@ -66,7 +66,7 @@ Switch to `@drej/postgres` when:
 The following is created automatically on first use:
 
 ```sql
-CREATE TABLE IF NOT EXISTS drej_events (
+CREATE TABLE IF NOT EXISTS alineo_events (
   id          INTEGER  PRIMARY KEY AUTOINCREMENT,
   sandbox_id  TEXT     NOT NULL,
   name        TEXT     NOT NULL,
@@ -78,10 +78,10 @@ CREATE TABLE IF NOT EXISTS drej_events (
   ts          INTEGER  NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS drej_events_sandbox_id ON drej_events(sandbox_id);
-CREATE INDEX IF NOT EXISTS drej_events_name ON drej_events(name);
+CREATE INDEX IF NOT EXISTS alineo_events_sandbox_id ON alineo_events(sandbox_id);
+CREATE INDEX IF NOT EXISTS alineo_events_name ON alineo_events(name);
 
-CREATE TABLE IF NOT EXISTS drej_environments (
+CREATE TABLE IF NOT EXISTS alineo_environments (
   name        TEXT    PRIMARY KEY,
   snapshot_id TEXT    NOT NULL,
   image       TEXT    NOT NULL,

@@ -8,7 +8,7 @@ description: Strict vs non-strict exec, CommandError, SandboxError, and ExecConn
 By default, `sb.exec()` throws `CommandError` if the command exits with a non-zero code. This is "strict mode" — it mirrors how shell `set -e` works:
 
 ```ts
-import { CommandError } from "drej";
+import { CommandError } from "alineo";
 
 const sb = await client.sandbox({
   image: "debian:bookworm-slim",
@@ -70,7 +70,7 @@ try {
 }
 ```
 
-Or use `when` from `@drej/workflow` for the same pattern in a builder:
+Or use `when` from `@alineo-labs/workflow` for the same pattern in a builder:
 
 ```ts
 sb.exec("exit 1", { strict: false });
@@ -88,7 +88,7 @@ sb.when(
 Thrown when a sandbox fails to create, boot, or reach `Running` state:
 
 ```ts
-import { SandboxError } from "drej";
+import { SandboxError } from "alineo";
 
 try {
   const sb = await client.sandbox({
@@ -109,7 +109,7 @@ try {
 Thrown when execd inside the sandbox never becomes ready. The container is running from OpenSandbox's perspective, but the exec daemon isn't accepting connections after the retry window:
 
 ```ts
-import { ExecConnectionError } from "drej";
+import { ExecConnectionError } from "alineo";
 
 try {
   await sb.exec("echo test");
@@ -131,24 +131,24 @@ Error
     └── CommandError        — non-zero exit code (strict mode)
 ```
 
-Import from `drej`:
+Import from `alineo`:
 
 ```ts
-import { CommandError, SandboxError, ExecConnectionError, WorkflowError } from "drej";
+import { CommandError, SandboxError, ExecConnectionError, WorkflowError } from "alineo";
 ```
 
-## Catching all drej errors
+## Catching all alineo errors
 
-Use `WorkflowError` as the base class to catch any drej-specific error:
+Use `WorkflowError` as the base class to catch any alineo-specific error:
 
 ```ts
-import { WorkflowError } from "drej";
+import { WorkflowError } from "alineo";
 
 try {
   await sb.exec("cmd");
 } catch (e) {
   if (e instanceof WorkflowError) {
-    console.error("drej error:", e.message);
+    console.error("alineo error:", e.message);
   } else {
     throw e; // re-throw unexpected errors
   }

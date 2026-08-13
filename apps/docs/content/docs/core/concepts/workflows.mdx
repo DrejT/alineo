@@ -1,19 +1,19 @@
 ---
 title: Workflows
-description: The two usage modes — direct sandbox API and the @drej/workflow lazy builder.
+description: The two usage modes — direct sandbox API and the @alineo-labs/workflow lazy builder.
 ---
 
-drej has two ways to work with sandboxes. Both use the same underlying `Sandbox` and `ExecHandle` types.
+alineo has two ways to work with sandboxes. Both use the same underlying `Sandbox` and `ExecHandle` types.
 
 ## Direct sandbox API
 
 You create a sandbox, call methods on it, and close it. This is the simplest and most flexible mode — you have full control over the lifecycle and can use ordinary TypeScript between steps.
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -43,10 +43,10 @@ Use the direct API when:
 
 ## Workflow builder
 
-`@drej/workflow` provides a lazy builder that queues operations synchronously and flushes them when `.pipe()` or `.result()` is awaited. The builder handles sandbox lifecycle (create + close) automatically.
+`@alineo-labs/workflow` provides a lazy builder that queues operations synchronously and flushes them when `.pipe()` or `.result()` is awaited. The builder handles sandbox lifecycle (create + close) automatically.
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 await workflow(client)
   .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "512Mi" } }, (sb) => {

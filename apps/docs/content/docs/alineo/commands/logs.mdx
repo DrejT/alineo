@@ -1,17 +1,17 @@
 ---
-title: drejx logs
+title: alineo logs
 description: Print ledger events for a session.
 ---
 
 ```bash
-bunx drejx logs <name> [--json]
+bunx alineo-cli logs <name> [--json]
 ```
 
 ## Arguments
 
-| Argument | Description                                             |
-| -------- | ------------------------------------------------------- |
-| `name`   | The session name, as shown by `drejx agents`. Required. |
+| Argument | Description                                              |
+| -------- | -------------------------------------------------------- |
+| `name`   | The session name, as shown by `alineo agents`. Required. |
 
 ## Flags
 
@@ -23,12 +23,12 @@ bunx drejx logs <name> [--json]
 
 Looks up the most recent sandbox for `name` in the ledger and prints every ledger event recorded against it — `sandbox_created`, `exec_start`/`exec_event`/`exec_complete`, `checkpoint_created`, `sandbox_closed`, and so on.
 
-Note this reads by **name**, unlike `drejx prompt`/`drejx kill` which read by sandbox ID — `logs` is a read-only audit trail, not a liveness-sensitive operation, so the staleness/non-uniqueness concerns that motivate ID-based addressing elsewhere don't apply the same way. If a name has multiple sandboxes in the ledger, the newest one is used.
+Note this reads by **name**, unlike `alineo prompt`/`alineo kill` which read by sandbox ID — `logs` is a read-only audit trail, not a liveness-sensitive operation, so the staleness/non-uniqueness concerns that motivate ID-based addressing elsewhere don't apply the same way. If a name has multiple sandboxes in the ledger, the newest one is used.
 
 ## Example
 
 ```bash
-bunx drejx logs my-session
+bunx alineo-cli logs my-session
 ```
 
 ```
@@ -45,5 +45,5 @@ Long payloads are truncated to 200 characters in text mode. Use `--json` for the
 
 ## Notes
 
-- Only shows what's in **this CLI invocation's own** ledger — a child sandbox forked via `drejx fork` from inside another sandbox writes to that sandbox's own internal ledger, not this one. Use `drejx agents` from inside the child's own project context to inspect it, or connect to it directly.
+- Only shows what's in **this CLI invocation's own** ledger — a child sandbox forked via `alineo fork` from inside another sandbox writes to that sandbox's own internal ledger, not this one. Use `alineo agents` from inside the child's own project context to inspect it, or connect to it directly.
 - Errors with `No session named '<name>' found in the ledger.` if nothing matches.

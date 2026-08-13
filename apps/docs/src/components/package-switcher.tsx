@@ -5,10 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 const packages = [
-  { value: "core", label: "Core SDK", sub: "drej" },
-  { value: "workflow", label: "Workflow Builder", sub: "@drej/workflow" },
-  { value: "agent", label: "Agent SDK", sub: "@drej/agent" },
-  { value: "drejx", label: "drejx CLI", sub: "drejx" },
+  { value: "core", label: "Core SDK", sub: "alineo" },
+  { value: "workflow", label: "Workflow Builder", sub: "@alineo-labs/workflow" },
+  { value: "agent", label: "Agent SDK", sub: "@alineo-labs/agent" },
+  { value: "alineo", label: "alineo CLI", sub: "alineo-cli" },
 ] as const;
 
 type PackageValue = (typeof packages)[number]["value"];
@@ -23,8 +23,8 @@ export function PackageSwitcher() {
     ? "workflow"
     : pathname.startsWith("/docs/agent")
       ? "agent"
-      : pathname.startsWith("/docs/drejx")
-        ? "drejx"
+      : pathname.startsWith("/docs/alineo")
+        ? "alineo"
         : "core";
   const selected = packages.find((p) => p.value === current)!;
 

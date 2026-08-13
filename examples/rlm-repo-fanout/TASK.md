@@ -1,6 +1,6 @@
 # Task: backfill missing example READMEs
 
-The repo is cloned at ./repo (drej, a sandbox execution substrate). Every
+The repo is cloned at ./repo (alineo, a sandbox execution substrate). Every
 folder under ./repo/examples/ should have a README.md describing, in one
 short paragraph, what capability that example demonstrates (base it on the
 index.ts file in that folder).
@@ -16,7 +16,7 @@ apply to the same tree).
 To fork a child, run exactly this (your own session name is
 rlm-fanout-master):
 
-    drejx fork rlm-fanout-master ./agents/worker.json --prompt "<plain instruction>" --json
+    alineo fork rlm-fanout-master ./agents/worker.json --prompt "<plain instruction>" --json
 
 Keep each --prompt value plain English, naming the example and the file to
 write. Do not embed literal shell commands or shell operators like && inside

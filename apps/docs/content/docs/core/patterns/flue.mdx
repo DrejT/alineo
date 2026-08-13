@@ -1,32 +1,32 @@
 ---
 title: Flue integration
-description: Use drej sandboxes as Flue session environments with @drej/flue.
+description: Use alineo sandboxes as Flue session environments with @alineo-labs/flue.
 ---
 
-`@drej/flue` adapts a drej `Sandbox` to [Flue's](https://flueframework.com) `SandboxFactory` interface, so drej sandboxes can back any Flue agent that needs a container to exec commands and manage files.
+`@alineo-labs/flue` adapts a alineo `Sandbox` to [Flue's](https://flueframework.com) `SandboxFactory` interface, so alineo sandboxes can back any Flue agent that needs a container to exec commands and manage files.
 
 ## Install
 
 ```bash
-bun add @drej/flue @flue/runtime
+bun add @alineo-labs/flue @flue/runtime
 ```
 
 ## Usage
 
-Flue loads sandbox adapters from a file at `<source-dir>/sandboxes/<name>.ts`. Create `src/sandboxes/drej.ts` in your Flue project:
+Flue loads sandbox adapters from a file at `<source-dir>/sandboxes/<name>.ts`. Create `src/sandboxes/alineo.ts` in your Flue project:
 
 ```ts
-// src/sandboxes/drej.ts
-import { drej } from "@drej/flue";
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+// src/sandboxes/alineo.ts
+import { alineo } from "@alineo-labs/flue";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
 
-export default drej(
+export default alineo(
   await client.sandbox({
     image: "node:22",
     resources: { cpu: "500m", memory: "512Mi" },
@@ -38,10 +38,10 @@ Then reference it in your agent definition:
 
 ```ts
 import { defineAgent } from "@flue/runtime";
-import drejSandbox from "./sandboxes/drej.ts";
+import alineoSandbox from "./sandboxes/alineo.ts";
 
 export default defineAgent({
-  sandbox: drejSandbox,
+  sandbox: alineoSandbox,
   // ...
 });
 ```
@@ -49,13 +49,13 @@ export default defineAgent({
 ## API
 
 ```ts
-function drej(sandbox: Sandbox, opts?: { cwd?: string }): SandboxFactory;
+function alineo(sandbox: Sandbox, opts?: { cwd?: string }): SandboxFactory;
 ```
 
-| Parameter  | Type      | Description                                                                                                       |
-| ---------- | --------- | ----------------------------------------------------------------------------------------------------------------- |
-| `sandbox`  | `Sandbox` | An already-created drej sandbox. Lifecycle is the caller's responsibility — the adapter never calls `sb.close()`. |
-| `opts.cwd` | `string`  | Working directory passed to `createSandboxSessionEnv`. Defaults to `"/"`.                                         |
+| Parameter  | Type      | Description                                                                                                         |
+| ---------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `sandbox`  | `Sandbox` | An already-created alineo sandbox. Lifecycle is the caller's responsibility — the adapter never calls `sb.close()`. |
+| `opts.cwd` | `string`  | Working directory passed to `createSandboxSessionEnv`. Defaults to `"/"`.                                           |
 
 ## SandboxApi coverage
 
@@ -87,7 +87,7 @@ The adapter never calls `sb.close()`. You are responsible for closing the sandbo
 ```ts
 const sb = await client.sandbox({ image: "node:22", resources: { cpu: "500m", memory: "512Mi" } });
 try {
-  const factory = drej(sb);
+  const factory = alineo(sb);
   // pass factory to Flue agent...
 } finally {
   await sb.close();

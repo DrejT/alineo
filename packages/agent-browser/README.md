@@ -1,6 +1,6 @@
-# @drej/agent-browser
+# @alineo-labs/agent-browser
 
-Browser automation capability for `@drej/agent` Pi sessions — a Pi extension wrapping the
+Browser automation capability for `@alineo-labs/agent` Pi sessions — a Pi extension wrapping the
 [`agent-browser`](https://github.com/vercel-labs/agent-browser) CLI (accessibility-tree
 snapshots with stable element refs, annotated screenshots — not coordinate-based targeting)
 as five typed tool calls: `browser_open`, `browser_snapshot`, `browser_click`,
@@ -15,10 +15,10 @@ Private package — not published to npm.
 Two parts: `pi-extension/agent-browser.ts` is a Pi extension, not an importable library —
 each tool's `execute()` runs `agent-browser <cmd> --json` via `pi.exec()`, which shells out
 **locally, inside whatever sandbox this Pi session's own bridge process is already running
-in** — not through `@drej/core`'s `Sandbox.exec()`. There is no `Sandbox` object to inject:
+in** — not through `@alineo-labs/core`'s `Sandbox.exec()`. There is no `Sandbox` object to inject:
 the `agent-browser` CLI's daemon, its authenticated session/profile state, and this
 extension's own code all live in the same container already, the same way
-`packages/cli/pi-extension/drejx.ts`'s tools shell out to `drejx` locally rather than
+`packages/cli/pi-extension/alineo.ts`'s tools shell out to `alineo` locally rather than
 reaching back out to a host-side API.
 
 `src/` is the complementary host-side library: `setup.ts`'s `browserSetupSteps()` returns
@@ -26,7 +26,7 @@ the `SetupStep[]` a spec splices into its own `setup` array to install Chrome an
 `agent-browser` inside the sandbox before the extension above can use them, and
 `stream.ts`'s `enableBrowserStream()`/`disableBrowserStream()` give a host-side caller (not
 the agent itself) a proxied WebSocket URL to view the sandboxed browser live — going
-through `@drej/core`'s `Sandbox.proxy()`, since that one does need a real `Sandbox` object.
+through `@alineo-labs/core`'s `Sandbox.proxy()`, since that one does need a real `Sandbox` object.
 
 `agent-browser` itself needs to be installed in the sandbox via a spec's `setup` steps:
 
@@ -52,8 +52,8 @@ libgbm1 fonts-noto-color-emoji fonts-noto-cjk fonts-freefont-ttf` — `browserSe
 > than reproducing the install steps by hand.
 
 Wiring the extension itself into a sandbox depends on how the package is distributed. A
-package published to npm can `cp` its extension file the way `drejx.ts` does; since
-`@drej/agent-browser` isn't published, a spec's own `setup` steps need to push
+package published to npm can `cp` its extension file the way `alineo.ts` does; since
+`@alineo-labs/agent-browser` isn't published, a spec's own `setup` steps need to push
 `pi-extension/agent-browser.ts`'s source into the sandbox directly instead (no worked
 example ships in this repo yet).
 

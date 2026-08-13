@@ -3,11 +3,11 @@ title: Registry
 description: Publish an AgentSpec JSON file so others can fetch it with a single command.
 ---
 
-A drejx "registry item" is just a URL that returns an `AgentSpec` JSON object (the same spec type used by [`@drej/agent`](/docs/agent)). Any URL works — a GitHub raw file, a Gist, your own server, or the small curated set of examples drej hosts at [registry.drej.dev](https://registry.drej.dev) — there's no requirement to publish through a central service.
+An alineo "registry item" is just a URL that returns an `AgentSpec` JSON object (the same spec type used by [`@alineo-labs/agent`](/docs/agent)). Any URL works — a GitHub raw file, a Gist, your own server, or the small curated set of examples alineo hosts at [registry.drej.dev](https://registry.drej.dev) — there's no requirement to publish through a central service.
 
 <Cards>
   <Card
-    href="/docs/drejx/registry/schema"
+    href="/docs/alineo/registry/schema"
     title="AgentSpec schema"
     description="All fields, types, and constraints for a valid agent spec."
   />
@@ -24,10 +24,10 @@ https://raw.githubusercontent.com/your-org/your-repo/main/agents/node-toolchain.
 Anyone can then fetch it into their own project with:
 
 ```bash
-bunx drejx add https://raw.githubusercontent.com/your-org/your-repo/main/agents/node-toolchain.json
+bunx alineo-cli add https://raw.githubusercontent.com/your-org/your-repo/main/agents/node-toolchain.json
 ```
 
-This only saves the spec locally — it doesn't run anything. See [Running an agent spec](/docs/drejx/using-sandboxes) for how to actually load and run it with `Agent.load()`.
+This only saves the spec locally — it doesn't run anything. See [Running an agent spec](/docs/alineo/using-sandboxes) for how to actually load and run it with `Agent.load()`.
 
 ## Minimal example
 
@@ -43,7 +43,7 @@ Every spec runs inside a `node:22` sandbox (there's no `image` field — the bas
 
 ## Composition with `registryDependencies`
 
-A spec can declare dependencies on other specs by URL. `drejx add` fetches and saves them first, depth-first, before saving the top-level spec — it does not merge or run them, each dependency just ends up as its own separate spec file in `agentsDir`:
+A spec can declare dependencies on other specs by URL. `alineo add` fetches and saves them first, depth-first, before saving the top-level spec — it does not merge or run them, each dependency just ends up as its own separate spec file in `agentsDir`:
 
 ```json
 {

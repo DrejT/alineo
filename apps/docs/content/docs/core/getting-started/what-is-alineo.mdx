@@ -1,15 +1,15 @@
 ---
-title: What is drej?
-description: drej gives you live sandbox containers as first-class objects — spawn, exec, checkpoint, resume.
+title: What is alineo?
+description: alineo gives you live sandbox containers as first-class objects — spawn, exec, checkpoint, resume.
 ---
 
-drej is a sandbox execution substrate built on top of [OpenSandbox](https://opensandbox.ai). You call `client.sandbox()` to get a live container, call methods on it, and close it when done. Every exec is durably logged to a ledger — if a run is interrupted, `client.resume()` restores from the last checkpoint and replays prior execs from cache.
+alineo is a sandbox execution substrate built on top of [OpenSandbox](https://opensandbox.ai). You call `client.sandbox()` to get a live container, call methods on it, and close it when done. Every exec is durably logged to a ledger — if a run is interrupted, `client.resume()` restores from the last checkpoint and replays prior execs from cache.
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -34,7 +34,7 @@ try {
 - **Read and write files** — `writeFile`, `readFile`, `moveFile`, `deleteFile`, `searchFiles`, `listDirectory`.
 - **Checkpoint and resume** — `sb.checkpoint()` snapshots the container. `client.resume(sandboxId)` restores it later.
 - **Manage runs** — `client.sandboxes.list()`, `.get()`, `.delete()` — full ledger access.
-- **Orchestrate** — `@drej/workflow` adds a lazy builder for `retry`, `when`, `forEach`, and parallel sandbox pipelines.
+- **Orchestrate** — `@alineo-labs/workflow` adds a lazy builder for `retry`, `when`, `forEach`, and parallel sandbox pipelines.
 
 ## Two usage modes
 
@@ -53,7 +53,7 @@ try {
 **Workflow builder** — queue operations synchronously, flush on `.pipe()` or `.result()`:
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 await workflow(client)
   .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {

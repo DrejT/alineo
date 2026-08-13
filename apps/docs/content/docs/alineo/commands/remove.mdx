@@ -1,21 +1,21 @@
 ---
-title: drejx remove
+title: alineo remove
 description: Delete a saved agent spec file from the current project.
 ---
 
 ```bash
-bunx drejx remove <name>
+bunx alineo-cli remove <name>
 ```
 
 ## Arguments
 
-| Argument | Description                                       |
-| -------- | ------------------------------------------------- |
-| `name`   | The spec name as shown by `drejx list`. Required. |
+| Argument | Description                                        |
+| -------- | -------------------------------------------------- |
+| `name`   | The spec name as shown by `alineo list`. Required. |
 
 ## What it does
 
-1. Looks for `<agentsDir>/<name>.json`. Throws `No agent spec named '<name>' in '<agentsDir>'. Run 'drejx list' to see available specs.` if it doesn't exist.
+1. Looks for `<agentsDir>/<name>.json`. Throws `No agent spec named '<name>' in '<agentsDir>'. Run 'alineo list' to see available specs.` if it doesn't exist.
 2. Deletes the file.
 
 No network calls are made and no sandbox is touched — `remove` is a plain local file delete.
@@ -23,7 +23,7 @@ No network calls are made and no sandbox is touched — `remove` is a plain loca
 ## Example
 
 ```bash
-bunx drejx remove node-toolchain
+bunx alineo-cli remove node-toolchain
 # Removed agent spec 'node-toolchain'
 ```
 

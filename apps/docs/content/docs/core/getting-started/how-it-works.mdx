@@ -1,6 +1,6 @@
 ---
 title: How it works
-description: Sandbox as a first-class object, ExecHandle, the durable ledger, and the @drej/workflow lazy layer.
+description: Sandbox as a first-class object, ExecHandle, the durable ledger, and the @alineo-labs/workflow lazy layer.
 ---
 
 ## Sandbox as a first-class object
@@ -79,9 +79,9 @@ Resume:
   exec #2: "python3 script.py"     → runs live on restored container
 ```
 
-## The @drej/workflow lazy layer
+## The @alineo-labs/workflow lazy layer
 
-`@drej/workflow` adds a declarative layer on top of the core API. You queue operations synchronously inside a builder callback; the queue is flushed when `.pipe()` or `.result()` is awaited.
+`@alineo-labs/workflow` adds a declarative layer on top of the core API. You queue operations synchronously inside a builder callback; the queue is flushed when `.pipe()` or `.result()` is awaited.
 
 ```
 workflow(client)

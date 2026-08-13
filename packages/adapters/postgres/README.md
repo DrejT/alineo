@@ -1,24 +1,24 @@
-# @drej/postgres
+# @alineo-labs/postgres
 
-Postgres storage adapter for [drej](https://drej.dev). Stores the sandbox ledger in a Postgres database — suitable for production deployments where multiple processes or machines share the same ledger.
+Postgres storage adapter for [alineo](https://drej.dev). Stores the sandbox ledger in a Postgres database — suitable for production deployments where multiple processes or machines share the same ledger.
 
 ```bash
-bun add @drej/postgres
+bun add @alineo-labs/postgres
 ```
 
-For local development, [`@drej/sqlite`](https://github.com/DrejT/drej/tree/main/packages/adapters/sqlite) is simpler and requires no infrastructure.
+For local development, [`@alineo-labs/sqlite`](https://github.com/DrejT/drej/tree/main/packages/adapters/sqlite) is simpler and requires no infrastructure.
 
 ---
 
 ## Usage
 
 ```ts
-import { Drej } from "drej";
-import { PostgresAdapter } from "@drej/postgres";
+import { Alineo } from "alineo";
+import { PostgresAdapter } from "@alineo-labs/postgres";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
-  adapter: new PostgresAdapter("postgresql://user:pass@localhost:5432/drej"),
+  adapter: new PostgresAdapter("postgresql://user:pass@localhost:5432/alineo"),
 });
 ```
 

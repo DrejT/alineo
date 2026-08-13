@@ -1,11 +1,11 @@
 # snapshot-replay
 
-Demonstrates drej's checkpoint and resume feature: run once to install dependencies and capture a snapshot, then resume from that snapshot — skipping the install — to run updated code against the same environment.
+Demonstrates alineo's checkpoint and resume feature: run once to install dependencies and capture a snapshot, then resume from that snapshot — skipping the install — to run updated code against the same environment.
 
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

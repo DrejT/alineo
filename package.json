@@ -18,7 +18,6 @@
     "examples/*",
     "tests/integration",
     "apps/docs",
-    "apps/www",
     "apps/registry",
     "apps/sandbox"
   ],

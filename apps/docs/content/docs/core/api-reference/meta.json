@@ -1,4 +1,4 @@
 {
   "title": "API Reference",
-  "pages": ["drej-client", "workflow-run", "errors"]
+  "pages": ["alineo-client", "workflow-run", "errors"]
 }

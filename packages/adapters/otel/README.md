@@ -1,9 +1,9 @@
-# @drej/otel
+# @alineo-labs/otel
 
-OpenTelemetry hooks adapter for [drej](https://drej.dev). Emits distributed traces for sandbox lifecycle events — sandbox creation, exec calls, and checkpoints.
+OpenTelemetry hooks adapter for [alineo](https://drej.dev). Emits distributed traces for sandbox lifecycle events — sandbox creation, exec calls, and checkpoints.
 
 ```bash
-bun add @drej/otel
+bun add @alineo-labs/otel
 ```
 
 ---
@@ -11,7 +11,7 @@ bun add @drej/otel
 ## Usage
 
 ```ts
-import { otelHooks } from "@drej/otel";
+import { otelHooks } from "@alineo-labs/otel";
 
 const sb = await client.sandbox({
   image: "ubuntu:22.04",

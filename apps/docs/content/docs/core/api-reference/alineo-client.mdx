@@ -1,30 +1,30 @@
 ---
-title: Drej
+title: Alineo
 description: The main client — sandbox(), resume(), restoreSnapshot(), connect(), and sandboxes management.
 ---
 
 ```ts
-import { Drej } from "drej";
+import { Alineo } from "alineo";
 ```
 
 ## Constructor
 
 ```ts
-new Drej(options: DrejOptions)
+new Alineo(options: AlineoOptions)
 ```
 
-### DrejOptions
+### AlineoOptions
 
-| Option           | Type              | Required | Description                                                                                                                      |
-| ---------------- | ----------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `baseUrl`        | `string`          | Yes      | OpenSandbox server URL, e.g. `"http://localhost:8080"`                                                                           |
-| `apiKey`         | `string`          | No       | OpenSandbox API key. Empty string for local dev with no auth.                                                                    |
-| `adapter`        | `IStorageAdapter` | Yes      | Storage adapter for the run ledger                                                                                               |
-| `maxConcurrency` | `number`          | No       | Max simultaneous active sandboxes. Omit for no limit.                                                                            |
-| `useServerProxy` | `boolean`         | No       | Route execd and proxy traffic through the server. Required when the server runs in Docker via `drejx init`. Defaults to `false`. |
+| Option           | Type              | Required | Description                                                                                                                       |
+| ---------------- | ----------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `baseUrl`        | `string`          | Yes      | OpenSandbox server URL, e.g. `"http://localhost:8080"`                                                                            |
+| `apiKey`         | `string`          | No       | OpenSandbox API key. Empty string for local dev with no auth.                                                                     |
+| `adapter`        | `IStorageAdapter` | Yes      | Storage adapter for the run ledger                                                                                                |
+| `maxConcurrency` | `number`          | No       | Max simultaneous active sandboxes. Omit for no limit.                                                                             |
+| `useServerProxy` | `boolean`         | No       | Route execd and proxy traffic through the server. Required when the server runs in Docker via `alineo init`. Defaults to `false`. |
 
 ```ts
-const client = new Drej({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://localhost:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -72,7 +72,7 @@ Restores a sandbox session from its last checkpoint (or the checkpoint matching 
 3. Populates a replay cache from execs that completed before the checkpoint
 4. Returns a `Sandbox` — pre-checkpoint execs return cached results; later execs run live
 
-Throws `DrejError` (404) if the session is not found or has no matching checkpoint.
+Throws `AlineoError` (404) if the session is not found or has no matching checkpoint.
 
 ```ts
 const sbResume = await client.resume(originalSandboxId);
@@ -124,7 +124,7 @@ await client.connect(
 ): Promise<Sandbox>
 ```
 
-Attaches to an already-`Running` sandbox by ID, no snapshot or ledger replay involved — the container must already be running (throws `DrejError` (409) otherwise). Use this to reconnect to a live sandbox created outside the current process, e.g. from a saved `sandboxId`.
+Attaches to an already-`Running` sandbox by ID, no snapshot or ledger replay involved — the container must already be running (throws `AlineoError` (409) otherwise). Use this to reconnect to a live sandbox created outside the current process, e.g. from a saved `sandboxId`.
 
 `opts.resources` is only needed if you intend to call `.fork()` on the returned `Sandbox` afterwards — the control API doesn't echo back a running sandbox's own resource limits, so there's no way to discover them here; without it, `.fork()` is unavailable on the returned object.
 

@@ -3,21 +3,21 @@ title: Postgres adapter
 description: Shared ledger for production multi-process deployments.
 ---
 
-`@drej/postgres` stores the run ledger in a Postgres database. Use it when multiple processes need to share the same ledger, or when you need persistent storage on platforms without local disk.
+`@alineo-labs/postgres` stores the run ledger in a Postgres database. Use it when multiple processes need to share the same ledger, or when you need persistent storage on platforms without local disk.
 
 ## Install
 
 ```bash
-bun add @drej/postgres
+bun add @alineo-labs/postgres
 ```
 
 ## Usage
 
 ```ts
-import { Drej } from "drej";
-import { PostgresAdapter } from "@drej/postgres";
+import { Alineo } from "alineo";
+import { PostgresAdapter } from "@alineo-labs/postgres";
 
-const client = new Drej({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL!,
   apiKey: process.env.OPEN_SANDBOX_API_KEY,
   adapter: new PostgresAdapter(process.env.DATABASE_URL!),
@@ -53,7 +53,7 @@ Migrations run automatically as `CREATE TABLE IF NOT EXISTS` the first time the 
 Schema created:
 
 ```sql
-CREATE TABLE IF NOT EXISTS drej_events (
+CREATE TABLE IF NOT EXISTS alineo_events (
   id          BIGSERIAL   PRIMARY KEY,
   sandbox_id  TEXT        NOT NULL,
   name        TEXT        NOT NULL,
@@ -65,10 +65,10 @@ CREATE TABLE IF NOT EXISTS drej_events (
   ts          BIGINT      NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS drej_events_sandbox_id ON drej_events(sandbox_id);
-CREATE INDEX IF NOT EXISTS drej_events_name ON drej_events(name);
+CREATE INDEX IF NOT EXISTS alineo_events_sandbox_id ON alineo_events(sandbox_id);
+CREATE INDEX IF NOT EXISTS alineo_events_name ON alineo_events(name);
 
-CREATE TABLE IF NOT EXISTS drej_environments (
+CREATE TABLE IF NOT EXISTS alineo_environments (
   name        TEXT    PRIMARY KEY,
   snapshot_id TEXT    NOT NULL,
   image       TEXT    NOT NULL,
@@ -85,11 +85,11 @@ CREATE TABLE IF NOT EXISTS drej_environments (
 ## Environment-based config
 
 ```ts
-const adapter = new PostgresAdapter(process.env.DATABASE_URL ?? "postgres://localhost/drej_dev");
+const adapter = new PostgresAdapter(process.env.DATABASE_URL ?? "postgres://localhost/alineo_dev");
 ```
 
 For production, set `DATABASE_URL` in your environment and never hardcode credentials.
 
 ## When to use SQLite instead
 
-For local development and single-process scripts, `@drej/sqlite` is simpler — no database server required. See [SQLite adapter](/docs/core/adapters/sqlite).
+For local development and single-process scripts, `@alineo-labs/sqlite` is simpler — no database server required. See [SQLite adapter](/docs/core/adapters/sqlite).
