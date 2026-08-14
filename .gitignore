@@ -8,6 +8,7 @@ plans/
 *.db-shm
 *.db-wal
 .alineo
+alineo.config.json
 apps/www/.astro/
 apps/registry/.astro/
 apps/sandbox/.astro/
