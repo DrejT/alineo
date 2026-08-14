@@ -9,8 +9,8 @@
 ## Local setup
 
 ```bash
-git clone https://github.com/DrejT/drej.git
-cd drej
+git clone https://github.com/DrejT/alineo.git
+cd alineo
 bun run setup
 ```
 

@@ -5,7 +5,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DrejT/drej.git",
+    "url": "git+https://github.com/DrejT/alineo.git",
     "directory": "packages/adapters/flue"
   },
   "files": [
