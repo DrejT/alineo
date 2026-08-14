@@ -18,7 +18,7 @@
   "setup": [
     {
       "name": "Clone the repo",
-      "run": "git clone --depth 1 https://github.com/DrejT/drej.git repo"
+      "run": "git clone --depth 1 https://github.com/DrejT/alineo.git repo"
     },
     {
       "name": "Find missing READMEs",
