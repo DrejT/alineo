@@ -44,8 +44,8 @@ afterEach(async () => {
 });
 
 describe("envDisabled / isTelemetryDisabled", () => {
-  it("is disabled by default (no config file yet)", async () => {
-    expect(await isTelemetryDisabled()).toBe(true);
+  it("is enabled by default (no config file yet)", async () => {
+    expect(await isTelemetryDisabled()).toBe(false);
   });
 
   it("ALINEO_TELEMETRY_DISABLED disables regardless of persisted config", async () => {
@@ -66,6 +66,11 @@ describe("envDisabled / isTelemetryDisabled", () => {
     await writeTelemetryConfig({ enabled: true, anonymousId: "x", notifiedAt: null });
     expect(await isTelemetryDisabled()).toBe(false);
   });
+
+  it("is disabled once the persisted config explicitly opts out, with no env var set", async () => {
+    await writeTelemetryConfig({ enabled: false, anonymousId: "x", notifiedAt: null });
+    expect(await isTelemetryDisabled()).toBe(true);
+  });
 });
 
 describe("readTelemetryConfig / writeTelemetryConfig", () => {
@@ -77,7 +82,7 @@ describe("readTelemetryConfig / writeTelemetryConfig", () => {
 
   it("generates a fresh anonymousId when no config file exists yet", async () => {
     const config = await readTelemetryConfig();
-    expect(config.enabled).toBe(false);
+    expect(config.enabled).toBe(true);
     expect(config.anonymousId.length).toBeGreaterThan(0);
     expect(config.notifiedAt).toBeNull();
   });
@@ -138,6 +143,7 @@ describe("sendTelemetryEvent", () => {
 
 describe("withTelemetry", () => {
   it("calls run() directly when telemetry is disabled, without ever touching fetch", async () => {
+    await writeTelemetryConfig({ enabled: false, anonymousId: "x", notifiedAt: Date.now() });
     const fetchSpy = mock(() => {
       throw new Error("should not be called");
     });

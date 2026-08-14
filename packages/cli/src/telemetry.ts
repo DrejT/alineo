@@ -34,10 +34,10 @@ export interface CliTelemetryEvent {
   anonymousId: string;
 }
 
-/** No production endpoint is deployed yet -- this default is a local-dev placeholder only.
- * Overridable via env var for whenever `apps/telemetry` is actually deployed, same override
- * convention `@alineo-labs/otel`'s own collector URL uses. */
-const DEFAULT_TELEMETRY_ENDPOINT = "http://localhost:3002/v1/events";
+/** The deployed ingest endpoint (see apps/telemetry). Overridable via env var, same override
+ * convention `@alineo-labs/otel`'s own collector URL uses -- useful for pointing at a local
+ * `apps/telemetry` instance during development instead. */
+const DEFAULT_TELEMETRY_ENDPOINT = "https://telemetry.alineo.tech/v1/events";
 const SEND_TIMEOUT_MS = 500;
 
 /** `ALINEO_TELEMETRY_CONFIG_PATH` is an internal test seam, not a documented user-facing setting
@@ -57,13 +57,12 @@ export async function readTelemetryConfig(): Promise<TelemetryConfig> {
   if (await file.exists()) {
     const data = (await file.json()) as Partial<TelemetryConfig>;
     return {
-      enabled: data.enabled ?? false,
+      enabled: data.enabled ?? true,
       anonymousId: data.anonymousId ?? newAnonymousId(),
       notifiedAt: data.notifiedAt ?? null,
     };
   }
-  // Default-off until apps/telemetry is actually deployed -- flip to `true` once it is.
-  return { enabled: false, anonymousId: newAnonymousId(), notifiedAt: null };
+  return { enabled: true, anonymousId: newAnonymousId(), notifiedAt: null };
 }
 
 export async function writeTelemetryConfig(config: TelemetryConfig): Promise<void> {
