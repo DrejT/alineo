@@ -6,7 +6,7 @@ SQLite storage adapter for [alineo](https://alineo.tech). Stores the sandbox led
 bun add @alineo-labs/sqlite
 ```
 
-For production workloads that need durability across multiple processes or machines, use [`@alineo-labs/postgres`](https://github.com/DrejT/drej/tree/main/packages/adapters/postgres) instead.
+For production workloads that need durability across multiple processes or machines, use [`@alineo-labs/postgres`](https://github.com/DrejT/alineo/tree/main/packages/adapters/postgres) instead.
 
 ---
 

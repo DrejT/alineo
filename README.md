@@ -1,6 +1,6 @@
 # alineo
 
-[![CI](https://github.com/DrejT/drej/actions/workflows/ci.yml/badge.svg)](https://github.com/DrejT/drej/actions/workflows/ci.yml)
+[![CI](https://github.com/DrejT/alineo/actions/workflows/ci.yml/badge.svg)](https://github.com/DrejT/alineo/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/alineo)](https://www.npmjs.com/package/alineo)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
