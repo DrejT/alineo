@@ -50,11 +50,11 @@ alineo remove python-data
 
 ### `alineo telemetry status|enable|disable`
 
-Shows or changes whether `alineo` sends anonymous usage telemetry — which subcommand ran, a per-command allowlist of boolean flag presence (never values or raw argv), success/failure, and timing. Currently default-off; no production ingest endpoint is deployed yet.
+Shows or changes whether `alineo` sends anonymous usage telemetry — which subcommand ran, a per-command allowlist of boolean flag presence (never values or raw argv), success/failure, and timing. Default-on, sent to `https://telemetry.alineo.tech`.
 
 ```bash
 alineo telemetry status
-# [alineo] telemetry: disabled
+# [alineo] telemetry: enabled
 #   anonymous id: 3f2e9c1a-8b7d-4e6f-a1c2-9d8e7f6a5b4c
 ```
 
