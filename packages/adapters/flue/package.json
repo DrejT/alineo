@@ -29,11 +29,11 @@
     "test": "bun test"
   },
   "devDependencies": {
-    "@flue/runtime": "1.0.0-beta.9",
+    "@flue/runtime": "2.0.3",
     "alineo": "workspace:*",
     "bun-types": "1.3.14",
-    "tsdown": "0.22.3",
-    "typescript": "6.0.3"
+    "tsdown": "0.22.14",
+    "typescript": "7.0.2"
   },
   "peerDependencies": {
     "@flue/runtime": ">=1.0.0-beta",

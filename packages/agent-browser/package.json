@@ -14,10 +14,10 @@
     "@alineo-labs/core": "workspace:*"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "^0.80.3",
+    "@earendil-works/pi-coding-agent": "^0.84.1",
     "bun-types": "1.3.14",
     "typebox": "^1.3.5",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "pi": {
     "extensions": [
