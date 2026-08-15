@@ -38,8 +38,5 @@
     "@changesets/cli": "2.31.0",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.71.0"
-  },
-  "overrides": {
-    "vite": "7.3.6"
   }
 }
