@@ -1,5 +1,42 @@
 # @drej/opensandbox
 
+## 1.0.0
+
+### Major Changes
+
+- 2a61e0c: Rename the project from drej to alineo. Breaking change: every published package's name
+  changed.
+
+  - SDK: `drej` → `alineo` (`import { Drej } from "drej"` → `import { Alineo } from "alineo"`).
+    `DrejError`/`DrejOptions` → `AlineoError`/`AlineoOptions`.
+  - CLI: `drejx` → `alineo-cli` (npm package name), binary command `drejx` → `alineo`
+    (`drejx init` → `alineo init`, etc). `~/.config/drejx/` → `~/.config/alineo/`,
+    project-local `drej.config.json` → `alineo.config.json`, `.drej/` → `.alineo/`.
+  - Scoped packages: `@drej/*` → `@alineo-labs/*` across all 14 previously-scoped packages.
+  - Environment variables: `DREJ_*`/`DREJX_*` → `ALINEO_*` (the two-prefix split collapses to
+    one now that the CLI binary and SDK class share the same root name).
+
+  This is a code-level rename only — package/CLI/env-var/config-path identifiers. GitHub
+  org/repo, deploy domains, and Cloudflare project names are unchanged in this pass (that
+  infra isn't provisioned under the new name yet).
+
+### Patch Changes
+
+- b03ae19: Fix `Sandbox.close()` (and `pause()`) not disposing of exec-stream connections left
+  deliberately open by `parseSSE`'s early-return optimization (see its comment, and
+  opensandbox-group/OpenSandbox#1277 — execd's `/command` handler doesn't terminate its
+  chunked response until a fixed post-completion sleep elapses). Without an explicit
+  teardown, one of these dangling connections could still be ESTABLISHED by the time a
+  script called `close()`, keeping the host process's event loop alive indefinitely
+  instead of exiting. `ExecClient` now tracks these readers and force-cancels them via a
+  new `disposeConnections()` method, called from `Sandbox.close()`/`pause()` once the
+  sandbox is being torn down anyway and nobody cares if the (already broken) upstream
+  proxy relay errors out.
+- bd95393: Remove `private: true` from the 10 publishable packages so they can actually be published to
+  npm. No functional or API changes — this is the last step of npm-publish readiness (repository
+  URLs, `publishConfig`, and `bin`/`repository` fields were already correct).
+- acc51e3: Update package.json repository fields to the renamed GitHub repo (DrejT/drej -> DrejT/alineo). No behavior change.
+
 ## 0.3.1
 
 ### Patch Changes

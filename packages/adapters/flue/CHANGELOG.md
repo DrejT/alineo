@@ -1,5 +1,37 @@
 # @drej/flue
 
+## 4.0.0
+
+### Major Changes
+
+- 2a61e0c: Rename the project from drej to alineo. Breaking change: every published package's name
+  changed.
+
+  - SDK: `drej` → `alineo` (`import { Drej } from "drej"` → `import { Alineo } from "alineo"`).
+    `DrejError`/`DrejOptions` → `AlineoError`/`AlineoOptions`.
+  - CLI: `drejx` → `alineo-cli` (npm package name), binary command `drejx` → `alineo`
+    (`drejx init` → `alineo init`, etc). `~/.config/drejx/` → `~/.config/alineo/`,
+    project-local `drej.config.json` → `alineo.config.json`, `.drej/` → `.alineo/`.
+  - Scoped packages: `@drej/*` → `@alineo-labs/*` across all 14 previously-scoped packages.
+  - Environment variables: `DREJ_*`/`DREJX_*` → `ALINEO_*` (the two-prefix split collapses to
+    one now that the CLI binary and SDK class share the same root name).
+
+  This is a code-level rename only — package/CLI/env-var/config-path identifiers. GitHub
+  org/repo, deploy domains, and Cloudflare project names are unchanged in this pass (that
+  infra isn't provisioned under the new name yet).
+
+### Patch Changes
+
+- bd95393: Remove `private: true` from the 10 publishable packages so they can actually be published to
+  npm. No functional or API changes — this is the last step of npm-publish readiness (repository
+  URLs, `publishConfig`, and `bin`/`repository` fields were already correct).
+- acc51e3: Update package.json repository fields to the renamed GitHub repo (DrejT/drej -> DrejT/alineo). No behavior change.
+- Updated dependencies [bd95393]
+- Updated dependencies [2a61e0c]
+- Updated dependencies [637b678]
+- Updated dependencies [acc51e3]
+  - alineo@1.0.0
+
 ## 3.0.0
 
 ### Patch Changes

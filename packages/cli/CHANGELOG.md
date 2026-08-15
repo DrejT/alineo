@@ -1,5 +1,94 @@
 # drejx
 
+## 1.0.0
+
+### Major Changes
+
+- 2a61e0c: Rename the project from drej to alineo. Breaking change: every published package's name
+  changed.
+
+  - SDK: `drej` → `alineo` (`import { Drej } from "drej"` → `import { Alineo } from "alineo"`).
+    `DrejError`/`DrejOptions` → `AlineoError`/`AlineoOptions`.
+  - CLI: `drejx` → `alineo-cli` (npm package name), binary command `drejx` → `alineo`
+    (`drejx init` → `alineo init`, etc). `~/.config/drejx/` → `~/.config/alineo/`,
+    project-local `drej.config.json` → `alineo.config.json`, `.drej/` → `.alineo/`.
+  - Scoped packages: `@drej/*` → `@alineo-labs/*` across all 14 previously-scoped packages.
+  - Environment variables: `DREJ_*`/`DREJX_*` → `ALINEO_*` (the two-prefix split collapses to
+    one now that the CLI binary and SDK class share the same root name).
+
+  This is a code-level rename only — package/CLI/env-var/config-path identifiers. GitHub
+  org/repo, deploy domains, and Cloudflare project names are unchanged in this pass (that
+  infra isn't provisioned under the new name yet).
+
+### Minor Changes
+
+- 425d9bc: Add anonymous CLI usage telemetry: which subcommand ran, a small per-command allowlist of
+  boolean flag presence (never values or raw argv), success/failure, timing, and — for
+  `spawn`/`fork` only — the target spec's own `provider` id. Default-off for this release (no
+  production endpoint deployed yet — flips on once one is), opt-out via
+  `alineo telemetry disable`/`status`/`enable` or the `ALINEO_TELEMETRY_DISABLED`/`DO_NOT_TRACK`
+  env vars either way. Transport is a plain, bounded (500ms timeout) `fetch()` POST to a new,
+  completely standalone ingest app, `apps/telemetry` — no OpenTelemetry, no dependency on any
+  other app in this repo, in either direction. Server-side re-validates every event against the
+  same allowlisted shape (never trusts the client), with a body-size cap and a per-anonymous-ID
+  rate limit on its one unauthenticated route.
+- f7c04f7: Point CLI telemetry at the deployed ingest endpoint (`https://telemetry.alineo.tech`) and flip
+  the default from off to on, now that the endpoint is actually live. Opt out any time with
+  `alineo telemetry disable`, `ALINEO_TELEMETRY_DISABLED=1`, or `DO_NOT_TRACK=1`. See
+  `alineo telemetry` in the docs for exactly what's collected.
+- 637b678: Add `runId` — a first-class way to correlate sandboxes belonging to the same logical run, surfaced through `SandboxDetails.runId` and filterable via `client.sandboxes.list({ runId })`/`listByName({ runId })`.
+
+  - `SandboxOptions.runId` (optional, defaults to a fresh `crypto.randomUUID()` if omitted) is recorded on every sandbox-creation path (`client.sandbox()`, `client.resume()`, `client.restoreSnapshot()`, `sb.fork()`, environment-backed sandboxes) — a resumed, restored, or forked sandbox always inherits its origin's `runId` rather than getting a new one.
+  - `sb.fork(tag?, runId?)` gains an optional explicit override, needed across a process boundary (e.g. `alineo fork`, which re-`Agent.attach()`es in a brand-new CLI process with no access to the original in-memory closure) — same reasoning `ALINEO_SPAWN_DEPTH` already established, generalized to run identity.
+  - `Agent.load()`/`Agent.resume()` accept an optional `runId`, bake `ALINEO_RUN_ID` into the sandbox's env alongside `ALINEO_SPAWN_DEPTH`/`ALINEO_MAX_AGENTS`/`ALINEO_OBSERVABILITY`, and expose it as `agent.runId`. `Agent.spawn()`/`alineo fork` force-inherit it into every forked child, tamper-resistant like the existing budget fields. `alineo spawn` gains a `--run-id` flag.
+  - `runId` also rides along in `SandboxOptions.metadata`/`CreateSandboxOptions.metadata` at every creation path, since the ledger alone can't correlate sandboxes across separate adapter instances (e.g. a forked child writing to its own in-container ledger file) — the OpenSandbox control plane is the one channel every caller shares regardless of adapter, and its `Sandbox` type already declares (and, verified against a live server, actually echoes back) `metadata`.
+  - Both storage adapters (`@alineo-labs/sqlite`, `@alineo-labs/postgres`) extend their aggregation query to surface `runId` on `SandboxDetails` and support it as a `ListSandboxOptions` filter — no schema migration needed, read out of the existing JSON payload.
+
+### Patch Changes
+
+- 9fb6550: Document the alineo telemetry command in packages/cli/README.md and the docs site. No behavior change.
+- 735ecf7: `alineo fork`/`spawn`/`prompt` now accept `--timeout SECONDS` to bound how long a `--prompt`
+  waits for activity before failing with a clear error, instead of hanging forever if the
+  underlying agent process ever goes silent. `--json` output also now includes `toolCalls`
+  alongside `reply`, so a turn that made tool calls but produced no final text is distinguishable
+  from one that did nothing.
+- e1f6621: Fix `alineo init`'s Docker container silently losing every cached agent snapshot whenever it's
+  removed and recreated (host reboot with no restart policy, `docker system prune`, a stray
+  `docker rm`) — not just restarted. OpenSandbox itself persists snapshot metadata durably in a
+  SQLite db meant to survive the server process restarting, but `alineo init` never bind-mounted
+  that db's directory to the host, so it only ever survived alongside the container's own
+  lifecycle. `~/.config/alineo/opensandbox-data` is now bind-mounted into the container at `/data`,
+  with `[store].path` pinned explicitly in the generated `server.toml`, so the durability
+  guarantee OpenSandbox already provides actually holds (fixes #20).
+
+  Also: `Agent.load()`'s snapshot-restore fallback now logs the real error instead of a bare
+  "snapshot stale, rebuilding..." — useful for any other reason a cached snapshot might fail to
+  restore, not just this one.
+
+- bd95393: Remove `private: true` from the 10 publishable packages so they can actually be published to
+  npm. No functional or API changes — this is the last step of npm-publish readiness (repository
+  URLs, `publishConfig`, and `bin`/`repository` fields were already correct).
+- 94dfc3d: Remove `pi-extension/alineo.ts`'s typed `alineo_spawn`/`alineo_prompt`/`alineo_agents`/`alineo_kill`
+  tools. They sat next to `alineo fork` — deliberately never a typed tool, since forking is a
+  judgment call about task decomposition that belongs in a real shell command — and that
+  asymmetry measurably steered models toward the wrong primitive (issue #21 Bug B: a run picked
+  the typed `alineo_spawn` tool over the `alineo fork` shell command the guidance text recommended
+  for that exact scenario). All five subcommands are bash-only now, guided by the same prose
+  guidance the extension already injected. The extension itself stays in place, deprecated,
+  for its remaining `before_agent_start` guidance injection and `ensureAlineoReady()` bootstrap.
+- acc51e3: Update package.json repository fields to the renamed GitHub repo (DrejT/drej -> DrejT/alineo). No behavior change.
+- Updated dependencies [b03ae19]
+- Updated dependencies [e1f6621]
+- Updated dependencies [bd95393]
+- Updated dependencies [735ecf7]
+- Updated dependencies [2a61e0c]
+- Updated dependencies [637b678]
+- Updated dependencies [acc51e3]
+  - @alineo-labs/opensandbox@1.0.0
+  - @alineo-labs/agent@1.0.0
+  - @alineo-labs/sqlite@1.0.0
+  - alineo@1.0.0
+
 ## 0.7.2
 
 ### Patch Changes

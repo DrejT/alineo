@@ -1,5 +1,72 @@
 # @drej/agent
 
+## 1.0.0
+
+### Major Changes
+
+- 2a61e0c: Rename the project from drej to alineo. Breaking change: every published package's name
+  changed.
+
+  - SDK: `drej` → `alineo` (`import { Drej } from "drej"` → `import { Alineo } from "alineo"`).
+    `DrejError`/`DrejOptions` → `AlineoError`/`AlineoOptions`.
+  - CLI: `drejx` → `alineo-cli` (npm package name), binary command `drejx` → `alineo`
+    (`drejx init` → `alineo init`, etc). `~/.config/drejx/` → `~/.config/alineo/`,
+    project-local `drej.config.json` → `alineo.config.json`, `.drej/` → `.alineo/`.
+  - Scoped packages: `@drej/*` → `@alineo-labs/*` across all 14 previously-scoped packages.
+  - Environment variables: `DREJ_*`/`DREJX_*` → `ALINEO_*` (the two-prefix split collapses to
+    one now that the CLI binary and SDK class share the same root name).
+
+  This is a code-level rename only — package/CLI/env-var/config-path identifiers. GitHub
+  org/repo, deploy domains, and Cloudflare project names are unchanged in this pass (that
+  infra isn't provisioned under the new name yet).
+
+### Minor Changes
+
+- 637b678: Add `runId` — a first-class way to correlate sandboxes belonging to the same logical run, surfaced through `SandboxDetails.runId` and filterable via `client.sandboxes.list({ runId })`/`listByName({ runId })`.
+
+  - `SandboxOptions.runId` (optional, defaults to a fresh `crypto.randomUUID()` if omitted) is recorded on every sandbox-creation path (`client.sandbox()`, `client.resume()`, `client.restoreSnapshot()`, `sb.fork()`, environment-backed sandboxes) — a resumed, restored, or forked sandbox always inherits its origin's `runId` rather than getting a new one.
+  - `sb.fork(tag?, runId?)` gains an optional explicit override, needed across a process boundary (e.g. `alineo fork`, which re-`Agent.attach()`es in a brand-new CLI process with no access to the original in-memory closure) — same reasoning `ALINEO_SPAWN_DEPTH` already established, generalized to run identity.
+  - `Agent.load()`/`Agent.resume()` accept an optional `runId`, bake `ALINEO_RUN_ID` into the sandbox's env alongside `ALINEO_SPAWN_DEPTH`/`ALINEO_MAX_AGENTS`/`ALINEO_OBSERVABILITY`, and expose it as `agent.runId`. `Agent.spawn()`/`alineo fork` force-inherit it into every forked child, tamper-resistant like the existing budget fields. `alineo spawn` gains a `--run-id` flag.
+  - `runId` also rides along in `SandboxOptions.metadata`/`CreateSandboxOptions.metadata` at every creation path, since the ledger alone can't correlate sandboxes across separate adapter instances (e.g. a forked child writing to its own in-container ledger file) — the OpenSandbox control plane is the one channel every caller shares regardless of adapter, and its `Sandbox` type already declares (and, verified against a live server, actually echoes back) `metadata`.
+  - Both storage adapters (`@alineo-labs/sqlite`, `@alineo-labs/postgres`) extend their aggregation query to surface `runId` on `SandboxDetails` and support it as a `ListSandboxOptions` filter — no schema migration needed, read out of the existing JSON payload.
+
+### Patch Changes
+
+- e1f6621: Fix `alineo init`'s Docker container silently losing every cached agent snapshot whenever it's
+  removed and recreated (host reboot with no restart policy, `docker system prune`, a stray
+  `docker rm`) — not just restarted. OpenSandbox itself persists snapshot metadata durably in a
+  SQLite db meant to survive the server process restarting, but `alineo init` never bind-mounted
+  that db's directory to the host, so it only ever survived alongside the container's own
+  lifecycle. `~/.config/alineo/opensandbox-data` is now bind-mounted into the container at `/data`,
+  with `[store].path` pinned explicitly in the generated `server.toml`, so the durability
+  guarantee OpenSandbox already provides actually holds (fixes #20).
+
+  Also: `Agent.load()`'s snapshot-restore fallback now logs the real error instead of a bare
+  "snapshot stale, rebuilding..." — useful for any other reason a cached snapshot might fail to
+  restore, not just this one.
+
+- bd95393: Remove `private: true` from the 10 publishable packages so they can actually be published to
+  npm. No functional or API changes — this is the last step of npm-publish readiness (repository
+  URLs, `publishConfig`, and `bin`/`repository` fields were already correct).
+- 735ecf7: `Agent.prompt()`'s SSE stream had no timeout at all — if the underlying Pi process ever went
+  silent (the bridge's own keep-alive heartbeat kept the raw connection alive regardless), every
+  caller up the chain blocked forever with zero visibility. Added an inactivity timeout, keyed off
+  real `AgentEvent`s rather than raw stream activity so the heartbeat can't mask a genuine stall,
+  via a new `inactivityTimeoutMs` option (default 60s) and a new `PromptTimeoutError`. `alineo
+fork`/`spawn`/`prompt --prompt` now also expose this as `--timeout SECONDS`, and their `--json`
+  output reports `toolCalls` alongside `reply` so a turn that made tool calls but produced no
+  final text isn't indistinguishable from one that did nothing at all.
+- acc51e3: Update package.json repository fields to the renamed GitHub repo (DrejT/drej -> DrejT/alineo). No behavior change.
+- Updated dependencies [a9564e1]
+- Updated dependencies [b03ae19]
+- Updated dependencies [7acdf32]
+- Updated dependencies [bd95393]
+- Updated dependencies [2a61e0c]
+- Updated dependencies [637b678]
+- Updated dependencies [acc51e3]
+  - @alineo-labs/core@1.0.0
+  - alineo@1.0.0
+
 ## 0.6.2
 
 ### Patch Changes
