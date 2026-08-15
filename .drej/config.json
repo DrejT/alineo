@@ -1,0 +1,6 @@
+{
+  "serverUrl": "http://localhost:8080",
+  "useServerProxy": true,
+  "apiKey": "",
+  "adapterPath": "./.drej/ledger.db"
+}

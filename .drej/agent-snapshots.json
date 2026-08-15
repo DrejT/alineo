@@ -1,0 +1,14 @@
+{
+  "hello-agent:c6001d462e4c": {
+    "specName": "hello-agent",
+    "setupHash": "c6001d462e4c",
+    "snapshotId": "4e0a9209-927e-41ff-9dbb-64cda0f42789",
+    "createdAt": 1783533463424
+  },
+  "rlm-master:9d52ac839b04": {
+    "specName": "rlm-master",
+    "setupHash": "9d52ac839b04",
+    "snapshotId": "46b45d94-11ce-4003-b41b-f7e8d911331f",
+    "createdAt": 1783797715177
+  }
+}
