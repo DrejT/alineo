@@ -13,9 +13,13 @@ html {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* alineo palette — fumadocs token overrides, matching apps/www's brand tokens
-     (apps/www/src/styles/global.css): monochrome + single blue accent,
-     reserved for primary actions/links only. */
+  /* alineo palette — fumadocs token overrides. Pure black-and-white: every
+     token is oklch with chroma 0 (true gray), no hue, no accent color. Using
+     oklch instead of hex keeps each stop perceptually uniform (equal lightness
+     steps read as equal contrast steps), which flat #rrggbb grays don't
+     guarantee. Primary sits at true black (L 0) — deliberately darker than
+     foreground's soft-black body text (L 0.15) — so CTAs/links read as the
+     most emphatic element on the page. */
   --color-fd-background: oklch(1 0 0);
   --color-fd-foreground: oklch(0.15 0 0);
   --color-fd-muted: oklch(0.97 0 0);
@@ -25,13 +29,13 @@ html {
   --color-fd-card: oklch(0.985 0 0);
   --color-fd-card-foreground: oklch(0.15 0 0);
   --color-fd-border: oklch(0.9 0 0);
-  --color-fd-primary: oklch(0.47 0.17 259);
+  --color-fd-primary: oklch(0 0 0);
   --color-fd-primary-foreground: oklch(1 0 0);
   --color-fd-secondary: oklch(0.97 0 0);
   --color-fd-secondary-foreground: oklch(0.15 0 0);
   --color-fd-accent: oklch(0.94 0 0);
   --color-fd-accent-foreground: oklch(0.15 0 0);
-  --color-fd-ring: oklch(0.47 0.17 259);
+  --color-fd-ring: oklch(0 0 0);
 }
 
 @layer base {
