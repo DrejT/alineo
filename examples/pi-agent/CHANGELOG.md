@@ -1,5 +1,21 @@
 # drej-example-agent
 
+## 0.0.12
+
+### Patch Changes
+
+- Updated dependencies [b03ae19]
+- Updated dependencies [e1f6621]
+- Updated dependencies [bd95393]
+- Updated dependencies [735ecf7]
+- Updated dependencies [2a61e0c]
+- Updated dependencies [637b678]
+- Updated dependencies [acc51e3]
+  - @alineo-labs/opensandbox@1.0.0
+  - @alineo-labs/agent@1.0.0
+  - @alineo-labs/sqlite@1.0.0
+  - alineo@1.0.0
+
 ## 0.0.11
 
 ### Patch Changes

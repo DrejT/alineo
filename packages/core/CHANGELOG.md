@@ -1,5 +1,70 @@
 # @drej/core
 
+## 0.1.0
+
+### Major Changes
+
+- 2a61e0c: Rename the project from drej to alineo. Breaking change: every published package's name
+  changed.
+
+  - SDK: `drej` → `alineo` (`import { Drej } from "drej"` → `import { Alineo } from "alineo"`).
+    `DrejError`/`DrejOptions` → `AlineoError`/`AlineoOptions`.
+  - CLI: `drejx` → `alineo-cli` (npm package name), binary command `drejx` → `alineo`
+    (`drejx init` → `alineo init`, etc). `~/.config/drejx/` → `~/.config/alineo/`,
+    project-local `drej.config.json` → `alineo.config.json`, `.drej/` → `.alineo/`.
+  - Scoped packages: `@drej/*` → `@alineo-labs/*` across all 14 previously-scoped packages.
+  - Environment variables: `DREJ_*`/`DREJX_*` → `ALINEO_*` (the two-prefix split collapses to
+    one now that the CLI binary and SDK class share the same root name).
+
+  This is a code-level rename only — package/CLI/env-var/config-path identifiers. GitHub
+  org/repo, deploy domains, and Cloudflare project names are unchanged in this pass (that
+  infra isn't provisioned under the new name yet).
+
+### Minor Changes
+
+- a9564e1: Add `composeHooks(hooks, opts?)` to merge multiple `SandboxHooks` into one, so more than one
+  hooks-based adapter (e.g. `otelHooks(tracer)` plus a future billing hook) can attach to the
+  same sandbox without hand-writing a merged object. Each hook invocation is isolated in its
+  own try/catch — a throwing hook can't break sibling hooks or the sandbox operation that
+  triggered them; failures are reported via the optional `onHookError` callback.
+- 637b678: Add `runId` — a first-class way to correlate sandboxes belonging to the same logical run, surfaced through `SandboxDetails.runId` and filterable via `client.sandboxes.list({ runId })`/`listByName({ runId })`.
+
+  - `SandboxOptions.runId` (optional, defaults to a fresh `crypto.randomUUID()` if omitted) is recorded on every sandbox-creation path (`client.sandbox()`, `client.resume()`, `client.restoreSnapshot()`, `sb.fork()`, environment-backed sandboxes) — a resumed, restored, or forked sandbox always inherits its origin's `runId` rather than getting a new one.
+  - `sb.fork(tag?, runId?)` gains an optional explicit override, needed across a process boundary (e.g. `alineo fork`, which re-`Agent.attach()`es in a brand-new CLI process with no access to the original in-memory closure) — same reasoning `ALINEO_SPAWN_DEPTH` already established, generalized to run identity.
+  - `Agent.load()`/`Agent.resume()` accept an optional `runId`, bake `ALINEO_RUN_ID` into the sandbox's env alongside `ALINEO_SPAWN_DEPTH`/`ALINEO_MAX_AGENTS`/`ALINEO_OBSERVABILITY`, and expose it as `agent.runId`. `Agent.spawn()`/`alineo fork` force-inherit it into every forked child, tamper-resistant like the existing budget fields. `alineo spawn` gains a `--run-id` flag.
+  - `runId` also rides along in `SandboxOptions.metadata`/`CreateSandboxOptions.metadata` at every creation path, since the ledger alone can't correlate sandboxes across separate adapter instances (e.g. a forked child writing to its own in-container ledger file) — the OpenSandbox control plane is the one channel every caller shares regardless of adapter, and its `Sandbox` type already declares (and, verified against a live server, actually echoes back) `metadata`.
+  - Both storage adapters (`@alineo-labs/sqlite`, `@alineo-labs/postgres`) extend their aggregation query to surface `runId` on `SandboxDetails` and support it as a `ListSandboxOptions` filter — no schema migration needed, read out of the existing JSON payload.
+
+### Patch Changes
+
+- b03ae19: Fix `Sandbox.close()` (and `pause()`) not disposing of exec-stream connections left
+  deliberately open by `parseSSE`'s early-return optimization (see its comment, and
+  opensandbox-group/OpenSandbox#1277 — execd's `/command` handler doesn't terminate its
+  chunked response until a fixed post-completion sleep elapses). Without an explicit
+  teardown, one of these dangling connections could still be ESTABLISHED by the time a
+  script called `close()`, keeping the host process's event loop alive indefinitely
+  instead of exiting. `ExecClient` now tracks these readers and force-cancels them via a
+  new `disposeConnections()` method, called from `Sandbox.close()`/`pause()` once the
+  sandbox is being torn down anyway and nobody cares if the (already broken) upstream
+  proxy relay errors out.
+- 7acdf32: Increase `resolveExecClient()`'s default retry budget from ~11s (15 retries, capped at 1s) to
+  ~80s (45 retries, capped at 2s). A live `alineo fork` failure (issue #32) showed a child forked
+  while its parent sandbox was busy running a real Chrome session took ~35s just to reach
+  `Running`, then immediately exhausted the old budget before execd inside it had started
+  accepting connections. An isolated repro of the identical fork from an idle parent (no
+  concurrent browser load) reached execd-ready in under 400ms — the parent's own host-resource
+  contention at fork time, not snapshot size, is what actually eats the budget, and that can't be
+  scheduled around from here. Affording substantially more patience before giving up is the fix.
+- bd95393: Remove `private: true` from the 10 publishable packages so they can actually be published to
+  npm. No functional or API changes — this is the last step of npm-publish readiness (repository
+  URLs, `publishConfig`, and `bin`/`repository` fields were already correct).
+- acc51e3: Update package.json repository fields to the renamed GitHub repo (DrejT/drej -> DrejT/alineo). No behavior change.
+- Updated dependencies [b03ae19]
+- Updated dependencies [bd95393]
+- Updated dependencies [2a61e0c]
+- Updated dependencies [acc51e3]
+  - @alineo-labs/opensandbox@1.0.0
+
 ## 0.6.3
 
 ### Patch Changes
