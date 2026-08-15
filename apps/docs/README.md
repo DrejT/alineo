@@ -27,5 +27,5 @@ bun run dev      # next dev
 bun run build    # next build -> static export in out/
 bun run start    # next start (serve a build)
 bun run lint     # eslint
-bun run deploy   # next build + wrangler pages deploy (project: drej-docs)
+bun run deploy   # next build + wrangler pages deploy (project: alineo-docs)
 ```

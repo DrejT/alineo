@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "deploy": "next build && wrangler pages deploy out --project-name=drej-docs",
+    "deploy": "next build && wrangler pages deploy out --project-name=alineo-docs",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
