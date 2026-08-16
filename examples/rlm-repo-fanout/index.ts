@@ -160,12 +160,13 @@ try {
     const { stdout: childHeadOut } = await child.sandbox.exec("cd repo && git rev-parse HEAD");
     check(`${name}: repo HEAD matches master's`, childHeadOut.trim() === masterHead);
 
-    let probeOut = "";
-    for await (const ev of child.bash(
-      `echo "SECRET=[$RLM_FANOUT_SECRET]"; echo "DEPTH=[$ALINEO_SPAWN_DEPTH]"; which alineo > /dev/null 2>&1; echo "ALINEO_FOUND=[$?]"`,
-    )) {
-      if (ev.type === "text") probeOut += ev.text;
-    }
+    // Agent.attach() deliberately never starts the Pi bridge (see its own doc comment), so
+    // child.bash() -- which needs that bridge -- isn't available here. Sourcing
+    // /etc/alineo-env directly over the plain sandbox exec API inspects the exact same
+    // environment the bridge would have started Pi with, without needing it running.
+    const { stdout: probeOut } = await child.sandbox.exec(
+      `sh -c '. /etc/alineo-env 2>/dev/null; echo "SECRET=[$RLM_FANOUT_SECRET]"; echo "DEPTH=[$ALINEO_SPAWN_DEPTH]"; which alineo > /dev/null 2>&1; echo "ALINEO_FOUND=[$?]"'`,
+    );
     check(
       `${name}: master's secret is absent`,
       probeOut.includes("SECRET=[]") && !probeOut.includes(SECRET),
