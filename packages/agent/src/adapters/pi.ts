@@ -333,8 +333,18 @@ async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
  * of whether Pi itself is making progress, so this can't just be "no read() in N seconds". The
  * timer below is instead reset only when a real event is parsed and yielded (or `[DONE]`
  * arrives), so a connection that's alive-but-silent for this long still times out.
+ *
+ * 60s (the original default) was too tight for a common, legitimate pattern: Pi's own `bash`
+ * tool is not incrementally streamed (see the `bash()` doc comment in session-control.ts), so
+ * a single tool call that spins up a whole child sandbox -- e.g. a master session running
+ * `alineo fork` on itself, as in examples/rlm-repo-fanout -- produces zero AgentEvents for as
+ * long as that tool call takes, which regularly exceeded 60s (child sandbox provisioning +
+ * Pi CLI install alone routinely took 30-150s+ in practice) and tripped this timeout mid-run
+ * even though the session was making real progress. Raised to 3 minutes as a still-bounded
+ * but realistic ceiling for that pattern; pass `inactivityTimeoutMs` explicitly to `prompt()`
+ * for sessions that need something tighter or looser.
  */
-const DEFAULT_INACTIVITY_TIMEOUT_MS = 60_000;
+const DEFAULT_INACTIVITY_TIMEOUT_MS = 180_000;
 
 async function* sseStream(
   bridgeUrl: string,
