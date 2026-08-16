@@ -1,5 +1,12 @@
 # drej-example-interactive-exec
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [3649a55]
+  - @alineo-labs/sqlite@0.1.1
+
 ## 0.0.7
 
 ### Patch Changes

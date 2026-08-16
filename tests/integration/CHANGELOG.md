@@ -1,5 +1,14 @@
 # @drej/integration-tests
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [0240c0f]
+- Updated dependencies [3649a55]
+  - @alineo-labs/agent@0.1.1
+  - @alineo-labs/sqlite@0.1.1
+
 ## 0.0.12
 
 ### Patch Changes

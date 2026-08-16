@@ -1,5 +1,46 @@
 # drejx
 
+## 0.1.1
+
+### Patch Changes
+
+- a8ace55: Bump the `execd` image `alineo init` pins in the generated `server.toml` from `v1.0.19` to
+  `v1.0.22`. v1.0.19 predates cached bwrap-archive support, so every sandbox logged "bwrap
+  archive not cached for linux/amd64 -- isolation will be unavailable" and the warning's own
+  suggested fix ("upgrade execd image to v1.1.0+") pointed at a tag that was never actually
+  published. Per OpenSandbox's docs, `execd` >=v1.0.20 has base isolation-session support and
+
+  > =v1.0.21 is recommended for full functionality; v1.0.22 is the latest published patch.
+
+  Note: this resolves the stale-image warning and lets execd's own isolation probe run cleanly,
+  but does not by itself enable bwrap isolation end-to-end -- that additionally requires the
+  sandbox-creation request to opt into `bootstrap.execd.isolation`, which grants the container
+  `CAP_SYS_ADMIN` and unconfined apparmor/seccomp. This SDK does not do that by default (and
+  deliberately doesn't turn it on unconditionally, since it would weaken every sandbox's default
+  container security posture just to support a rarely-used feature) -- pause()/resume() and
+  isolation-session-dependent features remain unavailable out of the box pending a real opt-in
+  API for this.
+
+- 9eb1081: Fix `alineo spawn`/`fork`/`prompt` (and every other subcommand) hanging indefinitely instead
+  of exiting after printing their result. The underlying SDK's exec client keeps a connection
+  open on the `Agent`/`Sandbox` object to support further calls on it, which left the CLI
+  process's event loop non-empty forever -- every `--prompt --json` invocation needed an
+  external `timeout` wrapper to actually terminate. Calling `agent.close()` isn't the fix: `spawn`
+  and `fork` deliberately leave their sandbox running (that's the whole point -- `alineo agents`/
+  `alineo prompt <id>` interact with it afterward), so closing the `Agent` object would delete
+  the very sandbox the command just reported. Added an explicit `process.exit(0)` after a
+  subcommand completes instead -- it ends only this CLI invocation, with no effect on the
+  remote sandbox.
+
+  Verified via a real `alineo spawn ... --prompt ... --json` run: previously hung until killed
+  externally; now exits naturally within a second of printing its result (measured: total wall
+  time matched the CLI's own reported work duration almost exactly).
+
+- Updated dependencies [0240c0f]
+- Updated dependencies [3649a55]
+  - @alineo-labs/agent@0.1.1
+  - @alineo-labs/sqlite@0.1.1
+
 ## 0.1.0
 
 ### Major Changes
