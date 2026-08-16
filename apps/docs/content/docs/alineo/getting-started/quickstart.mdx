@@ -8,7 +8,10 @@ description: Start a local OpenSandbox server and fetch your first agent spec in
 - [Docker](https://docs.docker.com/get-docker/) installed and running.
 - [Bun](https://bun.sh) installed.
 
-## 1. Start OpenSandbox locally
+<Steps>
+<Step>
+
+### Start OpenSandbox locally
 
 Run `alineo init` once per project. It starts an OpenSandbox server in Docker and writes a `alineo.config.json` to your project root.
 
@@ -25,7 +28,10 @@ OpenSandbox running at http://127.0.0.1:8080 — ready.
 
 If the server is already running from a previous `init`, `alineo init` prints the URL and exits immediately without starting a second container.
 
-## 2. Fetch an agent spec
+</Step>
+<Step>
+
+### Fetch an agent spec
 
 Point `alineo add` at any URL (or local file path) that returns a valid `AgentSpec` JSON:
 
@@ -40,7 +46,10 @@ Load it with: Agent.load("agents/code-reviewer.json") from @alineo-labs/agent
 
 `alineo add` fetches the spec, validates it (`name` and `cli: "pi"` are required), resolves any `registryDependencies` first (fetched recursively, depth-first), and writes it to `<agentsDir>/<name>.json` — `agentsDir` defaults to `./agents`. It does **not** create a sandbox, run setup, or checkpoint anything — that happens later, the first time you `Agent.load()` the spec.
 
-## 3. List your saved specs
+</Step>
+<Step>
+
+### List your saved specs
 
 ```bash
 bunx alineo-cli list
@@ -51,7 +60,10 @@ NAME                  CLI       DESCRIPTION
 code-reviewer         pi        A Node.js sandbox pre-loaded with TypeScript tooling.
 ```
 
-## 4. Run the agent
+</Step>
+<Step>
+
+### Run the agent
 
 `Agent.load()` (from `@alineo-labs/agent`) does the actual sandbox work: on first load it spins up a `node:22` sandbox, installs the Pi CLI and any `setup` steps, then checkpoints it. Subsequent loads restore from that snapshot, skipping the install.
 
@@ -71,7 +83,10 @@ await agent.close();
 
 `Agent.load()` reads `alineo.config.json` itself for the OpenSandbox server URL and other defaults — the same file `alineo init` wrote in step 1. You don't need to construct a `Alineo` client or pass connection details by hand — the one thing you still construct yourself is the storage adapter (`opts.adapter`), since `@alineo-labs/agent` doesn't depend on any specific one.
 
-## 5. Remove a spec
+</Step>
+<Step>
+
+### Remove a spec
 
 ```bash
 bunx alineo-cli remove code-reviewer
@@ -82,6 +97,9 @@ Removed agent spec 'code-reviewer'
 ```
 
 This deletes `agents/code-reviewer.json`. It's purely a local file operation — no sandbox or snapshot is touched. If you'd previously run `Agent.load()` on that spec, its sandbox snapshot (tracked separately, in `agent-snapshots.json` next to your ledger) is unaffected.
+
+</Step>
+</Steps>
 
 ## Next steps
 

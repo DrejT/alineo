@@ -2,6 +2,7 @@ import { DocsPage, DocsBody, DocsTitle, DocsDescription } from "fumadocs-ui/layo
 import { workflowSource } from "@/lib/source";
 import { notFound } from "next/navigation";
 import defaultMdxComponents from "fumadocs-ui/mdx";
+import { Steps, Step } from "fumadocs-ui/components/steps";
 
 const OVERVIEW_SLUGS = new Set(["", "getting-started", "building", "api-reference"]);
 
@@ -19,7 +20,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
       <DocsTitle>{page.data.title}</DocsTitle>
       {page.data.description && <DocsDescription>{page.data.description}</DocsDescription>}
       <DocsBody>
-        <MDX components={{ ...defaultMdxComponents }} />
+        <MDX components={{ ...defaultMdxComponents, Steps, Step }} />
       </DocsBody>
     </DocsPage>
   );
