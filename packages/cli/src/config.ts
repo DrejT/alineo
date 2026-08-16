@@ -103,6 +103,14 @@ export function serverDataDir(): string {
   return join(serverConfigDir(), "opensandbox-data");
 }
 
+/**
+ * v1.0.19 (the previous pin) predates cached bwrap-archive support, so every sandbox logged
+ * "bwrap archive not cached for linux/amd64 -- isolation will be unavailable" and isolation
+ * sessions (and anything that depends on them, e.g. pause()/resume()) hung indefinitely
+ * instead of failing cleanly. OpenSandbox's own docs: >=v1.0.20 has base isolation-session
+ * support, >=v1.0.21 is recommended for full functionality -- the "v1.1.0+" the warning
+ * message itself suggests does not exist as a published tag. v1.0.22 is the latest.
+ */
 export function serverConfigContent(): string {
   return `[server]
 host = "0.0.0.0"
@@ -111,7 +119,7 @@ eip = "http://127.0.0.1:8080"
 
 [runtime]
 type = "docker"
-execd_image = "opensandbox/execd:v1.0.19"
+execd_image = "opensandbox/execd:v1.0.22"
 
 [docker]
 network_mode = "bridge"

@@ -174,7 +174,7 @@ port = 8080
 
 [runtime]
 type = "docker"
-execd_image = "opensandbox/execd:v1.0.19"
+execd_image = "opensandbox/execd:v1.0.22"
 
 [docker]
 network_mode = "bridge"
