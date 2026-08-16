@@ -1,4 +1,6 @@
 import { Database } from "bun:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import type {
   IStorageAdapter,
   LedgerEntry,
@@ -97,6 +99,12 @@ export class SQLiteAdapter implements IStorageAdapter {
   private readonly db: Database;
 
   constructor(path: string) {
+    // create: true only creates the db *file* -- bun:sqlite doesn't create missing parent
+    // directories, so a fresh checkout using the common `new SQLiteAdapter("./.alineo/ledger.db")`
+    // pattern throws SQLITE_CANTOPEN before ever getting a chance to write anything. Safe to
+    // call unconditionally: dirname(":memory:") is ".", and mkdirSync(".", {recursive:true}) is
+    // a no-op.
+    mkdirSync(dirname(path), { recursive: true });
     this.db = new Database(path, { create: true });
   }
 
