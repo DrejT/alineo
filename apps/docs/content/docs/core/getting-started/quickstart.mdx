@@ -3,17 +3,26 @@ title: Quick start
 description: Run your first sandbox command in under five minutes.
 ---
 
-## 1. Install
+<Steps>
+<Step>
+
+### Install
 
 ```bash
 bun add alineo @alineo-labs/sqlite
 ```
 
-## 2. Start a local sandbox server
+</Step>
+<Step>
+
+### Start a local sandbox server
 
 Run OpenSandbox locally with `uvx opensandbox-server`. See [Installation](/docs/core/getting-started/installation) for the full config.
 
-## 3. Hello world
+</Step>
+<Step>
+
+### Hello world
 
 ```ts title="hello.ts"
 import { Alineo } from "alineo";
@@ -41,6 +50,9 @@ try {
 bun hello.ts
 # hello world
 ```
+
+</Step>
+</Steps>
 
 ## Capture output
 

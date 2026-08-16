@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
+import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { lazy } from "react";
 import "./globals.css";
 
 const SearchDialog = lazy(() => import("@/components/search-dialog"));
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -38,12 +39,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark`}
+      className={`${inter.variable} ${geistMono.variable} dark`}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        <RootProvider theme={{ forcedTheme: "light" }} search={{ SearchDialog }}>
-          {children}
+        <RootProvider theme={{ forcedTheme: "dark" }} search={{ SearchDialog }}>
+          <HomeLayout
+            nav={{ title: "alineo", url: "/" }}
+            themeSwitch={{ enabled: false }}
+            links={[
+              { text: "Docs", url: "/docs/core", active: "nested-url" },
+              { text: "Use Cases", url: "/use-cases", active: "nested-url" },
+              { text: "Changelog", url: "/changelog", active: "nested-url" },
+            ]}
+          >
+            {children}
+          </HomeLayout>
         </RootProvider>
       </body>
     </html>
