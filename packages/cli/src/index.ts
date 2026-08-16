@@ -59,7 +59,14 @@ async function main(): Promise<void> {
   const found = commands.find((c) => c.name === cmd);
   if (found) {
     await withTelemetry(found.name, argv, () => found.run(argv));
-    return;
+    // spawn/fork/prompt deliberately leave their sandbox running (that's the whole point --
+    // `alineo agents`/`alineo prompt <id>` interact with it afterward), so we can't clean up
+    // by closing the Agent/Sandbox object: that would delete the very sandbox the command just
+    // reported. But the SDK's underlying exec client keeps a connection open to support further
+    // calls on that same object, which otherwise leaves this process's event loop non-empty
+    // forever. Force-exiting here only ends *this* CLI invocation -- it has no effect on the
+    // remote sandbox, which keeps running exactly as intended.
+    process.exit(0);
   }
 
   printHelp();
