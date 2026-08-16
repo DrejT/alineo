@@ -1,5 +1,13 @@
 # docs
 
+## 0.1.4
+
+### Patch Changes
+
+- fcc5b1b: Update the Cloudflare Pages project name references from `drej-docs` to `alineo-docs`,
+  matching the project's rename on the Cloudflare dashboard. No behavior change other than
+  `deploy-docs.yml` and `bun run deploy` now targeting the correct (renamed) project.
+
 ## 0.1.3
 
 ### Patch Changes

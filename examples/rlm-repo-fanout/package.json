@@ -1,6 +1,6 @@
 {
   "name": "alineo-example-rlm-repo-fanout",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
