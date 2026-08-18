@@ -54,6 +54,19 @@ Or run the server directly with `uvx opensandbox-server` — see [`alineo-cli`](
 
 ---
 
+## Agent Skills System
+
+Alineo supports an extensible **Agent Skills System**. You can use the CLI to download and manage `SKILL.md` files that teach your AI pair-programming agents how to use frameworks (like Alineo or Bun) directly within your workspace.
+
+```bash
+npx alineo-cli skills add alineo
+npx alineo-cli skills list
+```
+
+**[Read the Skills System Guide →](SKILLSINFO.md)**
+
+---
+
 ## Windows Support
 
 This repo features native cross-platform support and can be developed directly on Windows without requiring WSL or Git Bash.

@@ -9,6 +9,7 @@ export interface AlineoConfig {
   apiKey: string;
   adapterPath: string;
   agentsDir: string;
+  skillsDir: string;
   defaults: {
     resources: { cpu: string; memory: string };
   };
@@ -32,6 +33,7 @@ function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
     apiKey: data.apiKey ?? "",
     adapterPath: data.adapterPath ?? "./.alineo/ledger.db",
     agentsDir: data.agentsDir ?? "./agents",
+    skillsDir: data.skillsDir ?? "./.agents/skills",
     defaults: {
       resources: {
         cpu: data.defaults?.resources?.cpu ?? "1000m",
@@ -67,6 +69,7 @@ export async function readConfig(): Promise<AlineoConfig> {
     apiKey: "",
     adapterPath: join(dir, "ledger.db"),
     agentsDir: join(dir, "agents"),
+    skillsDir: join(dir, "skills"),
     defaults: { resources: { cpu: "1000m", memory: "1Gi" } },
   };
   await Bun.write(globalPath, JSON.stringify(config, null, 2) + "\n");

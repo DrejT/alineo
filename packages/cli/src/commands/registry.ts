@@ -109,4 +109,14 @@ export const commands: CliCommand[] = [
     ],
     run: async (argv) => (await import("./telemetry.js")).telemetryCommand.run(argv),
   },
+  {
+    name: "skills",
+    group: "sdk",
+    variants: [
+      { usage: "alineo skills add <url-or-name>", summary: "Fetch and save a skill locally" },
+      { usage: "alineo skills list", summary: "List installed skills" },
+      { usage: "alineo skills remove <name>", summary: "Remove an installed skill" },
+    ],
+    run: async (argv) => (await import("./skills.js")).skillsCommand.run(argv),
+  },
 ];
