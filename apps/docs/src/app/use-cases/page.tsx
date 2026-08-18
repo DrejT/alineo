@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Use Cases",
+  description: "Real-world patterns for building agent sandboxes with alineo.",
 };
 
 export default function UseCasesPage() {

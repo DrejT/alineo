@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { lazy } from "react";
+import { DEFAULT_DESCRIPTION } from "@/lib/metadata";
 import "./globals.css";
 
 const SearchDialog = lazy(() => import("@/components/search-dialog"));
@@ -16,23 +17,36 @@ export const metadata: Metadata = {
     default: "alineo docs",
     template: "%s — alineo docs",
   },
-  description:
-    "Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.",
+  description: DEFAULT_DESCRIPTION,
+  keywords: [
+    "sandbox",
+    "OpenSandbox",
+    "AI agent sandbox",
+    "TypeScript SDK",
+    "code execution",
+    "checkpoint and resume",
+    "audit ledger",
+    "workflow orchestration",
+  ],
   openGraph: {
     type: "website",
     siteName: "alineo docs",
     title: "alineo docs",
-    description:
-      "Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.",
-    images: [{ url: "/og.png" }],
+    description: DEFAULT_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
     title: "alineo docs",
-    description:
-      "Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.",
-    images: ["/og.png"],
+    description: DEFAULT_DESCRIPTION,
   },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "alineo docs",
+  url: "https://docs.alineo.tech",
+  description: DEFAULT_DESCRIPTION,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -43,6 +57,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <RootProvider theme={{ forcedTheme: "dark" }} search={{ SearchDialog }}>
           <HomeLayout
             nav={{ title: "alineo", url: "/" }}
