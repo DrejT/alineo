@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function CookbookPage() {
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-start gap-6 px-6 py-24">
+    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-24">
       <h1 className="text-3xl font-semibold tracking-[-0.025em] text-fd-foreground">Cookbook</h1>
       <p className="text-fd-muted-foreground">
         Recipes for handling failure, time, and observability in the Core SDK. Workflow, Agent, and

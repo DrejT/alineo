@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function FaqPage() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-start gap-6 px-6 py-24">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-24">
       <h1 className="text-3xl font-semibold tracking-[-0.025em] text-fd-foreground">FAQ</h1>
       <Accordions type="single">
         <Accordion title="What is OpenSandbox, and do I need Docker?">
