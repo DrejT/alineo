@@ -43,10 +43,7 @@ export async function init(): Promise<void> {
     await ensureServerDataDir();
     console.log("Starting OpenSandbox in Docker...");
 
-    const isWindows = os.platform() === "win32";
-    const dockerSocketMount = isWindows
-      ? "//./pipe/docker_engine://./pipe/docker_engine"
-      : "/var/run/docker.sock:/var/run/docker.sock";
+    const dockerSocketMount = "/var/run/docker.sock:/var/run/docker.sock";
 
     await runContainer([
       "-d",
