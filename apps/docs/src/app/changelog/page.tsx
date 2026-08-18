@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Changelog",
+  description: "Release notes for the alineo SDK and CLI.",
 };
 
 export default function ChangelogPage() {
