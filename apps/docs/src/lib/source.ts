@@ -1,4 +1,4 @@
-import { coreDocs, workflowDocs, alineoDocs, agentDocs } from "collections/server";
+import { coreDocs, workflowDocs, alineoDocs, agentDocs, examplesDocs } from "collections/server";
 import { loader } from "fumadocs-core/source";
 
 export const coreSource = loader({
@@ -19,4 +19,9 @@ export const alineoSource = loader({
 export const agentSource = loader({
   baseUrl: "/docs/agent",
   source: agentDocs.toFumadocsSource(),
+});
+
+export const examplesSource = loader({
+  baseUrl: "/docs/examples",
+  source: examplesDocs.toFumadocsSource(),
 });

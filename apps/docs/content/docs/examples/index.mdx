@@ -1,0 +1,79 @@
+---
+title: Examples
+description: Runnable examples covering every corner of the alineo SDK — clone, install, and run.
+---
+
+Every example below is a real, runnable package in the [alineo repo](https://github.com/DrejT/alineo/tree/main/examples) — `bunx alineo-cli init`, `bun install`, `bun start`.
+
+<Cards>
+  <Card
+    href="/docs/examples/hello-world"
+    title="Hello World"
+    description="Spin up an Ubuntu sandbox, run a command, and stream the output."
+  />
+  <Card
+    href="/docs/examples/exec-code"
+    title="Code Interpreter"
+    description="Run code through the sandbox's built-in interpreter — stateless and stateful modes."
+  />
+  <Card
+    href="/docs/examples/file-ops"
+    title="File Operations"
+    description="The full sandbox file operations API — read, write, move, search, and transfer."
+  />
+  <Card
+    href="/docs/examples/read-file"
+    title="Reading Files"
+    description="Read a file written inside the sandbox back to the host process."
+  />
+  <Card
+    href="/docs/examples/capture"
+    title="Capturing Output"
+    description="Capture exec stdout and use it as input for subsequent steps."
+  />
+  <Card
+    href="/docs/examples/run-bash-script"
+    title="Running Bash Scripts"
+    description="Run a multi-line bash script inside an isolated sandbox and stream its output."
+  />
+  <Card
+    href="/docs/examples/interactive-exec"
+    title="Interactive Exec"
+    description="A live, bidirectional PTY session that can be checkpointed and resumed mid-session."
+  />
+  <Card
+    href="/docs/examples/ports"
+    title="Exposing Ports"
+    description="Start an HTTP server inside a sandbox and reach it from the host via sb.proxy()."
+  />
+  <Card
+    href="/docs/examples/control-flow"
+    title="Control Flow"
+    description="retry, when, and forEach — alineo's built-in workflow control-flow primitives."
+  />
+  <Card
+    href="/docs/examples/cancellation"
+    title="Cancellation & Cleanup"
+    description="Resource cleanup and error handling when commands fail or time out."
+  />
+  <Card
+    href="/docs/examples/error-handling"
+    title="Error Handling"
+    description="Strict vs. non-strict exec, and the CommandError/SandboxError/ExecConnectionError types."
+  />
+  <Card
+    href="/docs/examples/environments"
+    title="Reusable Environments"
+    description="Build a sandbox image once, then restore from snapshot on every run."
+  />
+  <Card
+    href="/docs/examples/snapshot-replay"
+    title="Checkpoint & Resume"
+    description="Capture a snapshot after install, then resume from it to skip setup on the next run."
+  />
+  <Card
+    href="/docs/examples/sandbox-fork"
+    title="Forking Sandboxes"
+    description="Install dependencies once, then fork into independent sandboxes that run in parallel."
+  />
+</Cards>

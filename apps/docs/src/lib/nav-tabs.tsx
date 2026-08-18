@@ -1,4 +1,4 @@
-import { Package, Workflow, Bot, Terminal } from "lucide-react";
+import { Package, Workflow, Bot, Terminal, FlaskConical } from "lucide-react";
 import type { LayoutTab } from "fumadocs-ui/layouts/shared";
 
 export const docsTabs: LayoutTab[] = [
@@ -25,5 +25,11 @@ export const docsTabs: LayoutTab[] = [
     title: "alineo CLI",
     description: "alineo-cli",
     icon: <Terminal className="size-4" />,
+  },
+  {
+    url: "/docs/examples",
+    title: "Examples",
+    description: "Runnable examples",
+    icon: <FlaskConical className="size-4" />,
   },
 ];

@@ -1,8 +1,11 @@
 import { defineDocs, defineConfig } from "fumadocs-mdx/config";
 
-export const coreDocs = defineDocs({ dir: "content/docs/core" });
-export const workflowDocs = defineDocs({ dir: "content/docs/workflow" });
-export const alineoDocs = defineDocs({ dir: "content/docs/alineo" });
-export const agentDocs = defineDocs({ dir: "content/docs/agent" });
+const docs = { postprocess: { includeProcessedMarkdown: true } };
+
+export const coreDocs = defineDocs({ dir: "content/docs/core", docs });
+export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });
+export const alineoDocs = defineDocs({ dir: "content/docs/alineo", docs });
+export const agentDocs = defineDocs({ dir: "content/docs/agent", docs });
+export const examplesDocs = defineDocs({ dir: "content/docs/examples", docs });
 
 export default defineConfig();
