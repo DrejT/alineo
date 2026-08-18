@@ -1,12 +1,18 @@
 import type { MetadataRoute } from "next";
-import { coreSource, workflowSource, alineoSource, agentSource } from "@/lib/source";
+import {
+  coreSource,
+  workflowSource,
+  alineoSource,
+  agentSource,
+  examplesSource,
+} from "@/lib/source";
 
 export const dynamic = "force-static";
 
 const BASE_URL = "https://docs.alineo.tech";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const sources = [coreSource, workflowSource, alineoSource, agentSource];
+  const sources = [coreSource, workflowSource, alineoSource, agentSource, examplesSource];
 
   const docPages = sources.flatMap((source) =>
     source.getPages().map((page) => ({
@@ -32,6 +38,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${BASE_URL}/use-cases`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+    {
+      url: `${BASE_URL}/cookbook`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+    {
+      url: `${BASE_URL}/faq`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.5,

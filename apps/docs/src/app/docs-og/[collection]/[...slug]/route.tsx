@@ -1,5 +1,11 @@
 import { ImageResponse } from "next/og";
-import { coreSource, workflowSource, alineoSource, agentSource } from "@/lib/source";
+import {
+  coreSource,
+  workflowSource,
+  alineoSource,
+  agentSource,
+  examplesSource,
+} from "@/lib/source";
 import { loadOgFonts, ogImageSize, renderOgImage } from "@/lib/og-image";
 
 const SOURCES = {
@@ -7,6 +13,7 @@ const SOURCES = {
   workflow: workflowSource,
   alineo: alineoSource,
   agent: agentSource,
+  examples: examplesSource,
 } as const;
 
 type Collection = keyof typeof SOURCES;
