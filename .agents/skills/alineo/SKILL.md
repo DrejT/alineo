@@ -26,10 +26,10 @@ a CLI (`alineo-cli`) wraps common operations for local dev.
 
 This skill is organized into modular files. Depending on what you are doing, read the corresponding file in the `rules/` directory:
 
-- **[Architecture](file:///d:/Users/Desktop/alineo-npm/alineo/.agents/skills/alineo/rules/architecture.md)** — Core concepts, clients, adapters, and the event ledger.
-- **[Quick Start](file:///d:/Users/Desktop/alineo-npm/alineo/.agents/skills/alineo/rules/quick-start.md)** — Server startup and basic usage script.
-- **[API Reference](file:///d:/Users/Desktop/alineo-npm/alineo/.agents/skills/alineo/rules/api-reference.md)** — Creating clients, sandboxes, executing commands, and checkpoints.
-- **[Storage Adapters](file:///d:/Users/Desktop/alineo-npm/alineo/.agents/skills/alineo/rules/adapters.md)** — SQLite/Postgres adapter setup and known issues.
-- **[CLI Reference](file:///d:/Users/Desktop/alineo-npm/alineo/.agents/skills/alineo/rules/cli.md)** — `alineo-cli` commands and config files.
-- **[Development & Testing](file:///d:/Users/Desktop/alineo-npm/alineo/.agents/skills/alineo/rules/development.md)** — Unit tests, integration tests, building, changesets, and the verification checklist.
-- **[Troubleshooting & Resources](file:///d:/Users/Desktop/alineo-npm/alineo/.agents/skills/alineo/rules/troubleshooting.md)** — Common errors, Windows gotchas, and external links.
+- **[Architecture](rules/architecture.md)** — Core concepts, clients, adapters, and the event ledger.
+- **[Quick Start](rules/quick-start.md)** — Server startup and basic usage script.
+- **[API Reference](rules/api-reference.md)** — Creating clients, sandboxes, executing commands, and checkpoints.
+- **[Storage Adapters](rules/adapters.md)** — SQLite/Postgres adapter setup and known issues.
+- **[CLI Reference](rules/cli.md)** — `alineo-cli` commands and config files.
+- **[Development & Testing](rules/development.md)** — Unit tests, integration tests, building, changesets, and the verification checklist.
+- **[Troubleshooting & Resources](rules/troubleshooting.md)** — Common errors, Windows gotchas, and external links.
