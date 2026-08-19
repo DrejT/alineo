@@ -12,6 +12,14 @@ npx skills add DrejT/alineo --skill alineo
 
 This will automatically fetch and install the skill into your `.agents/skills/alineo` directory.
 
+## What This Skill Does
+
+When an AI agent is equipped with this skill, it gains deep, context-aware knowledge of the Alineo framework. Specifically, the skill enables the agent to:
+- **Write and Debug Alineo Code**: Generate correct TypeScript SDK code for OpenSandbox interactions (spawning sandboxes, checkpointing, resuming, and executing commands).
+- **Use the Alineo CLI**: Expertly navigate the `alineo-cli` for local development workflows.
+- **Troubleshoot Effectively**: Quickly diagnose common issues, especially Windows-specific gotchas or SQLite/Postgres adapter problems.
+- **Follow Best Practices**: Adhere to the core architectural guidelines and event ledger patterns specific to Alineo.
+
 ## How to Use This Skill
 
 Once installed, this skill is automatically invoked when working within the repository. To make the most of it:
