@@ -54,16 +54,15 @@ Or run the server directly with `uvx opensandbox-server` — see [`alineo-cli`](
 
 ---
 
-## Agent Skills System
+## Agent Skills
 
-Alineo supports an extensible **Agent Skills System**. You can use the CLI to download and manage `SKILL.md` files that teach your AI pair-programming agents how to use frameworks (like Alineo or Bun) directly within your workspace.
+Alineo ships a `SKILL.md` at `.agents/skills/alineo/` — a curated reference for the SDK, CLI, and
+storage adapters that AI coding agents can load directly. Install it with the
+[Skills CLI](https://skills.sh) (`npx skills`), the open package manager for agent skills:
 
 ```bash
-npx alineo-cli skills add alineo
-npx alineo-cli skills list
+npx skills add DrejT/alineo --skill alineo
 ```
-
-**[Read the Skills System Guide →](SKILLSINFO.md)**
 
 ---
 
