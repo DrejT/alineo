@@ -104,7 +104,11 @@ export class SQLiteAdapter implements IStorageAdapter {
     // pattern throws SQLITE_CANTOPEN before ever getting a chance to write anything. Safe to
     // call unconditionally: dirname(":memory:") is ".", and mkdirSync(".", {recursive:true}) is
     // a no-op.
-    mkdirSync(dirname(path), { recursive: true });
+    try {
+      mkdirSync(dirname(path), { recursive: true });
+    } catch (e: any) {
+      if (e.code !== "EEXIST") throw e;
+    }
     this.db = new Database(path, { create: true });
   }
 

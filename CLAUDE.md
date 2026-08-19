@@ -15,8 +15,11 @@ Reusable skill references live in `.agents/skills/<name>/SKILL.md`. Always check
 Available skills:
 
 - **`.agents/skills/bun/`** — Bun runtime, package manager, test runner, and bundler. Covers `bun run`, `bun install`, `bun test`, `bun build`, workspace flags, common gotchas (flag placement, lifecycle scripts, lockfile format), and key APIs (`Bun.file()`, `Bun.serve()`, `Bun.write()`)
+- **`.agents/skills/alineo/`** — the alineo SDK/CLI itself: sandbox lifecycle, exec, checkpoint/resume, storage adapters, environments, and Windows-specific gotchas.
 
 Example: before writing a `bun build` command or debugging a workspace install issue, read `.agents/skills/bun/SKILL.md` for the correct flags and known pitfalls.
+
+External agents install either skill with the [Skills CLI](https://skills.sh): `npx skills add DrejT/alineo --skill <name>`.
 
 ## What this is
 

@@ -54,6 +54,18 @@ Or run the server directly with `uvx opensandbox-server` — see [`alineo-cli`](
 
 ---
 
+## Agent Skills
+
+Alineo ships a `SKILL.md` at `.agents/skills/alineo/` — a curated reference for the SDK, CLI, and
+storage adapters that AI coding agents can load directly. Install it with the
+[Skills CLI](https://skills.sh) (`npx skills`), the open package manager for agent skills:
+
+```bash
+npx skills add DrejT/alineo --skill alineo
+```
+
+---
+
 ## Windows Support
 
 This repo features native cross-platform support and can be developed directly on Windows without requiring WSL or Git Bash.

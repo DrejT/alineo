@@ -325,7 +325,11 @@ describe("SQLiteAdapter", () => {
         expect(existsSync(dbPath)).toBe(true);
       } finally {
         await nested.close();
-        rmSync(root, { recursive: true, force: true });
+        try {
+          rmSync(root, { recursive: true, force: true });
+        } catch (e: any) {
+          if (e.code !== "EBUSY" && e.code !== "EPERM") throw e;
+        }
       }
     });
   });
