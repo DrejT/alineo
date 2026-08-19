@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "apps/docs/**"
+      - "packages/sdks/typescript/CHANGELOG.md"
+      - "packages/cli/CHANGELOG.md"
 
 jobs:
   deploy:

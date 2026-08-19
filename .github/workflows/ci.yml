@@ -80,6 +80,10 @@ jobs:
       - name: Run tests
         run: bun run test
 
+      - name: Test docs
+        run: bun run test
+        working-directory: apps/docs
+
   build:
     name: Build
     runs-on: ubuntu-latest
