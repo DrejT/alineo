@@ -83,7 +83,11 @@ html.dark {
     @apply bg-fd-secondary!;
   }
   :not(pre) > code {
-    @apply bg-fd-secondary text-fd-primary rounded-sm px-[0.4em] py-[0.15em] text-[0.875em];
+    /* @tailwindcss/typography's .prose never sets a wrap rule on inline code, so a long
+       unbroken identifier (ALINEO_OBSERVABILITY, CreateSandboxOptions.metadata, ...) — common
+       in changelog/API prose — overflows its container edge-to-edge on narrow viewports
+       instead of wrapping. break-words lets it break mid-token only when it doesn't fit. */
+    @apply bg-fd-secondary text-fd-primary rounded-sm px-[0.4em] py-[0.15em] text-[0.875em] break-words;
   }
   /* Pill-shaped ⌘K search trigger in the top navbar */
   [data-search-full] {
