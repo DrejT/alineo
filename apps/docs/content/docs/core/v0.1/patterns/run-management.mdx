@@ -42,7 +42,7 @@ const sessions = await client.sandboxes.listByName("my-ci-job");
 ## Filter by status or date
 
 ```ts
-import { SandboxStatus } from "alineo";
+import { SandboxStatus } from "@alineo-labs/sandbox";
 
 // Only running sessions
 const running = await client.sandboxes.list({ status: SandboxStatus.Running });
@@ -87,14 +87,14 @@ try {
 }
 ```
 
-`client.resume()` throws `AlineoError` (status 404) if no session with that ID is found in the ledger, and if no checkpoint exists in the session's history.
+`client.resume()` throws `SandboxClientError` (status 404) if no session with that ID is found in the ledger, and if no checkpoint exists in the session's history.
 
 ## Typical cleanup pattern
 
 For scripts that accumulate many sessions, periodically clean up completed runs:
 
 ```ts
-import { SandboxStatus } from "alineo";
+import { SandboxStatus } from "@alineo-labs/sandbox";
 
 const completed = await client.sandboxes.list({ status: SandboxStatus.Completed });
 

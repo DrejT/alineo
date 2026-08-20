@@ -13,10 +13,10 @@ For local development, [`@alineo-labs/sqlite`](https://github.com/DrejT/alineo/t
 ## Usage
 
 ```ts
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { PostgresAdapter } from "@alineo-labs/postgres";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080",
   adapter: new PostgresAdapter("postgresql://user:pass@localhost:5432/alineo"),
 });

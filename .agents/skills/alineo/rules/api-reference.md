@@ -1,6 +1,6 @@
 # Key API Reference
 
-### `new Alineo(opts: AlineoOptions)`
+### `new Sandbox(opts: SandboxClientOptions)`
 
 | Option | Type | Notes |
 |---|---|---|
@@ -10,7 +10,7 @@
 | `useServerProxy` | `boolean?` | **Must be `true`** when server started via `alineo init` |
 | `maxConcurrency` | `number?` | Cap simultaneous active sandboxes; `sandbox()` awaits a slot |
 
-### `client.sandbox(opts: SandboxOptions): Promise<Sandbox>`
+### `client.sandbox(opts: SandboxOptions): Promise<SandboxHandle>`
 
 | Option | Required | Notes |
 |---|---|---|
@@ -46,13 +46,13 @@ Non-zero exit codes throw `CommandError` with `.exitCode`, `.stdout`, `.stderr`.
 Snapshots the container. Returns the `snapshotId`. Writes `checkpoint_created`
 to the ledger. The optional `tag` is persisted in the payload for named resume.
 
-### `client.resume(sandboxId, opts?)` → `Promise<Sandbox>`
+### `client.resume(sandboxId, opts?)` → `Promise<SandboxHandle>`
 
 Restores the container from the most recent checkpoint (or `opts.tag`). Execs
 before the checkpoint return from ledger cache without re-running on the
 container. Execs after run live.
 
-### `client.connect(sandboxId, name, opts?)` → `Promise<Sandbox>`
+### `client.connect(sandboxId, name, opts?)` → `Promise<SandboxHandle>`
 
 Reconnect to an already-running container. No snapshot involved — the container
 keeps its state. Throws 409 if container is not `Running`.

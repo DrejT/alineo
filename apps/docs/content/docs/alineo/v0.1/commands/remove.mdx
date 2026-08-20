@@ -29,5 +29,5 @@ bunx alineo-cli remove node-toolchain
 
 ## Notes
 
-- `remove` only deletes the spec JSON file. It does not delete any sandbox snapshot created by a prior `Agent.load()` — that's tracked separately, in `agent-snapshots.json` next to your ledger — nor does it touch the ledger itself.
+- `remove` only deletes the spec JSON file. It does not delete any sandbox snapshot created by a prior `Alineo.load()` — that's tracked separately, in `agent-snapshots.json` next to your ledger — nor does it touch the ledger itself.
 - To remove a spec that was saved with `--name` on `add`, use that custom name, not the `name` field from inside the spec file.

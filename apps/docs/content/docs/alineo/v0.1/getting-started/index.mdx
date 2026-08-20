@@ -1,12 +1,12 @@
 ---
 title: What is alineo?
-description: alineo starts a local OpenSandbox server, manages @alineo-labs/agent spec files, and drives agent sessions directly from the command line — spawn, prompt, fork, and orchestrate without writing TypeScript.
+description: alineo starts a local OpenSandbox server, manages alineo spec files, and drives agent sessions directly from the command line — spawn, prompt, fork, and orchestrate without writing TypeScript.
 ---
 
-`alineo` is a local CLI built on [`@alineo-labs/agent`](/docs/agent). It covers two layers:
+The `alineo` CLI is built on the [`alineo` SDK package](/docs/agent). It covers two layers:
 
 - **SDK config and spec management** — `init` starts a local OpenSandbox server; `add`/`list`/`remove` manage `AgentSpec` JSON files on disk. Neither of these touches a sandbox.
-- **Agent session lifecycle** — `spawn`/`prompt`/`fork`/`agents`/`kill`/`logs` wrap `Agent.load()`/`resume()`/`attach()`/`spawn()` directly, so you can start, talk to, and orchestrate agent sessions entirely from the shell — including recursive forking, where a running session forks its own live sandbox into child agents (see `alineo fork` in the [Commands reference](/docs/alineo/v0.1/commands)).
+- **Alineo session lifecycle** — `spawn`/`prompt`/`fork`/`agents`/`kill`/`logs` wrap `Alineo.load()`/`resume()`/`attach()`/`spawn()` directly, so you can start, talk to, and orchestrate agent sessions entirely from the shell — including recursive forking, where a running session forks its own live sandbox into child agents (see `alineo fork` in the [Commands reference](/docs/alineo/v0.1/commands)).
 
 ```bash
 bunx alineo-cli init
@@ -22,19 +22,19 @@ The first command starts a local OpenSandbox server via Docker and writes `aline
 - You want to fetch a shared agent spec (e.g. a pre-configured Pi coding-agent setup) from a URL instead of writing the JSON by hand.
 - You want to start, prompt, or orchestrate agent sessions directly from the shell or from inside a Pi session (see the [Pi extension](/docs/alineo/v0.1/commands#pi-extension)), without writing a TypeScript entry point.
 
-## How it relates to `@alineo-labs/agent`
+## How it relates to the `alineo` SDK package
 
-`alineo spawn`/`prompt`/`fork`/`agents`/`kill`/`logs` are thin CLI wrappers around `@alineo-labs/agent`'s own `Agent` class — same behavior, same `alineo.config.json`, same ledger. Reach for `@alineo-labs/agent` directly instead of the CLI when you need to drive an agent programmatically (streaming responses in your own app, custom tool-event handling, etc.):
+`alineo spawn`/`prompt`/`fork`/`agents`/`kill`/`logs` are thin CLI wrappers around the `alineo` SDK package's own `Alineo` class — same behavior, same `alineo.config.json`, same ledger. Reach for the `alineo` SDK package directly instead of the CLI when you need to drive an agent programmatically (streaming responses in your own app, custom tool-event handling, etc.):
 
 ```ts
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Agent.load("./agents/my-agent.json", { adapter });
+const agent = await Alineo.load("./agents/my-agent.json", { adapter });
 ```
 
-`Agent.load()` reads `alineo.config.json` itself (the same file `alineo init` writes) to know where the OpenSandbox server is — you don't pass connection details manually.
+`Alineo.load()` reads `alineo.config.json` itself (the same file `alineo init` writes) to know where the OpenSandbox server is — you don't pass connection details manually.
 
 ## Next steps
 

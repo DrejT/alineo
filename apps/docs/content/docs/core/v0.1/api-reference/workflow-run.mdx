@@ -4,7 +4,7 @@ description: The object returned by sb.exec() and sb.execCode() — PromiseLike<
 ---
 
 ```ts
-import type { ExecHandle, ExecResult } from "alineo";
+import type { ExecHandle, ExecResult } from "@alineo-labs/sandbox";
 ```
 
 `ExecHandle` is returned by `sb.exec()` and `sb.execCode()`. It implements `PromiseLike<ExecResult>` — you can `await` it directly, pipe it, or consume it as an async generator.

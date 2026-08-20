@@ -12,7 +12,7 @@ uvx opensandbox-server
 
 `alineo init` writes `alineo.config.json` in the current dir and a server config
 at `~/.config/alineo/server.toml`. When the server runs in Docker you **must**
-pass `useServerProxy: true` to `new Alineo(...)`.
+pass `useServerProxy: true` to `new Sandbox(...)`.
 
 > **Windows gotcha:** `alineo init` mounts the Docker socket as
 > `/var/run/docker.sock` (the Unix path) because Docker Desktop on Windows
@@ -23,10 +23,10 @@ pass `useServerProxy: true` to `new Alineo(...)`.
 ### 2 — Write a script
 
 ```ts
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./.alineo/ledger.db"),

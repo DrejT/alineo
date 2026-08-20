@@ -7,10 +7,10 @@
 Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.
 
 ```ts
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://127.0.0.1:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -31,13 +31,13 @@ await sb.close();
 
 | Package                                                 | Description                                                 |
 | -------------------------------------------------------- | ----------------------------------------------------------- |
-| [`alineo`](packages/sdks/typescript)                      | Core SDK — `Alineo` client, `Sandbox`, `ExecHandle`           |
+| [`@alineo-labs/sandbox`](packages/sdks/typescript)         | Sandbox client — `Sandbox`, `SandboxHandle`, `ExecHandle`    |
 | [`@alineo-labs/workflow`](packages/workflow)               | Lazy pipeline builder — retry, branching, fan-out, parallel |
-| [`@alineo-labs/agent`](packages/agent)                     | Run Pi coding agents in sandbox containers                  |
+| [`alineo`](packages/agent)                                 | Run Pi coding agents in sandbox containers                  |
 | [`@alineo-labs/sqlite`](packages/adapters/sqlite)          | SQLite storage adapter (local dev, zero infra)              |
 | [`@alineo-labs/postgres`](packages/adapters/postgres)      | Postgres storage adapter (production)                       |
 | [`@alineo-labs/otel`](packages/adapters/otel)              | OpenTelemetry hooks adapter                                 |
-| [`@alineo-labs/flue`](packages/adapters/flue)              | Flue runtime adapter — run Flue workflows against an alineo `Sandbox` |
+| [`@alineo-labs/flue`](packages/adapters/flue)              | Flue runtime adapter — run Flue workflows against a `SandboxHandle` |
 | [`alineo-cli`](packages/cli)                               | CLI — local OpenSandbox setup, spec management, agent session lifecycle |
 
 ---

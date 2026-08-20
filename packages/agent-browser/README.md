@@ -1,6 +1,6 @@
 # @alineo-labs/agent-browser
 
-Browser automation capability for `@alineo-labs/agent` Pi sessions — a Pi extension wrapping the
+Browser automation capability for `alineo` Pi sessions — a Pi extension wrapping the
 [`agent-browser`](https://github.com/vercel-labs/agent-browser) CLI (accessibility-tree
 snapshots with stable element refs, annotated screenshots — not coordinate-based targeting)
 as five typed tool calls: `browser_open`, `browser_snapshot`, `browser_click`,
@@ -15,7 +15,7 @@ Private package — not published to npm.
 Two parts: `pi-extension/agent-browser.ts` is a Pi extension, not an importable library —
 each tool's `execute()` runs `agent-browser <cmd> --json` via `pi.exec()`, which shells out
 **locally, inside whatever sandbox this Pi session's own bridge process is already running
-in** — not through `@alineo-labs/core`'s `Sandbox.exec()`. There is no `Sandbox` object to inject:
+in** — not through `@alineo-labs/core`'s `SandboxHandle.exec()`. There is no `SandboxHandle` object to inject:
 the `agent-browser` CLI's daemon, its authenticated session/profile state, and this
 extension's own code all live in the same container already, the same way
 `packages/cli/pi-extension/alineo.ts`'s tools shell out to `alineo` locally rather than
@@ -26,7 +26,7 @@ the `SetupStep[]` a spec splices into its own `setup` array to install Chrome an
 `agent-browser` inside the sandbox before the extension above can use them, and
 `stream.ts`'s `enableBrowserStream()`/`disableBrowserStream()` give a host-side caller (not
 the agent itself) a proxied WebSocket URL to view the sandboxed browser live — going
-through `@alineo-labs/core`'s `Sandbox.proxy()`, since that one does need a real `Sandbox` object.
+through `@alineo-labs/core`'s `SandboxHandle.proxy()`, since that one does need a real `SandboxHandle` object.
 
 `agent-browser` itself needs to be installed in the sandbox via a spec's `setup` steps:
 

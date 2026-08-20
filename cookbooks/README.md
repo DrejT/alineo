@@ -17,7 +17,7 @@ Every recipe below is also published on the [docs site](https://docs.alineo.tech
 | [`ci-test-runner`](ci-test-runner)                     | Running a repo's test suite in a disposable sandbox and turning the output into a structured pass/fail report   |
 | [`parallel-test-shards`](parallel-test-shards)         | Installing dependencies once, then `fork()`-ing into parallel sandboxes to shard work                           |
 | [`resumable-etl-pipeline`](resumable-etl-pipeline)     | A multi-stage pipeline that checkpoints after each stage and resumes without redoing completed work             |
-| [`ai-agent-bugfix`](ai-agent-bugfix)                   | An `@alineo-labs/agent` agent that debugs and fixes a failing test on its own, then gets independently verified |
+| [`ai-agent-bugfix`](ai-agent-bugfix)                   | An `alineo` agent that debugs and fixes a failing test on its own, then gets independently verified |
 
 ## Setup
 

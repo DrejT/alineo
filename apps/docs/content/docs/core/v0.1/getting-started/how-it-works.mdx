@@ -1,16 +1,16 @@
 ---
 title: How it works
-description: Sandbox as a first-class object, ExecHandle, the durable ledger, and the @alineo-labs/workflow lazy layer.
+description: SandboxHandle as a first-class object, ExecHandle, the durable ledger, and the @alineo-labs/workflow lazy layer.
 ---
 
-## Sandbox as a first-class object
+## SandboxHandle as a first-class object
 
-`client.sandbox()` creates a container and returns a live `Sandbox` object. You hold it as a variable, call methods on it, and `close()` it when done. Multiple sandboxes are just multiple variables — no special API.
+`client.sandbox()` creates a container and returns a live `SandboxHandle` object. You hold it as a variable, call methods on it, and `close()` it when done. Multiple sandboxes are just multiple variables — no special API.
 
 ```
 client.sandbox(opts)
       ↓
-  Sandbox          ← you hold this
+  SandboxHandle    ← you hold this
   ├── exec()       ← returns ExecHandle
   ├── execCode()   ← returns ExecHandle
   ├── writeFile()
@@ -97,4 +97,4 @@ workflow(client)
 
 The workflow builder handles sandbox lifecycle automatically. Use it when you want control flow (`retry`, `when`, `forEach`) or multi-sandbox pipelines (`.parallel()`, `.sequence()`).
 
-For straightforward tasks — run a command, capture output, read a file — the direct `Sandbox` API is simpler.
+For straightforward tasks — run a command, capture output, read a file — the direct `SandboxHandle` API is simpler.

@@ -15,7 +15,7 @@ metadata:
 
 ## Product Summary
 
-`alineo` is a **sandbox execution substrate** built on [OpenSandbox](https://opensandbox.ai).
+`@alineo-labs/sandbox` is a **sandbox execution substrate** built on [OpenSandbox](https://opensandbox.ai).
 It gives you live Linux containers as first-class objects — spawn, exec, checkpoint, resume —
 with a durable SQL audit ledger and replay. The TypeScript SDK is the primary interface;
 a CLI (`alineo-cli`) wraps common operations for local dev.

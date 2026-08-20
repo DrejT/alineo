@@ -1,13 +1,13 @@
 # Architecture at a Glance
 
 ```
-Alineo (SDK client)
+Sandbox (SDK client, @alineo-labs/sandbox)
   ├── ControlClient (@alineo-labs/opensandbox)   — REST: create/stop/snapshot sandboxes
   ├── ExecClient (@alineo-labs/opensandbox)       — SSE: stream exec output
   ├── IStorageAdapter                             — pluggable durable ledger
   │     ├── SQLiteAdapter (@alineo-labs/sqlite)   — local dev / scripts
   │     └── PostgresAdapter (@alineo-labs/postgres) — production
-  └── Sandbox / BashSession (@alineo-labs/core)   — the live handle you hold
+  └── SandboxHandle / BashSession (@alineo-labs/core) — the live handle you hold
 ```
 
 Each sandbox exec is recorded in the ledger as:

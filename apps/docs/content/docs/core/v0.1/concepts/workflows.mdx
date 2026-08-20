@@ -3,17 +3,17 @@ title: Workflows
 description: The two usage modes — direct sandbox API and the @alineo-labs/workflow lazy builder.
 ---
 
-alineo has two ways to work with sandboxes. Both use the same underlying `Sandbox` and `ExecHandle` types.
+There are two ways to work with sandboxes. Both use the same underlying `SandboxHandle` and `ExecHandle` types.
 
 ## Direct sandbox API
 
 You create a sandbox, call methods on it, and close it. This is the simplest and most flexible mode — you have full control over the lifecycle and can use ordinary TypeScript between steps.
 
 ```ts
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
