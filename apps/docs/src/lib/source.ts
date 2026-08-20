@@ -4,6 +4,7 @@ import {
   alineoV01Docs,
   agentDocs,
   examplesDocs,
+  cookbooksDocs,
 } from "collections/server";
 import { loader } from "fumadocs-core/source";
 
@@ -37,4 +38,9 @@ export const agentSource = loader({
 export const examplesSource = loader({
   baseUrl: "/docs/examples",
   source: examplesDocs.toFumadocsSource(),
+});
+
+export const cookbooksSource = loader({
+  baseUrl: "/docs/cookbooks",
+  source: cookbooksDocs.toFumadocsSource(),
 });

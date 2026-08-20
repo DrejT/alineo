@@ -1,4 +1,4 @@
-import { Package, Workflow, Bot, Terminal, FlaskConical } from "lucide-react";
+import { Package, Workflow, Bot, Terminal, FlaskConical, ChefHat } from "lucide-react";
 import type { LayoutTab } from "fumadocs-ui/layouts/shared";
 import { coreLatestVersion, alineoLatestVersion } from "@/lib/source";
 
@@ -35,5 +35,11 @@ export const docsTabs: LayoutTab[] = [
     title: "Examples",
     description: "Runnable examples",
     icon: <FlaskConical className="size-4" />,
+  },
+  {
+    url: "/docs/cookbooks",
+    title: "Cookbooks",
+    description: "Task-oriented recipes",
+    icon: <ChefHat className="size-4" />,
   },
 ];

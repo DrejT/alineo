@@ -5,6 +5,7 @@ import {
   alineoSource,
   agentSource,
   examplesSource,
+  cookbooksSource,
 } from "@/lib/source";
 
 export const dynamic = "force-static";
@@ -12,7 +13,14 @@ export const dynamic = "force-static";
 const BASE_URL = "https://docs.alineo.tech";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const sources = [coreSource, workflowSource, alineoSource, agentSource, examplesSource];
+  const sources = [
+    coreSource,
+    workflowSource,
+    alineoSource,
+    agentSource,
+    examplesSource,
+    cookbooksSource,
+  ];
 
   const docPages = sources.flatMap((source) =>
     source.getPages().map((page) => ({

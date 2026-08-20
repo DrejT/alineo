@@ -1,0 +1,15 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "bugfix-agent",
+  "title": "Bugfix Agent",
+  "description": "A Pi agent on python:3.11-slim that debugs a failing test and fixes the bug itself.",
+  "author": "alineo",
+  "cli": "pi",
+  "provider": "nvidia",
+  "model": "nvidia/nemotron-3-nano-30b-a3b",
+  "packages": ["python3", "python3-pip"],
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
+  },
+  "resources": { "cpu": "1000m", "memory": "2Gi" }
+}

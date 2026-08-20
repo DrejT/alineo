@@ -12,5 +12,6 @@ export const alineoV01Docs = defineDocs({ dir: "content/docs/alineo/v0.1", docs 
 export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });
 export const agentDocs = defineDocs({ dir: "content/docs/agent", docs });
 export const examplesDocs = defineDocs({ dir: "content/docs/examples", docs });
+export const cookbooksDocs = defineDocs({ dir: "content/docs/cookbooks", docs });
 
 export default defineConfig();
