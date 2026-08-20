@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Sandbox } from "../src/sandbox/index.ts";
+import { SandboxHandle } from "../src/sandbox/index.ts";
 import { LedgerEvent } from "../src/ledger.ts";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
@@ -25,7 +25,7 @@ function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return { control: {} as any, adapter };
 }
 
-describe("Sandbox — ledger write ordering (emit queue)", () => {
+describe("SandboxHandle — ledger write ordering (emit queue)", () => {
   it("does not invoke a later append() until an earlier, slower one resolves", async () => {
     const adapter = makeAdapter();
     const appendOrder: string[] = [];
@@ -45,7 +45,7 @@ describe("Sandbox — ledger write ordering (emit queue)", () => {
       return Promise.resolve();
     });
 
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
 
     const p1 = (sb as any).emit(LedgerEvent.ExecEvent, -1, { id: "slow" });
     const p2 = (sb as any).emit(LedgerEvent.ExecEvent, -1, { id: "fast" });
@@ -68,7 +68,7 @@ describe("Sandbox — ledger write ordering (emit queue)", () => {
       .mockRejectedValueOnce(new Error("write failed"))
       .mockResolvedValue(undefined);
 
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
 
     await expect((sb as any).emit(LedgerEvent.ExecEvent, -1, {})).rejects.toThrow("write failed");
     await expect((sb as any).emit(LedgerEvent.ExecEvent, -1, {})).resolves.toBeUndefined();
@@ -82,7 +82,7 @@ describe("Sandbox — ledger write ordering (emit queue)", () => {
       () => new Promise<void>((resolve) => (resolveSlow = resolve)),
     );
 
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const before = Date.now();
     void (sb as any).emit(LedgerEvent.ExecEvent, -1, {});
 

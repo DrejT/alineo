@@ -49,10 +49,10 @@
       },
     },
     "apps/sandbox": {
-      "name": "@alineo-labs/sandbox",
+      "name": "@alineo-labs/sandbox-app",
       "dependencies": {
-        "@alineo-labs/agent": "workspace:*",
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@fontsource-variable/geist": "^5.1.1",
         "@fontsource-variable/geist-mono": "^5.2.2",
@@ -84,8 +84,8 @@
       "name": "alineo-cookbook-ai-agent-bugfix",
       "version": "0.0.1",
       "dependencies": {
-        "@alineo-labs/agent": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "alineo": "workspace:*",
       },
@@ -94,121 +94,121 @@
       "name": "alineo-cookbook-ci-test-runner",
       "version": "0.0.1",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "cookbooks/parallel-test-shards": {
       "name": "alineo-cookbook-parallel-test-shards",
       "version": "0.0.1",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "cookbooks/resumable-etl-pipeline": {
       "name": "alineo-cookbook-resumable-etl-pipeline",
       "version": "0.0.1",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "cookbooks/untrusted-code-execution": {
       "name": "alineo-cookbook-untrusted-code-execution",
       "version": "0.0.1",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/benchmark": {
       "name": "alineo-example-benchmark",
       "version": "0.0.4",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/cancellation": {
       "name": "alineo-example-cancellation",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/capture": {
       "name": "alineo-example-capture",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/control-flow": {
       "name": "alineo-example-control-flow",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@alineo-labs/workflow": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/environments": {
       "name": "alineo-example-environments",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/error-handling": {
       "name": "alineo-example-error-handling",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/exec-code": {
       "name": "alineo-example-exec-code",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/file-ops": {
       "name": "alineo-example-file-ops",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/hello-world": {
       "name": "alineo-example-hello-world",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/interactive-exec": {
       "name": "alineo-example-interactive-exec",
       "version": "0.0.8",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/pi-agent": {
       "name": "alineo-example-pi-agent",
       "version": "0.0.13",
       "dependencies": {
-        "@alineo-labs/agent": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "alineo": "workspace:*",
       },
@@ -217,23 +217,23 @@
       "name": "alineo-example-ports",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/read-file": {
       "name": "alineo-example-read-file",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/rlm-repo-fanout": {
       "name": "alineo-example-rlm-repo-fanout",
       "version": "0.0.7",
       "dependencies": {
-        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "alineo": "workspace:*",
       },
@@ -242,15 +242,15 @@
       "name": "alineo-example-run-bash-script",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/sandbox-extensions": {
       "name": "alineo-example-sandbox-extensions",
       "version": "0.0.12",
       "dependencies": {
-        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "alineo": "workspace:*",
       },
@@ -259,31 +259,31 @@
       "name": "alineo-example-sandbox-fork",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "examples/snapshot-replay": {
       "name": "alineo-example-snapshot-replay",
       "version": "0.0.13",
       "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
-        "alineo": "workspace:*",
       },
     },
     "packages/adapters/flue": {
       "name": "@alineo-labs/flue",
       "version": "0.1.0",
       "devDependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
         "@flue/runtime": "1.0.0-beta.9",
-        "alineo": "workspace:*",
         "bun-types": "1.3.14",
         "tsdown": "0.22.3",
         "typescript": "6.0.3",
       },
       "peerDependencies": {
+        "@alineo-labs/sandbox": ">=0.1.0",
         "@flue/runtime": ">=1.0.0-beta",
-        "alineo": ">=0.1.0",
       },
     },
     "packages/adapters/otel": {
@@ -328,11 +328,11 @@
       },
     },
     "packages/agent": {
-      "name": "@alineo-labs/agent",
+      "name": "alineo",
       "version": "0.1.1",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
-        "alineo": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -360,8 +360,8 @@
         "alineo": "./dist/index.mjs",
       },
       "dependencies": {
-        "@alineo-labs/agent": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@opentui/core": "^0.4.3",
         "alineo": "workspace:*",
@@ -420,7 +420,7 @@
       },
     },
     "packages/sdks/typescript": {
-      "name": "alineo",
+      "name": "@alineo-labs/sandbox",
       "version": "0.1.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
@@ -437,7 +437,7 @@
       "name": "@alineo-labs/workflow",
       "version": "0.1.0",
       "dependencies": {
-        "alineo": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -450,7 +450,7 @@
       "name": "@alineo-labs/integration-tests",
       "version": "0.0.13",
       "dependencies": {
-        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@alineo-labs/workflow": "workspace:*",
         "alineo": "workspace:*",
@@ -478,8 +478,6 @@
 
     "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.44", "", { "dependencies": { "@ai-sdk/provider": "3.0.15", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.8", "undici": "^5.29.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-f59ud5yuRih2R++3Nmh5qHryjQZ4UbhGo27PYfWw86lSWQeBrf8SlwWxiOT/k1fCVDkghHZuSfLlmERWS+1RRQ=="],
 
-    "@alineo-labs/agent": ["@alineo-labs/agent@workspace:packages/agent"],
-
     "@alineo-labs/agent-browser": ["@alineo-labs/agent-browser@workspace:packages/agent-browser"],
 
     "@alineo-labs/core": ["@alineo-labs/core@workspace:packages/core"],
@@ -500,7 +498,9 @@
 
     "@alineo-labs/registry": ["@alineo-labs/registry@workspace:apps/registry"],
 
-    "@alineo-labs/sandbox": ["@alineo-labs/sandbox@workspace:apps/sandbox"],
+    "@alineo-labs/sandbox": ["@alineo-labs/sandbox@workspace:packages/sdks/typescript"],
+
+    "@alineo-labs/sandbox-app": ["@alineo-labs/sandbox-app@workspace:apps/sandbox"],
 
     "@alineo-labs/sqlite": ["@alineo-labs/sqlite@workspace:packages/adapters/sqlite"],
 
@@ -1450,7 +1450,7 @@
 
     "ajv-i18n": ["ajv-i18n@4.2.0", "", { "peerDependencies": { "ajv": "^8.0.0-beta.0" } }, "sha512-v/ei2UkCEeuKNXh8RToiFsUclmU+G57LO1Oo22OagNMENIw+Yb8eMwvHu7Vn9fmkjJyv6XclhJ8TbuigSglPkg=="],
 
-    "alineo": ["alineo@workspace:packages/sdks/typescript"],
+    "alineo": ["alineo@workspace:packages/agent"],
 
     "alineo-cli": ["alineo-cli@workspace:packages/cli"],
 
@@ -3050,7 +3050,7 @@
 
     "@ai-sdk/provider-utils/undici": ["undici@5.29.0", "", { "dependencies": { "@fastify/busboy": "^2.0.0" } }, "sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg=="],
 
-    "@alineo-labs/sandbox/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+    "@alineo-labs/sandbox-app/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@astrojs/compiler-binding-wasm32-wasi/@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.2.3", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1 || ^2.0.0-alpha.4", "@emnapi/runtime": "^1.7.1 || ^2.0.0-alpha.4" } }, "sha512-UMduMbqO5s5zF2NkNacMT/yK5Y5QiKvWr2+50bzIIxFDwVJ2h49b+oyjaCGPhJxd2/gC2x39EHv/gHVuu36x2Q=="],
 

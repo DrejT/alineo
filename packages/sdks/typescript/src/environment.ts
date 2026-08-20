@@ -1,5 +1,5 @@
-import type { Sandbox, EnvironmentRecord } from "@alineo-labs/core";
-import type { Alineo } from "./client";
+import type { SandboxHandle, EnvironmentRecord } from "@alineo-labs/core";
+import type { Sandbox } from "./client";
 import type { SandboxHooks } from "@alineo-labs/core";
 
 export type { EnvironmentRecord };
@@ -17,7 +17,7 @@ export interface EnvironmentOptions {
    * (or after `env.rebuild()`). Install packages, copy files, write config — anything
    * that makes the environment ready. The result is snapshotted and reused from then on.
    */
-  setup: (sb: Sandbox) => Promise<void>;
+  setup: (sb: SandboxHandle) => Promise<void>;
   /**
    * Default shell for all `exec()` calls — both during setup and in sandboxes spawned
    * from this environment. Pass an absolute path (e.g. `"/bin/bash"`).
@@ -70,7 +70,7 @@ export class Environment {
     /** The environment name, as passed to `client.environment()`. */
     readonly name: string,
     private readonly opts: EnvironmentOptions,
-    private readonly client: Alineo,
+    private readonly client: Sandbox,
   ) {}
 
   /**
@@ -80,7 +80,7 @@ export class Environment {
    * Subsequent calls: restores from snapshot (~2–3 s), no setup re-run.
    * Concurrent first calls share a single build — setup runs exactly once.
    */
-  sandbox(extra?: EnvironmentSandboxOptions): Promise<Sandbox> {
+  sandbox(extra?: EnvironmentSandboxOptions): Promise<SandboxHandle> {
     return this.client._envSandbox(this.name, this.opts, extra);
   }
 

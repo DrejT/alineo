@@ -6,10 +6,10 @@
  * or hang the batch. Failures are captured as data (never thrown) so one bad
  * snippet doesn't take down the rest of the run.
  */
-import { Alineo, CommandError } from "alineo";
+import { Sandbox, CommandError } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

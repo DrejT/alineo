@@ -19,7 +19,7 @@ process.on("unhandledRejection", (reason) => {
 
 const server = Bun.serve({
   port: config.PORT,
-  // Bun's default is 10s. Sandbox/agent creation (image pulls, package installs)
+  // Bun's default is 10s. SandboxHandle/agent creation (image pulls, package installs)
   // routinely takes longer, so use Bun's max to avoid killing the connection mid-request.
   idleTimeout: 255,
   routes: {

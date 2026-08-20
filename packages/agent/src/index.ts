@@ -1,4 +1,4 @@
-export { Agent } from "./agent";
+export { Alineo } from "./agent";
 export type { AgentSpec, SetupStep } from "./schema";
 export { validateAgentSpec } from "./schema";
 export type {

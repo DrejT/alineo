@@ -1,14 +1,14 @@
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
-// Covers the pure-Sandbox extension surface: diagnostics, metrics, pause/resume,
-// and BashSession. Agent.resume()-style bridge-reconnection (the other half of
+// Covers the pure-SandboxHandle extension surface: diagnostics, metrics, pause/resume,
+// and BashSession. Alineo.resume()-style bridge-reconnection (the other half of
 // examples/sandbox-extensions) is intentionally not duplicated here — it needs a
 // real LLM API key and is a distinct scenario from agent.test.ts, which already
-// exercises Agent.load()/prompt()/setEnv() against a live provider.
+// exercises Alineo.load()/prompt()/setEnv() against a live provider.
 test("sandbox extensions: diagnostics, metrics, pause/resume, BashSession", async () => {
-  const client = new Alineo({
+  const client = new Sandbox({
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),

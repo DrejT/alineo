@@ -1,4 +1,4 @@
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import type { CliCommand } from "./types.js";
@@ -14,7 +14,7 @@ export async function kill(sandboxId: string): Promise<void> {
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  const client = new Alineo({
+  const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter,

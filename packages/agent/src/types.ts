@@ -68,7 +68,7 @@ export type AgentEvent =
   | { type: "extension_error"; extensionPath: string; event: string; error: string };
 
 /**
- * Async iterable of structured agent events. Returned by `Agent.prompt()` and `Agent.bash()`.
+ * Async iterable of structured agent events. Returned by `Alineo.prompt()` and `Alineo.bash()`.
  *
  * Use `textOnly()` to filter down to just the text chunks:
  *

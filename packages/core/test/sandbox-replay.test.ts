@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { Sandbox } from "../src/sandbox/index.ts";
+import { SandboxHandle } from "../src/sandbox/index.ts";
 import { SSEEventType } from "@alineo-labs/opensandbox";
 import type { SSEEvent } from "@alineo-labs/opensandbox";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
@@ -36,12 +36,12 @@ function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   };
 }
 
-describe("Sandbox replay mode", () => {
+describe("SandboxHandle replay mode", () => {
   it("returns cached result without calling execClient", async () => {
     const adapter = makeAdapter();
     const cached: ExecResult = { stdout: "cached output\n", stderr: "", exitCode: 0 };
     const replayCache = new Map([[1, cached]]);
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter), replayCache);
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
 
     const execClient = makeExecClient();
     (sb as any)._execClient = execClient;
@@ -60,7 +60,7 @@ describe("Sandbox replay mode", () => {
       [1, { stdout: "install done\n", stderr: "", exitCode: 0 }],
       [2, { stdout: "build done\n", stderr: "", exitCode: 0 }],
     ]);
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter), replayCache);
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
     (sb as any)._execClient = makeExecClient();
 
     const r1 = await sb.exec("npm ci");
@@ -82,7 +82,7 @@ describe("Sandbox replay mode", () => {
     ];
     const execClient = makeExecClient(liveEvents);
 
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter), replayCache);
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
     (sb as any)._execClient = execClient;
 
     const r1 = await sb.exec("npm ci"); // seq=1, cached
@@ -104,7 +104,7 @@ describe("Sandbox replay mode", () => {
       { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
     ]);
 
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter), replayCache);
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
     (sb as any)._execClient = execClient;
 
     const results = await Promise.all([
@@ -119,7 +119,7 @@ describe("Sandbox replay mode", () => {
   });
 });
 
-describe("Sandbox live mode", () => {
+describe("SandboxHandle live mode", () => {
   it("logs exec_start and exec_complete to adapter", async () => {
     const adapter = makeAdapter();
     const liveEvents: SSEEvent[] = [
@@ -128,7 +128,7 @@ describe("Sandbox live mode", () => {
     ];
     const execClient = makeExecClient(liveEvents);
 
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     (sb as any)._execClient = execClient;
 
     await sb.exec("echo hi");
@@ -147,7 +147,7 @@ describe("Sandbox live mode", () => {
     ];
     const execClient = makeExecClient(liveEvents);
 
-    const sb = new Sandbox("session-abc", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("session-abc", "test", makeDeps(adapter));
     (sb as any)._execClient = execClient;
 
     await sb.exec("true");
@@ -166,7 +166,7 @@ describe("Sandbox live mode", () => {
     ];
     const execClient = makeExecClient(liveEvents);
 
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     (sb as any)._execClient = execClient;
 
     await expect(sb.exec("exit 1")).rejects.toThrow("Command exited with code 1");
@@ -179,7 +179,7 @@ describe("Sandbox live mode", () => {
     ];
     const execClient = makeExecClient(liveEvents);
 
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     (sb as any)._execClient = execClient;
 
     const result = await sb.exec("exit 1", { strict: false });

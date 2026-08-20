@@ -1,11 +1,11 @@
-import { Alineo, SandboxStatus, type SandboxDetails } from "alineo";
+import { Sandbox, SandboxStatus, type SandboxDetails } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { ControlClient, SandboxState } from "@alineo-labs/opensandbox";
 import { readConfig, type AlineoConfig } from "./config.js";
 
 export interface SessionSnapshot {
   tracked: SandboxDetails[];
-  /** Sandbox IDs running in OpenSandbox but with no ledger record (e.g. agent-spawned children). */
+  /** SandboxHandle IDs running in OpenSandbox but with no ledger record (e.g. agent-spawned children). */
   untracked: string[];
 }
 
@@ -25,7 +25,7 @@ export interface SessionSnapshot {
 export async function getSessions(config?: AlineoConfig): Promise<SessionSnapshot> {
   const cfg = config ?? (await readConfig());
   const adapter = new SQLiteAdapter(cfg.adapterPath);
-  const client = new Alineo({
+  const client = new Sandbox({
     baseUrl: cfg.serverUrl,
     apiKey: cfg.apiKey,
     adapter,

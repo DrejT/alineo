@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { Sandbox } from "@alineo-labs/core";
+import type { SandboxHandle } from "@alineo-labs/core";
 import { PromptTimeoutError } from "../errors";
 import type { AgentSpec } from "../schema";
 import type {
@@ -66,7 +66,7 @@ export class PiAdapter {
   }
 
   /** Install Pi CLI and any spec packages. Slow — result is captured by checkpoint(). */
-  async install(sb: Sandbox, spec: AgentSpec): Promise<void> {
+  async install(sb: SandboxHandle, spec: AgentSpec): Promise<void> {
     const pkgs = [...new Set(spec.packages ?? [])].filter(
       (p) => p !== "nodejs_22" && p !== "nodejs",
     );
@@ -87,7 +87,7 @@ export class PiAdapter {
    * and snapshot resume alike) so env values, model/provider, and bridge code stay current.
    */
   async configure(
-    sb: Sandbox,
+    sb: SandboxHandle,
     spec: AgentSpec,
     resolvedEnv: Record<string, string>,
     opts?: { resume?: boolean },
@@ -103,7 +103,7 @@ export class PiAdapter {
 
   /**
    * Start the bridge. `unsetVars`, when given, is prefixed as `unset A B C; ` on the
-   * *same* exec command that starts `node` — required for `Agent.spawn()`'s forked
+   * *same* exec command that starts `node` — required for `Alineo.spawn()`'s forked
    * sandboxes, where the container's OS-level env still carries whatever the parent
    * had baked into it at snapshot time (`env` passed to `createSandbox` at fork time
    * has no effect on this — verified live, see `plans/alineo-rlm-substrate.md`). A
@@ -112,7 +112,7 @@ export class PiAdapter {
    * be part of the exact command that spawns the bridge process so the bridge (and
    * everything it in turn spawns, including Pi itself) inherits the already-clean env.
    */
-  async startBridge(sb: Sandbox, unsetVars?: string[]): Promise<void> {
+  async startBridge(sb: SandboxHandle, unsetVars?: string[]): Promise<void> {
     const prefix = unsetVars && unsetVars.length > 0 ? `unset ${unsetVars.join(" ")}; ` : "";
     await sb.exec(`${prefix}node /alineo-bridge.js &`);
     const { url } = await sb.proxy(3001);

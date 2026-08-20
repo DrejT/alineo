@@ -1,7 +1,7 @@
 /**
  * RLM fan-out: a master agent clones a repo, decides how to split a task
  * across it, and forks child agents (via `alineo fork`, itself built on
- * `Agent.spawn()`) that each work on one slice from the *exact same*
+ * `Alineo.spawn()`) that each work on one slice from the *exact same*
  * checked-out commit — not a fresh clone each. See TASK.md for the actual
  * goal handed to the master (G2: externalized as a file, not pasted into
  * the prompt) and plans/alineo-rlm-substrate.md for the full design.
@@ -22,7 +22,7 @@
  *        examples/pi-agent/test-spawn-child.ts for the two things that have
  *        to be true for that), NVIDIA_API_KEY in .env.
  */
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { randomBytes } from "crypto";
 
@@ -86,12 +86,12 @@ function check(name: string, pass: boolean, detail?: string) {
 
 const testStart = Date.now();
 console.log("=== Loading master (spawnDepth: 1) ===\n");
-const master = await Agent.load(MASTER_SPEC, { adapter, rebuild: process.env.REBUILD === "1" });
+const master = await Alineo.load(MASTER_SPEC, { adapter, rebuild: process.env.REBUILD === "1" });
 console.log(
   `\nmaster: ${master.name}  sandbox: ${master.sandboxId}  fromSnapshot: ${master.fromSnapshot}\n`,
 );
 
-const spawnedChildren: Agent[] = [];
+const spawnedChildren: Alineo[] = [];
 
 try {
   console.log("=== Prompting master (goal lives in TASK.md, not in this prompt) ===\n");
@@ -154,13 +154,13 @@ try {
   for (const raw of childSandboxes) {
     const name = `child-${raw.id.slice(0, 8)}`;
     console.log(`\n--- child: ${name} (${raw.id}) ---`);
-    const child = await Agent.attach(raw.id, { adapter, name });
+    const child = await Alineo.attach(raw.id, { adapter, name });
     spawnedChildren.push(child);
 
     const { stdout: childHeadOut } = await child.sandbox.exec("cd repo && git rev-parse HEAD");
     check(`${name}: repo HEAD matches master's`, childHeadOut.trim() === masterHead);
 
-    // Agent.attach() deliberately never starts the Pi bridge (see its own doc comment), so
+    // Alineo.attach() deliberately never starts the Pi bridge (see its own doc comment), so
     // child.bash() -- which needs that bridge -- isn't available here. Sourcing
     // /etc/alineo-env directly over the plain sandbox exec API inspects the exact same
     // environment the bridge would have started Pi with, without needing it running.

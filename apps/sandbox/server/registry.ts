@@ -1,6 +1,6 @@
-import { Alineo, SandboxStatus, type Sandbox } from "alineo";
+import { Sandbox, SandboxStatus, type SandboxHandle } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import * as config from "./config";
 
 export class CapacityError extends Error {
@@ -19,7 +19,7 @@ export class NotFoundError extends Error {
 
 const adapter = new SQLiteAdapter(config.LEDGER_PATH);
 
-export const client = new Alineo({
+export const client = new Sandbox({
   baseUrl: config.OPENSANDBOX_URL,
   apiKey: config.OPENSANDBOX_API_KEY,
   adapter,
@@ -28,17 +28,17 @@ export const client = new Alineo({
 });
 
 /** Live handles for plain sandboxes, keyed by sandboxId. */
-export const sandboxes = new Map<string, Sandbox>();
+export const sandboxes = new Map<string, SandboxHandle>();
 /** Live handles for Pi agents, keyed by sandboxId (an agent's sandboxId IS its id here). */
-export const agents = new Map<string, Agent>();
+export const agents = new Map<string, Alineo>();
 
 function isAllowedAgentSpec(name: string): name is config.AllowedAgentSpec {
   return (config.ALLOWED_AGENT_SPECS as readonly string[]).includes(name);
 }
 
-export async function createSandbox(): Promise<Sandbox> {
+export async function createSandbox(): Promise<SandboxHandle> {
   if (sandboxes.size >= config.MAX_SANDBOXES) {
-    throw new CapacityError(`Sandbox limit reached (${config.MAX_SANDBOXES})`);
+    throw new CapacityError(`SandboxHandle limit reached (${config.MAX_SANDBOXES})`);
   }
   const sb = await client.sandbox({
     image: config.SANDBOX_IMAGE,
@@ -57,14 +57,14 @@ export async function deleteSandbox(id: string): Promise<void> {
   sandboxes.delete(id);
 }
 
-export async function createAgent(specName: string): Promise<Agent> {
+export async function createAgent(specName: string): Promise<Alineo> {
   if (agents.size >= config.MAX_AGENTS) {
-    throw new CapacityError(`Agent limit reached (${config.MAX_AGENTS})`);
+    throw new CapacityError(`Alineo limit reached (${config.MAX_AGENTS})`);
   }
   if (!isAllowedAgentSpec(specName)) {
     throw new NotFoundError(`Unknown agent spec "${specName}"`);
   }
-  const agent = await Agent.load(`${config.AGENTS_DIR}/${specName}.json`, { adapter });
+  const agent = await Alineo.load(`${config.AGENTS_DIR}/${specName}.json`, { adapter });
   agents.set(agent.sandboxId, agent);
   return agent;
 }
@@ -78,8 +78,8 @@ export async function deleteAgent(id: string): Promise<void> {
 
 /**
  * Rebuild the in-memory registries from the ledger on boot, so a backend
- * restart never leaves running containers orphaned/untracked. Agent sandboxes
- * are identified by ledger `name` matching an allowed spec name (`Agent.load()`
+ * restart never leaves running containers orphaned/untracked. Alineo sandboxes
+ * are identified by ledger `name` matching an allowed spec name (`Alineo.load()`
  * names the sandbox after `spec.name`) — `SandboxOptions.metadata` is not
  * surfaced back through `SandboxDetails`, so it can't be used for this.
  */
@@ -88,7 +88,7 @@ export async function reconcile(): Promise<void> {
   for (const record of records) {
     try {
       if (isAllowedAgentSpec(record.name)) {
-        const agent = await Agent.resume(record.sandboxId, {
+        const agent = await Alineo.resume(record.sandboxId, {
           adapter,
           specPath: `${config.AGENTS_DIR}/${record.name}.json`,
         });

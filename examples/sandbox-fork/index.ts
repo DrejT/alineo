@@ -5,10 +5,10 @@
  *
  * Both forks share the pip install — neither has to repeat it.
  */
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

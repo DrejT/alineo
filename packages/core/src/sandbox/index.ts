@@ -1,4 +1,4 @@
-export { Sandbox } from "./sandbox";
+export { SandboxHandle } from "./sandbox";
 export { BashSession } from "./bash-session";
 export { resolveExecClient } from "./resolve";
 export { composeHooks } from "./hooks";

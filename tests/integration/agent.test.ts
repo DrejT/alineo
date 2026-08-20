@@ -6,7 +6,7 @@
  *
  * Run with: bun test tests/integration/agent.test.ts --timeout 600000
  */
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { beforeAll, afterAll, test, expect, describe } from "bun:test";
 
@@ -22,7 +22,7 @@ const SPEC = {
   resources: { cpu: "1000m", memory: "2Gi" },
 };
 
-let agent: Agent;
+let agent: Alineo;
 
 beforeAll(async () => {
   // Expose the key so the spec's ${GEMINI_API_KEY} interpolation resolves it.
@@ -30,7 +30,7 @@ beforeAll(async () => {
 
   const specPath = "/tmp/test-agent-spec.json";
   await Bun.write(specPath, JSON.stringify(SPEC));
-  agent = await Agent.load(specPath, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
+  agent = await Alineo.load(specPath, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
 }, 600_000);
 
 afterAll(async () => {

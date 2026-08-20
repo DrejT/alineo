@@ -34,18 +34,18 @@ const packageJson = {
   private: true,
   scripts: { start: "bun index.ts" },
   dependencies: {
+    "@alineo-labs/sandbox": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
-    alineo: "workspace:*",
   },
 };
 
 const indexTs = `/**
  * Demonstrates ___.
  */
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -58,7 +58,7 @@ const sb = await client.sandbox({
   name: "${name}",
 });
 
-console.log(\`Sandbox ID: \${sb.sandboxId}\`);
+console.log(\`SandboxHandle ID: \${sb.sandboxId}\`);
 
 try {
   await sb.exec('echo "hello from ${name}"').pipe(process.stdout);
@@ -95,12 +95,12 @@ Docker bridge IPs don't need to be reachable directly. Set \`USE_SERVER_PROXY=fa
 (e.g. when using \`uvx opensandbox-server\` on the host).
 `;
 
-const testStub = `import { Alineo } from "alineo";
+const testStub = `import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
 test("TODO: describe what this test verifies", async () => {
-  const client = new Alineo({
+  const client = new Sandbox({
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),

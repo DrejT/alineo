@@ -9,8 +9,8 @@ export interface AlineoAgentConfig {
   /**
    * Anchor path used to derive the agent snapshot store location
    * (`agent-snapshots.json` is written next to this path). Does not select
-   * the ledger storage adapter — pass that directly via `Agent.load`'s
-   * `opts.adapter` / `Agent.resume`'s `opts.adapter`.
+   * the ledger storage adapter — pass that directly via `Alineo.load`'s
+   * `opts.adapter` / `Alineo.resume`'s `opts.adapter`.
    * Default: `./.alineo/ledger.db`.
    */
   adapterPath: string;

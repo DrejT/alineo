@@ -1,4 +1,4 @@
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { collectReply } from "../agent-prompt.js";
@@ -32,7 +32,7 @@ export async function spawn(
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  const agent = await Agent.load(specPath, {
+  const agent = await Alineo.load(specPath, {
     adapter,
     rebuild: opts.rebuild,
     spawnDepth: opts.depth,

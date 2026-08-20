@@ -21,7 +21,7 @@ export interface SandboxDetails {
    * `crypto.randomUUID()` if the caller didn't supply one via `SandboxOptions.runId`.
    * A resumed, forked, or restored-from-snapshot sandbox always inherits its origin's
    * `runId` rather than getting a new one, so every sandbox descended from the same
-   * root call (directly or via `sb.fork()`/`Agent.spawn()`/`alineo fork`) shares it —
+   * root call (directly or via `sb.fork()`/`Alineo.spawn()`/`alineo fork`) shares it —
    * the mechanism `client.sandboxes.list({ runId })` correlates on.
    */
   runId: string;
@@ -40,7 +40,7 @@ export interface ListSandboxOptions {
 
 /** Events emitted during execution and stored in the ledger. */
 export enum LedgerEvent {
-  // ── Sandbox substrate events ──────────────────────────────────────────────
+  // ── SandboxHandle substrate events ──────────────────────────────────────────────
   /** Emitted when a sandbox is created and reaches Running state. */
   SandboxCreated = "sandbox_created",
   /** Emitted at the start of each exec() or execCode() call. */
@@ -83,7 +83,7 @@ export enum LedgerEvent {
 export interface LedgerEntry {
   /** Unix timestamp in milliseconds. */
   ts: number;
-  /** Sandbox session name. */
+  /** SandboxHandle session name. */
   name: string;
   sandboxId: string;
   /** Zero-based index of the step that produced this event. `-1` for session-level events. */
@@ -132,7 +132,7 @@ export interface EnvironmentRecord {
  * @example
  * ```ts
  * import { SQLiteAdapter } from "@alineo-labs/sqlite";
- * const client = new Alineo({ baseUrl, adapter: new SQLiteAdapter("./alineo.db") });
+ * const client = new Sandbox({ baseUrl, adapter: new SQLiteAdapter("./alineo.db") });
  * ```
  */
 export interface IStorageAdapter {

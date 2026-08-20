@@ -1,12 +1,6 @@
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import type {
-  AgentEvent,
-  PiModel,
-  PiSessionState,
-  SessionStats,
-  ThinkingLevel,
-} from "@alineo-labs/agent";
+import type { AgentEvent, PiModel, PiSessionState, SessionStats, ThinkingLevel } from "alineo";
 import { api, wsUrl, type ForkPoint } from "./api";
 
 type BridgeErrorEvent = { type: "bridge_error"; message: string };
@@ -421,7 +415,7 @@ export function mountAgentChat(agentId: string): { dispose(): void } {
       }
       case "extension_ui": {
         if (event.isDialog) {
-          addBubble("system", `Agent requested UI (${event.method}), auto-dismissed`);
+          addBubble("system", `Alineo requested UI (${event.method}), auto-dismissed`);
         }
         break;
       }

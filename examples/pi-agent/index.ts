@@ -15,7 +15,7 @@
  * Run:  cd examples/pi-agent && bun index.ts
  * Needs: OpenSandbox running (alineo init) and NVIDIA_API_KEY in .env
  */
-import { Agent, textOnly } from "@alineo-labs/agent";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 function section(label: string) {
@@ -23,7 +23,7 @@ function section(label: string) {
 }
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Agent.load("./agents/hello-agent.json", { adapter });
+const agent = await Alineo.load("./agents/hello-agent.json", { adapter });
 console.log(`\nSandbox: ${agent.sandboxId}\n${"─".repeat(60)}`);
 await agent.sandbox.exec("mkdir -p /workspace");
 
@@ -327,5 +327,5 @@ try {
   console.log();
 } finally {
   await agent.close();
-  console.log("Agent closed.");
+  console.log("Alineo closed.");
 }

@@ -1,4 +1,4 @@
-import type { Alineo, SandboxOptions } from "alineo";
+import type { Sandbox, SandboxOptions } from "@alineo-labs/sandbox";
 import { SandboxBuilder, flushOps, type FlushContext } from "./sandbox-builder";
 
 export interface WorkflowResult {
@@ -25,7 +25,7 @@ type WorkflowStage =
 
 /**
  * Lazy workflow builder. Collects stages and executes them all when `.pipe()` or
- * `.result()` is awaited. Sandboxes are created via the `Alineo` client internally
+ * `.result()` is awaited. Sandboxes are created via the `Sandbox` client internally
  * — the user never manages sandbox lifecycle when using this layer.
  *
  * @example
@@ -42,10 +42,10 @@ type WorkflowStage =
  * ```
  */
 export class WorkflowBuilder {
-  private readonly _client: Alineo;
+  private readonly _client: Sandbox;
   private readonly _stages: WorkflowStage[] = [];
 
-  constructor(client: Alineo) {
+  constructor(client: Sandbox) {
     this._client = client;
   }
 
@@ -184,7 +184,7 @@ export class WorkflowBuilder {
 }
 
 /**
- * Create a workflow builder attached to a `Alineo` client.
+ * Create a workflow builder attached to a `Sandbox` client.
  *
  * @example
  * ```ts
@@ -198,6 +198,6 @@ export class WorkflowBuilder {
  *   .pipe(process.stdout);
  * ```
  */
-export function workflow(client: Alineo): WorkflowBuilder {
+export function workflow(client: Sandbox): WorkflowBuilder {
   return new WorkflowBuilder(client);
 }

@@ -1,7 +1,7 @@
 import type { ControlClient } from "@alineo-labs/opensandbox";
 import type { IStorageAdapter } from "../ledger";
 import type { ExecResult } from "../exec-handle";
-import type { Sandbox } from "./sandbox";
+import type { SandboxHandle } from "./sandbox";
 
 export interface ExecOptions {
   /** Working directory inside the sandbox. */
@@ -31,7 +31,7 @@ export interface ExecOptions {
   interactive?: boolean;
 }
 
-/** A session still open at the last checkpoint — reconstructed on resume. See `Alineo.resume()`. */
+/** A session still open at the last checkpoint — reconstructed on resume. See `Sandbox.resume()`. */
 export interface PendingInteractiveExec {
   cmd: string;
   cwd?: string;
@@ -59,22 +59,22 @@ export interface SandboxHooks {
   onSandboxResumed?(sandboxId: string): void;
 }
 
-/** Internal dependencies injected by `Alineo`. */
+/** Internal dependencies injected by `Sandbox`. */
 export interface SandboxDeps {
   control: ControlClient;
   adapter: IStorageAdapter;
   hooks?: SandboxHooks;
-  /** Called when `close()` completes — used by `Alineo` for concurrency accounting. */
+  /** Called when `close()` completes — used by `Sandbox` for concurrency accounting. */
   onClose?: () => void;
   /** Default shell for all `exec()` calls on this sandbox. Defaults to `"/bin/sh"`. */
   shell?: string;
   /**
-   * Called by `fork()` to create a new Sandbox from a snapshot — injected by `Alineo`.
+   * Called by `fork()` to create a new SandboxHandle from a snapshot — injected by `Sandbox`.
    * `runId`, if passed, overrides whatever run-correlation ID this closure would otherwise
    * default to (see `fork()`'s own docs in `lifecycle.ts` for why an explicit override is
    * needed across a process boundary).
    */
-  fork?: (snapshotId: string, tag?: string, runId?: string) => Promise<Sandbox>;
+  fork?: (snapshotId: string, tag?: string, runId?: string) => Promise<SandboxHandle>;
   /** Route execd and proxy calls through the OpenSandbox server. Required when the server runs in Docker. */
   useServerProxy?: boolean;
 }

@@ -10,13 +10,13 @@
  *   - A tool_end event for each tool_start
  *   - The final text answer from Pi
  */
-import { Agent, textOnly, type AgentEvent } from "@alineo-labs/agent";
+import { Alineo, textOnly, type AgentEvent } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
-const agent = await Agent.load(SPEC, { adapter });
+const agent = await Alineo.load(SPEC, { adapter });
 console.log(
   `\nSandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}\n${"─".repeat(60)}\n`,
 );
@@ -96,4 +96,4 @@ if (starts.length > 0 && ends.length > 0 && textOutput.length > 0) {
 }
 
 await agent.close();
-console.log("Agent closed.");
+console.log("Alineo closed.");

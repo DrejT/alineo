@@ -30,7 +30,7 @@ export async function add(
   await Bun.write(dest, JSON.stringify(spec, null, 2) + "\n");
 
   log(`Agent spec saved: ${dest}`);
-  log(`Load it with: Agent.load("${dest}") from @alineo-labs/agent`);
+  log(`Load it with: Alineo.load("${dest}") from alineo`);
 }
 
 async function fetchSpec(url: string): Promise<AgentSpec> {

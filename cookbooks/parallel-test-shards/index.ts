@@ -3,10 +3,10 @@
  * that each run a shard of the test suite in parallel — cutting wall-clock
  * time roughly by the number of shards, without repeating the install.
  */
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

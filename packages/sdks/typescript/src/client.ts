@@ -1,5 +1,5 @@
 import {
-  Sandbox,
+  SandboxHandle,
   LedgerEvent,
   SandboxStatus,
   type IStorageAdapter,
@@ -13,14 +13,19 @@ import {
 } from "@alineo-labs/core";
 import { ControlClient, SandboxState, SnapshotState } from "@alineo-labs/opensandbox";
 
-import { AlineoError, type AlineoOptions, type SandboxOptions, type ResumeOptions } from "./types";
+import {
+  SandboxClientError,
+  type SandboxClientOptions,
+  type SandboxOptions,
+  type ResumeOptions,
+} from "./types";
 import {
   Environment,
   type EnvironmentOptions,
   type EnvironmentSandboxOptions,
 } from "./environment";
 
-export { Sandbox, BashSession } from "@alineo-labs/core";
+export { SandboxHandle, BashSession } from "@alineo-labs/core";
 export type {
   ExecHandle,
   InteractiveExecHandle,
@@ -48,7 +53,12 @@ export type {
   DiagnosticEvent,
   Metrics,
 } from "@alineo-labs/core";
-export { AlineoError, type AlineoOptions, type SandboxOptions, type ResumeOptions } from "./types";
+export {
+  SandboxClientError,
+  type SandboxClientOptions,
+  type SandboxOptions,
+  type ResumeOptions,
+} from "./types";
 export type { CheckpointInfo } from "@alineo-labs/core";
 export {
   Environment,
@@ -61,10 +71,10 @@ export {
  *
  * @example
  * ```ts
- * import { Alineo } from "alineo";
+ * import { Sandbox } from "@alineo-labs/sandbox";
  * import { SQLiteAdapter } from "@alineo-labs/sqlite";
  *
- * const client = new Alineo({
+ * const client = new Sandbox({
  *   baseUrl: "http://localhost:8080",
  *   adapter: new SQLiteAdapter("./alineo.db"),
  * });
@@ -76,7 +86,7 @@ export {
  * await sb.close();
  * ```
  */
-export class Alineo {
+export class Sandbox {
   private readonly _control: ControlClient;
   private readonly _adapter: IStorageAdapter;
   private readonly _maxConcurrency: number | undefined;
@@ -87,7 +97,7 @@ export class Alineo {
   private _adapterClosed = false;
   private readonly _envBuilds = new Map<string, Promise<string>>();
 
-  constructor(options: AlineoOptions) {
+  constructor(options: SandboxClientOptions) {
     this._control = new ControlClient({
       baseUrl: options.baseUrl,
       apiKey: options.apiKey ?? "",
@@ -115,7 +125,7 @@ export class Alineo {
   }
 
   /**
-   * Create a new sandbox container and return a live `Sandbox` object.
+   * Create a new sandbox container and return a live `SandboxHandle` object.
    *
    * Waits until the container reaches `Running` state before returning.
    * Call `sb.close()` when done to release resources (use try/finally).
@@ -131,7 +141,7 @@ export class Alineo {
    * }
    * ```
    */
-  async sandbox(opts: SandboxOptions): Promise<Sandbox> {
+  async sandbox(opts: SandboxOptions): Promise<SandboxHandle> {
     await this._ensureConnected();
     await this._acquireSlot();
 
@@ -167,7 +177,7 @@ export class Alineo {
         payload: { sandboxId, resources: opts.resources, runId },
       });
 
-      const sb = new Sandbox(sandboxId, name, {
+      const sb = new SandboxHandle(sandboxId, name, {
         control: this._control,
         adapter: this._adapter,
         hooks: opts.hooks,
@@ -214,16 +224,20 @@ export class Alineo {
    * await sb2.close();
    * ```
    */
-  async resume(sandboxId: string, opts?: ResumeOptions): Promise<Sandbox> {
+  async resume(sandboxId: string, opts?: ResumeOptions): Promise<SandboxHandle> {
     await this._ensureConnected();
     const allSessions = await this._adapter.listAllSandboxDetails();
     const session = allSessions.find((s) => s.sandboxId === sandboxId);
-    if (!session) throw new AlineoError(`Session ${sandboxId} not found`, 404);
+    if (!session) throw new SandboxClientError(`Session ${sandboxId} not found`, 404);
 
     return this._resumeSession(session.name, sandboxId, opts?.tag);
   }
 
-  private async _resumeSession(name: string, sandboxId: string, tag?: string): Promise<Sandbox> {
+  private async _resumeSession(
+    name: string,
+    sandboxId: string,
+    tag?: string,
+  ): Promise<SandboxHandle> {
     const entries = await this._adapter.readAll(name, sandboxId);
 
     let checkpointIdx: number;
@@ -234,14 +248,14 @@ export class Alineo {
           (e.payload as { name?: string } | undefined)?.name === tag,
       );
       if (checkpointIdx === -1)
-        throw new AlineoError(
+        throw new SandboxClientError(
           `No checkpoint with tag '${tag}' found for session ${sandboxId}`,
           404,
         );
     } else {
       checkpointIdx = entries.map((e) => e.event).lastIndexOf(LedgerEvent.CheckpointCreated);
       if (checkpointIdx === -1)
-        throw new AlineoError(`No checkpoint found for session ${sandboxId}`, 404);
+        throw new SandboxClientError(`No checkpoint found for session ${sandboxId}`, 404);
     }
 
     const { snapshotId } = entries[checkpointIdx].payload as { snapshotId: string };
@@ -331,7 +345,7 @@ export class Alineo {
         payload: { sandboxId: newSessionId, resumedFrom: sandboxId, snapshotId, runId },
       });
 
-      return new Sandbox(
+      return new SandboxHandle(
         newSessionId,
         name,
         {
@@ -367,15 +381,15 @@ export class Alineo {
    * is still running. Unlike `resume()`, no snapshot is involved — the container keeps
    * its current state. The execd endpoint is resolved lazily on first use.
    *
-   * @throws `AlineoError` (409) if the sandbox is not in Running state.
+   * @throws `SandboxClientError` (409) if the sandbox is not in Running state.
    *
    * @param opts.resources  CPU/memory/GPU to use if `.fork()` is later called on the
-   *   returned `Sandbox`. The control API doesn't echo back a running sandbox's own
+   *   returned `SandboxHandle`. The control API doesn't echo back a running sandbox's own
    *   resource limits, so there's no way to discover them automatically here — omit
    *   this and `.fork()` will throw. Pass it (e.g. from `alineo.config.json`'s
    *   defaults) when the caller needs fork support on a merely-connected sandbox.
    * @param opts.runId  Default run-correlation ID for any later `.fork()` call on the
-   *   returned `Sandbox`. `connect()` has no way to discover the sandbox's original
+   *   returned `SandboxHandle`. `connect()` has no way to discover the sandbox's original
    *   `runId` (no ledger lookup is attempted — the caller may be using a completely
    *   different adapter than whatever originally created it, as `alineo fork` does when
    *   self-attaching). Omit this and pass `runId` explicitly to `.fork()` itself instead.
@@ -392,18 +406,18 @@ export class Alineo {
     sandboxId: string,
     name: string,
     opts?: { resources?: { cpu: string; memory: string; gpu?: string }; runId?: string },
-  ): Promise<Sandbox> {
+  ): Promise<SandboxHandle> {
     await this._ensureConnected();
     const info = await this._control.getSandbox(sandboxId);
     if (info.status.state !== SandboxState.Running) {
-      throw new AlineoError(
-        `Sandbox ${sandboxId} is ${info.status.state} — can only connect to Running sandboxes`,
+      throw new SandboxClientError(
+        `SandboxHandle ${sandboxId} is ${info.status.state} — can only connect to Running sandboxes`,
         409,
       );
     }
     await this._acquireSlot();
     const resources = opts?.resources;
-    return new Sandbox(sandboxId, name, {
+    return new SandboxHandle(sandboxId, name, {
       control: this._control,
       adapter: this._adapter,
       onClose: () => this._releaseSlot(),
@@ -450,7 +464,7 @@ export class Alineo {
     name: string,
     resources: { cpu: string; memory: string; gpu?: string },
     runId?: string,
-  ): Promise<Sandbox> {
+  ): Promise<SandboxHandle> {
     await this._ensureConnected();
     await this._acquireSlot();
     try {
@@ -470,7 +484,7 @@ export class Alineo {
         event: LedgerEvent.SandboxCreated,
         payload: { sandboxId: newId, fromSnapshot: snapshotId, runId: finalRunId },
       });
-      return new Sandbox(newId, name, {
+      return new SandboxHandle(newId, name, {
         control: this._control,
         adapter: this._adapter,
         onClose: () => this._releaseSlot(),
@@ -491,7 +505,7 @@ export class Alineo {
   }
 
   /**
-   * Sandbox history management. List, inspect, and delete past sandbox records.
+   * SandboxHandle history management. List, inspect, and delete past sandbox records.
    *
    * @example
    * ```ts
@@ -596,7 +610,7 @@ export class Alineo {
     name: string,
     opts: EnvironmentOptions,
     extra?: EnvironmentSandboxOptions,
-  ): Promise<Sandbox> {
+  ): Promise<SandboxHandle> {
     await this._ensureConnected();
 
     const record = await this._adapter.getEnvironment(name);
@@ -639,7 +653,7 @@ export class Alineo {
 
     const checkpoint = await this._adapter.lastCheckpoint(buildName, sb.sandboxId);
     if (!checkpoint)
-      throw new AlineoError(`Environment build for '${name}' produced no checkpoint`, 500);
+      throw new SandboxClientError(`Environment build for '${name}' produced no checkpoint`, 500);
     const { snapshotId } = checkpoint.payload as { snapshotId: string };
 
     await this._adapter.saveEnvironment({ name, snapshotId, image, builtAt: Date.now() });
@@ -652,7 +666,7 @@ export class Alineo {
     envName: string,
     envShell?: string,
     extra?: EnvironmentSandboxOptions,
-  ): Promise<Sandbox> {
+  ): Promise<SandboxHandle> {
     await this._acquireSlot();
     try {
       const runId = crypto.randomUUID();
@@ -675,7 +689,7 @@ export class Alineo {
         payload: { sandboxId: newId, fromEnvironment: envName, snapshotId, runId },
       });
 
-      const sb = new Sandbox(newId, sessionName, {
+      const sb = new SandboxHandle(newId, sessionName, {
         control: this._control,
         adapter: this._adapter,
         hooks: extra?.hooks,
@@ -705,7 +719,7 @@ export class Alineo {
     resources: { cpu: string; memory: string; gpu?: string },
     shell?: string,
     runId?: string,
-  ): Promise<Sandbox> {
+  ): Promise<SandboxHandle> {
     await this._acquireSlot();
     try {
       // Resolved once here, not left to the control-plane call, the ledger write, and
@@ -730,7 +744,7 @@ export class Alineo {
         payload: { sandboxId: newId, forkedFrom: snapshotId, runId: finalRunId },
       });
 
-      return new Sandbox(newId, sessionName, {
+      return new SandboxHandle(newId, sessionName, {
         control: this._control,
         adapter: this._adapter,
         onClose: () => this._releaseSlot(),
@@ -754,15 +768,18 @@ export class Alineo {
       const s = await this._control.getSandbox(sandboxId);
       if (s.status.state === SandboxState.Running) return;
       if (s.status.state === SandboxState.Failed || s.status.state === SandboxState.Terminated) {
-        throw new AlineoError(
-          `Sandbox ${sandboxId} entered state ${s.status.state}: ${s.status.message ?? ""}`,
+        throw new SandboxClientError(
+          `SandboxHandle ${sandboxId} entered state ${s.status.state}: ${s.status.message ?? ""}`,
           500,
         );
       }
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, 1_000);
     }
-    throw new AlineoError(`Sandbox ${sandboxId} did not reach Running within ${timeoutMs}ms`, 408);
+    throw new SandboxClientError(
+      `SandboxHandle ${sandboxId} did not reach Running within ${timeoutMs}ms`,
+      408,
+    );
   }
 
   private async _acquireSlot(): Promise<void> {

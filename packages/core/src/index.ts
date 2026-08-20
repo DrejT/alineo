@@ -11,7 +11,7 @@ export type {
 export { LogLevel, ConsoleLogger, noopLogger } from "./logger";
 export type { ILogger } from "./logger";
 
-export { Sandbox, BashSession, resolveExecClient, composeHooks } from "./sandbox/index";
+export { SandboxHandle, BashSession, resolveExecClient, composeHooks } from "./sandbox/index";
 export type {
   ExecOptions,
   ExecCodeOptions,

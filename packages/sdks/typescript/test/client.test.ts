@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { Alineo } from "../src/client.ts";
+import { Sandbox } from "../src/client.ts";
 import { Environment } from "../src/environment.ts";
 import { SandboxState } from "@alineo-labs/opensandbox";
 import { SandboxStatus, type IStorageAdapter, type SandboxDetails } from "@alineo-labs/core";
@@ -24,7 +24,7 @@ function makeAdapter(overrides: Partial<IStorageAdapter> = {}): IStorageAdapter 
 }
 
 function makeClient(adapter: IStorageAdapter, opts: { maxConcurrency?: number } = {}) {
-  return new Alineo({
+  return new Sandbox({
     baseUrl: "http://localhost:8080",
     adapter,
     ...opts,
@@ -33,7 +33,7 @@ function makeClient(adapter: IStorageAdapter, opts: { maxConcurrency?: number } 
 
 // ── lazy connect ───────────────────────────────────────────────────────────
 
-describe("Alineo lazy connect", () => {
+describe("Sandbox lazy connect", () => {
   it("does not call adapter.connect before first use", () => {
     const adapter = makeAdapter();
     makeClient(adapter);
@@ -51,9 +51,9 @@ describe("Alineo lazy connect", () => {
 
 // ── sessions delegation ────────────────────────────────────────────────────
 
-describe("Alineo.sandboxes", () => {
+describe("Sandbox.sandboxes", () => {
   let adapter: IStorageAdapter;
-  let client: Alineo;
+  let client: Sandbox;
 
   beforeEach(() => {
     adapter = makeAdapter();
@@ -123,7 +123,7 @@ describe("Alineo.sandboxes", () => {
 
 // ── concurrency semaphore ──────────────────────────────────────────────────
 
-describe("Alineo concurrency slot", () => {
+describe("Sandbox concurrency slot", () => {
   it("_acquireSlot / _releaseSlot tracks active count", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter, { maxConcurrency: 2 });
@@ -173,7 +173,7 @@ describe("Alineo concurrency slot", () => {
 
 // ── environment factory ────────────────────────────────────────────────────
 
-describe("Alineo.environment()", () => {
+describe("Sandbox.environment()", () => {
   it("returns an Environment instance with the given name", () => {
     const client = makeClient(makeAdapter());
     const env = client.environment("py", {
@@ -219,7 +219,7 @@ describe("Environment.info()", () => {
 
 // ── environments namespace ─────────────────────────────────────────────────
 
-describe("Alineo.environments", () => {
+describe("Sandbox.environments", () => {
   it("list() delegates to adapter.listEnvironments()", async () => {
     const records = [
       { name: "py", snapshotId: "snap-1", image: "debian:slim", builtAt: 2000 },
@@ -244,7 +244,7 @@ describe("Alineo.environments", () => {
 
 // ── _getOrBuildEnvironment concurrency guard ──────────────────────────────
 
-describe("Alineo._getOrBuildEnvironment concurrency guard", () => {
+describe("Sandbox._getOrBuildEnvironment concurrency guard", () => {
   it("concurrent calls share a single build promise", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
@@ -295,12 +295,12 @@ describe("Alineo._getOrBuildEnvironment concurrency guard", () => {
 
 // ── fork() wiring ──────────────────────────────────────────────────────────
 //
-// `Sandbox.fork()` throws unless the deps object it was constructed with
+// `SandboxHandle.fork()` throws unless the deps object it was constructed with
 // includes a `fork` closure — `client.sandbox()` and `client.resume()` always
 // wire one up, but `restoreSnapshot()` and `connect()` each had their own gap
-// (found live: `Agent.spawn()`, built on top of `sb.fork()`, threw "fork() is
+// (found live: `Alineo.spawn()`, built on top of `sb.fork()`, threw "fork() is
 // not supported on this sandbox" for any agent loaded via its snapshot fast
-// path, or attached to via `Agent.attach()`). Regression coverage for both.
+// path, or attached to via `Alineo.attach()`). Regression coverage for both.
 
 function makeFakeControl(overrides: Record<string, unknown> = {}) {
   return {
@@ -310,8 +310,8 @@ function makeFakeControl(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("Alineo.restoreSnapshot() fork wiring", () => {
-  it("wires a working fork() closure onto the restored Sandbox", async () => {
+describe("Sandbox.restoreSnapshot() fork wiring", () => {
+  it("wires a working fork() closure onto the restored SandboxHandle", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
     (client as any)._control = makeFakeControl();
@@ -325,7 +325,7 @@ describe("Alineo.restoreSnapshot() fork wiring", () => {
   });
 });
 
-describe("Alineo.connect() fork wiring", () => {
+describe("Sandbox.connect() fork wiring", () => {
   it("does not wire fork() when no resources are given", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);

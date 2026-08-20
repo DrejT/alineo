@@ -6,7 +6,7 @@ import {
   InputRenderableEvents,
   type CliRenderer,
 } from "@opentui/core";
-import type { Agent } from "@alineo-labs/agent";
+import type { Alineo } from "alineo";
 
 export interface ChatView {
   box: BoxRenderable;
@@ -21,7 +21,7 @@ export interface ChatView {
  * the sandbox and Pi session keep running, same detach semantics as the
  * `spawn`/`prompt` commands.
  */
-export function createChatView(renderer: CliRenderer, agent: Agent, onBack: () => void): ChatView {
+export function createChatView(renderer: CliRenderer, agent: Alineo, onBack: () => void): ChatView {
   const box = new BoxRenderable(renderer, {
     id: "chat",
     width: "100%",

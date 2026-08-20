@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { Sandbox } from "alineo";
+import type { SandboxHandle } from "@alineo-labs/sandbox";
 
 // ── Module mock ──────────────────────────────────────────────────────────────
 // Must be set up before the import of the module under test so bun can hoist it.
@@ -35,21 +35,21 @@ type SandboxStub = {
   listDirectory: (path: string, opts?: any) => Promise<FileInfoStub[]>;
 };
 
-function makeStub(overrides: Partial<SandboxStub> = {}): Sandbox {
+function makeStub(overrides: Partial<SandboxStub> = {}): SandboxHandle {
   return {
     exec:
       overrides.exec ?? ((_cmd, _opts) => Promise.resolve({ stdout: "", stderr: "", exitCode: 0 })),
     readFile: overrides.readFile ?? ((_path) => Promise.resolve("")),
     writeFile: overrides.writeFile ?? ((_path, _content) => Promise.resolve()),
     listDirectory: overrides.listDirectory ?? ((_path, _opts) => Promise.resolve([])),
-  } as unknown as Sandbox;
+  } as unknown as SandboxHandle;
 }
 
-function buildApi(sb: Sandbox) {
+function buildApi(sb: SandboxHandle) {
   return {} as any; // placeholder type; real shape captured at runtime
 }
 
-async function getApi(sb: Sandbox): Promise<any> {
+async function getApi(sb: SandboxHandle): Promise<any> {
   capturedApi = null;
   const factory = alineo(sb);
   await factory.createSessionEnv({ id: "test-ctx" });

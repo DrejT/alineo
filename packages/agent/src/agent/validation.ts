@@ -11,9 +11,9 @@ export function assertValidMaxAgents(value: number, context: string): void {
 }
 
 /**
- * Resolves and validates the spawn-depth budget available to `Agent.spawn()` —
+ * Resolves and validates the spawn-depth budget available to `Alineo.spawn()` —
  * `override` (a `--depth` CLI flag) wins if given, else whatever value was
- * materialised into `ALINEO_SPAWN_DEPTH` by `Agent.load()`/`Agent.resume()`. Throws
+ * materialised into `ALINEO_SPAWN_DEPTH` by `Alineo.load()`/`Alineo.resume()`. Throws
  * unless the result is a positive integer: `0` means "no budget left", not "spawn
  * one more time" — spawning stops one level before the counter would go negative.
  */
@@ -21,7 +21,7 @@ export function resolveParentSpawnDepth(envValue: string | undefined, override?:
   const raw = override ?? (envValue !== undefined ? Number(envValue) : undefined);
   if (raw === undefined || !Number.isInteger(raw) || raw <= 0) {
     throw new Error(
-      `Agent.spawn() refused: spawn depth must be a positive integer (got ${envValue ?? "unset"}). ` +
+      `Alineo.spawn() refused: spawn depth must be a positive integer (got ${envValue ?? "unset"}). ` +
         `Set "spawnDepth" in this agent's spec, or pass { spawnDepth } explicitly.`,
     );
   }
@@ -29,7 +29,7 @@ export function resolveParentSpawnDepth(envValue: string | undefined, override?:
 }
 
 /**
- * Resolves the max-agents budget for `Agent.spawn()` — same tamper-resistant
+ * Resolves the max-agents budget for `Alineo.spawn()` — same tamper-resistant
  * env-counter shape as `resolveParentSpawnDepth`, but optional: `undefined`
  * means "no cap enforced for this dimension," not "spawning refused."
  * `spawnDepth` alone still gates whether spawning is allowed at all; this is
@@ -44,7 +44,7 @@ export function resolveParentMaxAgents(
   if (raw === undefined) return undefined;
   if (!Number.isInteger(raw) || raw < 0) {
     throw new Error(
-      `Agent.spawn() refused: maxAgents must be a non-negative integer (got ${raw}).`,
+      `Alineo.spawn() refused: maxAgents must be a non-negative integer (got ${raw}).`,
     );
   }
   return raw;

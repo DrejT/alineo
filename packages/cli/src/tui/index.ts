@@ -1,6 +1,6 @@
 import { createCliRenderer, BoxRenderable } from "@opentui/core";
-import type { SandboxDetails } from "alineo";
-import { Agent } from "@alineo-labs/agent";
+import type { SandboxDetails } from "@alineo-labs/sandbox";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { createDashboardView, type DashboardView } from "./dashboard.js";
@@ -57,7 +57,7 @@ export async function launchTui(): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
     try {
-      const agent = await Agent.resume(session.sandboxId, {
+      const agent = await Alineo.resume(session.sandboxId, {
         adapter,
         specPath: `${config.agentsDir}/${session.name}.json`,
       });
@@ -73,7 +73,7 @@ export async function launchTui(): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
     try {
-      const agent = await Agent.load(specPath, { adapter });
+      const agent = await Alineo.load(specPath, { adapter });
       mount(createChatView(renderer, agent, () => showDashboard()));
     } catch (err) {
       showDashboard(

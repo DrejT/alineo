@@ -8,7 +8,7 @@ import {
   type CliRenderer,
   type SelectOption,
 } from "@opentui/core";
-import type { AgentSpec } from "@alineo-labs/agent";
+import type { AgentSpec } from "alineo";
 import { readConfig, type AlineoConfig } from "../config.js";
 
 const REGISTRY_INDEX_URL = "https://registry.alineo.dev/agents/index.json";

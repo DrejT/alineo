@@ -9,7 +9,7 @@
  *   Load 1: fromSnapshot=false, setup steps logged, workspace files present
  *   Load 2: fromSnapshot=true,  no setup steps logged, workspace files still present
  */
-import { Agent, textOnly } from "@alineo-labs/agent";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/workspace-agent.json";
@@ -17,7 +17,7 @@ const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // ── Load 1: full install + setup steps + checkpoint ───────────────────────────
 console.log("=== Load 1 — full install ===\n");
-const agent1 = await Agent.load(SPEC, { adapter });
+const agent1 = await Alineo.load(SPEC, { adapter });
 console.log(`\nSandbox: ${agent1.sandboxId}  fromSnapshot=${agent1.fromSnapshot}\n`);
 
 if (agent1.fromSnapshot) {
@@ -46,11 +46,11 @@ for await (const chunk of textOnly(
 console.log("\n");
 
 await agent1.close();
-console.log("Agent 1 closed.\n");
+console.log("Alineo 1 closed.\n");
 
 // ── Load 2: restore from snapshot — setup steps must NOT re-run ───────────────
 console.log("=== Load 2 — from snapshot ===\n");
-const agent2 = await Agent.load(SPEC, { adapter });
+const agent2 = await Alineo.load(SPEC, { adapter });
 console.log(`\nSandbox: ${agent2.sandboxId}  fromSnapshot=${agent2.fromSnapshot}\n`);
 
 if (!agent2.fromSnapshot) {
@@ -66,7 +66,7 @@ if (!nodeOut2.includes("workspace ready")) {
 }
 
 await agent2.close();
-console.log("Agent 2 closed.\n");
+console.log("Alineo 2 closed.\n");
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 console.log("─".repeat(60));

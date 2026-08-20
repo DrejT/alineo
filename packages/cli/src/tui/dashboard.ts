@@ -6,8 +6,8 @@ import {
   type CliRenderer,
   type SelectOption,
 } from "@opentui/core";
-import { Alineo } from "alineo";
-import type { SandboxDetails } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
+import type { SandboxDetails } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { getSessions, formatAge } from "../sessions-data.js";
@@ -85,7 +85,7 @@ export function createDashboardView(
     status.content = `killing ${session.name}...`;
     try {
       const config = await readConfig();
-      const client = new Alineo({
+      const client = new Sandbox({
         baseUrl: config.serverUrl,
         apiKey: config.apiKey,
         adapter: new SQLiteAdapter(config.adapterPath),

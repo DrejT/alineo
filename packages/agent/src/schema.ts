@@ -13,7 +13,7 @@ export interface SetupStep {
 
 /**
  * JSON spec for an agent — typically loaded from an `agent.json` file on disk.
- * Pass the path to `Agent.load(specPath)`.
+ * Pass the path to `Alineo.load(specPath)`.
  *
  * Environment variable references in `env` values are interpolated from
  * `process.env` at load time: `"${MY_API_KEY}"` → `process.env.MY_API_KEY`.
@@ -79,9 +79,9 @@ export interface AgentSpec {
    */
   setup?: SetupStep[];
   /**
-   * Remaining budget for `Agent.spawn()` calls made from inside this agent's sandbox.
-   * Translated by `Agent.load()`/`Agent.resume()` into the `ALINEO_SPAWN_DEPTH` env var.
-   * `Agent.spawn()` reads that value, refuses unless it's a positive integer, and
+   * Remaining budget for `Alineo.spawn()` calls made from inside this agent's sandbox.
+   * Translated by `Alineo.load()`/`Alineo.resume()` into the `ALINEO_SPAWN_DEPTH` env var.
+   * `Alineo.spawn()` reads that value, refuses unless it's a positive integer, and
    * force-injects `value - 1` into the spawned child — a tamper-resistant counter,
    * not something a spec or the model can hand-propagate. Omit to disable spawning
    * entirely (the default — most agents never need it).
@@ -90,7 +90,7 @@ export interface AgentSpec {
   /**
    * Remaining budget for total agents this lineage may spawn — a resource
    * ceiling, distinct from `spawnDepth`'s nesting-depth limit. Translated by
-   * `Agent.load()`/`Agent.resume()` into the `ALINEO_MAX_AGENTS` env var and
+   * `Alineo.load()`/`Alineo.resume()` into the `ALINEO_MAX_AGENTS` env var and
    * force-decremented into each spawned child, the same tamper-resistant
    * pattern as `spawnDepth`. Unlike `spawnDepth`, omitting this means
    * "uncapped" for this dimension, not "spawning disabled" — `spawnDepth`

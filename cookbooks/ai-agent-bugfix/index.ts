@@ -7,13 +7,13 @@
  * available). Swap "provider"/"model" in agents/bugfix-agent.json for any
  * provider in @alineo-labs/model-providers to use a different key instead.
  */
-import { Agent, textOnly } from "@alineo-labs/agent";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Agent.load("./agents/bugfix-agent.json", { adapter });
+const agent = await Alineo.load("./agents/bugfix-agent.json", { adapter });
 
-console.log(`Sandbox: ${agent.sandboxId}\n`);
+console.log(`SandboxHandle: ${agent.sandboxId}\n`);
 
 try {
   // ── 1. Plant a bug ─────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ try {
   }
 
   // ── 2. Ask the agent to find and fix the bug ────────────────────────────────
-  console.log("\n=== Agent fixing the bug ===\n");
+  console.log("\n=== Alineo fixing the bug ===\n");
   for await (const chunk of textOnly(
     agent.prompt(
       "There's a failing test in /workspace. Run pytest to see the failure, find the bug in " +

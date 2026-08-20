@@ -8,10 +8,10 @@
  * Requires the opensandbox/code-interpreter image, which starts a Jupyter
  * kernel service via its built-in entrypoint script.
  */
-import { Alineo, CodeLanguage } from "alineo";
+import { Sandbox, CodeLanguage } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -25,7 +25,7 @@ const sb = await client.sandbox({
   resources: { cpu: "500m", memory: "512Mi" },
 });
 
-console.log(`Sandbox ID: ${sb.sandboxId}\n`);
+console.log(`SandboxHandle ID: ${sb.sandboxId}\n`);
 
 try {
   // Isolated — a fresh context per call; variables do not persist across calls

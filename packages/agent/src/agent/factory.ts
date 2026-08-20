@@ -1,6 +1,6 @@
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
-import type { IStorageAdapter, Sandbox } from "@alineo-labs/core";
+import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
 import { readProjectConfig } from "../config";
 import { validateAgentSpec, type AgentSpec } from "../schema";
 import { PiAdapter, resolveEnv, parseShellExports } from "../adapters/pi";
@@ -17,11 +17,11 @@ function elapsed(t: number) {
   return `${Date.now() - t}ms`;
 }
 
-/** Constructor arguments for `Agent` — returned by each factory function below so the actual
- * `new Agent(...)` call stays inside `Agent`'s own static methods, which alone have access to
+/** Constructor arguments for `Alineo` — returned by each factory function below so the actual
+ * `new Alineo(...)` call stays inside `Alineo`'s own static methods, which alone have access to
  * its private constructor. */
 export interface AgentConstructorArgs {
-  sandbox: Sandbox;
+  sandbox: SandboxHandle;
   spec: AgentSpec;
   env: Record<string, string>;
   adapter: PiAdapter;
@@ -32,7 +32,7 @@ export interface AgentConstructorArgs {
 
 /**
  * Load an agent spec from disk and return everything needed to construct a fully
- * initialised `Agent`. See `Agent.load()` for the public-facing docs.
+ * initialised `Alineo`. See `Alineo.load()` for the public-facing docs.
  */
 export async function loadAgent(
   specPath: string,
@@ -50,12 +50,12 @@ export async function loadAgent(
   const resolvedEnv = resolveEnv(spec.env ?? {});
   const effectiveSpawnDepth = opts.spawnDepth ?? spec.spawnDepth;
   if (effectiveSpawnDepth !== undefined) {
-    assertValidSpawnDepth(effectiveSpawnDepth, "Agent.load()");
+    assertValidSpawnDepth(effectiveSpawnDepth, "Alineo.load()");
     resolvedEnv.ALINEO_SPAWN_DEPTH = String(effectiveSpawnDepth);
   }
   const effectiveMaxAgents = opts.maxAgents ?? spec.maxAgents;
   if (effectiveMaxAgents !== undefined) {
-    assertValidMaxAgents(effectiveMaxAgents, "Agent.load()");
+    assertValidMaxAgents(effectiveMaxAgents, "Alineo.load()");
     resolvedEnv.ALINEO_MAX_AGENTS = String(effectiveMaxAgents);
   }
   // Unlike spawnDepth/maxAgents (which stay unset unless the spec/caller opts in), runId is
@@ -65,7 +65,7 @@ export async function loadAgent(
   resolvedEnv.ALINEO_RUN_ID = runId;
   const resources = { ...config.defaults.resources, ...(spec.resources ?? {}) };
 
-  const client = new Alineo({
+  const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter: opts.adapter,
@@ -76,7 +76,7 @@ export async function loadAgent(
   const setupHash = computeSetupHash(spec);
 
   const adapter = new PiAdapter();
-  let sb: Sandbox;
+  let sb: SandboxHandle;
   let fromSnapshot = false;
 
   // ── Snapshot fast path ────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ export async function loadAgent(
 
 /**
  * Reconnect to a previously-created agent whose host process has exited. See
- * `Agent.resume()` for the public-facing docs.
+ * `Alineo.resume()` for the public-facing docs.
  */
 export async function resumeAgent(
   sandboxId: string,
@@ -164,7 +164,7 @@ export async function resumeAgent(
   const t0 = Date.now();
   const config = await readProjectConfig();
 
-  const client = new Alineo({
+  const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter: opts.adapter,
@@ -184,11 +184,11 @@ export async function resumeAgent(
 
   const resolvedEnv = resolveEnv(spec.env ?? {});
   if (spec.maxAgents !== undefined) {
-    assertValidMaxAgents(spec.maxAgents, "Agent.resume()");
+    assertValidMaxAgents(spec.maxAgents, "Alineo.resume()");
     resolvedEnv.ALINEO_MAX_AGENTS = String(spec.maxAgents);
   }
   if (spec.spawnDepth !== undefined) {
-    assertValidSpawnDepth(spec.spawnDepth, "Agent.resume()");
+    assertValidSpawnDepth(spec.spawnDepth, "Alineo.resume()");
     resolvedEnv.ALINEO_SPAWN_DEPTH = String(spec.spawnDepth);
   }
   // Same "recompute, don't preserve" convention as spawnDepth/maxAgents above: a resumed
@@ -223,7 +223,7 @@ export async function resumeAgent(
 
 /**
  * Connect to an already-running sandbox WITHOUT touching its Pi bridge. See
- * `Agent.attach()` for the public-facing docs.
+ * `Alineo.attach()` for the public-facing docs.
  */
 export async function attachAgent(
   sandboxId: string,
@@ -234,7 +234,7 @@ export async function attachAgent(
   },
 ): Promise<AgentConstructorArgs> {
   const config = await readProjectConfig();
-  const client = new Alineo({
+  const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter: opts.adapter,
@@ -268,7 +268,7 @@ export async function attachAgent(
 
 /**
  * Fork `self`'s live sandbox into a brand-new independent sandbox running its
- * own Pi bridge, per `childSpecPath`. See `Agent.spawn()` for the public-facing docs.
+ * own Pi bridge, per `childSpecPath`. See `Alineo.spawn()` for the public-facing docs.
  */
 export async function spawnChild(
   self: AgentInternal,
@@ -278,7 +278,7 @@ export async function spawnChild(
   const parentDepth = resolveParentSpawnDepth(process.env.ALINEO_SPAWN_DEPTH, opts.spawnDepth);
   const parentMax = resolveParentMaxAgents(process.env.ALINEO_MAX_AGENTS, opts.maxAgents);
   if (parentMax !== undefined && parentMax <= 0) {
-    throw new Error(`Agent.spawn() refused: max-agents budget exhausted (0 remaining).`);
+    throw new Error(`Alineo.spawn() refused: max-agents budget exhausted (0 remaining).`);
   }
 
   const childSpec = validateAgentSpec(await Bun.file(childSpecPath).json());
@@ -288,7 +288,7 @@ export async function spawnChild(
   // Resolved once and used for both the child's own env AND the fork call's ledger
   // record — read from process.env, not self.env, since this code runs as a real CLI
   // process inside the parent's sandbox (same reasoning as ALINEO_SPAWN_DEPTH above),
-  // and passed explicitly to fork() because a freshly-`Agent.attach()`ed self (the
+  // and passed explicitly to fork() because a freshly-`Alineo.attach()`ed self (the
   // `alineo fork` self-attach case) has no in-memory closure carrying it forward.
   const runId = process.env.ALINEO_RUN_ID ?? crypto.randomUUID();
   childEnv.ALINEO_RUN_ID = runId;
@@ -311,7 +311,7 @@ export async function spawnChild(
   // The forked sandbox's actual ledger name (auto-generated by fork, not
   // childSpec.name) is what `alineo agents` displays and what future forks
   // would derive a `fork-<name>-<id>` label from — report that as this
-  // Agent's name, not the spec's own.
+  // Alineo's name, not the spec's own.
   const namedChildSpec: AgentSpec = { ...childSpec, name: forkedSb.name };
   return {
     sandbox: forkedSb,
