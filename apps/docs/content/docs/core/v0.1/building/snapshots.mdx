@@ -1,0 +1,97 @@
+---
+title: Snapshots & replay
+description: Checkpoint the container filesystem with checkpoint() and restore from it with client.resume().
+---
+
+Snapshots let you capture the container's state mid-run and restore from that point later. This is useful for expensive setup steps (like installing dependencies) that don't need to repeat on every run.
+
+## Taking a checkpoint
+
+`sb.checkpoint(name?)` snapshots the container's filesystem, waits until the snapshot is ready, and writes a `checkpoint_created` event to the ledger:
+
+```ts
+const sb = await client.sandbox({
+  image: "python:3.11-slim",
+  resources: { cpu: "1", memory: "512Mi" },
+  name: "snapshot-demo",
+});
+
+try {
+  await sb.exec("pip install -q requests && echo 'installed'").pipe(process.stdout);
+  await sb.checkpoint("after-install");
+
+  await sb.writeFile("/tmp/script.py", `import requests; print(requests.__version__)`);
+  await sb.exec("python3 /tmp/script.py").pipe(process.stdout);
+} finally {
+  await sb.close();
+}
+```
+
+The optional `name` argument is a tag stored in the ledger. It can be used to resume from a specific checkpoint by name — see [Named checkpoints](/docs/core/v0.1/patterns/named-checkpoints).
+
+## Resuming from a checkpoint
+
+`client.resume(sandboxId)` reads the ledger, finds the last `checkpoint_created` event, restores a new container from that snapshot, and returns a `Sandbox` object with a replay cache.
+
+```ts
+const originalSandboxId = sb.sandboxId; // capture before close
+
+// ... later ...
+
+const sbResume = await client.resume(originalSandboxId);
+
+try {
+  // This exec is replayed from cache — returns instantly without running
+  const { stdout } = await sbResume.exec("pip install -q requests && echo 'installed'");
+  console.log("(replayed from cache):", stdout.trim());
+
+  // This exec actually runs on the restored container
+  await sbResume.writeFile("/tmp/script.py", `import sys; print(sys.version)`);
+  await sbResume.exec("python3 /tmp/script.py").pipe(process.stdout);
+} finally {
+  await sbResume.close();
+}
+```
+
+The resumed sandbox has a new `sandboxId` (it's a new container). The `name` stays the same.
+
+## How replay works
+
+When you call `client.resume(sandboxId)`:
+
+1. The ledger is read to find the last checkpoint
+2. A new container is created from the snapshot
+3. All execs that completed **before** the checkpoint are loaded into a replay cache, keyed by sequence number
+4. On the resumed sandbox, execs with sequence numbers in the cache return the cached result immediately — no round-trip to the container
+5. Execs with sequence numbers **after** the last cached exec run live on the new container
+
+```
+Original:                          Resumed:
+  exec #1: pip install → logged    exec #1: pip install → cache hit (instant)
+  checkpoint()         → snapshot  exec #2: python3 ... → runs live
+  exec #2: python3 ... → logged
+```
+
+## Checkpoint in the workflow builder
+
+`sb.checkpoint()` is also available in `SandboxBuilder`:
+
+```ts
+await workflow(client)
+  .sandbox({ image: "python:3.11-slim", resources: { cpu: "1", memory: "512Mi" } }, (sb) => {
+    sb.exec("pip install -q requests");
+    sb.checkpoint("after-install");
+    sb.exec("python3 script.py");
+  })
+  .pipe(process.stdout);
+```
+
+## Forking a live sandbox
+
+To create an independent copy without closing the original, use `sb.fork()` — it snapshots and immediately returns a new live sandbox. See [Forking sandboxes](/docs/core/v0.1/patterns/fork).
+
+## Limitations
+
+- `client.resume()` requires at least one checkpoint in the session's ledger — it throws if none exists.
+- Snapshots are managed by OpenSandbox. Availability depends on your server's storage configuration.
+- Only the container filesystem is snapshotted. In-flight SSE streams and environment state are not captured.

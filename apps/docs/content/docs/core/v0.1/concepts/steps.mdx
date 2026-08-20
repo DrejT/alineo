@@ -1,0 +1,94 @@
+---
+title: Steps
+description: What you can do with a Sandbox — exec, execCode, file operations, checkpoint, and control flow.
+---
+
+Once you have a `Sandbox`, you call methods on it to do work. Each call is a "step" — it runs inside the container and its result is logged to the ledger.
+
+## Shell commands — exec()
+
+`sb.exec(cmd)` runs a shell command and returns an `ExecHandle`.
+
+```ts
+// Await for the full result
+const { stdout, stderr, exitCode } = await sb.exec("node --version");
+
+// Pipe stdout in real time
+await sb.exec("npm run build").pipe(process.stdout);
+
+// Non-zero exit does not throw by default when strict: false
+const { exitCode } = await sb.exec("test -f package.json", { strict: false });
+```
+
+By default, `exec()` throws `CommandError` on non-zero exit (`strict: true`). Pass `{ strict: false }` to get the exit code instead of an exception.
+
+## Code interpreter — execCode()
+
+`sb.execCode(code)` runs code via the sandbox's code interpreter (Python, JS, etc.) using the execd `/code` endpoint.
+
+```ts
+// Stateless — isolated context each time
+await sb.execCode(`print("hello")`).pipe(process.stdout);
+
+// Stateful — variables persist across calls sharing the same context.
+// Contexts must be created first via createCodeContext() — you can't hand-roll one.
+const ctx = await sb.createCodeContext(CodeLanguage.Python);
+
+await sb.execCode(`data = [1, 2, 3]`, { context: ctx });
+await sb.execCode(`print(sum(data))`, { context: ctx }).pipe(process.stdout); // 6
+```
+
+Import `CodeLanguage` from `alineo`:
+
+```ts
+import { CodeLanguage } from "alineo";
+```
+
+Requires a code-interpreter image (e.g. `opensandbox/code-interpreter`).
+
+## File operations
+
+| Method                           | Description                                                   |
+| -------------------------------- | ------------------------------------------------------------- |
+| `sb.writeFile(path, content)`    | Write a UTF-8 string into the container                       |
+| `sb.readFile(path)`              | Read a file as a UTF-8 string                                 |
+| `sb.moveFile(from, to)`          | Move or rename a file inside the container                    |
+| `sb.deleteFile(path)`            | Delete a file from the container                              |
+| `sb.searchFiles(pattern, path?)` | Search for files matching a glob; returns an array of matches |
+| `sb.listDirectory(path, opts?)`  | List directory entries; `opts.depth` controls recursion depth |
+
+See [File operations](/docs/core/v0.1/building/file-ops) for full examples.
+
+## Checkpoints
+
+`sb.checkpoint(name?)` snapshots the container's filesystem and writes the snapshot ID to the ledger. Pass an optional label for easier identification.
+
+```ts
+await sb.exec("npm ci");
+await sb.checkpoint("after-install");
+await sb.exec("npm test");
+```
+
+Use `client.resume(sandboxId)` to restore from the last checkpoint. See [Snapshots & replay](/docs/core/v0.1/building/snapshots).
+
+## Control flow (workflow builder)
+
+The `@alineo-labs/workflow` package adds queued control-flow steps: `retry`, `when`, `forEach`. These are only available in the workflow builder (`SandboxBuilder`), not on the `Sandbox` class directly.
+
+```ts
+import { workflow } from "@alineo-labs/workflow";
+
+await workflow(client)
+  .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {
+    sb.retry(3, (sb) => sb.exec("flaky-command"), { backoff: "exponential" });
+    sb.when(
+      (ctx) => ctx.exitCode === 0,
+      (sb) => sb.exec("echo success"),
+      (sb) => sb.exec("echo failure"),
+    );
+    sb.forEach(["a", "b", "c"], (sb, item) => sb.exec(`echo ${item}`));
+  })
+  .pipe(process.stdout);
+```
+
+See [Control flow](/docs/core/v0.1/building/control-flow) for full docs.
