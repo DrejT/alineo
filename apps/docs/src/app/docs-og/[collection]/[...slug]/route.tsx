@@ -5,6 +5,7 @@ import {
   alineoSource,
   agentSource,
   examplesSource,
+  cookbooksSource,
 } from "@/lib/source";
 import { loadOgFonts, ogImageSize, renderOgImage } from "@/lib/og-image";
 
@@ -14,6 +15,7 @@ const SOURCES = {
   alineo: alineoSource,
   agent: agentSource,
   examples: examplesSource,
+  cookbooks: cookbooksSource,
 } as const;
 
 type Collection = keyof typeof SOURCES;

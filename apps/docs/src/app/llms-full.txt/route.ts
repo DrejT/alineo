@@ -4,6 +4,7 @@ import {
   agentSource,
   alineoSource,
   examplesSource,
+  cookbooksSource,
 } from "@/lib/source";
 import { getLLMText } from "@/lib/get-llm-text";
 
@@ -16,6 +17,7 @@ export async function GET() {
     ...agentSource.getPages(),
     ...alineoSource.getPages(),
     ...examplesSource.getPages(),
+    ...cookbooksSource.getPages(),
   ];
   const scanned = await Promise.all(allPages.map(getLLMText));
   return new Response(scanned.join("\n\n---\n\n"));

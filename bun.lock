@@ -80,6 +80,48 @@
         "typescript": "6.0.3",
       },
     },
+    "cookbooks/ai-agent-bugfix": {
+      "name": "alineo-cookbook-ai-agent-bugfix",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/agent": "workspace:*",
+        "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
+      },
+    },
+    "cookbooks/ci-test-runner": {
+      "name": "alineo-cookbook-ci-test-runner",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
+      },
+    },
+    "cookbooks/parallel-test-shards": {
+      "name": "alineo-cookbook-parallel-test-shards",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
+      },
+    },
+    "cookbooks/resumable-etl-pipeline": {
+      "name": "alineo-cookbook-resumable-etl-pipeline",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
+      },
+    },
+    "cookbooks/untrusted-code-execution": {
+      "name": "alineo-cookbook-untrusted-code-execution",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
+      },
+    },
     "examples/benchmark": {
       "name": "alineo-example-benchmark",
       "version": "0.0.4",
@@ -1411,6 +1453,16 @@
     "alineo": ["alineo@workspace:packages/sdks/typescript"],
 
     "alineo-cli": ["alineo-cli@workspace:packages/cli"],
+
+    "alineo-cookbook-ai-agent-bugfix": ["alineo-cookbook-ai-agent-bugfix@workspace:cookbooks/ai-agent-bugfix"],
+
+    "alineo-cookbook-ci-test-runner": ["alineo-cookbook-ci-test-runner@workspace:cookbooks/ci-test-runner"],
+
+    "alineo-cookbook-parallel-test-shards": ["alineo-cookbook-parallel-test-shards@workspace:cookbooks/parallel-test-shards"],
+
+    "alineo-cookbook-resumable-etl-pipeline": ["alineo-cookbook-resumable-etl-pipeline@workspace:cookbooks/resumable-etl-pipeline"],
+
+    "alineo-cookbook-untrusted-code-execution": ["alineo-cookbook-untrusted-code-execution@workspace:cookbooks/untrusted-code-execution"],
 
     "alineo-example-benchmark": ["alineo-example-benchmark@workspace:examples/benchmark"],
 

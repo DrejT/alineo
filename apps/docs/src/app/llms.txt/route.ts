@@ -5,6 +5,7 @@ import {
   agentSource,
   alineoSource,
   examplesSource,
+  cookbooksSource,
 } from "@/lib/source";
 import { DEFAULT_DESCRIPTION } from "@/lib/metadata";
 
@@ -16,6 +17,7 @@ const SECTIONS = [
   ["Agent SDK", agentSource],
   ["alineo CLI", alineoSource],
   ["Examples", examplesSource],
+  ["Cookbooks", cookbooksSource],
 ] as const;
 
 export function GET() {

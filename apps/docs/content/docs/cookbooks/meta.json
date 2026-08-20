@@ -1,0 +1,10 @@
+{
+  "title": "Cookbooks",
+  "pages": [
+    "untrusted-code-execution",
+    "ci-test-runner",
+    "parallel-test-shards",
+    "resumable-etl-pipeline",
+    "ai-agent-bugfix"
+  ]
+}
