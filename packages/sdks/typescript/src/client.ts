@@ -67,7 +67,7 @@ export {
 } from "./environment";
 
 /**
- * Main entry point for alineo. Manages sandbox lifecycle and session history.
+ * Main entry point for the sandbox client. Manages sandbox lifecycle and session history.
  *
  * @example
  * ```ts

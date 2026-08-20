@@ -1,4 +1,4 @@
-/** Local copy of `@alineo-labs/agent`'s `SetupStep` shape — avoids a cross-package dependency for a
+/** Local copy of `alineo`'s `SetupStep` shape — avoids a cross-package dependency for a
  * trivial shared interface, same call `pack-local-package.ts` already makes. */
 export interface SetupStep {
   name: string;

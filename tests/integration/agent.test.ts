@@ -1,5 +1,5 @@
 /**
- * Integration tests for @alineo-labs/agent.
+ * Integration tests for alineo.
  *
  * Requires OpenSandbox running (alineo init or uvx opensandbox-server).
  * Uses Google Gemini (gemini-flash-latest = gemini-3.5-flash) — free tier, works with GEMINI_API_KEY.

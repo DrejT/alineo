@@ -1,5 +1,5 @@
 /**
- * Pi agent example — exercises every @alineo-labs/agent command:
+ * Pi agent example — exercises every alineo command:
  *
  *   prompt, bash, steer, followUp, abort, newSession
  *   getMessages, getAvailableModels

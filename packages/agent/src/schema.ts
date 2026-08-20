@@ -65,10 +65,10 @@ export interface AgentSpec {
    * Falls back to defaults in `alineo.config.json` if omitted.
    */
   resources?: { cpu: string; memory: string; gpu?: string };
-  /** Not read anywhere in `@alineo-labs/agent`; has no effect on the sandbox. */
+  /** Not read anywhere in `alineo`; has no effect on the sandbox. */
   metadata?: Record<string, string>;
   /**
-   * Not read by `@alineo-labs/agent` itself — used by `alineo add`, which fetches
+   * Not read by `alineo` itself — used by `alineo add`, which fetches
    * and saves each dependency spec first, depth-first.
    */
   registryDependencies?: string[];
