@@ -4,6 +4,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { lazy } from "react";
 import { DEFAULT_DESCRIPTION } from "@/lib/metadata";
+import { coreLatestVersion } from "@/lib/source";
 import "./globals.css";
 
 const SearchDialog = lazy(() => import("@/components/search-dialog"));
@@ -66,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             nav={{ title: "alineo", url: "/" }}
             themeSwitch={{ enabled: false }}
             links={[
-              { text: "Docs", url: "/docs/core", active: "nested-url" },
+              { text: "Docs", url: `/docs/core/${coreLatestVersion}`, active: "nested-url" },
               { text: "Cookbook", url: "/cookbook", active: "nested-url" },
               { text: "FAQ", url: "/faq", active: "nested-url" },
               { text: "Use Cases", url: "/use-cases", active: "nested-url" },

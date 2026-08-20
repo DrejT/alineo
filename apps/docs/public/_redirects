@@ -1,0 +1,22 @@
+# Cloudflare Pages redirects (see plans/versioned-docs.md). apps/docs is a static
+# export (output: "export"), so these can't live in next.config.ts's redirects() —
+# that API is unsupported for static export. Cloudflare Pages reads this file at
+# the edge instead, ahead of Next's own routing, so it covers old/external links to
+# the pre-versioning unversioned /docs/core and /docs/alineo URLs (already indexed
+# in production before this change) that in-app links no longer generate themselves.
+#
+# Rules are evaluated top-to-bottom, first match wins. The 200-status rules below
+# are passthroughs, not redirects — without them the /docs/core/* wildcard further
+# down would also match already-versioned paths like /docs/core/v0.1/getting-started
+# and double-prefix them into /docs/core/v0.1/v0.1/getting-started.
+#
+# On a version cut, update every target below too — this file is NOT derived from
+# src/lib/source.ts's *LatestVersion constants, since Cloudflare Pages reads it as
+# static text, not through the Next.js build.
+/docs/core/v0.1/*      /docs/core/v0.1/:splat        200
+/docs/alineo/v0.1/*     /docs/alineo/v0.1/:splat      200
+
+/docs/core             /docs/core/v0.1               301
+/docs/core/*            /docs/core/v0.1/:splat        301
+/docs/alineo            /docs/alineo/v0.1             301
+/docs/alineo/*           /docs/alineo/v0.1/:splat      301
