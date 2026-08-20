@@ -10,13 +10,30 @@
 # down would also match already-versioned paths like /docs/core/v0.1/getting-started
 # and double-prefix them into /docs/core/v0.1/v0.1/getting-started.
 #
+# The bare "/docs/core/v0.1" (no trailing segment) needs its own exact-match
+# passthrough line — "/docs/core/v0.1/*" only matches paths with something *after*
+# the trailing slash, not the version root itself. Without this, "/" 's client-side
+# redirect() to "/docs/core/v0.1" falls through to the "/docs/core/*" 301 below and
+# gets double-prefixed into "/docs/core/v0.1/v0.1", which 404s.
+#
 # On a version cut, update every target below too — this file is NOT derived from
 # src/lib/source.ts's *LatestVersion constants, since Cloudflare Pages reads it as
 # static text, not through the Next.js build.
+/docs/core/v0.1          /docs/core/v0.1               200
 /docs/core/v0.1/*      /docs/core/v0.1/:splat        200
+/docs/alineo/v0.1         /docs/alineo/v0.1              200
 /docs/alineo/v0.1/*     /docs/alineo/v0.1/:splat      200
 
 /docs/core             /docs/core/v0.1               301
 /docs/core/*            /docs/core/v0.1/:splat        301
 /docs/alineo            /docs/alineo/v0.1             301
 /docs/alineo/*           /docs/alineo/v0.1/:splat      301
+
+# Handled here rather than left to src/app/page.tsx's redirect() call: static export
+# can't perform a real server redirect for "/", so Next instead bakes the page as an
+# error-boundary shell ("This page could not be found") that a client-side script is
+# supposed to replace via router.replace() after hydration — fragile (a no-JS client
+# or crawler sees the 404 shell as the actual response) and, before this rule existed,
+# actively broken (that client-side nav re-entered the rules above and got
+# double-prefixed into /docs/core/v0.1/v0.1). An edge-level 301 sidesteps all of it.
+/                      /docs/core/v0.1               301
