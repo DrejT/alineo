@@ -1,12 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { Check, ChevronsUpDown, Tag } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "fumadocs-ui/components/ui/popover";
 import type { VersionedProduct, DocProductVersions } from "@/lib/doc-versions";
 
 // Fumadocs' old built-in RootToggle was removed from the public API in fumadocs-ui
 // 16.2, so version switching is hand-rolled here — same approach this app already
-// takes for the product switcher (see nav-tabs.tsx's docsTabs). Mounted via
-// DocsLayout's `sidebar.banner` slot in core/alineo's [version]/layout.tsx only.
+// takes for the product switcher (docsTabs -> fumadocs-ui's own SidebarTabsDropdown,
+// which this deliberately mirrors visually: a Popover-based trigger, not a native
+// <select>, so it reads as the same kind of control). Mounted via DocsLayout's
+// `sidebar.banner` slot in core/alineo's [version]/layout.tsx only.
 export function VersionSwitcher({
   product,
   currentVersion,
@@ -16,40 +21,47 @@ export function VersionSwitcher({
   currentVersion: string;
   data: DocProductVersions;
 }) {
+  const [open, setOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   function switchTo(version: string) {
+    setOpen(false);
     if (version === currentVersion) return;
     const prefix = `/docs/${product}/${currentVersion}`;
     const rest = pathname.startsWith(prefix) ? pathname.slice(prefix.length) : "";
     router.push(`/docs/${product}/${version}${rest}`);
   }
 
-  if (data.versions.length <= 1) {
-    // Only one version exists — a dropdown with a single, unchangeable option is
-    // noise. Show the version as a plain label instead; this becomes the real
-    // <select> below automatically the moment a second version is cut.
-    return (
-      <div className="w-full rounded-md border border-fd-border bg-fd-secondary px-2 py-1.5 text-center text-xs font-medium text-fd-muted-foreground">
-        {currentVersion}
-      </div>
-    );
-  }
-
   return (
-    <select
-      aria-label={`${product} docs version`}
-      value={currentVersion}
-      onChange={(e) => switchTo(e.target.value)}
-      className="w-full rounded-md border border-fd-border bg-fd-secondary px-2 py-1.5 text-xs font-medium text-fd-foreground"
-    >
-      {data.versions.map((version) => (
-        <option key={version} value={version}>
-          {version}
-          {version === data.latest ? " (latest)" : ""}
-        </option>
-      ))}
-    </select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger className="flex items-center gap-2 rounded-lg border bg-fd-secondary/50 p-2 text-start text-fd-secondary-foreground transition-colors hover:bg-fd-accent data-[state=open]:bg-fd-accent data-[state=open]:text-fd-accent-foreground">
+        <Tag className="size-4 shrink-0 text-fd-muted-foreground" />
+        <p className="text-sm font-medium">{currentVersion}</p>
+        <ChevronsUpDown className="ms-auto size-4 shrink-0 text-fd-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent className="flex w-(--radix-popover-trigger-width) flex-col gap-1 p-1">
+        {data.versions.map((version) => (
+          <button
+            key={version}
+            type="button"
+            onClick={() => switchTo(version)}
+            className="flex items-center gap-2 rounded-lg p-1.5 text-start hover:bg-fd-accent hover:text-fd-accent-foreground"
+          >
+            <p className="text-sm font-medium leading-none">
+              {version}
+              {version === data.latest && (
+                <span className="ms-1.5 text-[0.8125rem] font-normal text-fd-muted-foreground">
+                  latest
+                </span>
+              )}
+            </p>
+            <Check
+              className={`ms-auto size-3.5 shrink-0 text-fd-primary ${version === currentVersion ? "" : "invisible"}`}
+            />
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }
