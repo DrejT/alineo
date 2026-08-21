@@ -5,8 +5,10 @@
  * want to re-run the "load" stage without paying for extract/transform again —
  * `client.resume(sandboxId)` restores the container from the last checkpoint.
  * The restored container's filesystem already has extract/transform's output
- * on it, and any exec that exactly matches one issued before the checkpoint
- * replays from the ledger instead of re-running.
+ * on it, and each exec() call after resume replays from the ledger by
+ * position — the Nth call returns the Nth original call's result, regardless
+ * of what command is actually passed — so re-issue calls in the same order
+ * as the original run.
  */
 import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
@@ -75,8 +77,10 @@ const resumed = await client.resume(sandboxId);
 try {
   console.log(`Resumed sandbox ID: ${resumed.sandboxId}`);
 
-  // Same command as the original "extract" step — replayed from the ledger,
-  // returns instantly without hitting the network or re-installing anything.
+  // This is the first exec() call since resume, so it replays the original run's
+  // first exec() result (the extract stage's pip install) from the ledger — by
+  // position, not by matching this command's text. Re-issuing the same command
+  // here is good practice for readability, not something the SDK checks for.
   const t0 = Date.now();
   await resumed.exec("pip install --quiet pandas");
   console.log(`[extract] (replayed) pip install — ${Date.now() - t0}ms`);

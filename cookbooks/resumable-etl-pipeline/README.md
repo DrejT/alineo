@@ -29,8 +29,10 @@ bun start
 **Resumed run** — simulates picking the pipeline back up later:
 
 1. `client.resume(sandboxId)` restores the container from the last checkpoint (`after-transform`)
-2. Re-issuing the exact `pip install` command from the extract stage replays instantly from the
-   ledger — no network call, no re-install
+2. The first `exec()` call after resume replays instantly from the ledger — no network call, no
+   re-install. This demo re-issues the identical `pip install` command from the extract stage as
+   a matter of good practice; the replay itself is positional (see Notes below), not a check that
+   the command matches
 3. `transformed.csv` is already present on the restored container's filesystem, so the load stage
    reads it straight away — the transform never re-runs
 
@@ -38,9 +40,10 @@ bun start
 
 Every `sb.checkpoint(tag)` is a real container snapshot, not just a ledger bookmark — the restored
 container genuinely has extract and transform's output on disk. The ledger replay on top of that is
-an optimization: an exec that exactly matches one already recorded before the checkpoint returns
-its cached result instead of re-running. See [Checkpoint & Resume](/docs/examples/snapshot-replay)
-for the primitive this recipe builds on.
+an optimization, and it's **positional, not content-matched**: the Nth `exec()` call since resume
+returns the Nth call's original result, whatever command is actually passed — there's no check
+that it matches what was recorded. Always re-issue calls in the same order as the original run.
+See [Checkpoint & Resume](/docs/examples/snapshot-replay) for the primitive this recipe builds on.
 
 All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
 Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable
