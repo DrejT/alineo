@@ -32,32 +32,32 @@ afterEach(async () => {
 
 ```bash
 bun run test:integration               # all
-cd tests/integration && bun test <name>.test.ts  # one file
+cd tests/integration && bun test <name>.test.ts  # one file, e.g. agent.test.ts
 ```
 
-Requires OpenSandbox running locally. Integration test client setup:
+Requires OpenSandbox running locally. Agent integration test setup:
 
 ```ts
-import { Sandbox } from "@alineo-labs/sandbox";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Sandbox({
-  baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
-  adapter: new SQLiteAdapter(":memory:"),
-  useServerProxy: true,
-});
+const agent = await Alineo.load(specPath, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
 ```
 
-Always wrap the sandbox in `try/finally { await sb.close(); }` — avoids
-container leaks and ensures `sandbox_closed` is written to the ledger.
+Always close the agent in `afterAll`/`finally` — avoids container leaks and ensures
+`sandbox_closed` is written to the ledger.
 
 Assert on observable behaviour, not internals:
 
 ```ts
-const { stdout, exitCode } = await sb.exec("echo hello");
+const { stdout, exitCode } = await agent.sandbox.exec("echo hello");
 expect(exitCode).toBe(0);
 expect(stdout.trim()).toBe("hello");
 ```
+
+> **Never hardcode a real API key in a test file** — read it from `process.env` and document the
+> env var in the test's header comment. A committed literal key is a leaked secret the moment it
+> lands on a public remote.
 
 ## Adding a New Example
 

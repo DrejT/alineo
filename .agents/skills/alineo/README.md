@@ -1,6 +1,6 @@
 # Alineo Skill
 
-This skill provides comprehensive rules and guidelines for working with the `alineo` SDK, CLI, storage adapters, and API.
+This skill provides comprehensive rules and guidelines for working with the `alineo` agent SDK, CLI, and the storage adapters it requires. It does not cover the underlying `@alineo-labs/sandbox` client SDK.
 
 ## Installation
 
@@ -15,7 +15,7 @@ This will automatically fetch and install the skill into your `.agents/skills/al
 ## What This Skill Does
 
 When an AI agent is equipped with this skill, it gains deep, context-aware knowledge of the Alineo framework. Specifically, the skill enables the agent to:
-- **Write and Debug Alineo Code**: Generate correct TypeScript SDK code for OpenSandbox interactions (spawning sandboxes, checkpointing, resuming, and executing commands).
+- **Write and Debug Alineo Agent Code**: Generate correct TypeScript SDK code for loading, resuming, and spawning Pi agents, including streaming prompts and session control.
 - **Use the Alineo CLI**: Expertly navigate the `alineo-cli` for local development workflows.
 - **Troubleshoot Effectively**: Quickly diagnose common issues, especially Windows-specific gotchas or SQLite/Postgres adapter problems.
 - **Follow Best Practices**: Adhere to the core architectural guidelines and event ledger patterns specific to Alineo.
@@ -28,7 +28,7 @@ Once installed, this skill is automatically invoked when working within the repo
 2. **Consult Specific Rules**: Depending on the component you are working on, refer directly to the corresponding `.md` file in the `rules/` directory:
    - CLI issues: `cli.md`
    - Storage adapters (SQLite/Postgres): `adapters.md`
-   - API interactions: `api-reference.md`
+   - Agent SDK interactions: `agent-sdk.md`
    - Testing & Development: `development.md`
 3. **Troubleshooting**: Encountering issues, especially on Windows? Start with `rules/troubleshooting.md`.
 
