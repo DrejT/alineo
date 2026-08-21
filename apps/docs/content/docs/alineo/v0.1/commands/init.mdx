@@ -35,14 +35,14 @@ Written once, in the project root (not under `.alineo/`). Contains the connectio
 }
 ```
 
-| Field                | Description                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `serverUrl`          | The OpenSandbox server URL.                                                                            |
+| Field                | Description                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `serverUrl`          | The OpenSandbox server URL.                                                                                 |
 | `useServerProxy`     | Always `true` when started via `alineo init`. The `alineo` SDK package reads this for its `Sandbox` client. |
-| `apiKey`             | Empty for local dev. Set this if your server requires authentication.                                  |
-| `adapterPath`        | Path to the SQLite ledger database for this project.                                                   |
-| `agentsDir`          | Directory `alineo add`/`list`/`remove` read and write agent spec files in.                             |
-| `defaults.resources` | CPU/memory used for an agent's sandbox when its spec omits `resources`.                                |
+| `apiKey`             | Empty for local dev. Set this if your server requires authentication.                                       |
+| `adapterPath`        | Path to the SQLite ledger database for this project.                                                        |
+| `agentsDir`          | Directory `alineo add`/`list`/`remove` read and write agent spec files in.                                  |
+| `defaults.resources` | CPU/memory used for an agent's sandbox when its spec omits `resources`.                                     |
 
 ## Idempotency
 

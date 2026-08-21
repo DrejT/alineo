@@ -52,10 +52,10 @@ export default defineAgent({
 function alineo(sandbox: SandboxHandle, opts?: { cwd?: string }): SandboxFactory;
 ```
 
-| Parameter  | Type      | Description                                                                                                         |
-| ---------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| Parameter  | Type            | Description                                                                                                           |
+| ---------- | --------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `sandbox`  | `SandboxHandle` | An already-created sandbox instance. Lifecycle is the caller's responsibility — the adapter never calls `sb.close()`. |
-| `opts.cwd` | `string`  | Working directory passed to `createSandboxSessionEnv`. Defaults to `"/"`.                                           |
+| `opts.cwd` | `string`        | Working directory passed to `createSandboxSessionEnv`. Defaults to `"/"`.                                             |
 
 ## SandboxApi coverage
 

@@ -28,7 +28,7 @@ const env = client.environment("python-data-science", {
 | ----------- | ----------------------------------------------- | --------------------------------------------------------------------------------- |
 | `image`     | `string \| { uri, auth? }`                      | Container image. Same format as `SandboxOptions.image`.                           |
 | `resources` | `{ cpu: string; memory: string; gpu?: string }` | Applied to both the build sandbox and each spawned sandbox.                       |
-| `setup`     | `(sb: SandboxHandle) => Promise<void>`                | Runs once to configure the environment.                                           |
+| `setup`     | `(sb: SandboxHandle) => Promise<void>`          | Runs once to configure the environment.                                           |
 | `shell`     | `string`                                        | Shell binary for all `exec()` calls in this environment. Defaults to `"/bin/sh"`. |
 
 ## Spawning a sandbox

@@ -193,7 +193,7 @@ See [SandboxHandle](#sandboxhandle-class) below for the object returned by `sand
 | `sb.deleteDirectory(path)`        | `Promise<void>`                       | Delete a directory                                    |
 | `sb.getFileInfo(path)`            | `Promise<FileInfo>`                   | File metadata: size, type, mode, timestamps           |
 | `sb.replaceInFiles(replacements)` | `Promise<void>`                       | In-place substring replacement across files           |
-| `sb.transfer(path, target)`       | `Promise<void>`                       | Copy a file to another `SandboxHandle` instance             |
+| `sb.transfer(path, target)`       | `Promise<void>`                       | Copy a file to another `SandboxHandle` instance       |
 | `sb.searchFiles(pattern, path?)`  | `Promise<string[]>`                   | Search for files matching a glob                      |
 | `sb.listDirectory(path, opts?)`   | `Promise<FileInfo[]>`                 | List directory entries with metadata                  |
 | `sb.checkpoint(name?)`            | `Promise<string>`                     | Snapshot the container state, returns the snapshot ID |

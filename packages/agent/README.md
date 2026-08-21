@@ -462,12 +462,12 @@ const result = await agent.sandbox.readFile("/workspace/output.txt");
 
 ## Properties
 
-| Property             | Type      | Description                                    |
-| -------------------- | --------- | ---------------------------------------------- |
-| `agent.sandboxId`    | `string`  | OpenSandbox container ID                       |
-| `agent.name`         | `string`  | Alineo name from the spec                       |
-| `agent.sandbox`      | `SandboxHandle` | Underlying `SandboxHandle` object             |
-| `agent.fromSnapshot` | `boolean` | `true` when restored from snapshot (fast path) |
+| Property             | Type            | Description                                    |
+| -------------------- | --------------- | ---------------------------------------------- |
+| `agent.sandboxId`    | `string`        | OpenSandbox container ID                       |
+| `agent.name`         | `string`        | Alineo name from the spec                      |
+| `agent.sandbox`      | `SandboxHandle` | Underlying `SandboxHandle` object              |
+| `agent.fromSnapshot` | `boolean`       | `true` when restored from snapshot (fast path) |
 
 ---
 
