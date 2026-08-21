@@ -1,5 +1,21 @@
 # drejx
 
+## 0.1.3
+
+### Patch Changes
+
+- 964eff4: Remove the unused `typebox` devDependency — leftover from `pi-extension/alineo.ts`'s typed tools
+  (`alineo_spawn`/`alineo_prompt`/`alineo_agents`/`alineo_kill`), which were already removed in favor
+  of bash-only CLI usage. No source file in this package imports it. No behavior change.
+- Updated dependencies [3ce92a3]
+- Updated dependencies [31d59b0]
+- Updated dependencies [8bfd7c6]
+- Updated dependencies [d628de4]
+- Updated dependencies [d628de4]
+  - alineo@0.2.0
+  - @alineo-labs/sandbox@0.2.0
+  - @alineo-labs/sqlite@0.1.3
+
 ## 0.1.2
 
 ### Patch Changes

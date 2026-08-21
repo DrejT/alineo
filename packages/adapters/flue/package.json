@@ -1,6 +1,6 @@
 {
   "name": "@alineo-labs/flue",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -35,7 +35,7 @@
     "typescript": "6.0.3"
   },
   "peerDependencies": {
-    "@alineo-labs/sandbox": ">=0.1.0",
+    "@alineo-labs/sandbox": ">=0.2.0",
     "@flue/runtime": ">=1.0.0-beta"
   }
 }

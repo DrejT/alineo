@@ -1,6 +1,6 @@
 {
   "name": "@alineo-labs/integration-tests",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "private": true,
   "scripts": {
     "test": "bun test --timeout 120000"

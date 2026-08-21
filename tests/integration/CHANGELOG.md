@@ -1,5 +1,20 @@
 # @drej/integration-tests
 
+## 0.0.15
+
+### Patch Changes
+
+- Updated dependencies [3ce92a3]
+- Updated dependencies [31d59b0]
+- Updated dependencies [8bfd7c6]
+- Updated dependencies [d628de4]
+- Updated dependencies [d628de4]
+- Updated dependencies [d628de4]
+  - alineo@0.2.0
+  - @alineo-labs/sandbox@0.2.0
+  - @alineo-labs/workflow@0.1.1
+  - @alineo-labs/sqlite@0.1.3
+
 ## 0.0.14
 
 ### Patch Changes
