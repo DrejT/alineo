@@ -49,20 +49,34 @@ try {
 
   console.log("\n=== Forking into two tracks ===\n");
 
-  [forkA, forkB] = await Promise.all([sb.fork("track-a"), sb.fork("track-b")]);
+  // Promise.allSettled, not Promise.all: if one fork() rejects, the other may still have
+  // succeeded server-side. allSettled lets us capture whichever handle(s) actually came back
+  // (so `finally` below closes them, not orphans them) before surfacing the failure.
+  const forkResults = await Promise.allSettled([sb.fork("track-a"), sb.fork("track-b")]);
+  if (forkResults[0].status === "fulfilled") forkA = forkResults[0].value;
+  if (forkResults[1].status === "fulfilled") forkB = forkResults[1].value;
+  const forkFailures = forkResults.filter((r) => r.status === "rejected");
+  if (forkFailures.length > 0) {
+    throw new Error(
+      `${forkFailures.length}/2 fork() calls failed: ` +
+        forkFailures
+          .map((f) => (f.reason instanceof Error ? f.reason.message : String(f.reason)))
+          .join("; "),
+    );
+  }
 
-  console.log(`fork-a id: ${forkA.sandboxId}`);
-  console.log(`fork-b id: ${forkB.sandboxId}`);
+  console.log(`fork-a id: ${forkA!.sandboxId}`);
+  console.log(`fork-b id: ${forkB!.sandboxId}`);
 
   // ── Run different workloads in parallel ────────────────────────────────────
 
   console.log("\n=== Running in parallel ===\n");
 
   await Promise.all([
-    forkA
+    forkA!
       .writeFile("/tmp/run.py", scriptA)
       .then(() => forkA!.exec("python3 /tmp/run.py").pipe(process.stdout)),
-    forkB
+    forkB!
       .writeFile("/tmp/run.py", scriptB)
       .then(() => forkB!.exec("python3 /tmp/run.py").pipe(process.stdout)),
   ]);
