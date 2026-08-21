@@ -36,7 +36,9 @@ try {
       "",
     ].join("\n"),
   );
-  await agent.sandbox.exec("cd /workspace && pip install --quiet pytest");
+  // --break-system-packages: node:22's Debian base has PEP 668's "externally-managed-environment"
+  // protection on apt-installed pip — same workaround the "python-data" registry spec uses.
+  await agent.sandbox.exec("cd /workspace && pip install --quiet --break-system-packages pytest");
 
   console.log("=== Before: failing test ===\n");
   for await (const chunk of textOnly(agent.bash("cd /workspace && pytest -q || true"))) {
