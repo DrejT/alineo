@@ -31,11 +31,11 @@ export interface AgentConstructorArgs {
 }
 
 /**
- * Load an agent spec from disk and return everything needed to construct a fully
- * initialised `Alineo`. See `Alineo.load()` for the public-facing docs.
+ * Validate `specInput` and return everything needed to construct a fully initialised `Alineo`.
+ * See `Alineo.load()` for the public-facing docs.
  */
 export async function loadAgent(
-  specPath: string,
+  specInput: AgentSpec | Record<string, unknown>,
   opts: {
     adapter: IStorageAdapter;
     rebuild?: boolean;
@@ -45,7 +45,7 @@ export async function loadAgent(
   },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
-  const spec = validateAgentSpec(await Bun.file(specPath).json());
+  const spec = validateAgentSpec(specInput);
   const config = await readProjectConfig();
   const resolvedEnv = resolveEnv(spec.env ?? {});
   const effectiveSpawnDepth = opts.spawnDepth ?? spec.spawnDepth;
@@ -159,7 +159,12 @@ export async function loadAgent(
  */
 export async function resumeAgent(
   sandboxId: string,
-  opts: { adapter: IStorageAdapter; specPath?: string; runId?: string },
+  opts: {
+    adapter: IStorageAdapter;
+    spec?: AgentSpec | Record<string, unknown>;
+    specPath?: string;
+    runId?: string;
+  },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
   const config = await readProjectConfig();
@@ -171,14 +176,22 @@ export async function resumeAgent(
     useServerProxy: config.useServerProxy,
   });
 
+  // Three-way fallback, in order of preference: an already-parsed object (no I/O at all) >
+  // an explicit path (one read) > guessing the path from the ledger's own record of this
+  // sandbox's name (see #184 -- unlike load(), resume() has no spec object to fall back to
+  // when the caller genuinely doesn't have one on hand, so this guess stays load-bearing).
   let spec: AgentSpec;
-  if (opts.specPath) {
+  if (opts.spec) {
+    spec = validateAgentSpec(opts.spec);
+  } else if (opts.specPath) {
     spec = validateAgentSpec(await Bun.file(opts.specPath).json());
   } else {
     const sessions = await client.sandboxes.list();
     const session = sessions.find((s) => s.sandboxId === sandboxId);
     if (!session)
-      throw new Error(`No ledger record for sandbox ${sandboxId} — pass opts.specPath explicitly`);
+      throw new Error(
+        `No ledger record for sandbox ${sandboxId} — pass opts.spec or opts.specPath explicitly`,
+      );
     spec = validateAgentSpec(await Bun.file(`./agents/${session.name}.json`).json());
   }
 

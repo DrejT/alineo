@@ -16,7 +16,8 @@ Load 2+ (warm):  snapshot restore → bridge                                   ~
 
 ```ts
 // adapter: an IStorageAdapter — SQLiteAdapter or PostgresAdapter, see Quickstart
-const agent = await Alineo.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(agent.fromSnapshot); // false on first load, true after
 ```
 
@@ -36,7 +37,7 @@ Any change to these fields automatically invalidates the snapshot and triggers a
 Pass `{ rebuild: true }` to force a full reinstall regardless of the cached snapshot:
 
 ```ts
-const agent = await Alineo.load("./agents/my-agent.json", { adapter, rebuild: true });
+const agent = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
 This is useful after updating a package version that isn't tracked through the spec (e.g. a package installed by a setup step that fetches from the internet).

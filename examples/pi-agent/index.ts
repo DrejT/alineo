@@ -23,7 +23,9 @@ function section(label: string) {
 }
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Alineo.load("./agents/hello-agent.json", { adapter });
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+const spec = await Bun.file("./agents/hello-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(`\nSandbox: ${agent.sandboxId}\n${"─".repeat(60)}`);
 await agent.sandbox.exec("mkdir -p /workspace");
 

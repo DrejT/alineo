@@ -64,7 +64,9 @@ export async function createAgent(specName: string): Promise<Alineo> {
   if (!isAllowedAgentSpec(specName)) {
     throw new NotFoundError(`Unknown agent spec "${specName}"`);
   }
-  const agent = await Alineo.load(`${config.AGENTS_DIR}/${specName}.json`, { adapter });
+  // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+  const spec = await Bun.file(`${config.AGENTS_DIR}/${specName}.json`).json();
+  const agent = await Alineo.load(spec, { adapter });
   agents.set(agent.sandboxId, agent);
   return agent;
 }

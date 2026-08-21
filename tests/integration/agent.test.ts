@@ -29,9 +29,9 @@ const SPEC = {
 let agent: Alineo;
 
 beforeAll(async () => {
-  const specPath = "/tmp/test-agent-spec.json";
-  await Bun.write(specPath, JSON.stringify(SPEC));
-  agent = await Alineo.load(specPath, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
+  // Alineo.load() no longer does its own file I/O (see #184) -- SPEC is already an object,
+  // so no round trip through a temp file is needed at all.
+  agent = await Alineo.load(SPEC, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
 }, 600_000);
 
 afterAll(async () => {

@@ -12,12 +12,15 @@ first, so it should hand them the sandboxed agent, not the lower-level sandbox c
 -import { Agent } from "@alineo-labs/agent";
 -const agent = await Agent.load("./agent.json", { adapter });
 +import { Alineo } from "alineo";
-+const agent = await Alineo.load("./agent.json", { adapter });
++const spec = await Bun.file("./agent.json").json();
++const agent = await Alineo.load(spec, { adapter });
 ```
 
 `Agent.resume()`/`Agent.spawn()`/`Agent.attach()` become `Alineo.resume()`/`Alineo.spawn()`/
-`Alineo.attach()`, same signatures. Every other exported type keeps its name (`AgentSpec`,
-`AgentEvent`, `AgentStream`, `AgentSnapshotStore`, etc.) — only the class itself is renamed.
+`Alineo.attach()` — same signatures, except `load()`/`resume()` also stop accepting a bare path
+in this same release, see [#184](https://github.com/DrejT/alineo/issues/184)'s own changeset
+entry. Every other exported type keeps its name (`AgentSpec`, `AgentEvent`, `AgentStream`,
+`AgentSnapshotStore`, etc.) — only the class itself is renamed.
 
 The package formerly published as `alineo` (the sandbox client) moves to `@alineo-labs/sandbox` —
 see that package's own changeset entry. If you depended on both, both import specifiers change.

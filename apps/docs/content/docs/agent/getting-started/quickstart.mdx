@@ -60,7 +60,8 @@ import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Alineo.load("./agents/hello-agent.json", { adapter });
+const spec = await Bun.file("./agents/hello-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(`Sandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}`);
 
 try {

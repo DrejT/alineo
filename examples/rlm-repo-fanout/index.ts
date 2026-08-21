@@ -86,7 +86,12 @@ function check(name: string, pass: boolean, detail?: string) {
 
 const testStart = Date.now();
 console.log("=== Loading master (spawnDepth: 1) ===\n");
-const master = await Alineo.load(MASTER_SPEC, { adapter, rebuild: process.env.REBUILD === "1" });
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+const masterSpec = await Bun.file(MASTER_SPEC).json();
+const master = await Alineo.load(masterSpec, {
+  adapter,
+  rebuild: process.env.REBUILD === "1",
+});
 console.log(
   `\nmaster: ${master.name}  sandbox: ${master.sandboxId}  fromSnapshot: ${master.fromSnapshot}\n`,
 );

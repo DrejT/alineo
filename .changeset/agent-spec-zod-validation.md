@@ -25,7 +25,8 @@ an implicit side effect of the old type cast.
 import { Alineo, AgentSpecValidationError } from "alineo";
 
 try {
-  const agent = await Alineo.load("./agent.json", { adapter });
+  const spec = await Bun.file("./agent.json").json();
+  const agent = await Alineo.load(spec, { adapter });
 } catch (e) {
   if (e instanceof AgentSpecValidationError) {
     for (const issue of e.issues) console.error(`${issue.path.join(".")}: ${issue.message}`);

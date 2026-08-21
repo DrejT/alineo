@@ -1,16 +1,17 @@
 # Agent SDK (`alineo`)
 
 The bare `alineo` package is the **agent SDK** — it runs [Pi](https://pi.ai) coding agents inside
-`@alineo-labs/sandbox` containers. Not to be confused with the `Sandbox` client
-([API Reference](api-reference.md)): `Alineo` wraps a `Sandbox`/`SandboxHandle` and layers a Pi
-bridge, snapshot-cached CLI install, streaming prompt/bash, and child-agent spawning on top.
+`@alineo-labs/sandbox` containers (not covered by this skill). `Alineo` wraps a
+`Sandbox`/`SandboxHandle` and layers a Pi bridge, snapshot-cached CLI install, streaming
+prompt/bash, and child-agent spawning on top.
 
 ```ts
 import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Alineo.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
     process.stdout.write(chunk);

@@ -15,9 +15,12 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 const SPEC = "./agents/workspace-agent.json";
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+const spec = await Bun.file(SPEC).json();
+
 // ── Load 1: full install + setup steps + checkpoint ───────────────────────────
 console.log("=== Load 1 — full install ===\n");
-const agent1 = await Alineo.load(SPEC, { adapter });
+const agent1 = await Alineo.load(spec, { adapter });
 console.log(`\nSandbox: ${agent1.sandboxId}  fromSnapshot=${agent1.fromSnapshot}\n`);
 
 if (agent1.fromSnapshot) {
@@ -50,7 +53,7 @@ console.log("Alineo 1 closed.\n");
 
 // ── Load 2: restore from snapshot — setup steps must NOT re-run ───────────────
 console.log("=== Load 2 — from snapshot ===\n");
-const agent2 = await Alineo.load(SPEC, { adapter });
+const agent2 = await Alineo.load(spec, { adapter });
 console.log(`\nSandbox: ${agent2.sandboxId}  fromSnapshot=${agent2.fromSnapshot}\n`);
 
 if (!agent2.fromSnapshot) {

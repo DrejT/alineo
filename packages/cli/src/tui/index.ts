@@ -73,7 +73,9 @@ export async function launchTui(): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
     try {
-      const agent = await Alineo.load(specPath, { adapter });
+      // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+      const spec = await Bun.file(specPath).json();
+      const agent = await Alineo.load(spec, { adapter });
       mount(createChatView(renderer, agent, () => showDashboard()));
     } catch (err) {
       showDashboard(

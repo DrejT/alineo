@@ -28,14 +28,15 @@ export { resolveParentSpawnDepth, resolveParentMaxAgents } from "./validation";
  * while Pi manages its own tool use, file writes, and code execution inside the
  * sandbox.
  *
- * Create an agent with `Alineo.load(specPath)`. Always call `close()` when done
+ * Create an agent with `Alineo.load(spec)`. Always call `close()` when done
  * to release the underlying sandbox container.
  *
  * @example
  * ```ts
  * import { Alineo } from "alineo";
  *
- * const agent = await Alineo.load("./agents/my-agent.json", { adapter });
+ * const spec = await Bun.file("./agents/my-agent.json").json();
+ * const agent = await Alineo.load(spec, { adapter });
  * try {
  *   for await (const chunk of agent.prompt("Explain this codebase")) {
  *     process.stdout.write(chunk);
@@ -89,7 +90,15 @@ export class Alineo {
   }
 
   /**
-   * Load an agent spec from disk and return a fully initialised `Alineo`.
+   * Validate `spec` and return a fully initialised `Alineo`.
+   *
+   * `spec` is an already-parsed object, not a file path — `alineo` no longer does its own
+   * file I/O here (see #184). Read one from disk yourself first (`await
+   * Bun.file(path).json()`), fetch it over HTTP, pull it from a database, or build it
+   * programmatically — however you get it, pass the object. It's validated internally
+   * regardless (via `validateAgentSpec()`), so a raw `JSON.parse()`'d object works fine; you
+   * don't need to call `validateAgentSpec()` yourself first unless you want validation errors
+   * to surface before any sandbox/network work starts.
    *
    * On first load the Pi CLI is installed inside a `node:22` sandbox, then
    * the sandbox is checkpointed. Subsequent `load()` calls for the same spec
@@ -106,7 +115,7 @@ export class Alineo {
    * Logs timing for each phase to stdout via `[agent]` prefixed lines.
    */
   static async load(
-    specPath: string,
+    spec: AgentSpec | Record<string, unknown>,
     opts: {
       adapter: IStorageAdapter;
       rebuild?: boolean;
@@ -115,7 +124,7 @@ export class Alineo {
       runId?: string;
     },
   ): Promise<Alineo> {
-    const r = await factory.loadAgent(specPath, opts);
+    const r = await factory.loadAgent(spec, opts);
     return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
@@ -127,14 +136,19 @@ export class Alineo {
    * Pi is started with `--continue` so it resumes the most recent session.
    *
    * @param sandboxId  The sandbox ID returned by the original `Alineo.load()`.
-   * @param opts.specPath  Path to the agent spec JSON. If omitted, the ledger
-   *   is queried for the sandbox name and the spec is loaded from
-   *   `./agents/<name>.json`.
+   * @param opts.spec  An already-parsed agent spec object — skips file I/O entirely, same as
+   *   `load()`. Takes precedence over `opts.specPath` if both are set.
+   * @param opts.specPath  Path to the agent spec JSON, read and validated internally. If
+   *   neither `opts.spec` nor `opts.specPath` is set, the ledger is queried for the sandbox's
+   *   name and the spec is read from `./agents/<name>.json` — this fallback is the one thing
+   *   `resume()` can do that `load()` can't, since a resumed sandbox's original spec may not be
+   *   in memory anywhere the caller can hand it over.
    *
    * @example
    * ```ts
    * // Original process:
-   * const agent = await Alineo.load("./agents/hello-agent.json", { adapter });
+   * const spec = await Bun.file("./agents/hello-agent.json").json();
+   * const agent = await Alineo.load(spec, { adapter });
    * console.log(agent.sandboxId); // save this
    * // ... process exits ...
    *
@@ -148,7 +162,12 @@ export class Alineo {
    */
   static async resume(
     sandboxId: string,
-    opts: { adapter: IStorageAdapter; specPath?: string; runId?: string },
+    opts: {
+      adapter: IStorageAdapter;
+      spec?: AgentSpec | Record<string, unknown>;
+      specPath?: string;
+      runId?: string;
+    },
   ): Promise<Alineo> {
     const r = await factory.resumeAgent(sandboxId, opts);
     return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);

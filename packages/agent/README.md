@@ -31,7 +31,8 @@ import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Alineo.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
     process.stdout.write(chunk);
@@ -99,7 +100,8 @@ the message string:
 import { Alineo, AgentSpecValidationError } from "alineo";
 
 try {
-  const agent = await Alineo.load("./agent.json", { adapter });
+  const spec = await Bun.file("./agent.json").json();
+  const agent = await Alineo.load(spec, { adapter });
 } catch (e) {
   if (e instanceof AgentSpecValidationError) {
     for (const issue of e.issues) console.error(`${issue.path.join(".")}: ${issue.message}`);
@@ -123,11 +125,12 @@ The snapshot is invalidated automatically when `cli`, `cliVersion`, `packages`, 
 
 ```ts
 // adapter: an IStorageAdapter — SQLiteAdapter or PostgresAdapter, see Quickstart
-const agent = await Alineo.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(agent.fromSnapshot); // false on first load, true after
 
 // Force a full reinstall:
-const agent = await Alineo.load("./agents/my-agent.json", { adapter, rebuild: true });
+const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
 ---
@@ -206,24 +209,31 @@ for await (const ev of agent.prompt("Run /workspace/script.py with python3.")) {
 
 ### Loading and lifecycle
 
-#### `Alineo.load(specPath, opts)`
+#### `Alineo.load(spec, opts)`
 
-Load a spec, spin up a sandbox, install Pi, run setup steps, and return a ready `Alineo`. Restores from snapshot on subsequent calls. `opts.adapter` is required (see [Quickstart](#quickstart)).
+Validate `spec`, spin up a sandbox, install Pi, run setup steps, and return a ready `Alineo`. Restores from snapshot on subsequent calls. `opts.adapter` is required (see [Quickstart](#quickstart)).
+
+`spec` is an already-parsed object, not a file path — `alineo` doesn't do file I/O itself. Read one from disk yourself (`await Bun.file(path).json()`), fetch it over HTTP, or build it programmatically; it's validated internally regardless, so a raw `JSON.parse()`'d object works fine.
 
 ```ts
-const agent = await Alineo.load("./agents/my-agent.json", { adapter });
-const agent = await Alineo.load("./agents/my-agent.json", { adapter, rebuild: true });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
+const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
 #### `Alineo.resume(sandboxId, opts)`
 
 Reconnect to an existing sandbox after the host process has exited. Only restarts the bridge — Pi and the workspace are untouched. `opts.adapter` is required.
 
+Unlike `load()`, `resume()` still accepts a bare path (`opts.specPath`) alongside an already-parsed object (`opts.spec`) — if neither is set, the ledger is queried for the sandbox's name and the spec is read from `./agents/<name>.json`.
+
 ```ts
 // Original process saved agent.sandboxId somewhere...
 const agent = await Alineo.resume(savedSandboxId, { adapter });
-// Or provide the spec explicitly:
-const agent = await Alineo.resume(savedSandboxId, { adapter, specPath: "./agents/my-agent.json" });
+// Or provide the spec path explicitly:
+const agent2 = await Alineo.resume(savedSandboxId, { adapter, specPath: "./agents/my-agent.json" });
+// Or provide an already-parsed spec object:
+const agent3 = await Alineo.resume(savedSandboxId, { adapter, spec });
 ```
 
 #### `Alineo.attach(sandboxId, opts)`

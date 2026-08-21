@@ -29,20 +29,21 @@ A live AI coding agent running inside an OpenSandbox container. Wraps a Pi CLI p
 
 ```ts
 static async load(
-  specPath: string,
+  spec: AgentSpec | Record<string, unknown>,
   opts: { adapter: IStorageAdapter; rebuild?: boolean; spawnDepth?: number; maxAgents?: number },
 ): Promise<Alineo>
 ```
 
-Load and validate the JSON spec at `specPath`, spin up a `node:22` sandbox, install the Pi CLI and any `setup` steps, and return a ready `Alineo`.
+Validate `spec`, spin up a `node:22` sandbox, install the Pi CLI and any `setup` steps, and return a ready `Alineo`. `spec` is an already-parsed object, not a file path — read one from disk yourself first (`await Bun.file(path).json()`), fetch it over HTTP, or build it programmatically. It's validated internally regardless (via `validateAgentSpec()`), so a raw `JSON.parse()`'d object works fine.
 
 On first load the container is checkpointed after install. Subsequent calls restore from the snapshot — skipping the install and starting in ~3s instead of ~90s. See [Snapshotting](/docs/agent/getting-started/snapshotting).
 
 ```ts
-const agent = await Alineo.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 
 // Force a full reinstall, ignoring the cached snapshot:
-const agent = await Alineo.load("./agents/my-agent.json", { adapter, rebuild: true });
+const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
 `spawnDepth`/`maxAgents` override the spec's own fields — see [Spawning child agents](#spawning-child-agents) below.
@@ -50,17 +51,29 @@ const agent = await Alineo.load("./agents/my-agent.json", { adapter, rebuild: tr
 ### Alineo.resume()
 
 ```ts
-static async resume(sandboxId: string, opts: { adapter: IStorageAdapter; specPath?: string }): Promise<Alineo>
+static async resume(
+  sandboxId: string,
+  opts: {
+    adapter: IStorageAdapter;
+    spec?: AgentSpec | Record<string, unknown>;
+    specPath?: string;
+  },
+): Promise<Alineo>
 ```
 
 Reconnect to an existing sandbox after the host process has exited. The container must still be running. Only the bridge process is restarted — Pi and the workspace are untouched. Pi resumes the most recent session via `--continue`.
+
+Unlike `load()`, `resume()` still accepts a bare path (`specPath`) — or, if you already have the spec object in memory, pass it directly via `spec` and skip the read. If neither is set, the ledger is queried for the sandbox's name and the spec is read from `./agents/<name>.json`.
 
 ```ts
 // Save the sandbox ID from a previous run...
 const agent = await Alineo.resume(savedSandboxId, { adapter });
 
 // Or pass the spec path explicitly:
-const agent = await Alineo.resume(savedSandboxId, { adapter, specPath: "./agents/my-agent.json" });
+const agent2 = await Alineo.resume(savedSandboxId, { adapter, specPath: "./agents/my-agent.json" });
+
+// Or pass an already-parsed spec object:
+const agent3 = await Alineo.resume(savedSandboxId, { adapter, spec });
 ```
 
 ### Alineo.attach()

@@ -16,7 +16,8 @@ export interface SetupStep {
 
 /**
  * JSON spec for an agent — typically loaded from an `agent.json` file on disk.
- * Pass the path to `Alineo.load(specPath)`.
+ * Pass it to `Alineo.load(spec)` — read it from disk yourself first (e.g.
+ * `await Bun.file(path).json()`) if it's not already an in-memory object.
  *
  * Environment variable references in `env` values are interpolated from
  * `process.env` at load time: `"${MY_API_KEY}"` → `process.env.MY_API_KEY`.

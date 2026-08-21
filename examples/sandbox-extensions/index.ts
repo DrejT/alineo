@@ -113,7 +113,11 @@ try {
 // ── Feature 7 — Alineo.resume() ───────────────────────────────────────────────
 section("7. Alineo.resume() — reconnect to a running agent");
 
-const agent = await Alineo.load("../pi-agent/agents/hello-agent.json", { adapter });
+const AGENT_SPEC_PATH = "../pi-agent/agents/hello-agent.json";
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+// Alineo.resume() below still accepts a bare path via opts.specPath -- unchanged.
+const agentSpec = await Bun.file(AGENT_SPEC_PATH).json();
+const agent = await Alineo.load(agentSpec, { adapter });
 const agentSandboxId = agent.sandboxId;
 console.log(`Original agent sandbox: ${agentSandboxId}`);
 
@@ -134,7 +138,7 @@ await new Promise<void>((r) => setTimeout(r, 500));
 
 const resumed = await Alineo.resume(agentSandboxId, {
   adapter,
-  specPath: "../pi-agent/agents/hello-agent.json",
+  specPath: AGENT_SPEC_PATH,
 });
 console.log(`Resumed agent sandbox: ${resumed.sandboxId}`);
 
