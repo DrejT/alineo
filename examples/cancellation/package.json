@@ -1,6 +1,6 @@
 {
   "name": "alineo-example-cancellation",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
