@@ -1,9 +1,9 @@
 ---
 title: Snapshotting
-description: How Agent.load() caches the Pi install so subsequent loads take seconds instead of minutes.
+description: How Alineo.load() caches the Pi install so subsequent loads take seconds instead of minutes.
 ---
 
-On the first call to `Agent.load()`, the SDK installs the Pi CLI inside a `node:22` sandbox, runs any [workspace setup steps](/docs/agent/getting-started/workspace-setup), then checkpoints the container. On every subsequent call it restores from that snapshot — skipping the install entirely.
+On the first call to `Alineo.load()`, the SDK installs the Pi CLI inside a `node:22` sandbox, runs any [workspace setup steps](/docs/agent/getting-started/workspace-setup), then checkpoints the container. On every subsequent call it restores from that snapshot — skipping the install entirely.
 
 ```
 Load 1 (cold):   sandbox → Pi install → setup steps → checkpoint → bridge   ~90s
@@ -16,7 +16,8 @@ Load 2+ (warm):  snapshot restore → bridge                                   ~
 
 ```ts
 // adapter: an IStorageAdapter — SQLiteAdapter or PostgresAdapter, see Quickstart
-const agent = await Agent.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(agent.fromSnapshot); // false on first load, true after
 ```
 
@@ -29,14 +30,14 @@ The snapshot is keyed on a hash of the fields that affect the installed environm
 - `packages` — APT packages sorted alphabetically
 - `setup` — workspace setup steps (names, commands, working directories)
 
-Any change to these fields automatically invalidates the snapshot and triggers a full rebuild on the next `Agent.load()` call. Fields that don't affect the snapshot — `model`, `provider`, `env`, `resources` — never invalidate the cache.
+Any change to these fields automatically invalidates the snapshot and triggers a full rebuild on the next `Alineo.load()` call. Fields that don't affect the snapshot — `model`, `provider`, `env`, `resources` — never invalidate the cache.
 
 ## Force rebuild
 
 Pass `{ rebuild: true }` to force a full reinstall regardless of the cached snapshot:
 
 ```ts
-const agent = await Agent.load("./agents/my-agent.json", { adapter, rebuild: true });
+const agent = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
 This is useful after updating a package version that isn't tracked through the spec (e.g. a package installed by a setup step that fetches from the internet).
@@ -45,4 +46,4 @@ This is useful after updating a package version that isn't tracked through the s
 
 Snapshot records are stored in `agent-snapshots.json` alongside the ledger database (`.alineo/agent-snapshots.json` by default). Each record maps `specName + setupHash` → `snapshotId`. On restore, `client.restoreSnapshot(snapshotId)` recreates the container from the saved image.
 
-If the snapshot no longer exists on the OpenSandbox server (e.g. after a server restart), `Agent.load()` detects the failure, logs `[agent] snapshot stale, rebuilding...`, and falls back to a full install automatically.
+If the snapshot no longer exists on the OpenSandbox server (e.g. after a server restart), `Alineo.load()` detects the failure, logs `[agent] snapshot stale, rebuilding...`, and falls back to a full install automatically.

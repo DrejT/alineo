@@ -1,5 +1,5 @@
 /**
- * Feature 7 — Agent.resume() end-to-end test
+ * Feature 7 — Alineo.resume() end-to-end test
  *
  * Tests that a new process can reconnect to a running agent sandbox,
  * restart the bridge with --continue, and continue the Pi session
@@ -8,7 +8,7 @@
  * Run: bun examples/pi-agent/test-resume.ts
  * Needs: OpenSandbox server running (uvx opensandbox-server)
  */
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
@@ -16,9 +16,12 @@ const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // ── Step 1: Spawn a fresh agent and seed its session ─────────────────────────
 console.log("=== Step 1: Load agent and seed session ===\n");
-const agent = await Agent.load(SPEC, { adapter });
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+// Alineo.resume() below still accepts a bare path via opts.specPath -- unchanged.
+const spec = await Bun.file(SPEC).json();
+const agent = await Alineo.load(spec, { adapter });
 const sandboxId = agent.sandboxId;
-console.log(`Sandbox ID: ${sandboxId}\n`);
+console.log(`SandboxHandle ID: ${sandboxId}\n`);
 
 process.stdout.write("Initial prompt → ");
 for await (const chunk of agent.prompt("Remember the secret number 99. Reply with just OK.")) {
@@ -36,9 +39,9 @@ console.log("Bridge killed. Container still running.\n");
 
 // Do NOT call agent.close() — simulating the host process exiting abruptly.
 
-// ── Step 3: Reconnect via Agent.resume() ─────────────────────────────────────
+// ── Step 3: Reconnect via Alineo.resume() ─────────────────────────────────────
 console.log("=== Step 3: Resume agent in a new process ===\n");
-const resumed = await Agent.resume(sandboxId, { adapter, specPath: SPEC });
+const resumed = await Alineo.resume(sandboxId, { adapter, specPath: SPEC });
 console.log(`Resumed sandbox ID: ${resumed.sandboxId}\n`);
 
 if (resumed.sandboxId !== sandboxId) {

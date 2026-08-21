@@ -1,2 +1,2 @@
-export type { AgentSpec } from "@alineo-labs/agent";
-export { validateAgentSpec } from "@alineo-labs/agent";
+export type { AgentSpec } from "alineo";
+export { validateAgentSpec } from "alineo";

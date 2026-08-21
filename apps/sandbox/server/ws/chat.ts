@@ -1,4 +1,4 @@
-import type { Agent, AgentStream, ThinkingLevel } from "@alineo-labs/agent";
+import type { Alineo, AgentStream, ThinkingLevel } from "alineo";
 import type { Server, ServerWebSocket } from "bun";
 import * as registry from "../registry";
 import type { WSData } from "./types";
@@ -27,12 +27,12 @@ type DataCommand = Exclude<ChatCommand, { type: "prompt" | "steer" | "followUp" 
 
 /**
  * Dispatch a one-shot agent command that isn't part of the prompt stream. Commands whose
- * `Agent` method returns data are echoed back as `command_result` so the UI can update without
+ * `Alineo` method returns data are echoed back as `command_result` so the UI can update without
  * a separate fetch; void ones just succeed silently.
  */
 async function runCommand(
   ws: ServerWebSocket<WSData>,
-  agent: Agent,
+  agent: Alineo,
   cmd: DataCommand,
 ): Promise<void> {
   try {

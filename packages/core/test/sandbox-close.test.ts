@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Sandbox } from "../src/sandbox/index.ts";
+import { SandboxHandle } from "../src/sandbox/index.ts";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter } from "../src/ledger.ts";
 
@@ -27,9 +27,9 @@ function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   };
 }
 
-describe("Sandbox.close()", () => {
+describe("SandboxHandle.close()", () => {
   it("disposes any resolved exec client's dangling connections (regression for #21 Bug A)", async () => {
-    const sb = new Sandbox("sb-1", "test", makeDeps(makeAdapter()));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(makeAdapter()));
     const fakeExecClient = { disposeConnections: vi.fn() };
     // Simulates a client already resolved by a prior exec() call — exercised directly
     // rather than via a real exec() round-trip, matching how sibling tests in this file
@@ -44,7 +44,7 @@ describe("Sandbox.close()", () => {
   it("does not resolve a new exec client just to dispose it when none was ever created", async () => {
     const adapter = makeAdapter();
     const control = { deleteSandbox: vi.fn().mockResolvedValue(undefined) };
-    const sb = new Sandbox("sb-1", "test", { control: control as any, adapter });
+    const sb = new SandboxHandle("sb-1", "test", { control: control as any, adapter });
 
     await expect(sb.close()).resolves.toBeUndefined();
     // No fetch/control call was ever made to resolve an exec client — deleteSandbox is
@@ -53,7 +53,7 @@ describe("Sandbox.close()", () => {
   });
 
   it("is idempotent — a second close() does not dispose the exec client again", async () => {
-    const sb = new Sandbox("sb-1", "test", makeDeps(makeAdapter()));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(makeAdapter()));
     const fakeExecClient = { disposeConnections: vi.fn() };
     (sb as any)._execClient = fakeExecClient;
 

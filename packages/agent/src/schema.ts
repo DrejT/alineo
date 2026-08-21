@@ -1,3 +1,6 @@
+import * as z from "zod";
+import { AgentSpecValidationError } from "./errors";
+
 /**
  * A single named setup step run inside the sandbox after Pi CLI install,
  * before the snapshot is taken. The step is a bash shell command.
@@ -13,7 +16,8 @@ export interface SetupStep {
 
 /**
  * JSON spec for an agent — typically loaded from an `agent.json` file on disk.
- * Pass the path to `Agent.load(specPath)`.
+ * Pass it to `Alineo.load(spec)` — read it from disk yourself first (e.g.
+ * `await Bun.file(path).json()`) if it's not already an in-memory object.
  *
  * Environment variable references in `env` values are interpolated from
  * `process.env` at load time: `"${MY_API_KEY}"` → `process.env.MY_API_KEY`.
@@ -65,10 +69,10 @@ export interface AgentSpec {
    * Falls back to defaults in `alineo.config.json` if omitted.
    */
   resources?: { cpu: string; memory: string; gpu?: string };
-  /** Not read anywhere in `@alineo-labs/agent`; has no effect on the sandbox. */
+  /** Not read anywhere in `alineo`; has no effect on the sandbox. */
   metadata?: Record<string, string>;
   /**
-   * Not read by `@alineo-labs/agent` itself — used by `alineo add`, which fetches
+   * Not read by `alineo` itself — used by `alineo add`, which fetches
    * and saves each dependency spec first, depth-first.
    */
   registryDependencies?: string[];
@@ -79,9 +83,9 @@ export interface AgentSpec {
    */
   setup?: SetupStep[];
   /**
-   * Remaining budget for `Agent.spawn()` calls made from inside this agent's sandbox.
-   * Translated by `Agent.load()`/`Agent.resume()` into the `ALINEO_SPAWN_DEPTH` env var.
-   * `Agent.spawn()` reads that value, refuses unless it's a positive integer, and
+   * Remaining budget for `Alineo.spawn()` calls made from inside this agent's sandbox.
+   * Translated by `Alineo.load()`/`Alineo.resume()` into the `ALINEO_SPAWN_DEPTH` env var.
+   * `Alineo.spawn()` reads that value, refuses unless it's a positive integer, and
    * force-injects `value - 1` into the spawned child — a tamper-resistant counter,
    * not something a spec or the model can hand-propagate. Omit to disable spawning
    * entirely (the default — most agents never need it).
@@ -90,7 +94,7 @@ export interface AgentSpec {
   /**
    * Remaining budget for total agents this lineage may spawn — a resource
    * ceiling, distinct from `spawnDepth`'s nesting-depth limit. Translated by
-   * `Agent.load()`/`Agent.resume()` into the `ALINEO_MAX_AGENTS` env var and
+   * `Alineo.load()`/`Alineo.resume()` into the `ALINEO_MAX_AGENTS` env var and
    * force-decremented into each spawned child, the same tamper-resistant
    * pattern as `spawnDepth`. Unlike `spawnDepth`, omitting this means
    * "uncapped" for this dimension, not "spawning disabled" — `spawnDepth`
@@ -101,26 +105,89 @@ export interface AgentSpec {
   maxAgents?: number;
 }
 
+/**
+ * Runtime schema for `SetupStep`/`AgentSpec` above. Kept as a separate Zod schema rather than
+ * generating the interfaces from it (`z.infer<>`) so the hand-written interfaces above can carry
+ * full field-level JSDoc — TypeScript doesn't propagate comments through generic type inference,
+ * and that documentation is load-bearing (it's what IDE hover/autocomplete shows spec authors).
+ * If you add/change/remove a field on `AgentSpec`/`SetupStep`, update the matching schema field
+ * here too — `packages/agent/test/schema.test.ts` is the drift check.
+ */
+const SetupStepSchema = z
+  .object({
+    name: z.string({ error: "Each setup step must have a 'name' string" }),
+    run: z.string({ error: "Each setup step must have a 'run' string" }),
+    cwd: z.string().optional(),
+  })
+  .loose();
+
+const nonNegativeIntSpecField = (fieldName: string) =>
+  z
+    .number({ error: `Agent spec '${fieldName}' must be a non-negative integer if set` })
+    .int(`Agent spec '${fieldName}' must be a non-negative integer if set`)
+    .nonnegative(`Agent spec '${fieldName}' must be a non-negative integer if set`)
+    .optional();
+
+const AgentSpecSchema = z
+  .object({
+    $schema: z.string().optional(),
+    name: z
+      .string({
+        error: (issue) =>
+          issue.input === undefined
+            ? "Agent spec must have a 'name' string"
+            : "Agent spec 'name' must be a string",
+      })
+      .min(1, "Agent spec must have a 'name' string"),
+    title: z.string().optional(),
+    description: z.string().optional(),
+    author: z.string().optional(),
+    categories: z.array(z.string()).optional(),
+    cli: z.literal("pi", {
+      error: (issue) =>
+        issue.input === undefined
+          ? "Agent spec must have a 'cli' field. Supported values: pi"
+          : `Unsupported CLI: '${String(issue.input)}'. Supported values: pi`,
+    }),
+    cliVersion: z.string().optional(),
+    provider: z.string().optional(),
+    model: z.string().optional(),
+    packages: z.array(z.string()).optional(),
+    env: z.record(z.string(), z.string()).optional(),
+    resources: z
+      .object({
+        cpu: z.string(),
+        memory: z.string(),
+        gpu: z.string().optional(),
+      })
+      .optional(),
+    metadata: z.record(z.string(), z.string()).optional(),
+    registryDependencies: z.array(z.string()).optional(),
+    setup: z.array(SetupStepSchema).optional(),
+    spawnDepth: nonNegativeIntSpecField("spawnDepth"),
+    maxAgents: nonNegativeIntSpecField("maxAgents"),
+  })
+  // Unknown keys pass through untouched rather than being stripped or rejected — matches the
+  // old hand-rolled validator's behavior (it only ever checked a few fields and cast the rest
+  // through) and keeps forward-compat with spec fields introduced by a newer alineo version.
+  .loose();
+
+/**
+ * Validate an unknown value as an `AgentSpec`, aggregating every problem found in one pass.
+ * Throws `AgentSpecValidationError` (with a pre-formatted `.message` and a structured
+ * `.issues` array) rather than a bare `Error` — see #185.
+ */
 export function validateAgentSpec(data: unknown): AgentSpec {
-  if (!data || typeof data !== "object") throw new Error("Agent spec must be an object");
-  const item = data as Record<string, unknown>;
-  if (typeof item.name !== "string" || !item.name)
-    throw new Error("Agent spec must have a 'name' string");
-  if (item.cli !== "pi")
-    throw new Error(`Unsupported CLI: '${String(item.cli ?? "(missing)")}'. Supported values: pi`);
-  if (
-    item.spawnDepth !== undefined &&
-    (typeof item.spawnDepth !== "number" ||
-      !Number.isInteger(item.spawnDepth) ||
-      item.spawnDepth < 0)
-  ) {
-    throw new Error("Agent spec 'spawnDepth' must be a non-negative integer if set");
+  const result = AgentSpecSchema.safeParse(data);
+  if (!result.success) {
+    throw new AgentSpecValidationError(
+      `Invalid agent spec:\n${z.prettifyError(result.error)}`,
+      result.error.issues.map((issue) => ({
+        path: issue.path,
+        message: issue.message,
+        code: issue.code,
+      })),
+    );
   }
-  if (
-    item.maxAgents !== undefined &&
-    (typeof item.maxAgents !== "number" || !Number.isInteger(item.maxAgents) || item.maxAgents < 0)
-  ) {
-    throw new Error("Agent spec 'maxAgents' must be a non-negative integer if set");
-  }
-  return item as unknown as AgentSpec;
+  return result.data as AgentSpec;
 }

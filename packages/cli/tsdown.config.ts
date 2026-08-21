@@ -10,7 +10,7 @@ export default defineConfig({
   deps: {
     neverBundle: [
       "alineo",
-      "@alineo-labs/agent",
+      "@alineo-labs/sandbox",
       "@alineo-labs/sqlite",
       "@alineo-labs/opensandbox",
       "@opentui/core",

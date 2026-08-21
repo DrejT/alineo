@@ -1,4 +1,4 @@
-import type { Sandbox } from "@alineo-labs/core";
+import type { SandboxHandle } from "@alineo-labs/core";
 
 /** Everything a caller needs to reach agent-browser's live-view WebSocket stream through
  * OpenSandbox's port proxy. */
@@ -43,7 +43,7 @@ function toWsUrl(httpUrl: string): string {
   return httpUrl;
 }
 
-async function proxyStream(sandbox: Sandbox, port: number): Promise<BrowserStreamInfo> {
+async function proxyStream(sandbox: SandboxHandle, port: number): Promise<BrowserStreamInfo> {
   const { url, headers } = await sandbox.proxy(port);
   return { url: toWsUrl(url), headers, port };
 }
@@ -100,7 +100,11 @@ const RELAY_LOGFILE = "/tmp/alineo-browser-stream-relay.log";
  * live; this is different from the agent's own long-lived Pi bridge process, where a plain `&`
  * background job survives fine across separate tool calls).
  */
-async function ensureRelay(sandbox: Sandbox, targetPort: number, relayPort: number): Promise<void> {
+async function ensureRelay(
+  sandbox: SandboxHandle,
+  targetPort: number,
+  relayPort: number,
+): Promise<void> {
   const check = await sandbox.exec(
     `if [ -f ${RELAY_PIDFILE} ] && [ -f ${RELAY_TARGETFILE} ] && ` +
       `[ "$(cat ${RELAY_TARGETFILE})" = "${targetPort}" ] && kill -0 "$(cat ${RELAY_PIDFILE})" 2>/dev/null; ` +
@@ -148,7 +152,7 @@ async function ensureRelay(sandbox: Sandbox, targetPort: number, relayPort: numb
  * comment for why a direct proxy to agent-browser's own (loopback-only) port doesn't work.
  */
 export async function enableBrowserStream(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   opts: { port?: number; relayPort?: number } = {},
 ): Promise<BrowserStreamInfo> {
   const status = await sandbox.exec("agent-browser stream status --json");
@@ -185,6 +189,6 @@ export async function enableBrowserStream(
  * for explicit cleanup only (e.g. before checkpointing a sandbox that shouldn't carry a bound
  * listener port into its snapshot).
  */
-export async function disableBrowserStream(sandbox: Sandbox): Promise<void> {
+export async function disableBrowserStream(sandbox: SandboxHandle): Promise<void> {
   await sandbox.exec("agent-browser stream disable --json");
 }

@@ -1,16 +1,20 @@
 /**
- * Integration tests for @alineo-labs/agent.
+ * Integration tests for alineo.
  *
  * Requires OpenSandbox running (alineo init or uvx opensandbox-server).
  * Uses Google Gemini (gemini-flash-latest = gemini-3.5-flash) — free tier, works with GEMINI_API_KEY.
+ * Set GEMINI_API_KEY in your environment before running (get one at https://aistudio.google.com/apikey).
  *
- * Run with: bun test tests/integration/agent.test.ts --timeout 600000
+ * Run with: GEMINI_API_KEY=... bun test tests/integration/agent.test.ts --timeout 600000
  */
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { beforeAll, afterAll, test, expect, describe } from "bun:test";
 
-const GEMINI_API_KEY = "AIzaSyBNyRoeeX_gsuL1Dqj9ElcjBGtw1cAdKhc";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+if (!GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY env var is required to run tests/integration/agent.test.ts");
+}
 
 const SPEC = {
   $schema: "https://registry.alineo.tech/spec/agent.json",
@@ -22,15 +26,12 @@ const SPEC = {
   resources: { cpu: "1000m", memory: "2Gi" },
 };
 
-let agent: Agent;
+let agent: Alineo;
 
 beforeAll(async () => {
-  // Expose the key so the spec's ${GEMINI_API_KEY} interpolation resolves it.
-  process.env.GEMINI_API_KEY = GEMINI_API_KEY;
-
-  const specPath = "/tmp/test-agent-spec.json";
-  await Bun.write(specPath, JSON.stringify(SPEC));
-  agent = await Agent.load(specPath, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
+  // Alineo.load() no longer does its own file I/O (see #184) -- SPEC is already an object,
+  // so no round trip through a temp file is needed at all.
+  agent = await Alineo.load(SPEC, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
 }, 600_000);
 
 afterAll(async () => {

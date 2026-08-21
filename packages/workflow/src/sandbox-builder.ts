@@ -1,4 +1,4 @@
-import type { Sandbox, ExecOptions, ExecCodeOptions, ExecResult } from "alineo";
+import type { SandboxHandle, ExecOptions, ExecCodeOptions, ExecResult } from "@alineo-labs/sandbox";
 
 /** An operation queued on a SandboxBuilder and executed later. */
 export type SandboxOp =
@@ -176,9 +176,9 @@ export interface FlushContext {
   sink?: { write(chunk: string): unknown };
 }
 
-/** Flush a SandboxBuilder's op queue against a live Sandbox. */
+/** Flush a SandboxBuilder's op queue against a live SandboxHandle. */
 export async function flushOps(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   ops: SandboxOp[],
   ctx: FlushContext,
 ): Promise<void> {
@@ -262,7 +262,7 @@ export async function flushOps(
 }
 
 async function flushRetry(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   fn: (sb: SandboxBuilder) => void,
   maxAttempts: number,
   opts: RetryOptions,
@@ -288,7 +288,7 @@ async function flushRetry(
 }
 
 async function flushForEach(
-  sandbox: Sandbox,
+  sandbox: SandboxHandle,
   items: unknown[],
   fn: (sb: SandboxBuilder, item: unknown, index: number) => void,
   opts: ForEachOptions,

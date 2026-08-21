@@ -2,7 +2,7 @@
   "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "hello-agent",
   "title": "Hello Agent",
-  "description": "A minimal Pi agent on node:22. Demonstrates the @alineo-labs/agent API.",
+  "description": "A minimal Pi agent on node:22. Demonstrates the alineo API.",
   "author": "alineo",
   "categories": ["agent", "starter"],
   "cli": "pi",

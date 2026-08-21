@@ -10,7 +10,7 @@ Next.js + [Fumadocs](https://fumadocs.dev), content authored as MDX.
 content/docs/
   core/       — Sandbox primitive, exec, ledger
   workflow/   — @alineo-labs/workflow lazy pipeline builder
-  agent/      — @alineo-labs/agent (Pi coding agents in sandboxes)
+  agent/      — alineo (Pi coding agents in sandboxes)
   alineo/     — alineo CLI, sandbox usage, registry
 src/
   app/            — Next.js App Router routes, layout, sitemap

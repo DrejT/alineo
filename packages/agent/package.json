@@ -1,5 +1,5 @@
 {
-  "name": "@alineo-labs/agent",
+  "name": "alineo",
   "version": "0.1.1",
   "license": "Apache-2.0",
   "repository": {
@@ -29,7 +29,8 @@
   },
   "dependencies": {
     "@alineo-labs/core": "workspace:*",
-    "alineo": "workspace:*"
+    "@alineo-labs/sandbox": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "bun-types": "1.3.14",

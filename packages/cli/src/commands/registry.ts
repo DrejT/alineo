@@ -5,7 +5,7 @@ import type { CliCommand } from "./types.js";
  * imports its implementation. The metadata here is intentionally duplicated from each
  * command file's own `xCommand` export (e.g. `initCommand` in init.ts) rather than
  * statically imported — a static import would pull in that command's full dependency
- * graph (e.g. spawn.ts drags in `@alineo-labs/agent`, `alineo`, `@alineo-labs/sqlite`) on *every* CLI
+ * graph (e.g. spawn.ts drags in `alineo`, `@alineo-labs/sqlite`) on *every* CLI
  * invocation just to print help text, which measured ~3x slower for something as
  * trivial as `alineo --version`. Duplicating a couple of plain strings per command is a
  * much smaller risk than that: a mismatch would show up immediately in the printed

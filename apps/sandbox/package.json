@@ -1,5 +1,5 @@
 {
-  "name": "@alineo-labs/sandbox",
+  "name": "@alineo-labs/sandbox-app",
   "private": true,
   "scripts": {
     "dev": "astro dev",
@@ -10,8 +10,8 @@
     "deploy": "astro build && wrangler pages deploy"
   },
   "dependencies": {
-    "@alineo-labs/agent": "workspace:*",
     "@alineo-labs/core": "workspace:*",
+    "@alineo-labs/sandbox": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
     "@fontsource-variable/geist": "^5.1.1",
     "@fontsource-variable/geist-mono": "^5.2.2",

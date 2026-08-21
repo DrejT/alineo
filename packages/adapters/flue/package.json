@@ -28,14 +28,14 @@
     "test": "bun test"
   },
   "devDependencies": {
+    "@alineo-labs/sandbox": "workspace:*",
     "@flue/runtime": "1.0.0-beta.9",
-    "alineo": "workspace:*",
     "bun-types": "1.3.14",
     "tsdown": "0.22.3",
     "typescript": "6.0.3"
   },
   "peerDependencies": {
-    "@flue/runtime": ">=1.0.0-beta",
-    "alineo": ">=0.1.0"
+    "@alineo-labs/sandbox": ">=0.1.0",
+    "@flue/runtime": ">=1.0.0-beta"
   }
 }

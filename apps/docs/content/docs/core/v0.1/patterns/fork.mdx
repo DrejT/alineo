@@ -3,7 +3,7 @@ title: Forking sandboxes
 description: Create independent sandbox copies from a live checkpoint with sb.fork().
 ---
 
-`sb.fork()` snapshots the current sandbox and returns a new independent `Sandbox` from that state — without closing the original. Both containers keep running from the same filesystem point.
+`sb.fork()` snapshots the current sandbox and returns a new independent `SandboxHandle` from that state — without closing the original. Both containers keep running from the same filesystem point.
 
 ## Basic usage
 
@@ -40,7 +40,7 @@ The optional string argument is a tag stored in the ledger (same as `sb.checkpoi
 
 1. Calls `createSnapshot` on the current container and waits for the snapshot to be ready
 2. Writes a `checkpoint_created` event to the ledger (same as `sb.checkpoint()`)
-3. Spins up a new container from that snapshot and returns it as a `Sandbox`
+3. Spins up a new container from that snapshot and returns it as a `SandboxHandle`
 
 The forked sandbox gets a new `sandboxId` and a ledger session named `fork-<parentName>-<shortId>`. The original sandbox is unaffected.
 
@@ -84,7 +84,7 @@ try {
 
 ## Concurrency
 
-Each forked sandbox acquires a concurrency slot (counts against `AlineoOptions.maxConcurrency`). The original sandbox holds its slot as well. If you fork N times from one sandbox, you need N+1 available slots.
+Each forked sandbox acquires a concurrency slot (counts against `SandboxClientOptions.maxConcurrency`). The original sandbox holds its slot as well. If you fork N times from one sandbox, you need N+1 available slots.
 
 ## Relationship to checkpoint and resume
 

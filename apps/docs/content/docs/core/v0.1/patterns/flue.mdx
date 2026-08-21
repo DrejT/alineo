@@ -1,9 +1,9 @@
 ---
 title: Flue integration
-description: Use alineo sandboxes as Flue session environments with @alineo-labs/flue.
+description: Use a @alineo-labs/sandbox SandboxHandle as a Flue session environment with @alineo-labs/flue.
 ---
 
-`@alineo-labs/flue` adapts a alineo `Sandbox` to [Flue's](https://flueframework.com) `SandboxFactory` interface, so alineo sandboxes can back any Flue agent that needs a container to exec commands and manage files.
+`@alineo-labs/flue` adapts a `SandboxHandle` (from `@alineo-labs/sandbox`) to [Flue's](https://flueframework.com) `SandboxFactory` interface, so these sandboxes can back any Flue agent that needs a container to exec commands and manage files.
 
 ## Install
 
@@ -18,10 +18,10 @@ Flue loads sandbox adapters from a file at `<source-dir>/sandboxes/<name>.ts`. C
 ```ts
 // src/sandboxes/alineo.ts
 import { alineo } from "@alineo-labs/flue";
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -49,13 +49,13 @@ export default defineAgent({
 ## API
 
 ```ts
-function alineo(sandbox: Sandbox, opts?: { cwd?: string }): SandboxFactory;
+function alineo(sandbox: SandboxHandle, opts?: { cwd?: string }): SandboxFactory;
 ```
 
-| Parameter  | Type      | Description                                                                                                         |
-| ---------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
-| `sandbox`  | `Sandbox` | An already-created alineo sandbox. Lifecycle is the caller's responsibility — the adapter never calls `sb.close()`. |
-| `opts.cwd` | `string`  | Working directory passed to `createSandboxSessionEnv`. Defaults to `"/"`.                                           |
+| Parameter  | Type            | Description                                                                                                           |
+| ---------- | --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `sandbox`  | `SandboxHandle` | An already-created sandbox instance. Lifecycle is the caller's responsibility — the adapter never calls `sb.close()`. |
+| `opts.cwd` | `string`        | Working directory passed to `createSandboxSessionEnv`. Defaults to `"/"`.                                             |
 
 ## SandboxApi coverage
 
@@ -78,7 +78,7 @@ The adapter implements all nine `SandboxApi` methods:
 
 **Binary write cap** — `writeFile` with a `Uint8Array` base64-encodes the content and passes it through the shell. This relies on the Linux `ARG_MAX` limit (~2 MB), so binary writes are capped at roughly **1.5 MB**. String writes (`writeFile(path, string)`) use the native file upload API and have no size restriction.
 
-**No mid-flight cancellation** — `exec` honors `timeoutMs` via `Promise.race`, but `AbortSignal` is ignored. The underlying `Sandbox.exec()` does not expose signal propagation to the HTTP layer.
+**No mid-flight cancellation** — `exec` honors `timeoutMs` via `Promise.race`, but `AbortSignal` is ignored. The underlying `SandboxHandle.exec()` does not expose signal propagation to the HTTP layer.
 
 ## Sandbox lifecycle
 

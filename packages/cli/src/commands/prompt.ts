@@ -1,4 +1,4 @@
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { collectReply } from "../agent-prompt.js";
@@ -10,11 +10,11 @@ import type { CliCommand } from "./types.js";
  * `alineo spawn` on the same spec produces two sandboxes with the same name)
  * and a name-based ledger lookup can hand back a sandbox that died ungracefully
  * (crashed before its `close()` ran, expired via OpenSandbox's own TTL) since
- * nothing ever told the ledger it stopped. `Agent.resume()`'s own `connect()`
+ * nothing ever told the ledger it stopped. `Alineo.resume()`'s own `connect()`
  * call is the actual authoritative liveness check — addressing by ID means
  * that's the ONLY check, not a second opinion after an already-stale one.
  *
- * `opts.specPath` lets a caller skip `Agent.resume()`'s own ledger lookup for
+ * `opts.specPath` lets a caller skip `Alineo.resume()`'s own ledger lookup for
  * the spec file entirely — necessary when prompting a sandbox whose
  * `sandbox_created` event lives in a different ledger than this CLI
  * invocation's own (e.g. a child spawned via `alineo fork` from inside
@@ -32,7 +32,7 @@ export async function prompt(
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  const agent = await Agent.resume(sandboxId, { adapter, specPath: opts.specPath });
+  const agent = await Alineo.resume(sandboxId, { adapter, specPath: opts.specPath });
 
   const collected = await collectReply(agent, message, {
     inactivityTimeoutMs: opts.timeoutSeconds !== undefined ? opts.timeoutSeconds * 1000 : undefined,

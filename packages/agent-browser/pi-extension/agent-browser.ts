@@ -10,7 +10,7 @@ import { Type } from "typebox";
  * Every tool here runs `agent-browser` via `pi.exec()` — i.e. as a local child
  * process of wherever this Pi session's own bridge process is already running
  * (that's always inside the sandbox, since that's how every alineo agent works).
- * There is no separate `Sandbox` object to inject: the CLI's daemon, its
+ * There is no separate `SandboxHandle` object to inject: the CLI's daemon, its
  * authenticated session/profile state, and this extension's own code all live
  * in that same container already.
  *

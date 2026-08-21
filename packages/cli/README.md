@@ -1,6 +1,6 @@
 # alineo
 
-CLI for [alineo](https://alineo.tech) — start a local OpenSandbox server, manage saved agent specs, and run/orchestrate `@alineo-labs/agent` sessions.
+CLI for [alineo](https://alineo.tech) — start a local OpenSandbox server, manage saved agent specs, and run/orchestrate `alineo` sessions.
 
 ```bash
 bunx alineo-cli init
@@ -22,7 +22,7 @@ alineo init
 
 When using a server started this way, `useServerProxy: true` is written into `alineo.config.json` automatically — sandbox containers run on Docker's bridge network and aren't reachable directly from the host.
 
-OpenSandbox's own snapshot metadata (what makes `Agent.load()`'s cached-snapshot fast path possible) lives in a SQLite db bind-mounted from `~/.config/alineo/opensandbox-data` into the container — so it survives the container being stopped/started, _and_ being fully removed and recreated (a host reboot with no restart policy, `docker system prune`, a stray `docker rm`). It's only lost if that host directory itself is deleted, or you point a different machine/user at a fresh one. If a cached snapshot ever does fail to restore for some other reason, `Agent.load()` now logs the real error (`[agent] snapshot restore failed (<real error>), rebuilding...`) instead of an undiagnosable `snapshot stale, rebuilding...`.
+OpenSandbox's own snapshot metadata (what makes `Alineo.load()`'s cached-snapshot fast path possible) lives in a SQLite db bind-mounted from `~/.config/alineo/opensandbox-data` into the container — so it survives the container being stopped/started, _and_ being fully removed and recreated (a host reboot with no restart policy, `docker system prune`, a stray `docker rm`). It's only lost if that host directory itself is deleted, or you point a different machine/user at a fresh one. If a cached snapshot ever does fail to restore for some other reason, `Alineo.load()` now logs the real error (`[agent] snapshot restore failed (<real error>), rebuilding...`) instead of an undiagnosable `snapshot stale, rebuilding...`.
 
 ### `alineo add <url> [--name <n>]`
 
@@ -62,9 +62,9 @@ Also respects `ALINEO_TELEMETRY_DISABLED=1` and the cross-tool `DO_NOT_TRACK=1` 
 
 ---
 
-## Agent — session lifecycle
+## Alineo — session lifecycle
 
-These wrap `@alineo-labs/agent`'s `Agent.load()`/`Agent.resume()`/`Agent.attach()`/`Agent.spawn()`. Sessions are always addressed by **sandbox ID**, not name — names aren't unique (running `alineo spawn` twice on the same spec produces two sandboxes with the same name), and a name-based lookup can hand back a sandbox that already died ungracefully. `alineo spawn`/`alineo fork` print the sandbox ID; save it.
+These wrap `alineo`'s `Alineo.load()`/`Alineo.resume()`/`Alineo.attach()`/`Alineo.spawn()`. Sessions are always addressed by **sandbox ID**, not name — names aren't unique (running `alineo spawn` twice on the same spec produces two sandboxes with the same name), and a name-based lookup can hand back a sandbox that already died ungracefully. `alineo spawn`/`alineo fork` print the sandbox ID; save it.
 
 ### `alineo spawn <spec> [--prompt <msg>] [--rebuild] [--depth <n>] [--max <n>] [--json]`
 

@@ -1,15 +1,15 @@
 ---
-title: What is alineo?
-description: alineo gives you live sandbox containers as first-class objects — spawn, exec, checkpoint, resume.
+title: What is the sandbox client?
+description: "@alineo-labs/sandbox gives you live sandbox containers as first-class objects — spawn, exec, checkpoint, resume."
 ---
 
-alineo is a sandbox execution substrate built on top of [OpenSandbox](https://opensandbox.ai). You call `client.sandbox()` to get a live container, call methods on it, and close it when done. Every exec is durably logged to a ledger — if a run is interrupted, `client.resume()` restores from the last checkpoint and replays prior execs from cache.
+`@alineo-labs/sandbox` is a sandbox execution substrate built on top of [OpenSandbox](https://opensandbox.ai). You call `client.sandbox()` to get a live container, call methods on it, and close it when done. Every exec is durably logged to a ledger — if a run is interrupted, `client.resume()` restores from the last checkpoint and replays prior execs from cache.
 
 ```ts
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -38,7 +38,7 @@ try {
 
 ## Two usage modes
 
-**Direct** — you hold the `Sandbox` object and call methods imperatively:
+**Direct** — you hold the `SandboxHandle` object and call methods imperatively:
 
 ```ts
 const sb = await client.sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } });

@@ -4,8 +4,8 @@ import {
   ScrollBoxRenderable,
   type CliRenderer,
 } from "@opentui/core";
-import { Alineo } from "alineo";
-import type { SandboxDetails } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
+import type { SandboxDetails } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 
@@ -49,7 +49,7 @@ export function createLogsView(
   async function load(): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
-    const client = new Alineo({
+    const client = new Sandbox({
       baseUrl: config.serverUrl,
       apiKey: config.apiKey,
       adapter,

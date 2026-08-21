@@ -3,10 +3,10 @@
  * that each run a shard of the test suite in parallel — cutting wall-clock
  * time roughly by the number of shards, without repeating the install.
  */
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -60,7 +60,20 @@ try {
   const shardNames = Object.keys(TEST_FILES);
   console.log(`\n=== Forking into ${shardNames.length} shards ===\n`);
 
-  forks = await Promise.all(shardNames.map((_, i) => base.fork(`shard-${i}`)));
+  // Promise.allSettled, not Promise.all: if one fork() rejects, the others may still have
+  // succeeded server-side. allSettled lets us capture every handle that actually came back
+  // (so `finally` below closes all of them, not just orphans them) before surfacing the failure.
+  const forkResults = await Promise.allSettled(shardNames.map((_, i) => base.fork(`shard-${i}`)));
+  forks = forkResults.filter((r) => r.status === "fulfilled").map((r) => r.value);
+  const forkFailures = forkResults.filter((r) => r.status === "rejected");
+  if (forkFailures.length > 0) {
+    throw new Error(
+      `${forkFailures.length}/${shardNames.length} fork() calls failed: ` +
+        forkFailures
+          .map((f) => (f.reason instanceof Error ? f.reason.message : String(f.reason)))
+          .join("; "),
+    );
+  }
   for (const [i, f] of forks.entries()) console.log(`  shard-${i} → ${f.sandboxId}`);
 
   console.log("\n=== Running shards in parallel ===\n");

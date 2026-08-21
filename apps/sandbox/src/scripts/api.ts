@@ -14,8 +14,8 @@ export interface FileEntry {
   size: number;
 }
 
-import type { PiModel, PiSessionState, SessionStats } from "@alineo-labs/agent";
-export type { PiModel, PiSessionState, SessionStats, ThinkingLevel } from "@alineo-labs/agent";
+import type { PiModel, PiSessionState, SessionStats } from "alineo";
+export type { PiModel, PiSessionState, SessionStats, ThinkingLevel } from "alineo";
 
 export interface ForkPoint {
   entryId: string;

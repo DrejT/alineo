@@ -27,7 +27,7 @@ Zero-dependency, WAL mode enabled for concurrent access:
 ```ts
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -42,7 +42,7 @@ For production deployments where multiple processes share a ledger:
 ```ts
 import { PostgresAdapter } from "@alineo-labs/postgres";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL!,
   adapter: new PostgresAdapter(process.env.DATABASE_URL!),
 });
@@ -50,10 +50,10 @@ const client = new Alineo({
 
 ## Connect and close
 
-You never need to call `connect()` or `close()` on the _adapter_ — it initializes lazily (`CREATE TABLE IF NOT EXISTS` migrations run automatically on first use) and closes itself via a `process.on("beforeExit", ...)` hook, which only fires when the event loop drains naturally. Long-running servers never reach `beforeExit`, so the pool stays open for the process lifetime — that's expected, not a leak. (`Alineo` itself does have its own `connect()` method, unrelated to the adapter — see [connect()](/docs/core/v0.1/api-reference/alineo-client#connect) — for attaching to an already-running sandbox by ID.) Just construct the client and start using it:
+You never need to call `connect()` or `close()` on the _adapter_ — it initializes lazily (`CREATE TABLE IF NOT EXISTS` migrations run automatically on first use) and closes itself via a `process.on("beforeExit", ...)` hook, which only fires when the event loop drains naturally. Long-running servers never reach `beforeExit`, so the pool stays open for the process lifetime — that's expected, not a leak. (`Sandbox` itself does have its own `connect()` method, unrelated to the adapter — see [connect()](/docs/core/v0.1/api-reference/alineo-client#connect) — for attaching to an already-running sandbox by ID.) Just construct the client and start using it:
 
 ```ts
-const client = new Alineo({ baseUrl: "...", adapter: new PostgresAdapter("...") });
+const client = new Sandbox({ baseUrl: "...", adapter: new PostgresAdapter("...") });
 // ... use client — migrations run on first call, no setup step needed ...
 // no close() call needed; the adapter shuts down on process exit
 ```

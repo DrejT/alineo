@@ -1,13 +1,13 @@
 import { describe, it, expect } from "bun:test";
-import type { Agent, AgentEvent } from "@alineo-labs/agent";
+import type { Alineo, AgentEvent } from "alineo";
 import { collectReply } from "../src/agent-prompt";
 
-function fakeAgent(events: AgentEvent[]): Agent {
+function fakeAgent(events: AgentEvent[]): Alineo {
   return {
     prompt: async function* () {
       for (const ev of events) yield ev;
     },
-  } as unknown as Agent;
+  } as unknown as Alineo;
 }
 
 describe("collectReply", () => {

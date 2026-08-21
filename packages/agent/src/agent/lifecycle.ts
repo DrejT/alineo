@@ -55,5 +55,9 @@ export async function setEnv(a: AgentInternal, vars: Record<string, string>): Pr
 
 /** Delete the sandbox container and release all resources. Always call in a `finally` block. */
 export async function close(a: AgentInternal): Promise<void> {
+  // Force-shut any prompt()/bash() streams left dangling by sseStream's early-return on
+  // `[DONE]` (see PiAdapter.disposeConnections()) -- otherwise those connections can keep
+  // the process alive indefinitely even after the sandbox itself is gone.
+  a.adapter.disposeConnections();
   await a.sandbox.close();
 }

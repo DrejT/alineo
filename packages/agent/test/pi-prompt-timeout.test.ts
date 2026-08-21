@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import type { Sandbox } from "@alineo-labs/core";
+import type { SandboxHandle } from "@alineo-labs/core";
 import { PiAdapter } from "../src/adapters/pi";
 import { PromptTimeoutError } from "../src/errors";
 
@@ -9,11 +9,11 @@ import { PromptTimeoutError } from "../src/errors";
 // comment lines, or a mix of heartbeats and real events -- to verify the inactivity timeout is
 // keyed off real `AgentEvent`s, not raw stream activity.
 
-function fakeSandbox(): Sandbox {
+function fakeSandbox(): SandboxHandle {
   return {
     exec: () => Promise.resolve({ stdout: "", stderr: "", exitCode: 0 }),
     proxy: (_port: number) => Promise.resolve({ url: "http://fake-bridge", headers: {} }),
-  } as unknown as Sandbox;
+  } as unknown as SandboxHandle;
 }
 
 async function adapterWithBridge(): Promise<PiAdapter> {

@@ -17,7 +17,7 @@ const HELP_NOTES = `  Add --json to spawn/prompt/fork/agents/logs for machine-re
 
 const GROUPS: { key: CliCommand["group"]; label: string }[] = [
   { key: "sdk", label: "SDK — OpenSandbox config and the local spec cache:" },
-  { key: "agent", label: "Agent — session lifecycle:" },
+  { key: "agent", label: "Alineo — session lifecycle:" },
 ];
 
 function printHelp(): void {
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     await withTelemetry(found.name, argv, () => found.run(argv));
     // spawn/fork/prompt deliberately leave their sandbox running (that's the whole point --
     // `alineo agents`/`alineo prompt <id>` interact with it afterward), so we can't clean up
-    // by closing the Agent/Sandbox object: that would delete the very sandbox the command just
+    // by closing the Alineo/SandboxHandle object: that would delete the very sandbox the command just
     // reported. But the SDK's underlying exec client keeps a connection open to support further
     // calls on that same object, which otherwise leaves this process's event loop non-empty
     // forever. Force-exiting here only ends *this* CLI invocation -- it has no effect on the

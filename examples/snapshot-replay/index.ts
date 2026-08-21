@@ -5,10 +5,10 @@
  * The first run installs deps and checkpoints. The resume skips the install
  * (replayed from ledger cache) and runs the test script on the restored container.
  */
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -41,7 +41,7 @@ let originalSandboxId: string;
 
 try {
   originalSandboxId = sb.sandboxId;
-  console.log(`Sandbox ID: ${originalSandboxId}`);
+  console.log(`SandboxHandle ID: ${originalSandboxId}`);
 
   await sb.exec("pip install -q requests && echo 'installed'").pipe(process.stdout);
   await sb.checkpoint("after-install");

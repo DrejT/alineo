@@ -1,4 +1,4 @@
-import type { IStorageAdapter, Sandbox } from "@alineo-labs/core";
+import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
 import type { PiAdapter } from "../adapters/pi";
 import type { AgentSpec } from "../schema";
 import type { AgentSnapshotRecord } from "../snapshots";
@@ -28,14 +28,15 @@ export { resolveParentSpawnDepth, resolveParentMaxAgents } from "./validation";
  * while Pi manages its own tool use, file writes, and code execution inside the
  * sandbox.
  *
- * Create an agent with `Agent.load(specPath)`. Always call `close()` when done
+ * Create an agent with `Alineo.load(spec)`. Always call `close()` when done
  * to release the underlying sandbox container.
  *
  * @example
  * ```ts
- * import { Agent } from "@alineo-labs/agent";
+ * import { Alineo } from "alineo";
  *
- * const agent = await Agent.load("./agents/my-agent.json", { adapter });
+ * const spec = await Bun.file("./agents/my-agent.json").json();
+ * const agent = await Alineo.load(spec, { adapter });
  * try {
  *   for await (const chunk of agent.prompt("Explain this codebase")) {
  *     process.stdout.write(chunk);
@@ -45,16 +46,16 @@ export { resolveParentSpawnDepth, resolveParentMaxAgents } from "./validation";
  * }
  * ```
  */
-export class Agent {
+export class Alineo {
   /** OpenSandbox container ID for this agent's sandbox. */
   readonly sandboxId: string;
   readonly name: string;
   /**
-   * Direct access to the underlying `Sandbox` — full alineo Sandbox API, bypasses Pi.
+   * Direct access to the underlying `SandboxHandle` — full alineo SandboxHandle API, bypasses Pi.
    * Use this to read or write files, run shell commands, or inspect container state
    * independently of the Pi conversation.
    */
-  readonly sandbox: Sandbox;
+  readonly sandbox: SandboxHandle;
   /**
    * `true` when this agent was loaded from a cached snapshot (fast path).
    * `false` on the first load for a given spec, or after `{ rebuild: true }`.
@@ -72,7 +73,7 @@ export class Agent {
   readonly runId: string;
 
   private constructor(
-    sandbox: Sandbox,
+    sandbox: SandboxHandle,
     spec: AgentSpec,
     env: Record<string, string>,
     adapter: PiAdapter,
@@ -89,7 +90,15 @@ export class Agent {
   }
 
   /**
-   * Load an agent spec from disk and return a fully initialised `Agent`.
+   * Validate `spec` and return a fully initialised `Alineo`.
+   *
+   * `spec` is an already-parsed object, not a file path — `alineo` no longer does its own
+   * file I/O here (see #184). Read one from disk yourself first (`await
+   * Bun.file(path).json()`), fetch it over HTTP, pull it from a database, or build it
+   * programmatically — however you get it, pass the object. It's validated internally
+   * regardless (via `validateAgentSpec()`), so a raw `JSON.parse()`'d object works fine; you
+   * don't need to call `validateAgentSpec()` yourself first unless you want validation errors
+   * to surface before any sandbox/network work starts.
    *
    * On first load the Pi CLI is installed inside a `node:22` sandbox, then
    * the sandbox is checkpointed. Subsequent `load()` calls for the same spec
@@ -106,7 +115,7 @@ export class Agent {
    * Logs timing for each phase to stdout via `[agent]` prefixed lines.
    */
   static async load(
-    specPath: string,
+    spec: AgentSpec | Record<string, unknown>,
     opts: {
       adapter: IStorageAdapter;
       rebuild?: boolean;
@@ -114,9 +123,9 @@ export class Agent {
       maxAgents?: number;
       runId?: string;
     },
-  ): Promise<Agent> {
-    const r = await factory.loadAgent(specPath, opts);
-    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+  ): Promise<Alineo> {
+    const r = await factory.loadAgent(spec, opts);
+    return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
   /**
@@ -126,20 +135,25 @@ export class Agent {
    * are already present — only the bridge process needs to be restarted.
    * Pi is started with `--continue` so it resumes the most recent session.
    *
-   * @param sandboxId  The sandbox ID returned by the original `Agent.load()`.
-   * @param opts.specPath  Path to the agent spec JSON. If omitted, the ledger
-   *   is queried for the sandbox name and the spec is loaded from
-   *   `./agents/<name>.json`.
+   * @param sandboxId  The sandbox ID returned by the original `Alineo.load()`.
+   * @param opts.spec  An already-parsed agent spec object — skips file I/O entirely, same as
+   *   `load()`. Takes precedence over `opts.specPath` if both are set.
+   * @param opts.specPath  Path to the agent spec JSON, read and validated internally. If
+   *   neither `opts.spec` nor `opts.specPath` is set, the ledger is queried for the sandbox's
+   *   name and the spec is read from `./agents/<name>.json` — this fallback is the one thing
+   *   `resume()` can do that `load()` can't, since a resumed sandbox's original spec may not be
+   *   in memory anywhere the caller can hand it over.
    *
    * @example
    * ```ts
    * // Original process:
-   * const agent = await Agent.load("./agents/hello-agent.json", { adapter });
+   * const spec = await Bun.file("./agents/hello-agent.json").json();
+   * const agent = await Alineo.load(spec, { adapter });
    * console.log(agent.sandboxId); // save this
    * // ... process exits ...
    *
    * // New process:
-   * const agent = await Agent.resume(savedSandboxId, { adapter });
+   * const agent = await Alineo.resume(savedSandboxId, { adapter });
    * for await (const chunk of agent.prompt("What did we discuss earlier?")) {
    *   process.stdout.write(chunk);
    * }
@@ -148,10 +162,15 @@ export class Agent {
    */
   static async resume(
     sandboxId: string,
-    opts: { adapter: IStorageAdapter; specPath?: string; runId?: string },
-  ): Promise<Agent> {
+    opts: {
+      adapter: IStorageAdapter;
+      spec?: AgentSpec | Record<string, unknown>;
+      specPath?: string;
+      runId?: string;
+    },
+  ): Promise<Alineo> {
     const r = await factory.resumeAgent(sandboxId, opts);
-    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
   /**
@@ -164,7 +183,7 @@ export class Agent {
    * inside its own turn). Going through `resume()` there would `pkill` the bridge
    * that's currently running the Pi process making the call — self-destructive.
    *
-   * The returned `Agent` has no bridge, so `.prompt()`/`.bash()`/etc. all throw.
+   * The returned `Alineo` has no bridge, so `.prompt()`/`.bash()`/etc. all throw.
    * Its env is read back from `/etc/alineo-env` on the sandbox itself (the ground
    * truth for what's actually running there) rather than re-derived from a spec
    * file, which may not even exist inside this particular sandbox.
@@ -181,7 +200,7 @@ export class Agent {
    * `opts.resources` sizes a subsequent `.spawn()`'s forked container — the
    * control API doesn't echo back a running sandbox's own resource limits, so
    * there's no way to discover this agent's *actual* footprint here. Defaults to
-   * `alineo.config.json`'s `defaults.resources`, same fallback `Agent.load()` uses
+   * `alineo.config.json`'s `defaults.resources`, same fallback `Alineo.load()` uses
    * for a spec that doesn't set its own.
    */
   static async attach(
@@ -191,15 +210,15 @@ export class Agent {
       name: string;
       resources?: { cpu: string; memory: string; gpu?: string };
     },
-  ): Promise<Agent> {
+  ): Promise<Alineo> {
     const r = await factory.attachAgent(sandboxId, opts);
-    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
   /**
    * Fork this agent's live sandbox — filesystem, installed packages, checked-out
    * state, everything currently on disk — into a brand-new independent sandbox
-   * running its own Pi bridge, per `childSpecPath`. Unlike `Agent.load()` (always
+   * running its own Pi bridge, per `childSpecPath`. Unlike `Alineo.load()` (always
    * starts from a spec's own snapshot) or `fork()`/`clone()` below (Pi's own
    * conversation-branching — same container, same bridge, new session branch),
    * this is sandbox-level forking: the child sees exactly what this agent's
@@ -232,9 +251,9 @@ export class Agent {
   async spawn(
     childSpecPath: string,
     opts: { spawnDepth?: number; maxAgents?: number } = {},
-  ): Promise<Agent> {
+  ): Promise<Alineo> {
     const r = await factory.spawnChild(this, childSpecPath, opts);
-    return new Agent(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
   }
 
   // --- streaming ---

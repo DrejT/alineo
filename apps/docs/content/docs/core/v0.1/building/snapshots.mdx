@@ -31,7 +31,7 @@ The optional `name` argument is a tag stored in the ledger. It can be used to re
 
 ## Resuming from a checkpoint
 
-`client.resume(sandboxId)` reads the ledger, finds the last `checkpoint_created` event, restores a new container from that snapshot, and returns a `Sandbox` object with a replay cache.
+`client.resume(sandboxId)` reads the ledger, finds the last `checkpoint_created` event, restores a new container from that snapshot, and returns a `SandboxHandle` object with a replay cache.
 
 ```ts
 const originalSandboxId = sb.sandboxId; // capture before close

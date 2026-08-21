@@ -4,17 +4,17 @@
  * and send requests to it from the host process.
  * Also shows sandbox-to-sandbox communication by injecting the proxy URL as an env var.
  */
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
   useServerProxy: process.env.USE_SERVER_PROXY !== "false",
 });
 
-// Sandbox A: runs an HTTP server on port 3000
+// SandboxHandle A: runs an HTTP server on port 3000
 const sbA = await client.sandbox({
   image: "node:22",
   resources: { cpu: "500m", memory: "256Mi" },
@@ -58,7 +58,7 @@ http
 
   // Note: in local Docker bridge mode, the proxy URL (127.0.0.1) is the host's loopback
   // and is NOT reachable from inside another sandbox container.
-  // Sandbox-to-sandbox HTTP calls via proxy work in cloud/routable ingress modes only.
+  // SandboxHandle-to-sandbox HTTP calls via proxy work in cloud/routable ingress modes only.
 } finally {
   await sbA.close();
 }

@@ -1,9 +1,9 @@
-# @alineo-labs/agent
+# alineo
 
 Run [Pi](https://pi.ai) coding agents inside isolated [alineo](https://alineo.tech) sandbox containers. Pi can read and write files, run shell commands, and execute scripts — streamed back through a simple TypeScript API.
 
 ```bash
-bun add @alineo-labs/agent
+bun add alineo
 ```
 
 **[Full documentation →](https://docs.alineo.tech/docs/agent)**
@@ -27,11 +27,12 @@ Create an agent spec (`agents/my-agent.json`):
 ```
 
 ```ts
-import { Agent, textOnly } from "@alineo-labs/agent";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Agent.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
     process.stdout.write(chunk);
@@ -41,11 +42,11 @@ try {
 }
 ```
 
-`opts.adapter` is required — `@alineo-labs/agent` has no storage-adapter dependency of its own, so you choose: `new SQLiteAdapter(path)` from `@alineo-labs/sqlite` for local dev, or `new PostgresAdapter(connectionString)` from `@alineo-labs/postgres` for production.
+`opts.adapter` is required — `alineo` has no storage-adapter dependency of its own, so you choose: `new SQLiteAdapter(path)` from `@alineo-labs/sqlite` for local dev, or `new PostgresAdapter(connectionString)` from `@alineo-labs/postgres` for production.
 
 ---
 
-## Agent spec
+## Alineo spec
 
 The spec JSON controls the agent's environment, model, and workspace setup.
 
@@ -87,11 +88,33 @@ Each step:
 | `run`  | `string`  | Bash command to execute                                           |
 | `cwd`  | `string?` | Working directory. Runs as `cd <cwd> && <run>`                    |
 
+### Validation
+
+`Alineo.load()`/`Alineo.resume()` validate the spec (via `validateAgentSpec()`, backed by
+[Zod](https://zod.dev)) before doing anything else. An invalid spec throws
+`AgentSpecValidationError` — every problem is reported in one throw, not just the first, and
+`.issues` gives you each one structured (`{ path, message, code }`) instead of having to parse
+the message string:
+
+```ts
+import { Alineo, AgentSpecValidationError } from "alineo";
+
+try {
+  const spec = await Bun.file("./agent.json").json();
+  const agent = await Alineo.load(spec, { adapter });
+} catch (e) {
+  if (e instanceof AgentSpecValidationError) {
+    for (const issue of e.issues) console.error(`${issue.path.join(".")}: ${issue.message}`);
+  }
+  throw e;
+}
+```
+
 ---
 
 ## Snapshotting
 
-On first load, `Agent.load()` installs the Pi CLI and any `setup` steps, then checkpoints the sandbox. Subsequent loads restore from that snapshot — skipping the install entirely.
+On first load, `Alineo.load()` installs the Pi CLI and any `setup` steps, then checkpoints the sandbox. Subsequent loads restore from that snapshot — skipping the install entirely.
 
 ```
 Load 1 (cold):   sandbox → Pi install → setup steps → checkpoint → bridge   ~50s
@@ -102,11 +125,12 @@ The snapshot is invalidated automatically when `cli`, `cliVersion`, `packages`, 
 
 ```ts
 // adapter: an IStorageAdapter — SQLiteAdapter or PostgresAdapter, see Quickstart
-const agent = await Agent.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(agent.fromSnapshot); // false on first load, true after
 
 // Force a full reinstall:
-const agent = await Agent.load("./agents/my-agent.json", { adapter, rebuild: true });
+const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
 ---
@@ -152,7 +176,7 @@ type AgentEvent =
 Use `textOnly()` to filter to just the text chunks (equivalent to the old `PromptStream` behavior):
 
 ```ts
-import { Agent, textOnly } from "@alineo-labs/agent";
+import { Alineo, textOnly } from "alineo";
 
 for await (const chunk of textOnly(agent.prompt("Summarise this repo."))) {
   process.stdout.write(chunk);
@@ -185,34 +209,41 @@ for await (const ev of agent.prompt("Run /workspace/script.py with python3.")) {
 
 ### Loading and lifecycle
 
-#### `Agent.load(specPath, opts)`
+#### `Alineo.load(spec, opts)`
 
-Load a spec, spin up a sandbox, install Pi, run setup steps, and return a ready `Agent`. Restores from snapshot on subsequent calls. `opts.adapter` is required (see [Quickstart](#quickstart)).
+Validate `spec`, spin up a sandbox, install Pi, run setup steps, and return a ready `Alineo`. Restores from snapshot on subsequent calls. `opts.adapter` is required (see [Quickstart](#quickstart)).
+
+`spec` is an already-parsed object, not a file path — `alineo` doesn't do file I/O itself. Read one from disk yourself (`await Bun.file(path).json()`), fetch it over HTTP, or build it programmatically; it's validated internally regardless, so a raw `JSON.parse()`'d object works fine.
 
 ```ts
-const agent = await Agent.load("./agents/my-agent.json", { adapter });
-const agent = await Agent.load("./agents/my-agent.json", { adapter, rebuild: true });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
+const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
-#### `Agent.resume(sandboxId, opts)`
+#### `Alineo.resume(sandboxId, opts)`
 
 Reconnect to an existing sandbox after the host process has exited. Only restarts the bridge — Pi and the workspace are untouched. `opts.adapter` is required.
 
+Unlike `load()`, `resume()` still accepts a bare path (`opts.specPath`) alongside an already-parsed object (`opts.spec`) — if neither is set, the ledger is queried for the sandbox's name and the spec is read from `./agents/<name>.json`.
+
 ```ts
 // Original process saved agent.sandboxId somewhere...
-const agent = await Agent.resume(savedSandboxId, { adapter });
-// Or provide the spec explicitly:
-const agent = await Agent.resume(savedSandboxId, { adapter, specPath: "./agents/my-agent.json" });
+const agent = await Alineo.resume(savedSandboxId, { adapter });
+// Or provide the spec path explicitly:
+const agent2 = await Alineo.resume(savedSandboxId, { adapter, specPath: "./agents/my-agent.json" });
+// Or provide an already-parsed spec object:
+const agent3 = await Alineo.resume(savedSandboxId, { adapter, spec });
 ```
 
-#### `Agent.attach(sandboxId, opts)`
+#### `Alineo.attach(sandboxId, opts)`
 
-Connect to an already-running sandbox **without** touching its Pi bridge — unlike `resume()`, which kills and restarts the bridge process. Use this when you only need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()` (the returned `Agent` has no bridge, so those throw).
+Connect to an already-running sandbox **without** touching its Pi bridge — unlike `resume()`, which kills and restarts the bridge process. Use this when you only need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()` (the returned `Alineo` has no bridge, so those throw).
 
 The main caller is `alineo fork`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
 
 ```ts
-const self = await Agent.attach(process.env.ALINEO_SANDBOX_ID!, {
+const self = await Alineo.attach(process.env.ALINEO_SANDBOX_ID!, {
   adapter,
   name: "my-session",
 });
@@ -229,7 +260,7 @@ Stop the sandbox container and release all resources. Always call in a `finally`
 
 #### `agent.spawn(childSpecPath, opts?)`
 
-Fork **this agent's own live sandbox** — filesystem, installed packages, checked-out state, everything currently on disk — into a brand-new independent sandbox running its own Pi bridge. Unlike `Agent.load()` (always starts from a spec's own snapshot) or `fork()`/`clone()` (Pi's own conversation-branching — same container, same bridge, new session branch), this is sandbox-level forking: the child sees exactly what this agent's sandbox sees right now, including uncommitted work. No install/setup steps run — the child inherits whatever is already installed on this agent's sandbox.
+Fork **this agent's own live sandbox** — filesystem, installed packages, checked-out state, everything currently on disk — into a brand-new independent sandbox running its own Pi bridge. Unlike `Alineo.load()` (always starts from a spec's own snapshot) or `fork()`/`clone()` (Pi's own conversation-branching — same container, same bridge, new session branch), this is sandbox-level forking: the child sees exactly what this agent's sandbox sees right now, including uncommitted work. No install/setup steps run — the child inherits whatever is already installed on this agent's sandbox.
 
 ```ts
 const child = await agent.spawn("./agents/worker.json", { spawnDepth: 2, maxAgents: 5 });
@@ -450,7 +481,7 @@ Retrieve recent bridge logs (ring-buffered, last 200 entries).
 
 #### `agent.sandbox`
 
-Direct access to the underlying `Sandbox` — run commands, read/write files, or inspect state independently of Pi.
+Direct access to the underlying `SandboxHandle` — run commands, read/write files, or inspect state independently of Pi.
 
 ```ts
 await agent.sandbox.writeFile("/workspace/input.txt", data);
@@ -462,12 +493,12 @@ const result = await agent.sandbox.readFile("/workspace/output.txt");
 
 ## Properties
 
-| Property             | Type      | Description                                    |
-| -------------------- | --------- | ---------------------------------------------- |
-| `agent.sandboxId`    | `string`  | OpenSandbox container ID                       |
-| `agent.name`         | `string`  | Agent name from the spec                       |
-| `agent.sandbox`      | `Sandbox` | Underlying alineo `Sandbox` object             |
-| `agent.fromSnapshot` | `boolean` | `true` when restored from snapshot (fast path) |
+| Property             | Type            | Description                                    |
+| -------------------- | --------------- | ---------------------------------------------- |
+| `agent.sandboxId`    | `string`        | OpenSandbox container ID                       |
+| `agent.name`         | `string`        | Alineo name from the spec                      |
+| `agent.sandbox`      | `SandboxHandle` | Underlying `SandboxHandle` object              |
+| `agent.fromSnapshot` | `boolean`       | `true` when restored from snapshot (fast path) |
 
 ---
 

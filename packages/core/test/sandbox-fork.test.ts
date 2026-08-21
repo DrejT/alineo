@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Sandbox } from "../src/sandbox/index.ts";
+import { SandboxHandle } from "../src/sandbox/index.ts";
 import { SandboxError } from "../src/errors.ts";
 import { SnapshotState } from "@alineo-labs/opensandbox";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
@@ -39,14 +39,14 @@ function makeDeps(adapter: IStorageAdapter, overrides: Partial<SandboxDeps> = {}
   };
 }
 
-describe("Sandbox.fork()", () => {
+describe("SandboxHandle.fork()", () => {
   it("calls createSnapshot and emits checkpoint_created before invoking the fork dep", async () => {
     const adapter = makeAdapter();
-    const forkedSandbox = new Sandbox("forked-id", "fork-sb-abc12345", makeDeps(adapter));
+    const forkedSandbox = new SandboxHandle("forked-id", "fork-sb-abc12345", makeDeps(adapter));
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
     const control = makeControl("snap-xyz");
 
-    const sb = new Sandbox("sb-1", "test", {
+    const sb = new SandboxHandle("sb-1", "test", {
       control: control as any,
       adapter,
       fork: forkFn,
@@ -70,11 +70,11 @@ describe("Sandbox.fork()", () => {
 
   it("passes the tag to the fork dep and stores it in the checkpoint payload", async () => {
     const adapter = makeAdapter();
-    const forkedSandbox = new Sandbox("forked-id", "fork-sb-abc12345", makeDeps(adapter));
+    const forkedSandbox = new SandboxHandle("forked-id", "fork-sb-abc12345", makeDeps(adapter));
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
     const control = makeControl("snap-tagged");
 
-    const sb = new Sandbox("sb-1", "test", {
+    const sb = new SandboxHandle("sb-1", "test", {
       control: control as any,
       adapter,
       fork: forkFn,
@@ -91,12 +91,12 @@ describe("Sandbox.fork()", () => {
     expect((cpEntry![0] as any).payload.name).toBe("after-install");
   });
 
-  it("returns the Sandbox returned by the fork dep", async () => {
+  it("returns the SandboxHandle returned by the fork dep", async () => {
     const adapter = makeAdapter();
-    const forkedSandbox = new Sandbox("forked-id", "fork-sb-abc12345", makeDeps(adapter));
+    const forkedSandbox = new SandboxHandle("forked-id", "fork-sb-abc12345", makeDeps(adapter));
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
 
-    const sb = new Sandbox("sb-1", "test", {
+    const sb = new SandboxHandle("sb-1", "test", {
       control: makeControl() as any,
       adapter,
       fork: forkFn,
@@ -108,7 +108,7 @@ describe("Sandbox.fork()", () => {
 
   it("throws SandboxError when no fork dep is provided", async () => {
     const adapter = makeAdapter();
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
 
     await expect(sb.fork()).rejects.toThrow(SandboxError);
     await expect(sb.fork()).rejects.toThrow("fork() is not supported on this sandbox");
@@ -116,11 +116,11 @@ describe("Sandbox.fork()", () => {
 
   it("fires the onCheckpoint hook with the snapshot ID and tag", async () => {
     const adapter = makeAdapter();
-    const forkedSandbox = new Sandbox("forked-id", "fork-sb-abc12345", makeDeps(adapter));
+    const forkedSandbox = new SandboxHandle("forked-id", "fork-sb-abc12345", makeDeps(adapter));
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
     const onCheckpoint = vi.fn();
 
-    const sb = new Sandbox("sb-1", "test", {
+    const sb = new SandboxHandle("sb-1", "test", {
       control: makeControl("snap-hook") as any,
       adapter,
       hooks: { onCheckpoint },

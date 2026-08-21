@@ -8,7 +8,7 @@ description: SandboxHooks lifecycle callbacks and OpenTelemetry tracing with @al
 `SandboxHooks` is a set of lifecycle callbacks you can pass to `client.sandbox()` to observe what's happening during a run. All hooks are optional.
 
 ```ts
-import type { SandboxHooks } from "alineo";
+import type { SandboxHooks } from "@alineo-labs/sandbox";
 
 const hooks: SandboxHooks = {
   onSandboxCreated(sandboxId, name) {

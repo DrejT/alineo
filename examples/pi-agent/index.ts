@@ -1,5 +1,5 @@
 /**
- * Pi agent example — exercises every @alineo-labs/agent command:
+ * Pi agent example — exercises every alineo command:
  *
  *   prompt, bash, steer, followUp, abort, newSession
  *   getMessages, getAvailableModels
@@ -15,7 +15,7 @@
  * Run:  cd examples/pi-agent && bun index.ts
  * Needs: OpenSandbox running (alineo init) and NVIDIA_API_KEY in .env
  */
-import { Agent, textOnly } from "@alineo-labs/agent";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 function section(label: string) {
@@ -23,7 +23,9 @@ function section(label: string) {
 }
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Agent.load("./agents/hello-agent.json", { adapter });
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+const spec = await Bun.file("./agents/hello-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(`\nSandbox: ${agent.sandboxId}\n${"─".repeat(60)}`);
 await agent.sandbox.exec("mkdir -p /workspace");
 
@@ -327,5 +329,5 @@ try {
   console.log();
 } finally {
   await agent.close();
-  console.log("Agent closed.");
+  console.log("Alineo closed.");
 }

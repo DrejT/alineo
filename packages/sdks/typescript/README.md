@@ -1,9 +1,9 @@
-# alineo
+# @alineo-labs/sandbox
 
 Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.
 
 ```bash
-bun add alineo @alineo-labs/sqlite
+bun add @alineo-labs/sandbox @alineo-labs/sqlite
 ```
 
 **[Full documentation →](https://docs.alineo.tech/docs/core)**
@@ -13,10 +13,10 @@ bun add alineo @alineo-labs/sqlite
 ## Quickstart
 
 ```ts
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -131,7 +131,7 @@ await Promise.all([sb.close(), fork.close()]);
 ## Error handling
 
 ```ts
-import { CommandError } from "alineo";
+import { CommandError } from "@alineo-labs/sandbox";
 
 try {
   await sb.exec("exit 1"); // strict: true by default
@@ -150,7 +150,7 @@ const { exitCode } = await sb.exec("exit 1", { strict: false });
 ## Configuration
 
 ```ts
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080", // OpenSandbox server URL
   apiKey: "", // API key (empty for local dev)
   adapter: new SQLiteAdapter("./alineo.db"),

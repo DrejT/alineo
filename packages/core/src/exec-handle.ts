@@ -32,7 +32,7 @@ export interface PtyControls {
 }
 
 /**
- * Returned by `Sandbox.exec()` and `Sandbox.execCode()`.
+ * Returned by `SandboxHandle.exec()` and `SandboxHandle.execCode()`.
  *
  * Implements `PromiseLike<ExecResult>` so `await sb.exec(...)` works naturally.
  * Also exposes `pipe()`, `stdout()`, and `result()` for streaming output.
@@ -186,7 +186,7 @@ export interface AttachableSource {
 }
 
 /**
- * Returned by `Sandbox.exec(cmd, { interactive: true })`.
+ * Returned by `SandboxHandle.exec(cmd, { interactive: true })`.
  *
  * Extends `ExecHandle` with the input/control side of a live PTY session:
  * `write()` sends input, `resize()`/`signal()` control the terminal, `close()`

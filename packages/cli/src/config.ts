@@ -94,7 +94,7 @@ export function serverConfigPath(): string {
  * only as good as where the db file actually lives: without this mount, it sits in the
  * `alineo-opensandbox` container's own writable layer, so restart is fine but any time the
  * container itself is recreated (host reboot with no restart policy, `docker system prune`,
- * a stray `docker rm`) silently loses every cached snapshot record — every `Agent.load()`
+ * a stray `docker rm`) silently loses every cached snapshot record — every `Alineo.load()`
  * snapshot fast path pays a full cold rebuild next time, indistinguishable from a genuinely
  * changed spec (see issue #20). Bind-mounting this directory makes that data outlive the
  * container's own lifecycle, matching OpenSandbox's own intent.

@@ -7,13 +7,15 @@
  * available). Swap "provider"/"model" in agents/bugfix-agent.json for any
  * provider in @alineo-labs/model-providers to use a different key instead.
  */
-import { Agent, textOnly } from "@alineo-labs/agent";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Agent.load("./agents/bugfix-agent.json", { adapter });
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+const spec = await Bun.file("./agents/bugfix-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 
-console.log(`Sandbox: ${agent.sandboxId}\n`);
+console.log(`SandboxHandle: ${agent.sandboxId}\n`);
 
 try {
   // ── 1. Plant a bug ─────────────────────────────────────────────────────────
@@ -34,7 +36,9 @@ try {
       "",
     ].join("\n"),
   );
-  await agent.sandbox.exec("cd /workspace && pip install --quiet pytest");
+  // --break-system-packages: node:22's Debian base has PEP 668's "externally-managed-environment"
+  // protection on apt-installed pip — same workaround the "python-data" registry spec uses.
+  await agent.sandbox.exec("cd /workspace && pip install --quiet --break-system-packages pytest");
 
   console.log("=== Before: failing test ===\n");
   for await (const chunk of textOnly(agent.bash("cd /workspace && pytest -q || true"))) {
@@ -42,7 +46,7 @@ try {
   }
 
   // ── 2. Ask the agent to find and fix the bug ────────────────────────────────
-  console.log("\n=== Agent fixing the bug ===\n");
+  console.log("\n=== Alineo fixing the bug ===\n");
   for await (const chunk of textOnly(
     agent.prompt(
       "There's a failing test in /workspace. Run pytest to see the failure, find the bug in " +

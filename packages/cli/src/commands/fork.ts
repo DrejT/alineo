@@ -1,5 +1,5 @@
-import { Alineo, SandboxStatus } from "alineo";
-import { Agent } from "@alineo-labs/agent";
+import { Sandbox, SandboxStatus } from "@alineo-labs/sandbox";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { collectReply } from "../agent-prompt.js";
@@ -8,20 +8,20 @@ import type { CliCommand } from "./types.js";
 
 /**
  * Fork a running session's own sandbox into a brand-new independent child, per
- * `Agent.spawn()`. Meant to be run BY that session's own Pi bash tool — `name` is
- * the caller's own running session, not the child's. Uses `Agent.attach()`, not
- * `Agent.resume()`, to avoid killing the very bridge process making this call.
+ * `Alineo.spawn()`. Meant to be run BY that session's own Pi bash tool — `name` is
+ * the caller's own running session, not the child's. Uses `Alineo.attach()`, not
+ * `Alineo.resume()`, to avoid killing the very bridge process making this call.
  *
  * Resolves the caller's own sandbox ID from `ALINEO_SANDBOX_ID` when present
  * (written to `/etc/alineo-env` by every agent-creation path, so it's already
  * in this process's env since it's a descendant of Pi's own bridge process) —
  * preferred over a ledger lookup when available, since the calling agent may
  * have been created via an `IStorageAdapter` this CLI invocation has no
- * access to (e.g. a host-side ledger for an `Agent.load()` call this
+ * access to (e.g. a host-side ledger for an `Alineo.load()` call this
  * sandbox's own `alineo.config.json` knows nothing about). Falls back to
  * looking `name` up in the ledger of currently-running sessions when
  * `ALINEO_SANDBOX_ID` isn't set (e.g. invoked outside a sandbox). `name` also
- * always labels the resulting `Agent` object.
+ * always labels the resulting `Alineo` object.
  */
 export async function fork(
   name: string,
@@ -45,7 +45,7 @@ export async function fork(
 
   let selfSandboxId = process.env.ALINEO_SANDBOX_ID;
   if (!selfSandboxId) {
-    const client = new Alineo({
+    const client = new Sandbox({
       baseUrl: config.serverUrl,
       apiKey: config.apiKey,
       adapter,
@@ -61,7 +61,7 @@ export async function fork(
     selfSandboxId = session.sandboxId;
   }
 
-  const self = await Agent.attach(selfSandboxId, { adapter, name });
+  const self = await Alineo.attach(selfSandboxId, { adapter, name });
   const child = await self.spawn(childSpecPath, { spawnDepth: opts.depth, maxAgents: opts.max });
 
   const collected = opts.prompt

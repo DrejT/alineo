@@ -30,7 +30,7 @@ bunx alineo-cli fork <name> <child-spec> [--prompt <msg>] [--depth <n>] [--max <
 1. If `ALINEO_SANDBOX_ID` is set in this process's own environment (true when running as a descendant of a Pi bridge process inside a alineo-managed sandbox — which is exactly the case when a Pi session's bash tool runs `alineo fork`), that's used directly.
 2. Otherwise, `name` is looked up against the ledger's running sessions.
 
-The caller's sandbox is then resolved via [`Agent.attach()`](/docs/agent/api-reference/agent#agentattach) — **not** `Agent.resume()`, which would kill the very bridge process making this call — and [`agent.spawn(childSpec, { spawnDepth, maxAgents })`](/docs/agent/api-reference/agent#agentspawn) forks its live sandbox into the child.
+The caller's sandbox is then resolved via [`Alineo.attach()`](/docs/agent/api-reference/agent#agentattach) — **not** `Alineo.resume()`, which would kill the very bridge process making this call — and [`agent.spawn(childSpec, { spawnDepth, maxAgents })`](/docs/agent/api-reference/agent#agentspawn) forks its live sandbox into the child.
 
 Unlike `alineo spawn` (always starts from a spec's own snapshot), the child sees exactly what the calling sandbox sees right now — filesystem, installed packages, uncommitted work — with no install/setup steps.
 

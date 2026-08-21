@@ -1,4 +1,4 @@
-import type { Agent } from "@alineo-labs/agent";
+import type { Alineo } from "alineo";
 
 export interface CollectedReply {
   /** Concatenated `text` deltas. Empty if the run produced tool activity but no final prose --
@@ -12,7 +12,7 @@ export interface CollectedReply {
 
 /** Sends one prompt and collects the text chunks plus a record of any tool calls made. */
 export async function collectReply(
-  agent: Agent,
+  agent: Alineo,
   message: string,
   opts?: { inactivityTimeoutMs?: number },
 ): Promise<CollectedReply> {

@@ -3,7 +3,7 @@ title: Sandboxes
 description: Isolated Docker containers managed by OpenSandbox — how they're created, configured, and closed.
 ---
 
-A sandbox is a Docker container managed by OpenSandbox. `client.sandbox()` creates one and returns a live `Sandbox` object. The container persists until `sb.close()` is called.
+A sandbox is a Docker container managed by OpenSandbox. `client.sandbox()` creates one and returns a live `SandboxHandle` object. The container persists until `sb.close()` is called.
 
 ## Creating a sandbox
 
@@ -19,7 +19,7 @@ const sb = await client.sandbox({
 
 1. Calls the OpenSandbox control API to create the container
 2. Waits until the container reaches `Running` state
-3. Returns the `Sandbox` object
+3. Returns the `SandboxHandle` object
 
 ## SandboxOptions
 
@@ -53,7 +53,7 @@ try {
 
 `close()` is idempotent — subsequent calls are no-ops.
 
-## Sandbox properties
+## SandboxHandle properties
 
 ```ts
 sb.sandboxId; // OpenSandbox container ID — also the unique ledger key
@@ -82,10 +82,10 @@ try {
 
 ## Concurrency limits
 
-`AlineoOptions.maxConcurrency` caps how many sandboxes may be active at once. When at capacity, `client.sandbox()` awaits until a slot is free (released by `sb.close()`):
+`SandboxClientOptions.maxConcurrency` caps how many sandboxes may be active at once. When at capacity, `client.sandbox()` awaits until a slot is free (released by `sb.close()`):
 
 ```ts
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./alineo.db"),
   maxConcurrency: 5, // at most 5 active sandboxes

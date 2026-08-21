@@ -14,10 +14,10 @@ bun add @alineo-labs/postgres
 ## Usage
 
 ```ts
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { PostgresAdapter } from "@alineo-labs/postgres";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL!,
   apiKey: process.env.OPEN_SANDBOX_API_KEY,
   adapter: new PostgresAdapter(process.env.DATABASE_URL!),

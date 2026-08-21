@@ -1,4 +1,4 @@
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { collectReply } from "../agent-prompt.js";
@@ -32,7 +32,10 @@ export async function spawn(
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  const agent = await Agent.load(specPath, {
+  // Alineo.load() no longer does its own file I/O (see #184) -- read the spec file ourselves.
+  // load() validates it internally regardless, so no need to call validateAgentSpec() here too.
+  const spec = await Bun.file(specPath).json();
+  const agent = await Alineo.load(spec, {
     adapter,
     rebuild: opts.rebuild,
     spawnDepth: opts.depth,

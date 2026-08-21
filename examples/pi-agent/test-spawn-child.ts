@@ -32,7 +32,7 @@
  *     (not alineo's own ledger, which never sees a sandbox created this way)
  *     that a new sandbox existed during the run.
  */
-import { Agent } from "@alineo-labs/agent";
+import { Alineo } from "alineo";
 import { ControlClient } from "@alineo-labs/opensandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
@@ -49,7 +49,9 @@ const control = new ControlClient({ baseUrl: "http://127.0.0.1:8080", apiKey: ""
 const before = await control.listSandboxes();
 console.log(`Sandboxes before: ${before.length}`);
 
-const agent = await Agent.load(SPEC, { adapter });
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+const spec = await Bun.file(SPEC).json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(`\nMaster sandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}\n`);
 
 const prompt = `

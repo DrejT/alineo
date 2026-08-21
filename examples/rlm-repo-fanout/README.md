@@ -2,7 +2,7 @@
 
 The showcase example for `plans/alineo-rlm-substrate.md`: a master agent clones
 a repo, decides how to split a task across it, and forks child agents — via
-`alineo fork`, built on `Agent.spawn()` — that each work on one slice starting
+`alineo fork`, built on `Alineo.spawn()` — that each work on one slice starting
 from the _exact same checked-out commit_ as the master, not a fresh clone.
 This is the "shared live state" fan-out shape (pattern b in the plan), the
 one that needed new plumbing beyond what `alineo spawn` already gave for free.
@@ -51,7 +51,7 @@ be true for a container to reach the server at all.
 _inside_ the sandbox it's forking from (rather than from a host process)
 required two fixes in `packages/agent`/`packages/cli` — see `RUBRIC.md`'s
 debugging history, items 12–13. Those fixes aren't in a published
-`alineo`/`@alineo-labs/agent` release yet (see `.changeset/spawn-self-attach-fix.md`),
+release yet (see `.changeset/spawn-self-attach-fix.md`),
 so a live run of this example won't successfully fork a child until that
 release ships — the master's setup step installs `alineo` from npm, which
 won't have the fix until then.
@@ -108,13 +108,13 @@ block, whether the run passed or failed.
 ## Known limitations
 
 - `alineo fork`'s two fixes (self-identification via `ALINEO_SANDBOX_ID`, and
-  `Agent.attach()`'s self-connect) aren't published to npm yet — see the
+  `Alineo.attach()`'s self-connect) aren't published to npm yet — see the
   setup note above and `RUBRIC.md`'s debugging history for the full story.
 - Model-driven runs can still fail on ordinary model noise (e.g. a typo like
   `trejx` instead of `alineo`) unrelated to any of the fixes above — that's
   expected variance, not a structural issue.
 
-`Agent.spawn()`'s own mechanism (fork, env-leak fix, depth injection,
+`Alineo.spawn()`'s own mechanism (fork, env-leak fix, depth injection,
 depth-zero refusal) is independently, thoroughly verified via `.bash()` and
 direct SDK calls — see `plans/alineo-rlm-substrate.md`'s test notes and
 `RUBRIC.md`'s "Debugging history" section for the complete chain of bugs

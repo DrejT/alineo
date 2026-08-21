@@ -4,10 +4,10 @@
  *   Pattern B — bash-level timeout via the `timeout` command
  *   Pattern C — CommandError from a non-zero exit
  */
-import { Alineo, CommandError } from "alineo";
+import { Sandbox, CommandError } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

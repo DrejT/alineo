@@ -25,7 +25,7 @@ bunx alineo-cli spawn <spec> [--prompt <msg>] [--rebuild] [--depth <n>] [--max <
 
 ## What it does
 
-1. Reads `alineo.config.json` and calls [`Agent.load(spec, { adapter, rebuild, spawnDepth, maxAgents })`](/docs/agent/api-reference/agent#agentload) — see that page for the full snapshot/install behavior. This always starts from the spec's own snapshot (or builds one on first use); it never inspects the calling process's own sandbox state.
+1. Reads `alineo.config.json` and calls [`Alineo.load(spec, { adapter, rebuild, spawnDepth, maxAgents })`](/docs/agent/api-reference/agent#agentload) — see that page for the full snapshot/install behavior. This always starts from the spec's own snapshot (or builds one on first use); it never inspects the calling process's own sandbox state.
 2. If `--prompt` is given, sends that message and waits for the full reply before printing anything and exiting.
 3. Without `--prompt`, prints the sandbox name and ID and exits immediately — the sandbox keeps running.
 

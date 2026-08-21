@@ -14,7 +14,7 @@
  * split or reordered by transport-level interleaving the way separate
  * commands and their echoes can.
  */
-import { Alineo } from "alineo";
+import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 function assertEqual(actual: string, expected: string, label: string) {
@@ -26,7 +26,7 @@ function assertEqual(actual: string, expected: string, label: string) {
   console.log(`  ok — ${label}`);
 }
 
-const client = new Alineo({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -42,7 +42,7 @@ const sb = await client.sandbox({
 let resumed: Awaited<ReturnType<typeof client.resume>> | undefined;
 
 try {
-  console.log(`Sandbox ID: ${sb.sandboxId}`);
+  console.log(`SandboxHandle ID: ${sb.sandboxId}`);
   console.log("\n=== Opening an interactive bash session ===\n");
 
   const shell = sb.exec("bash", { interactive: true });

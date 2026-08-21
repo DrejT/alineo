@@ -9,20 +9,20 @@ export { SandboxStatus };
  * (404), a sandbox not in `Running` state (409), or a client-side timeout
  * (408). This does not wrap non-2xx OpenSandbox API responses — those throw
  * `OpenSandboxError` from `@alineo-labs/opensandbox`, which is never rethrown as a
- * `AlineoError`.
+ * `SandboxClientError`.
  */
-export class AlineoError extends Error {
+export class SandboxClientError extends Error {
   constructor(
     message: string,
     public readonly status: number,
   ) {
     super(message);
-    this.name = "AlineoError";
+    this.name = "SandboxClientError";
   }
 }
 
-/** Options for constructing a {@link Alineo} client. */
-export interface AlineoOptions {
+/** Options for constructing a {@link Sandbox} client. */
+export interface SandboxClientOptions {
   /** Base URL of your OpenSandbox server (e.g. `http://localhost:8080`). */
   baseUrl: string;
   /** OpenSandbox API key. Pass an empty string for local dev with no auth. */
@@ -48,13 +48,13 @@ export interface AlineoOptions {
   useServerProxy?: boolean;
 }
 
-/** Options for `Alineo.resume()`. */
+/** Options for `Sandbox.resume()`. */
 export interface ResumeOptions {
   /** Resume from the checkpoint with this tag. Defaults to the most recent checkpoint. */
   tag?: string;
 }
 
-/** Options for `Alineo.sandbox()`. */
+/** Options for `Sandbox.sandbox()`. */
 export interface SandboxOptions {
   /**
    * Container image to run. Pass a string (`"node:22"`) or a full `ImageSpec`
@@ -81,7 +81,7 @@ export interface SandboxOptions {
    * same host script for one logical run).
    */
   runId?: string;
-  /** Sandbox lifetime in seconds. Defaults to the OpenSandbox server default. */
+  /** SandboxHandle lifetime in seconds. Defaults to the OpenSandbox server default. */
   timeout?: number;
   /** Observability hooks (e.g. `otelHooks(tracer)` from `@alineo-labs/otel`). */
   hooks?: SandboxHooks;

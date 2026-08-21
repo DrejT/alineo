@@ -15,7 +15,7 @@ Reusable skill references live in `.agents/skills/<name>/SKILL.md`. Always check
 Available skills:
 
 - **`.agents/skills/bun/`** — Bun runtime, package manager, test runner, and bundler. Covers `bun run`, `bun install`, `bun test`, `bun build`, workspace flags, common gotchas (flag placement, lifecycle scripts, lockfile format), and key APIs (`Bun.file()`, `Bun.serve()`, `Bun.write()`)
-- **`.agents/skills/alineo/`** — the alineo SDK/CLI itself: sandbox lifecycle, exec, checkpoint/resume, storage adapters, environments, and Windows-specific gotchas.
+- **`.agents/skills/alineo/`** — the `alineo` agent SDK (load/resume/attach/spawn, prompt/bash streaming, session control) and the `alineo-cli`: agent lifecycle, storage adapters, and Windows-specific gotchas.
 
 Example: before writing a `bun build` command or debugging a workspace install issue, read `.agents/skills/bun/SKILL.md` for the correct flags and known pitfalls.
 
@@ -23,7 +23,12 @@ External agents install either skill with the [Skills CLI](https://skills.sh): `
 
 ## What this is
 
-`alineo` is a **sandbox execution substrate** built on top of [OpenSandbox](https://opensandbox.ai). It gives you live sandbox containers as first-class objects — spawn, exec, checkpoint, resume — with a durable SQL audit ledger and replay. Workflow primitives (retry, when, forEach, parallel) live in the separate `@alineo-labs/workflow` package.
+`alineo` is an AI agent platform built on sandboxed execution. `@alineo-labs/sandbox` is the
+**sandbox execution substrate** built on top of [OpenSandbox](https://opensandbox.ai) — it gives
+you live sandbox containers as first-class objects (spawn, exec, checkpoint, resume) with a
+durable SQL audit ledger and replay. `alineo` (the bare package name) is the agent SDK built on
+top of it — it runs Pi coding agents inside those sandboxes. Workflow primitives (retry, when,
+forEach, parallel) live in the separate `@alineo-labs/workflow` package.
 
 ## Commands
 
@@ -69,8 +74,8 @@ bunx changeset status # verify one exists
 ### Integration test conventions
 
 - **Run with**: `bun run test:integration` from the repo root, or `cd tests/integration && bun test` for the whole suite / `bun test <name>.test.ts` for one file.
-- **Requires**: OpenSandbox server running locally — either `alineo init` (Docker-based, recommended) or `uvx opensandbox-server` (manual). If using `alineo init`, pass `useServerProxy: true` to `new Alineo(...)` so the SDK routes through the server instead of container-direct IPs.
-- **Client setup**: `new Alineo({ baseUrl: ..., adapter: new SQLiteAdapter(":memory:") })` — no `connect()` or `close()` needed on the client itself.
+- **Requires**: OpenSandbox server running locally — either `alineo init` (Docker-based, recommended) or `uvx opensandbox-server` (manual). If using `alineo init`, pass `useServerProxy: true` to `new Sandbox(...)` so the SDK routes through the server instead of container-direct IPs.
+- **Client setup**: `new Sandbox({ baseUrl: ..., adapter: new SQLiteAdapter(":memory:") })` — no `connect()` or `close()` needed on the client itself.
 - **Sandbox lifecycle**: always wrap in `try/finally { await sb.close(); }` to avoid container leaks.
 - **Assertion**: `const { stdout, exitCode } = await sb.exec("cmd")` — assert on the returned value. For error cases, catch `CommandError`.
 
@@ -86,7 +91,7 @@ Assert on observable behaviour, not internal structure:
 ```
 packages/core/                    — Sandbox primitive (no runtime deps outside opensandbox)
   src/sandbox/core.ts             — SandboxCore: private state, exec()/execCode()/createCodeContext()/createSession()
-  src/sandbox/sandbox.ts          — Sandbox class (extends SandboxCore): file/lifecycle/observability delegators
+  src/sandbox/sandbox.ts          — SandboxHandle class (extends SandboxCore): file/lifecycle/observability delegators
   src/sandbox/files.ts            — writeFile/readFile/deleteFile/moveFile/listDirectory/searchFiles/...
   src/sandbox/lifecycle.ts        — pause/resume/checkpoint/fork/close/listCheckpoints
   src/sandbox/observability.ts    — metrics/watchMetrics/diagnosticLogs/diagnosticEvents/proxy
@@ -108,9 +113,9 @@ packages/opensandbox/             — OpenSandbox HTTP clients
   src/exec.ts                     — ExecClient (code/command execution via SSE)
   src/types.ts                    — Full OpenSandbox API type system
 
-packages/sdks/typescript/         — Public TypeScript SDK (published to npm as "alineo")
-  src/types.ts                    — AlineoError, AlineoOptions, SandboxOptions
-  src/client.ts                   — Alineo: sandbox(), resume(), sandboxes.*
+packages/sdks/typescript/         — Sandbox client SDK (published to npm as "@alineo-labs/sandbox")
+  src/types.ts                    — SandboxClientError, SandboxClientOptions, SandboxOptions
+  src/client.ts                   — Sandbox: sandbox(), resume(), sandboxes.*
 
 packages/workflow/                — Lazy workflow builder (published as "@alineo-labs/workflow")
   src/sandbox-builder.ts          — SandboxBuilder (synchronous queue), flushOps()
@@ -129,13 +134,13 @@ packages/adapters/otel/           — OpenTelemetry hooks adapter (published as 
   src/index.ts                    — otelHooks(tracer, opts?) → SandboxHooks
 
 packages/adapters/flue/           — Flue runtime adapter (published as "@alineo-labs/flue")
-  src/index.ts                    — SandboxApi/SandboxFactory implementation backing @flue/runtime with an alineo Sandbox
+  src/index.ts                    — SandboxApi/SandboxFactory implementation backing @flue/runtime with a SandboxHandle
 
-packages/agent/                   — Agent SDK (published to npm as "@alineo-labs/agent")
+packages/agent/                   — Alineo SDK (published to npm as "alineo")
   src/agent/factory.ts            — load()/resume()/attach()/spawn() bodies (snapshot restore, env resolution,
-                                    spawn-depth/max-agents enforcement) — returns constructor args, not an Agent
-                                    directly, since only Agent's own static methods may call its private constructor
-  src/agent/agent.ts               — Agent class: constructor + every public method as a 1-line delegator to the
+                                    spawn-depth/max-agents enforcement) — returns constructor args, not an Alineo
+                                    directly, since only Alineo's own static methods may call its private constructor
+  src/agent/agent.ts               — Alineo class: constructor + every public method as a 1-line delegator to the
                                     modules below
   src/agent/session-control.ts     — prompt/bash/steer/abort/followUp/newSession/setSteeringMode/...
   src/agent/model.ts                — setModel/cycleModel/getAvailableModels/setThinkingLevel/cycleThinkingLevel
@@ -156,7 +161,7 @@ packages/agent/                   — Agent SDK (published to npm as "@alineo-la
                                       PromptStream (deprecated alias), PiModel, ThinkingLevel, PiMessage, CompactResult
   src/index.ts                     — barrel exports
 
-packages/cli/                     — alineo CLI (published to npm as "alineo-cli", not part of changeset versioning)
+packages/cli/                     — alineo CLI (published to npm as "alineo-cli", changeset-tracked like every other package)
   src/index.ts                    — CLI entry point (shebang, TTY→TUI launch, dispatch via commands/registry.ts)
   src/commands/registry.ts        — CliCommand metadata (name/group/usage/summary) for every subcommand, each with
                                     a run() that dynamically imports its own implementation on demand — both the
@@ -167,9 +172,9 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
   src/commands/add.ts             — alineo add <url>: fetches an agent spec, saves it locally
   src/commands/list.ts            — alineo list: lists saved agent specs
   src/commands/remove.ts          — alineo remove <name>: deletes a saved agent spec
-  src/commands/spawn.ts           — alineo spawn <spec>: Agent.load() a fresh, independent agent sandbox
-  src/commands/prompt.ts          — alineo prompt <sandbox-id> <msg>: Agent.resume() + send one prompt
-  src/commands/fork.ts            — alineo fork <name> <child-spec>: Agent.attach() + spawn() a child from a live sandbox
+  src/commands/spawn.ts           — alineo spawn <spec>: Alineo.load() a fresh, independent agent sandbox
+  src/commands/prompt.ts          — alineo prompt <sandbox-id> <msg>: Alineo.resume() + send one prompt
+  src/commands/fork.ts            — alineo fork <name> <child-spec>: Alineo.attach() + spawn() a child from a live sandbox
   src/commands/agents.ts          — alineo agents: lists running sessions (ledger cross-checked against the live
                                     OpenSandbox control plane, not trusted alone — see sessions-data.ts)
   src/commands/kill.ts            — alineo kill <sandbox-id>: closes a sandbox by ID
@@ -185,7 +190,7 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
 
 ### Key design points
 
-**Sandbox as first-class object**: `client.sandbox()` returns a live `Sandbox` object. You hold it, call methods on it, and call `sb.close()` when done. Multiple sandboxes → multiple variables. No special API.
+**Sandbox as first-class object**: `client.sandbox()` returns a live `SandboxHandle` object. You hold it, call methods on it, and call `sb.close()` when done. Multiple sandboxes → multiple variables. No special API.
 
 **ExecHandle**: `sb.exec("cmd")` returns an `ExecHandle` — a `PromiseLike<ExecResult>` with `pipe()`, `stdout()`, and `result()`. `await sb.exec("cmd")` gives `{ stdout, stderr, exitCode }`. Streaming: `await sb.exec("cmd").pipe(process.stdout)`.
 
@@ -193,9 +198,9 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
 
 **Lazy workflow layer**: `@alineo-labs/workflow` provides `workflow(client).sandbox(opts, fn).pipe(sink)`. The `fn` callback receives a `SandboxBuilder` — all methods queue ops synchronously. The queue is flushed when `.pipe()` or `.result()` is awaited. One `await` at the end regardless of workflow complexity.
 
-**Storage adapter**: `AlineoOptions.adapter` accepts any `IStorageAdapter`. Pass `new SQLiteAdapter("./alineo.db")` for local dev or `new PostgresAdapter(connectionString)` for production. The adapter is initialised lazily on first use — no `connect()` call needed. On process exit, `beforeExit` closes the adapter automatically; explicit teardown is not required for scripts.
+**Storage adapter**: `SandboxClientOptions.adapter` accepts any `IStorageAdapter`. Pass `new SQLiteAdapter("./alineo.db")` for local dev or `new PostgresAdapter(connectionString)` for production. The adapter is initialised lazily on first use — no `connect()` call needed. On process exit, `beforeExit` closes the adapter automatically; explicit teardown is not required for scripts.
 
-**Concurrency limits**: `AlineoOptions.maxConcurrency` caps simultaneous active sandboxes. `client.sandbox()` awaits a semaphore slot; the slot is released when `sb.close()` is called.
+**Concurrency limits**: `SandboxClientOptions.maxConcurrency` caps simultaneous active sandboxes. `client.sandbox()` awaits a semaphore slot; the slot is released when `sb.close()` is called.
 
 **Hooks**: `SandboxHooks` provides lifecycle callbacks: `onSandboxCreated`, `onExecStart`, `onExecComplete`, `onCheckpoint`, `onSandboxClosed`, `onSandboxFailed`. Pass via `SandboxOptions.hooks`. Use `otelHooks(tracer)` from `@alineo-labs/otel` for OpenTelemetry tracing.
 
@@ -205,11 +210,11 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
 
 **Resource limits required**: `SandboxOptions.resources` (`{ cpu: string; memory: string; gpu?: string }`) is required — the OpenSandbox server rejects requests without it. Always pass at least `{ cpu: "500m", memory: "256Mi" }`. This applies to `client.sandbox()`, `workflow().sandbox()`, and every step in `workflow().sequence()`.
 
-**Server proxy mode**: When OpenSandbox runs in Docker (via `alineo init`), sandbox containers are on a bridge network and their IPs are unreachable from the host. Set `useServerProxy: true` in `AlineoOptions` to route execd and proxy traffic through the server (`?use_server_proxy=true` on `getEndpoint`). The server then returns `{eip}/sandboxes/{id}/proxy/{port}` URLs that are reachable from the host. The server config must have `eip = "http://localhost:8080"` set — `alineo init` writes this automatically.
+**Server proxy mode**: When OpenSandbox runs in Docker (via `alineo init`), sandbox containers are on a bridge network and their IPs are unreachable from the host. Set `useServerProxy: true` in `SandboxClientOptions` to route execd and proxy traffic through the server (`?use_server_proxy=true` on `getEndpoint`). The server then returns `{eip}/sandboxes/{id}/proxy/{port}` URLs that are reachable from the host. The server config must have `eip = "http://localhost:8080"` set — `alineo init` writes this automatically.
 
 ## Environment variables
 
-`Alineo` is configured via constructor options, not environment variables. The consuming application is responsible for reading env vars and passing them in:
+`Sandbox` is configured via constructor options, not environment variables. The consuming application is responsible for reading env vars and passing them in:
 
 | Option | Description |
 |---|---|
@@ -225,9 +230,9 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
 
 `bunx alineo-cli init` starts OpenSandbox in a Docker container (`opensandbox/server:latest`) and writes `~/.config/alineo/server.toml` and `.alineo/config.json` automatically. This is the preferred path for users running the full alineo workflow.
 
-When using a server started this way, pass `useServerProxy: true` to `new Alineo(...)` — direct container IPs are not reachable from the host over Docker's bridge network.
+When using a server started this way, pass `useServerProxy: true` to `new Sandbox(...)` — direct container IPs are not reachable from the host over Docker's bridge network.
 
-OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/alineo/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli/src/config.ts`), so `Agent.load()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
+OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/alineo/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli/src/config.ts`), so `Alineo.load()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
 
 ### Option 2 — uvx (manual)
 
@@ -256,10 +261,10 @@ The `uvx` path does not need `useServerProxy` — the server is on the host, so 
 
 ## SDK focus
 
-We are currently focused exclusively on making the **TypeScript SDK** (`packages/sdks/typescript`) full-featured and production-ready. Python SDK is maintained but not the priority. Do not add new features to the Python SDK unless explicitly asked.
+We are currently focused exclusively on making the **TypeScript sandbox client SDK** (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) full-featured and production-ready. Python SDK is maintained but not the priority. Do not add new features to the Python SDK unless explicitly asked.
 
 ## Releases
 
-The TypeScript SDK (`packages/sdks/typescript`) is published to npm via changesets. Every PR that changes publishable packages needs a changeset (`bunx changeset`). CI enforces this. Releases are cut automatically via `changesets/action` on merge to `main`.
+The TypeScript sandbox client SDK (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) is published to npm via changesets, same as every other publishable package (`alineo`, `alineo-cli`, `@alineo-labs/*`). Every PR that changes publishable packages needs a changeset (`bunx changeset`). CI enforces this. Releases are cut automatically via `changesets/action` on merge to `main`.
 
 > **Changeset must be committed** before CI will pass — `bunx changeset status --since origin/main` reads from git history, not disk.
