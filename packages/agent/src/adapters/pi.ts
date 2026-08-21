@@ -59,10 +59,46 @@ export function parseShellExports(content: string): Record<string, string> {
 
 export class PiAdapter {
   private _bridgeUrl: string | null = null;
+  /**
+   * Controllers for prompt/bash streams `sseStream` deliberately left open (its early
+   * return on `[DONE]`, to dodge the same OpenSandbox proxy behavior `ExecClient.parseSSE`
+   * documents — see that method's comment). `AbortController.abort()`, not
+   * `reader.cancel()`: Bun's `fetch()` tears down the underlying connection (and unrefs the
+   * poll keeping the event loop alive) reliably on an abort signal, but was observed to
+   * leave the socket referenced after `reader.cancel()` alone on this bridge's specific
+   * long-lived, heartbeat-pinged connections (unlike execd's exec/code streams, which
+   * self-resolve within execd's own bounded post-completion sleep either way — see
+   * disposeConnections() below).
+   *
+   * Known limitation: this reliably lets a process exit after exactly one prompt()/bash()
+   * call per agent lifetime (verified). A script making two or more such calls before
+   * close() can still hang even though every controller here does abort cleanly on the
+   * client side -- root cause traced to the same class of bug as
+   * opensandbox-group/OpenSandbox#1277 (execd's chunked-SSE termination confusing the
+   * OpenSandbox control server's own proxy relay, which is what `bridgeUrl` is proxied
+   * through). Tracked in our own #189; not fixable from this file alone.
+   */
+  private pendingStreams = new Set<AbortController>();
 
   private get bridgeUrl(): string {
     if (!this._bridgeUrl) throw new Error("PiAdapter: bridge not started");
     return this._bridgeUrl;
+  }
+
+  /**
+   * Force-close any prompt/bash streams `sseStream` deliberately left open (its early
+   * return on `[DONE]`, to dodge the same OpenSandbox proxy behavior `ExecClient.parseSSE`
+   * documents — see that method's comment). Those connections sit ESTABLISHED, keeping
+   * Bun's event loop alive indefinitely, until something force-closes them -- unlike
+   * execd's exec/code streams (see `ExecClient.disposeConnections()`), the bridge's own
+   * `: ping` heartbeat (every 3s, see pi-bridge.js) means there's no bounded server-side
+   * timeout to eventually resolve a dangling one on its own. Call this once the agent is
+   * being torn down anyway (from `agent.close()`) instead of leaving the process to hang
+   * forever on whichever stream's `[DONE]` arrived last.
+   */
+  disposeConnections(): void {
+    for (const controller of this.pendingStreams) controller.abort();
+    this.pendingStreams.clear();
   }
 
   /** Install Pi CLI and any spec packages. Slow — result is captured by checkpoint(). */
@@ -146,12 +182,13 @@ export class PiAdapter {
       this.bridgeUrl,
       "/prompt",
       { message, streamingBehavior: opts?.streamingBehavior },
+      this.pendingStreams,
       opts?.inactivityTimeoutMs,
     );
   }
 
   bash(command: string): AgentStream {
-    return sseStream(this.bridgeUrl, "/bash", { command });
+    return sseStream(this.bridgeUrl, "/bash", { command }, this.pendingStreams);
   }
 
   // --- ack-only commands ---
@@ -350,19 +387,32 @@ async function* sseStream(
   bridgeUrl: string,
   path: string,
   body: unknown,
+  pendingStreams: Set<AbortController>,
   inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
 ): AgentStream {
+  const controller = new AbortController();
   const res = await fetch(`${bridgeUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: controller.signal,
+    // Without this, Bun pools this connection for reuse across the next prompt()/bash()
+    // call to the same bridge origin -- a pooled keep-alive socket outlives any individual
+    // request's own abort(), so a second stream on the same connection can keep the
+    // process alive even after both streams' controllers have been aborted.
+    keepalive: false,
   });
   if (!res.ok || !res.body) throw new Error(`Bridge ${path} error: ${res.status}`);
 
+  pendingStreams.add(controller);
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
   let lastEventAt = Date.now();
+  // Only a genuine server-signalled EOF (`done: true`) counts as reaching the natural end --
+  // both the `[DONE]` early-return below and any thrown error (timeout, malformed payload,
+  // bridge-reported error) leave the connection mid-stream, same as a natural EOF's opposite.
+  let reachedNaturalEnd = false;
 
   try {
     while (true) {
@@ -376,14 +426,24 @@ async function* sseStream(
       if (result === "timeout") throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
 
       const { done, value } = result;
-      if (done) break;
+      if (done) {
+        reachedNaturalEnd = true;
+        break;
+      }
       buf += decoder.decode(value, { stream: true });
       const lines = buf.split("\n");
       buf = lines.pop()!;
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const payload = line.slice(6).trim();
-        if (payload === "[DONE]") return;
+        if (payload === "[DONE]") {
+          // Deliberately don't abort the connection here -- same reasoning as ExecClient's
+          // parseSSE (packages/opensandbox/src/exec.ts): tearing down mid-stream through the
+          // bridge's proxied connection can upset the relay. Leave `controller` registered in
+          // pendingStreams for PiAdapter.disposeConnections() to force shut at agent.close()
+          // time instead, once nobody cares if the proxy's relay errors out.
+          return;
+        }
         const raw = JSON.parse(payload) as AgentEvent & { error?: string };
         if (raw.error) throw new Error(`Bridge error: ${raw.error}`);
         lastEventAt = Date.now();
@@ -391,6 +451,9 @@ async function* sseStream(
       }
     }
   } finally {
-    await reader.cancel().catch(() => {});
+    if (reachedNaturalEnd) {
+      pendingStreams.delete(controller);
+      reader.releaseLock();
+    }
   }
 }
