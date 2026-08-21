@@ -1,5 +1,12 @@
 # drej-example-benchmark
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [0163e7c]
+  - @alineo-labs/sqlite@0.1.2
+
 ## 0.0.4
 
 ### Patch Changes
