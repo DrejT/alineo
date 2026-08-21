@@ -87,6 +87,27 @@ Each step:
 | `run`  | `string`  | Bash command to execute                                           |
 | `cwd`  | `string?` | Working directory. Runs as `cd <cwd> && <run>`                    |
 
+### Validation
+
+`Alineo.load()`/`Alineo.resume()` validate the spec (via `validateAgentSpec()`, backed by
+[Zod](https://zod.dev)) before doing anything else. An invalid spec throws
+`AgentSpecValidationError` — every problem is reported in one throw, not just the first, and
+`.issues` gives you each one structured (`{ path, message, code }`) instead of having to parse
+the message string:
+
+```ts
+import { Alineo, AgentSpecValidationError } from "alineo";
+
+try {
+  const agent = await Alineo.load("./agent.json", { adapter });
+} catch (e) {
+  if (e instanceof AgentSpecValidationError) {
+    for (const issue of e.issues) console.error(`${issue.path.join(".")}: ${issue.message}`);
+  }
+  throw e;
+}
+```
+
 ---
 
 ## Snapshotting

@@ -41,6 +41,11 @@ try {
 
 Changing `cli`/`cliVersion`/`packages`/`setup` invalidates the cached snapshot automatically.
 
+Specs are validated by `validateAgentSpec()` (Zod-backed) before `load()`/`resume()` do anything
+else — every field, every problem reported at once. An invalid spec throws
+`AgentSpecValidationError`, not a bare `Error`: `.message` is a pre-formatted multi-line summary,
+`.issues` is a structured `{ path, message, code }[]` for programmatic handling.
+
 ## Loading and lifecycle
 
 | Call | Behavior |

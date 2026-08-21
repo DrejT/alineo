@@ -1,4 +1,5 @@
 import { WorkflowError } from "@alineo-labs/core";
+import type { z } from "zod";
 
 /**
  * Thrown when a prompt/bash SSE stream from a sandbox's Pi bridge goes quiet for longer than
@@ -20,5 +21,22 @@ export class PromptTimeoutError extends WorkflowError {
         `the underlying agent process may be stuck`,
     );
     this.name = "PromptTimeoutError";
+  }
+}
+
+/**
+ * Thrown by `validateAgentSpec()` when a spec object fails schema validation. Carries every
+ * failing field in one pass (`.issues`, mirroring `z.ZodIssue[]` shape) rather than surfacing
+ * only the first problem found -- see #185. `.message` is a pre-formatted, human-readable
+ * multi-line summary (via `z.prettifyError()`) suitable for printing as-is; `.issues` is for
+ * callers that want to handle failures programmatically (e.g. highlight specific fields in a UI).
+ */
+export class AgentSpecValidationError extends WorkflowError {
+  constructor(
+    message: string,
+    public readonly issues: readonly Pick<z.core.$ZodIssue, "path" | "message" | "code">[],
+  ) {
+    super(message);
+    this.name = "AgentSpecValidationError";
   }
 }
