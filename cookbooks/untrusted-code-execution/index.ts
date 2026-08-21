@@ -29,7 +29,7 @@ async function runUntrusted(label: string, code: string): Promise<RunResult> {
   const sb = await client.sandbox({
     image: "python:3.11-slim",
     resources: { cpu: "250m", memory: "128Mi" }, // tight caps — this is untrusted code
-    timeout: 30, // hard container lifetime (seconds)
+    timeout: 60, // hard container lifetime (seconds) -- OpenSandbox rejects anything under 60
     name: `untrusted-${label}`,
   });
 
