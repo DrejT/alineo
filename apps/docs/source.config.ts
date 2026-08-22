@@ -14,7 +14,9 @@ const docs = { postprocess: { includeProcessedMarkdown: true } };
 // version's dir — it's a frozen snapshot older installs' docs point at.
 // AUTO-GENERATED-VERSIONED-DOCS:START
 export const coreV01Docs = defineDocs({ dir: "content/docs/core/v0.1", docs });
+export const coreV02Docs = defineDocs({ dir: "content/docs/core/v0.2", docs });
 export const alineoV01Docs = defineDocs({ dir: "content/docs/alineo/v0.1", docs });
+export const alineoV02Docs = defineDocs({ dir: "content/docs/alineo/v0.2", docs });
 // AUTO-GENERATED-VERSIONED-DOCS:END
 
 export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });

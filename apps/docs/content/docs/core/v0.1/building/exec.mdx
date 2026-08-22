@@ -94,7 +94,7 @@ Template literals with exec output work because the exec is already awaited — 
 `sb.execCode(code, opts?)` runs code via the sandbox's code interpreter (Python, JS, TypeScript) using the execd `/code` endpoint. Requires a code-interpreter image.
 
 ```ts
-import { CodeLanguage } from "@alineo-labs/sandbox";
+import { CodeLanguage } from "alineo";
 
 const sb = await client.sandbox({
   image: "opensandbox/code-interpreter",
@@ -141,7 +141,7 @@ await sb.execCode(`print(f"sum = {sum(data)}")`, { context: ctx }).pipe(process.
 ### CodeLanguage
 
 ```ts
-import { CodeLanguage } from "@alineo-labs/sandbox";
+import { CodeLanguage } from "alineo";
 
 CodeLanguage.Python; // "python"
 CodeLanguage.JavaScript; // "javascript"

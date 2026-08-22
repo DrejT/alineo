@@ -8,7 +8,7 @@ description: Strict vs non-strict exec, CommandError, SandboxError, and ExecConn
 By default, `sb.exec()` throws `CommandError` if the command exits with a non-zero code. This is "strict mode" — it mirrors how shell `set -e` works:
 
 ```ts
-import { CommandError } from "@alineo-labs/sandbox";
+import { CommandError } from "alineo";
 
 const sb = await client.sandbox({
   image: "debian:bookworm-slim",
@@ -88,7 +88,7 @@ sb.when(
 Thrown when a sandbox fails to create, boot, or reach `Running` state:
 
 ```ts
-import { SandboxError } from "@alineo-labs/sandbox";
+import { SandboxError } from "alineo";
 
 try {
   const sb = await client.sandbox({
@@ -109,7 +109,7 @@ try {
 Thrown when execd inside the sandbox never becomes ready. The container is running from OpenSandbox's perspective, but the exec daemon isn't accepting connections after the retry window:
 
 ```ts
-import { ExecConnectionError } from "@alineo-labs/sandbox";
+import { ExecConnectionError } from "alineo";
 
 try {
   await sb.exec("echo test");
@@ -131,15 +131,10 @@ Error
     └── CommandError        — non-zero exit code (strict mode)
 ```
 
-Import from `@alineo-labs/sandbox`:
+Import from `alineo`:
 
 ```ts
-import {
-  CommandError,
-  SandboxError,
-  ExecConnectionError,
-  WorkflowError,
-} from "@alineo-labs/sandbox";
+import { CommandError, SandboxError, ExecConnectionError, WorkflowError } from "alineo";
 ```
 
 ## Catching all alineo errors
@@ -147,7 +142,7 @@ import {
 Use `WorkflowError` as the base class to catch any alineo-specific error:
 
 ```ts
-import { WorkflowError } from "@alineo-labs/sandbox";
+import { WorkflowError } from "alineo";
 
 try {
   await sb.exec("cmd");

@@ -9,7 +9,7 @@ description: Run your first sandbox command in under five minutes.
 ### Install
 
 ```bash
-bun add @alineo-labs/sandbox @alineo-labs/sqlite
+bun add alineo @alineo-labs/sqlite
 ```
 
 </Step>
@@ -25,10 +25,10 @@ Run OpenSandbox locally with `uvx opensandbox-server`. See [Installation](/docs/
 ### Hello world
 
 ```ts title="hello.ts"
-import { Sandbox } from "@alineo-labs/sandbox";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Sandbox({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });

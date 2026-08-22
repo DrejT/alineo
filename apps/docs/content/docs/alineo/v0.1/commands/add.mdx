@@ -28,7 +28,7 @@ There is no `--server` flag — `add` doesn't talk to a server at all, it only r
 3. Resolves any `registryDependencies` first — each dependency URL is fetched and saved the same way, recursively, depth-first, before the top-level spec is saved. Dependencies are **not** deduplicated across separate `add` invocations, or within recursive resolution of the same tree — a dependency listed twice is fetched and saved twice.
 4. Writes the validated spec to `<agentsDir>/<name>.json`.
 
-`add` never creates a sandbox, runs `setup`, or contacts the OpenSandbox server directly — it's a local file operation. The sandbox work happens later, the first time you call `Alineo.load()` on the saved spec (see [Running an agent spec](/docs/alineo/0.1/using-sandboxes)).
+`add` never creates a sandbox, runs `setup`, or contacts the OpenSandbox server directly — it's a local file operation. The sandbox work happens later, the first time you call `Agent.load()` on the saved spec (see [Running an agent spec](/docs/alineo/0.1/using-sandboxes)).
 
 ## Examples
 
@@ -54,7 +54,7 @@ bunx alineo-cli add https://example.com/specs/node-toolchain.json --name ci-env
 
 ```
 Agent spec saved: agents/node-toolchain.json
-Load it with: Alineo.load("agents/node-toolchain.json") from alineo
+Load it with: Agent.load("agents/node-toolchain.json") from @alineo-labs/agent
 ```
 
 ## Notes

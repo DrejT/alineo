@@ -74,4 +74,4 @@ DO_NOT_TRACK=1 alineo spawn ./agents/my-agent.json
 
 - A one-time notice is printed to stderr the first time an event would actually send, naming both opt-out mechanisms — never mixed into `--json` output.
 - Sending is bounded: a 500ms timeout races the request, and a failed or slow send never delays or fails the real command it's attached to.
-- Scoped to the `alineo` CLI only — `alineo`/`alineo`/`@alineo-labs/workflow` used as libraries in your own code are never instrumented.
+- Scoped to the `alineo` CLI only — `alineo`/`@alineo-labs/agent`/`@alineo-labs/workflow` used as libraries in your own code are never instrumented.
