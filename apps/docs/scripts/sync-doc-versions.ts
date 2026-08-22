@@ -39,10 +39,9 @@ function splice(filePath: string, body: string) {
   return false;
 }
 
-const versionsByProduct = Object.fromEntries(PRODUCTS.map((p) => [p, discoverVersions(p)])) as Record<
-  (typeof PRODUCTS)[number],
-  string[]
->;
+const versionsByProduct = Object.fromEntries(
+  PRODUCTS.map((p) => [p, discoverVersions(p)]),
+) as Record<(typeof PRODUCTS)[number], string[]>;
 
 for (const [product, versions] of Object.entries(versionsByProduct)) {
   if (versions.length === 0) {
@@ -61,7 +60,9 @@ const configBody = PRODUCTS.map((product) =>
 ).join("\n");
 
 // --- src/lib/source.ts: imports + one loader()-keyed-by-version registry per product ---
-const sourceImports = PRODUCTS.flatMap((p) => versionsByProduct[p].map((v) => ident(p, v))).join(",\n  ");
+const sourceImports = PRODUCTS.flatMap((p) => versionsByProduct[p].map((v) => ident(p, v))).join(
+  ",\n  ",
+);
 
 const sourceBody = PRODUCTS.map((product) => {
   const versions = versionsByProduct[product];
@@ -99,7 +100,11 @@ const sourceUpdated = (() => {
   if (startIdx === -1 || endIdx === -1) {
     throw new Error(`src/lib/source.ts: missing ${START}/${END} markers`);
   }
-  return withImport.slice(0, startIdx) + `${START}\n${sourceBody}\n${END}` + withImport.slice(endIdx + END.length);
+  return (
+    withImport.slice(0, startIdx) +
+    `${START}\n${sourceBody}\n${END}` +
+    withImport.slice(endIdx + END.length)
+  );
 })();
 const sourceChanged = sourceUpdated !== sourceOriginal;
 if (sourceChanged) writeFileSync(sourcePath, sourceUpdated);

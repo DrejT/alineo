@@ -88,4 +88,6 @@ ${alineo.redirects}
 `;
 
 writeFileSync(OUT, content);
-console.log(`[sync-redirects] wrote ${path.relative(process.cwd(), OUT)} — core latest=${core.latest}, alineo latest=${alineo.latest}`);
+console.log(
+  `[sync-redirects] wrote ${path.relative(process.cwd(), OUT)} — core latest=${core.latest}, alineo latest=${alineo.latest}`,
+);
