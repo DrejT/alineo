@@ -64,4 +64,4 @@ A spec's `spawnDepth` is a nesting-depth budget, force-decremented (`current - 1
 
 - The forked child's environment is resolved fresh from **its own** spec — nothing is inherited from the caller except the force-computed spawn-depth counter. Every env var the caller's own spec declares is explicitly unset in the shell command that starts the child's bridge, since the forked container's OS-level env otherwise still carries whatever was baked in at snapshot time.
 - No install or setup steps run for the child — it inherits whatever is already installed on the caller's sandbox. If the child needs packages the caller doesn't have, add them to a setup step on the spec the **caller** was loaded from, not the child's.
-- See the [Pi extension](/docs/alineo/v0.1/commands#pi-extension) section on the commands index for how a Pi session gets `alineo fork` syntax injected into its own guidance automatically.
+- See the [Pi extension](/docs/alineo/0.1/commands#pi-extension) section on the commands index for how a Pi session gets `alineo fork` syntax injected into its own guidance automatically.

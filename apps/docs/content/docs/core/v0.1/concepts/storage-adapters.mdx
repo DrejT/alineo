@@ -3,7 +3,7 @@ title: Storage adapters
 description: How the IStorageAdapter interface persists every exec event for durability and replay.
 ---
 
-Every live exec, checkpoint, and sandbox lifecycle event is written to a storage adapter as it happens. This makes runs durable — if your process crashes, the ledger contains everything needed to know what ran and what was captured. (Replayed execs in a resumed sandbox return cached output instantly and do not write new events — see [Checkpoint & resume](/docs/core/v0.1/building/snapshots).)
+Every live exec, checkpoint, and sandbox lifecycle event is written to a storage adapter as it happens. This makes runs durable — if your process crashes, the ledger contains everything needed to know what ran and what was captured. (Replayed execs in a resumed sandbox return cached output instantly and do not write new events — see [Checkpoint & resume](/docs/core/0.1/building/snapshots).)
 
 ## Why persistence matters
 
@@ -50,7 +50,7 @@ const client = new Sandbox({
 
 ## Connect and close
 
-You never need to call `connect()` or `close()` on the _adapter_ — it initializes lazily (`CREATE TABLE IF NOT EXISTS` migrations run automatically on first use) and closes itself via a `process.on("beforeExit", ...)` hook, which only fires when the event loop drains naturally. Long-running servers never reach `beforeExit`, so the pool stays open for the process lifetime — that's expected, not a leak. (`Sandbox` itself does have its own `connect()` method, unrelated to the adapter — see [connect()](/docs/core/v0.1/api-reference/alineo-client#connect) — for attaching to an already-running sandbox by ID.) Just construct the client and start using it:
+You never need to call `connect()` or `close()` on the _adapter_ — it initializes lazily (`CREATE TABLE IF NOT EXISTS` migrations run automatically on first use) and closes itself via a `process.on("beforeExit", ...)` hook, which only fires when the event loop drains naturally. Long-running servers never reach `beforeExit`, so the pool stays open for the process lifetime — that's expected, not a leak. (`Sandbox` itself does have its own `connect()` method, unrelated to the adapter — see [connect()](/docs/core/0.1/api-reference/alineo-client#connect) — for attaching to an already-running sandbox by ID.) Just construct the client and start using it:
 
 ```ts
 const client = new Sandbox({ baseUrl: "...", adapter: new PostgresAdapter("...") });
@@ -71,4 +71,4 @@ const client = new Sandbox({ baseUrl: "...", adapter: new PostgresAdapter("...")
 
 ## Custom adapter
 
-Implement `IStorageAdapter` to use any backend. See [Custom adapter](/docs/core/v0.1/adapters/custom).
+Implement `IStorageAdapter` to use any backend. See [Custom adapter](/docs/core/0.1/adapters/custom).
