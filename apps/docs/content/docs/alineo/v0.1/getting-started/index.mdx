@@ -6,7 +6,7 @@ description: alineo starts a local OpenSandbox server, manages alineo spec files
 The `alineo` CLI is built on the [`alineo` SDK package](/docs/agent). It covers two layers:
 
 - **SDK config and spec management** — `init` starts a local OpenSandbox server; `add`/`list`/`remove` manage `AgentSpec` JSON files on disk. Neither of these touches a sandbox.
-- **Alineo session lifecycle** — `spawn`/`prompt`/`fork`/`agents`/`kill`/`logs` wrap `Alineo.load()`/`resume()`/`attach()`/`spawn()` directly, so you can start, talk to, and orchestrate agent sessions entirely from the shell — including recursive forking, where a running session forks its own live sandbox into child agents (see `alineo fork` in the [Commands reference](/docs/alineo/v0.1/commands)).
+- **Alineo session lifecycle** — `spawn`/`prompt`/`fork`/`agents`/`kill`/`logs` wrap `Alineo.load()`/`resume()`/`attach()`/`spawn()` directly, so you can start, talk to, and orchestrate agent sessions entirely from the shell — including recursive forking, where a running session forks its own live sandbox into child agents (see `alineo fork` in the [Commands reference](/docs/alineo/0.1/commands)).
 
 ```bash
 bunx alineo-cli init
@@ -20,7 +20,7 @@ The first command starts a local OpenSandbox server via Docker and writes `aline
 
 - You want a local OpenSandbox server running without manually configuring or running `uvx opensandbox-server`.
 - You want to fetch a shared agent spec (e.g. a pre-configured Pi coding-agent setup) from a URL instead of writing the JSON by hand.
-- You want to start, prompt, or orchestrate agent sessions directly from the shell or from inside a Pi session (see the [Pi extension](/docs/alineo/v0.1/commands#pi-extension)), without writing a TypeScript entry point.
+- You want to start, prompt, or orchestrate agent sessions directly from the shell or from inside a Pi session (see the [Pi extension](/docs/alineo/0.1/commands#pi-extension)), without writing a TypeScript entry point.
 
 ## How it relates to the `alineo` SDK package
 
@@ -40,12 +40,12 @@ const agent = await Alineo.load("./agents/my-agent.json", { adapter });
 
 <Cards>
   <Card
-    href="/docs/alineo/v0.1/getting-started/quickstart"
+    href="/docs/alineo/0.1/getting-started/quickstart"
     title="Quickstart"
     description="Install alineo, start OpenSandbox, and fetch your first agent spec."
   />
   <Card
-    href="/docs/alineo/v0.1/commands"
+    href="/docs/alineo/0.1/commands"
     title="Commands"
     description="Full reference for every alineo command."
   />

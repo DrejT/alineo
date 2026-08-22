@@ -31,7 +31,7 @@ const sb = await client.sandbox({
 | `metadata`  | `Record<string, string>`                        | Arbitrary key-value labels attached to the sandbox (e.g. `{ runId: "ci-42" }`)                                                                   |
 | `name`      | `string`                                        | User-provided name for the run — used as the ledger key. Auto-generated if omitted.                                                              |
 | `timeout`   | `number`                                        | Sandbox lifetime in seconds. Defaults to the OpenSandbox server's default.                                                                       |
-| `hooks`     | `SandboxHooks`                                  | Lifecycle callbacks for observability. See [Observability](/docs/core/v0.1/patterns/observability).                                              |
+| `hooks`     | `SandboxHooks`                                  | Lifecycle callbacks for observability. See [Observability](/docs/core/0.1/patterns/observability).                                               |
 
 ## Sandbox lifecycle
 
