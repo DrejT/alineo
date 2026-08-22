@@ -2,8 +2,6 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { notFound } from "next/navigation";
 import { coreVersions } from "@/lib/source";
 import { docsTabs } from "@/lib/nav-tabs";
-import { docVersions } from "@/lib/doc-versions";
-import { VersionSwitcher } from "@/components/version-switcher";
 
 export default async function CoreLayout({
   params,
@@ -23,19 +21,10 @@ export default async function CoreLayout({
       themeSwitch={{ enabled: false }}
       searchToggle={{ enabled: false }}
       tabs={docsTabs}
-      sidebar={{
-        // fumadocs-ui's Sidebar renders `banner` in two subtrees (desktop content +
-        // mobile drawer), reusing this same element instance in both — React warns
-        // ("each child in a list should have a unique key prop") without an explicit key.
-        banner: (
-          <VersionSwitcher
-            key="core-version-switcher"
-            product="core"
-            currentVersion={version}
-            data={docVersions.core}
-          />
-        ),
-      }}
+      // sidebar.banner (VersionSwitcher) hidden for now — only one version exists,
+      // so a dropdown with a single entry has nothing useful to switch between.
+      // Re-add via `sidebar={{ banner: <VersionSwitcher ... /> }}` once v0.2 ships;
+      // see core/[version]/layout.tsx's git history for the exact prior wiring.
     >
       {children}
     </DocsLayout>
