@@ -28,9 +28,15 @@ export function VersionSwitcher({
   function switchTo(version: string) {
     setOpen(false);
     if (version === currentVersion) return;
-    const prefix = `/docs/${product}/${currentVersion}`;
-    const rest = pathname.startsWith(prefix) ? pathname.slice(prefix.length) : "";
-    router.push(`/docs/${product}/${version}${rest}`);
+    // Derived from the URL's own segment structure (["", "docs", product, version,
+    // ...rest]), not by string-matching pathname against a prefix built from the
+    // currentVersion prop — that prefix-match silently falls through to "" (no rest,
+    // no error) whenever it's wrong for any reason (stale prop, hydration timing),
+    // which previously double-prefixed the target path onto the current one instead
+    // of replacing it (e.g. /docs/core/0.2/0.1 instead of /docs/core/0.1). Splitting
+    // the real pathname doesn't depend on currentVersion matching anything.
+    const rest = pathname.split("/").slice(4).join("/");
+    router.push(`/docs/${product}/${version}${rest ? `/${rest}` : ""}`);
   }
 
   return (
