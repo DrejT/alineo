@@ -44,7 +44,7 @@ Creates a container, waits until it reaches `Running` state, and returns a live 
 
 If `maxConcurrency` is set, awaits a slot before creating the container. The slot is released when `sb.close()` is called.
 
-See [Sandboxes](/docs/core/v0.1/concepts/sandboxes) for `SandboxOptions` reference.
+See [Sandboxes](/docs/core/0.1/concepts/sandboxes) for `SandboxOptions` reference.
 
 ```ts
 const sb = await client.sandbox({
@@ -99,7 +99,7 @@ await client.restoreSnapshot(
 
 Creates a fresh sandbox from a snapshot ID **without** exec replay — unlike `resume()`, the new sandbox starts with a clean exec history; nothing from the ledger is replayed. Use this when you want to restore a checkpointed environment and run new commands from scratch, rather than continue exactly where the checkpoint left off.
 
-This is also what `sb.fork()` uses under the hood — see [Forking sandboxes](/docs/core/v0.1/patterns/fork) for the relationship between `checkpoint()`, `fork()`, `resume()`, and `restoreSnapshot()`.
+This is also what `sb.fork()` uses under the hood — see [Forking sandboxes](/docs/core/0.1/patterns/fork) for the relationship between `checkpoint()`, `fork()`, `resume()`, and `restoreSnapshot()`.
 
 ```ts
 const snapshotId = await sb.checkpoint();

@@ -57,7 +57,7 @@ Requires a code-interpreter image (e.g. `opensandbox/code-interpreter`).
 | `sb.searchFiles(pattern, path?)` | Search for files matching a glob; returns an array of matches |
 | `sb.listDirectory(path, opts?)`  | List directory entries; `opts.depth` controls recursion depth |
 
-See [File operations](/docs/core/v0.1/building/file-ops) for full examples.
+See [File operations](/docs/core/0.1/building/file-ops) for full examples.
 
 ## Checkpoints
 
@@ -69,7 +69,7 @@ await sb.checkpoint("after-install");
 await sb.exec("npm test");
 ```
 
-Use `client.resume(sandboxId)` to restore from the last checkpoint. See [Snapshots & replay](/docs/core/v0.1/building/snapshots).
+Use `client.resume(sandboxId)` to restore from the last checkpoint. See [Snapshots & replay](/docs/core/0.1/building/snapshots).
 
 ## Control flow (workflow builder)
 
@@ -91,4 +91,4 @@ await workflow(client)
   .pipe(process.stdout);
 ```
 
-See [Control flow](/docs/core/v0.1/building/control-flow) for full docs.
+See [Control flow](/docs/core/0.1/building/control-flow) for full docs.

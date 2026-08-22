@@ -2,6 +2,8 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { notFound } from "next/navigation";
 import { alineoVersions } from "@/lib/source";
 import { docsTabs } from "@/lib/nav-tabs";
+import { docVersions } from "@/lib/doc-versions";
+import { VersionSwitcher } from "@/components/version-switcher";
 
 export default async function AlineoLayout({
   params,
@@ -21,7 +23,19 @@ export default async function AlineoLayout({
       themeSwitch={{ enabled: false }}
       searchToggle={{ enabled: false }}
       tabs={docsTabs}
-      // sidebar.banner (VersionSwitcher) hidden for now — see core's [version]/layout.tsx.
+      sidebar={{
+        // Hidden while only one version exists — see core's [version]/layout.tsx.
+        banner:
+          docVersions.alineo.versions.length > 1 ? (
+            // See core's [version]/layout.tsx for why this needs an explicit key.
+            <VersionSwitcher
+              key="alineo-version-switcher"
+              product="alineo"
+              currentVersion={version}
+              data={docVersions.alineo}
+            />
+          ) : undefined,
+      }}
     >
       {children}
     </DocsLayout>

@@ -7,27 +7,27 @@ description: All alineo commands and their options.
 
 <Cards>
   <Card
-    href="/docs/alineo/v0.1/commands/init"
+    href="/docs/alineo/0.1/commands/init"
     title="init"
     description="Start a local OpenSandbox server via Docker."
   />
   <Card
-    href="/docs/alineo/v0.1/commands/add"
+    href="/docs/alineo/0.1/commands/add"
     title="add"
     description="Fetch an agent spec from a URL or file and save it locally."
   />
   <Card
-    href="/docs/alineo/v0.1/commands/list"
+    href="/docs/alineo/0.1/commands/list"
     title="list"
     description="List the agent specs saved in this project."
   />
   <Card
-    href="/docs/alineo/v0.1/commands/remove"
+    href="/docs/alineo/0.1/commands/remove"
     title="remove"
     description="Delete a saved agent spec file."
   />
   <Card
-    href="/docs/alineo/v0.1/commands/telemetry"
+    href="/docs/alineo/0.1/commands/telemetry"
     title="telemetry"
     description="Show, enable, or disable anonymous CLI usage telemetry."
   />
@@ -35,32 +35,32 @@ description: All alineo commands and their options.
 
 ## Alineo — session lifecycle
 
-These wrap `alineo`'s `Alineo.load()`/`Alineo.resume()`/`Alineo.attach()`/`Alineo.spawn()` directly. Sessions are usually addressed by **sandbox ID** — `prompt` and `kill` require it (see [alineo prompt](/docs/alineo/v0.1/commands/prompt#why-sandbox-id-not-name) for why). `fork` and `logs` are addressed by session **name** instead — see their own pages for why. `spawn` starts a fresh session and takes a spec path, not an identifier.
+These wrap `alineo`'s `Alineo.load()`/`Alineo.resume()`/`Alineo.attach()`/`Alineo.spawn()` directly. Sessions are usually addressed by **sandbox ID** — `prompt` and `kill` require it (see [alineo prompt](/docs/alineo/0.1/commands/prompt#why-sandbox-id-not-name) for why). `fork` and `logs` are addressed by session **name** instead — see their own pages for why. `spawn` starts a fresh session and takes a spec path, not an identifier.
 
 <Cards>
   <Card
-    href="/docs/alineo/v0.1/commands/spawn"
+    href="/docs/alineo/0.1/commands/spawn"
     title="spawn"
     description="Start a fresh, independent agent sandbox from a spec's own snapshot."
   />
   <Card
-    href="/docs/alineo/v0.1/commands/prompt"
+    href="/docs/alineo/0.1/commands/prompt"
     title="prompt"
     description="Send one prompt to a running sandbox and print the reply."
   />
   <Card
-    href="/docs/alineo/v0.1/commands/fork"
+    href="/docs/alineo/0.1/commands/fork"
     title="fork"
     description="Fork a running session's own live sandbox into a new child agent."
   />
   <Card
-    href="/docs/alineo/v0.1/commands/agents"
+    href="/docs/alineo/0.1/commands/agents"
     title="agents"
     description="List running agent sessions, cross-checked against the live control plane."
   />
-  <Card href="/docs/alineo/v0.1/commands/kill" title="kill" description="Stop a sandbox by ID." />
+  <Card href="/docs/alineo/0.1/commands/kill" title="kill" description="Stop a sandbox by ID." />
   <Card
-    href="/docs/alineo/v0.1/commands/logs"
+    href="/docs/alineo/0.1/commands/logs"
     title="logs"
     description="Print ledger events for a session."
   />
@@ -81,7 +81,7 @@ A spec's `spawnDepth` is a nesting-depth budget — required for `alineo fork` t
 }
 ```
 
-See [alineo fork](/docs/alineo/v0.1/commands/fork) for the full mechanics.
+See [alineo fork](/docs/alineo/0.1/commands/fork) for the full mechanics.
 
 ## Pi extension
 
