@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Check, ChevronsUpDown, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "fumadocs-ui/components/ui/popover";
 import type { VersionedProduct, DocProductVersions } from "@/lib/doc-versions";
@@ -22,21 +22,27 @@ export function VersionSwitcher({
   data: DocProductVersions;
 }) {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
   const pathname = usePathname();
 
   function switchTo(version: string) {
     setOpen(false);
     if (version === currentVersion) return;
     // Derived from the URL's own segment structure (["", "docs", product, version,
-    // ...rest]), not by string-matching pathname against a prefix built from the
-    // currentVersion prop — that prefix-match silently falls through to "" (no rest,
-    // no error) whenever it's wrong for any reason (stale prop, hydration timing),
-    // which previously double-prefixed the target path onto the current one instead
-    // of replacing it (e.g. /docs/core/0.2/0.1 instead of /docs/core/0.1). Splitting
-    // the real pathname doesn't depend on currentVersion matching anything.
+    // ...rest]) rather than string-matching pathname against a prefix built from the
+    // currentVersion prop — robust regardless of whether that prop is stale.
     const rest = pathname.split("/").slice(4).join("/");
-    router.push(`/docs/${product}/${version}${rest ? `/${rest}` : ""}`);
+    const target = `/docs/${product}/${version}${rest ? `/${rest}` : ""}`;
+    // Hard navigation (not next/navigation's router.push), deliberately: each
+    // version is a fully independent loader()/pageTree (see
+    // plans/versioned-docs.md), not a sibling leaf under shared data. Reproduced
+    // live (Playwright + network trace) that Next's client-side RSC-flight fetch
+    // for a cross-version jump — two different values of the same [version]
+    // dynamic segment, output:"export" + dynamicParams:false — requests the
+    // *correct* target payload (".../0.1.txt"), gets a 404, then wrongly retries
+    // relative to the current path (".../0.2/0.1.txt"), lands on a real 404 page
+    // with the mangled URL in the address bar. A full page load bypasses that
+    // fetch entirely.
+    window.location.href = target;
   }
 
   return (
