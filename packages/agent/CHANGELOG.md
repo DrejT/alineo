@@ -1,5 +1,138 @@
 # @drej/agent
 
+## 0.2.0
+
+### Minor Changes
+
+- 31d59b0: **Breaking:** `Alineo.load()` no longer does its own file I/O — see
+  [#184](https://github.com/DrejT/alineo/issues/184).
+
+  `load()`'s first argument is now the spec object itself, not a file path. `specPath` was read
+  exactly once and never touched again — coupling the SDK to `Bun.file()` and the local filesystem
+  for something that has nothing to do with what `load()` actually does (spin up a sandbox, install
+  Pi, run setup, checkpoint). Anyone who already had the spec — fetched over HTTP, pulled from a
+  database, generated programmatically — previously had to write a temp file just to call it.
+
+  ```diff
+  -const agent = await Alineo.load("./agents/my-agent.json", { adapter });
+  +const spec = await Bun.file("./agents/my-agent.json").json();
+  +const agent = await Alineo.load(spec, { adapter });
+  ```
+
+  The spec is still validated internally regardless (via `validateAgentSpec()`) — a raw
+  `JSON.parse()`'d object works fine, you don't need to call `validateAgentSpec()` yourself first
+  unless you want validation errors to surface before any sandbox/network work starts.
+
+  `Alineo.resume()` keeps accepting a bare path (`opts.specPath`) since it has a genuine
+  filesystem-coupled fallback `load()` doesn't: when neither `opts.spec` nor `opts.specPath` is
+  set, it queries the ledger for the sandbox's name and reads `./agents/<name>.json`. It also gains
+  `opts.spec` for the same no-I/O path as `load()`:
+
+  ```ts
+  const agent = await Alineo.resume(savedSandboxId, { adapter, spec }); // no file read at all
+  ```
+
+  `Alineo.spawn()`/`alineo fork` are unaffected — out of scope for this change (they still take a
+  child spec path, per issue #184's own scope note).
+
+  Surveyed via DeepWiki against crewAI (Pydantic — separate file-path and object entry points),
+  Flue (Valibot — `parseFlueConfig(value: unknown)` decoupled from `loadFlueConfig(path)`), and
+  vercel/eve (Zod — `compileAgentConfig(..., { definition?: unknown })`) while researching this:
+  every comparable spec-loading system keeps the validator I/O-free and splits the path-based
+  convenience wrapper out separately, rather than unioning `path | object` into one signature. This
+  change follows the same shape.
+
+- 8bfd7c6: `validateAgentSpec()` is now backed by a real schema (Zod) instead of a handful of hand-rolled
+  `if`/`throw` checks — see [#185](https://github.com/DrejT/alineo/issues/185).
+
+  - **Every field is now validated**, not just `name`/`cli`/`spawnDepth`/`maxAgents` — `resources`,
+    `env`, `setup`, `packages`, and the rest were previously passed through with zero runtime
+    checking (`item as unknown as AgentSpec`). A malformed `resources.cpu` or a non-string `env`
+    value now fails fast at `validateAgentSpec()` instead of surfacing later, mid-`loadAgent()`,
+    as a much less legible error.
+  - **Every problem is reported in one throw, not just the first.** A spec with three unrelated
+    issues used to require three fix-and-retry rounds; it now reports all three at once.
+  - **New export: `AgentSpecValidationError`** (thrown in place of a bare `Error`) — carries a
+    pre-formatted, human-readable `.message` plus a structured `.issues: { path, message, code }[]`
+    array for callers that want to handle failures programmatically (e.g. highlight the offending
+    field in a UI) instead of parsing the message string.
+
+  Unknown top-level fields on a spec are still passed through untouched (not stripped, not
+  rejected) — same forward-compatible behavior as before, now explicit via `.loose()` rather than
+  an implicit side effect of the old type cast.
+
+  ```ts
+  import { Alineo, AgentSpecValidationError } from "alineo";
+
+  try {
+    const spec = await Bun.file("./agent.json").json();
+    const agent = await Alineo.load(spec, { adapter });
+  } catch (e) {
+    if (e instanceof AgentSpecValidationError) {
+      for (const issue of e.issues)
+        console.error(`${issue.path.join(".")}: ${issue.message}`);
+    }
+    throw e;
+  }
+  ```
+
+- d628de4: **Breaking:** this package is now published as `alineo` (was `@alineo-labs/agent`). The sandboxed
+  coding agent — `import { Agent } from "@alineo-labs/agent"` — moves to the top-level `alineo`
+  package name as `Alineo`, per the naming inversion tracked in
+  [#182](https://github.com/DrejT/alineo/issues/182): `alineo` is the package most people install
+  first, so it should hand them the sandboxed agent, not the lower-level sandbox client.
+
+  ```diff
+  -import { Agent } from "@alineo-labs/agent";
+  -const agent = await Agent.load("./agent.json", { adapter });
+  +import { Alineo } from "alineo";
+  +const spec = await Bun.file("./agent.json").json();
+  +const agent = await Alineo.load(spec, { adapter });
+  ```
+
+  `Agent.resume()`/`Agent.spawn()`/`Agent.attach()` become `Alineo.resume()`/`Alineo.spawn()`/
+  `Alineo.attach()` — same signatures, except `load()`/`resume()` also stop accepting a bare path
+  in this same release, see [#184](https://github.com/DrejT/alineo/issues/184)'s own changeset
+  entry. Every other exported type keeps its name (`AgentSpec`, `AgentEvent`, `AgentStream`,
+  `AgentSnapshotStore`, etc.) — only the class itself is renamed.
+
+  The package formerly published as `alineo` (the sandbox client) moves to `@alineo-labs/sandbox` —
+  see that package's own changeset entry. If you depended on both, both import specifiers change.
+
+### Patch Changes
+
+- 3ce92a3: Fix `Alineo`-based scripts hanging after `agent.close()` instead of exiting — see [#189](https://github.com/DrejT/alineo/issues/189).
+
+  `sseStream()` (backing `agent.prompt()`/`agent.bash()`) deliberately leaves its connection to the
+  Pi bridge open when `[DONE]` arrives mid-stream, same reasoning as `ExecClient.parseSSE`
+  (avoids upsetting the OpenSandbox proxy relaying it — see that method's own comment). Unlike
+  execd's exec/code streams, though, the bridge's `: ping` heartbeat means there's no bounded
+  server-side timeout to ever resolve one of these on its own — so with nothing disposing of it,
+  the dangling connection kept the process alive indefinitely, even after the sandbox itself was
+  already torn down.
+
+  `agent.close()` now force-closes any dangling prompt/bash stream via a new
+  `PiAdapter.disposeConnections()`, mirroring `ExecClient.disposeConnections()`'s existing pattern.
+  Uses `AbortController` rather than `reader.cancel()` — the latter was observed to leave the
+  underlying socket referenced (keeping Bun's event loop alive) on this bridge's specific
+  long-lived, heartbeat-pinged connections, even though it works fine for execd's own
+  bounded-lifetime streams.
+
+  This fully resolves the hang for a script making exactly one `prompt()`/`bash()` call before
+  closing. A script making two or more such calls before `close()` can still hang intermittently,
+  even though every connection's `abort()` fires correctly client-side — not deterministic (fast,
+  back-to-back calls reproduced it consistently in testing; a real, slower multi-call flow like
+  `cookbooks/ai-agent-bugfix`'s did not). The timing-dependence points to the same "race at close"
+  class of bug as [opensandbox-group/OpenSandbox#1277](https://github.com/opensandbox-group/OpenSandbox/issues/1277)
+  (execd's malformed chunked-SSE termination confusing the OpenSandbox control server's own proxy
+  relay, which every bridge connection is routed through under `useServerProxy: true`) — not
+  fixable from this package alone. Tracked in #189.
+
+- Updated dependencies [d628de4]
+- Updated dependencies [d628de4]
+  - @alineo-labs/core@0.2.0
+  - @alineo-labs/sandbox@0.2.0
+
 ## 0.1.1
 
 ### Patch Changes
