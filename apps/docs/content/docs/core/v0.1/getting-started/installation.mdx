@@ -1,27 +1,27 @@
 ---
 title: Installation
-description: Install @alineo-labs/sandbox and a storage adapter, then wire up the client.
+description: Install alineo and a storage adapter, then wire up the client.
 ---
 
 ## Install packages
 
 ```bash
-bun add @alineo-labs/sandbox @alineo-labs/sqlite
+bun add alineo @alineo-labs/sqlite
 ```
 
 For production, use the Postgres adapter instead:
 
 ```bash
-bun add @alineo-labs/sandbox @alineo-labs/postgres
+bun add alineo @alineo-labs/postgres
 ```
 
 ## Create the client
 
 ```ts
-import { Sandbox } from "@alineo-labs/sandbox";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Sandbox({
+const client = new Alineo({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://localhost:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),

@@ -1,0 +1,64 @@
+---
+title: alineo add
+description: Fetch an agent spec from a URL or local file and save it to your project's agents directory.
+---
+
+```bash
+bunx alineo-cli add <url> [options]
+```
+
+## Arguments
+
+| Argument | Description                                              |
+| -------- | -------------------------------------------------------- |
+| `url`    | URL or local file path to an `AgentSpec` JSON. Required. |
+
+## Options
+
+| Option          | Description                                                               |
+| --------------- | ------------------------------------------------------------------------- |
+| `--name <name>` | Override the saved file's name. Defaults to the `name` field in the spec. |
+
+There is no `--server` flag — `add` doesn't talk to a server at all, it only reads and writes local files.
+
+## What it does
+
+1. Reads `alineo.config.json` for `agentsDir` (defaults to `./agents`). If no project-local `alineo.config.json` exists, falls back to a global config at `~/.config/alineo/config.json`, auto-creating it with defaults if that's missing too — `alineo init` is not actually required first.
+2. Fetches the URL (or reads the local file) and validates it as an `AgentSpec`: `name` must be a string, `cli` must be `"pi"`. All other fields are unchecked.
+3. Resolves any `registryDependencies` first — each dependency URL is fetched and saved the same way, recursively, depth-first, before the top-level spec is saved. Dependencies are **not** deduplicated across separate `add` invocations, or within recursive resolution of the same tree — a dependency listed twice is fetched and saved twice.
+4. Writes the validated spec to `<agentsDir>/<name>.json`.
+
+`add` never creates a sandbox, runs `setup`, or contacts the OpenSandbox server directly — it's a local file operation. The sandbox work happens later, the first time you call `Alineo.load()` on the saved spec (see [Running an agent spec](/docs/alineo/0.2/using-sandboxes)).
+
+## Examples
+
+**From a URL:**
+
+```bash
+bunx alineo-cli add https://example.com/specs/node-toolchain.json
+```
+
+**From a local file:**
+
+```bash
+bunx alineo-cli add ./my-agent.json
+```
+
+**With a custom name:**
+
+```bash
+bunx alineo-cli add https://example.com/specs/node-toolchain.json --name ci-env
+```
+
+## Output
+
+```
+Agent spec saved: agents/node-toolchain.json
+Load it with: Alineo.load("agents/node-toolchain.json") from alineo
+```
+
+## Notes
+
+- `alineo add` does not require `alineo init` to have been run first — it falls back to a global config, auto-creating one with defaults if none exists yet.
+- If a spec's `registryDependencies` chain is large or has cycles, `add` will fetch and save every one of them without any cycle detection — be careful publishing self-referential or deeply nested dependency chains.
+- Re-running `add` on the same URL overwrites the previously saved spec file with the latest content from the URL.

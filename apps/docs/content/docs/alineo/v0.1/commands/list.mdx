@@ -27,6 +27,6 @@ A spec file that fails to parse as JSON is still listed, with `(unreadable)` in 
 
 ## Notes
 
-- `list` only reflects what's in `agentsDir` on disk — a spec appearing here does not mean it has ever been `Alineo.load()`ed or has a sandbox snapshot yet.
+- `list` only reflects what's in `agentsDir` on disk — a spec appearing here does not mean it has ever been `Agent.load()`ed or has a sandbox snapshot yet.
 - If `agentsDir` doesn't exist, `list` prints `No agents dir found at '<dir>'. Run 'alineo add <url>' to add an agent spec.` and exits cleanly.
 - If `agentsDir` exists but is empty, `list` prints `No agent specs found. Run 'alineo add <url>' to add one.` and exits cleanly.

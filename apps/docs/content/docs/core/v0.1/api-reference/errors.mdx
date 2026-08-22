@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: CommandError, SandboxError, ExecConnectionError, WorkflowError, and SandboxClientError — the full alineo error hierarchy.
+description: CommandError, SandboxError, ExecConnectionError, WorkflowError, and AlineoError — the full alineo error hierarchy.
 ---
 
 ```ts
@@ -9,8 +9,8 @@ import {
   SandboxError,
   ExecConnectionError,
   WorkflowError,
-  SandboxClientError,
-} from "@alineo-labs/sandbox";
+  AlineoError,
+} from "alineo";
 ```
 
 ## Error hierarchy
@@ -21,17 +21,17 @@ Error
 │   ├── SandboxError        — sandbox lifecycle failure: create/boot/Running, paused, unsupported fork(), or snapshot
 │   ├── ExecConnectionError — execd not ready after retry window
 │   └── CommandError        — non-zero exit code in strict mode
-└── SandboxClientError                — client-level errors from Sandbox itself (not a WorkflowError)
+└── AlineoError                — client-level errors from Alineo itself (not a WorkflowError)
 ```
 
-`SandboxError`, `ExecConnectionError`, and `CommandError` all extend `WorkflowError`, which extends `Error` — catch all three with `e instanceof WorkflowError`. `SandboxClientError` is a separate, sibling class thrown by `Sandbox` client methods (`sandbox()`, `resume()`, `sandboxes.*`, `environment()`) rather than by `Sandbox` methods — see [SandboxClientError](#alineoerror) below.
+`SandboxError`, `ExecConnectionError`, and `CommandError` all extend `WorkflowError`, which extends `Error` — catch all three with `e instanceof WorkflowError`. `AlineoError` is a separate, sibling class thrown by `Alineo` client methods (`sandbox()`, `resume()`, `sandboxes.*`, `environment()`) rather than by `Sandbox` methods — see [AlineoError](#alineoerror) below.
 
 ## WorkflowError
 
 Base class. Has `message` and `name` properties. `name` is always `"WorkflowError"`.
 
 ```ts
-import { WorkflowError } from "@alineo-labs/sandbox";
+import { WorkflowError } from "alineo";
 
 try {
   await sb.exec("cmd");
@@ -49,7 +49,7 @@ try {
 Thrown when `sb.exec()` exits with a non-zero code and `strict: true` (the default).
 
 ```ts
-import { CommandError } from "@alineo-labs/sandbox";
+import { CommandError } from "alineo";
 
 try {
   await sb.exec("exit 42");
@@ -82,12 +82,12 @@ const { exitCode } = await sb.exec("test -f /etc/hosts", { strict: false });
 
 ## SandboxError
 
-Thrown by methods on `SandboxHandle` itself: `resume()` if the container never reaches `Running` (or enters `Failed`/`Terminated`), an exec call while the sandbox is paused, `fork()` when the deps don't support it, or a failed snapshot wait.
+Thrown by methods on `Sandbox` itself: `resume()` if the container never reaches `Running` (or enters `Failed`/`Terminated`), an exec call while the sandbox is paused, `fork()` when the deps don't support it, or a failed snapshot wait.
 
-A failure during `client.sandbox()`'s own initial creation throws `SandboxClientError`, not `SandboxError` — see below.
+A failure during `client.sandbox()`'s own initial creation throws `AlineoError`, not `SandboxError` — see below.
 
 ```ts
-import { SandboxError } from "@alineo-labs/sandbox";
+import { SandboxError } from "alineo";
 
 try {
   await sb.resume(); // sandbox previously pause()d, now stuck
@@ -112,7 +112,7 @@ try {
 Thrown when the execd daemon inside the container never becomes ready within the retry window (~15 seconds). The container is `Running` from OpenSandbox's perspective, but the exec daemon isn't accepting connections.
 
 ```ts
-import { ExecConnectionError } from "@alineo-labs/sandbox";
+import { ExecConnectionError } from "alineo";
 
 try {
   await sb.exec("echo test");
@@ -134,21 +134,21 @@ try {
 
 This usually means the container image doesn't include execd, or the container started but the execd process crashed.
 
-## SandboxClientError
+## AlineoError
 
-Thrown by the `Sandbox` client for API-level errors (404 not found, timeouts waiting for Running state):
+Thrown by the `Alineo` client for API-level errors (404 not found, timeouts waiting for Running state):
 
 ```ts
-import { SandboxClientError } from "@alineo-labs/sandbox";
+import { AlineoError } from "alineo";
 
 try {
   await client.resume("nonexistent-id");
 } catch (e) {
-  if (e instanceof SandboxClientError) {
+  if (e instanceof AlineoError) {
     console.error(e.message); // "Session nonexistent-id not found"
     console.error(e.status); // 404
   }
 }
 ```
 
-`SandboxClientError` is not a `WorkflowError` — it's a separate class for client-level errors.
+`AlineoError` is not a `WorkflowError` — it's a separate class for client-level errors.

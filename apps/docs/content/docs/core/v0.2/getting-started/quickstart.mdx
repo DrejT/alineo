@@ -1,0 +1,116 @@
+---
+title: Quick start
+description: Run your first sandbox command in under five minutes.
+---
+
+<Steps>
+<Step>
+
+### Install
+
+```bash
+bun add @alineo-labs/sandbox @alineo-labs/sqlite
+```
+
+</Step>
+<Step>
+
+### Start a local sandbox server
+
+Run OpenSandbox locally with `uvx opensandbox-server`. See [Installation](/docs/core/0.2/getting-started/installation) for the full config.
+
+</Step>
+<Step>
+
+### Hello world
+
+```ts title="hello.ts"
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+
+const client = new Sandbox({
+  baseUrl: "http://localhost:8080",
+  adapter: new SQLiteAdapter("./ledger.db"),
+});
+
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "512Mi" },
+  name: "hello-world",
+});
+
+try {
+  await sb.exec('echo "hello world"').pipe(process.stdout);
+} finally {
+  await sb.close();
+}
+```
+
+```bash
+bun hello.ts
+# hello world
+```
+
+</Step>
+</Steps>
+
+## Capture output
+
+Await the `ExecHandle` directly to get `{ stdout, stderr, exitCode }`:
+
+```ts
+const sb = await client.sandbox({
+  image: "node:20-slim",
+  resources: { cpu: "500m", memory: "256Mi" },
+});
+try {
+  const { stdout: nodeVersion } = await sb.exec('node -e "process.stdout.write(process.version)"');
+  await sb.exec(`echo "Running on Node ${nodeVersion.trim()}"`).pipe(process.stdout);
+} finally {
+  await sb.close();
+}
+```
+
+## Write and read files
+
+```ts
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "256Mi" },
+});
+try {
+  await sb.writeFile("/tmp/hello.txt", "hello from alineo\n");
+  const content = await sb.readFile("/tmp/hello.txt");
+  console.log(content.trim()); // "hello from alineo"
+} finally {
+  await sb.close();
+}
+```
+
+## Orchestrate with the workflow builder
+
+For multi-step workflows with control flow, use `@alineo-labs/workflow`:
+
+```bash
+bun add @alineo-labs/workflow
+```
+
+```ts
+import { workflow } from "@alineo-labs/workflow";
+
+await workflow(client)
+  .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "512Mi" } }, (sb) => {
+    sb.exec("echo 'step 1'");
+    sb.retry(3, (sb) => sb.exec("npm test"), { backoff: "exponential" });
+  })
+  .pipe(process.stdout);
+```
+
+The workflow builder manages sandbox lifecycle automatically — no `try/finally` needed.
+
+## Next steps
+
+- [How it works](/docs/core/0.2/getting-started/how-it-works) — the full mental model
+- [exec & execCode](/docs/core/0.2/building/exec) — all exec options and streaming modes
+- [File operations](/docs/core/0.2/building/file-ops) — writeFile, readFile, and more
+- [Control flow](/docs/core/0.2/building/control-flow) — retry, when, forEach, parallel
