@@ -1,9 +1,9 @@
 ---
 title: AgentSpec schema
-description: Complete field reference for the AgentSpec JSON fetched by alineo add and run by alineo's Alineo.load().
+description: Complete field reference for the AgentSpec JSON fetched by alineo add and run by @alineo-labs/agent's Agent.load().
 ---
 
-An agent spec is a JSON object — the same `AgentSpec` type `alineo` exports. Only `name` and `cli` are required; `alineo add` and `Alineo.load()` both use the same [`validateAgentSpec()`](https://github.com/DrejT/alineo/blob/main/packages/agent/src/schema.ts) function.
+An agent spec is a JSON object — the same `AgentSpec` type `@alineo-labs/agent` exports. Only `name` and `cli` are required; `alineo add` and `Agent.load()` both use the same [`validateAgentSpec()`](https://github.com/DrejT/alineo/blob/main/packages/agent/src/schema.ts) function.
 
 ## Full example
 
@@ -56,13 +56,13 @@ There's no `image` field — every spec runs in a fixed `node:22` sandbox — an
 | `packages`             | `string[]`                                      | APT packages installed before the CLI starts. `nodejs`/`nodejs_22` are silently ignored (the base image already has Node).                                                                                                                                                                               |
 | `env`                  | `Record<string, string>`                        | Environment variables available inside the sandbox. Values may reference host env vars: `"${MY_API_KEY}"` → `process.env.MY_API_KEY` at load time.                                                                                                                                                       |
 | `resources`            | `{ cpu: string; memory: string; gpu?: string }` | Falls back to `defaults.resources` in `alineo.config.json` if omitted (`1000m` / `1Gi` by default).                                                                                                                                                                                                      |
-| `metadata`             | `Record<string, string>`                        | Not read anywhere in `alineo`; has no effect on the sandbox.                                                                                                                                                                                                                                             |
+| `metadata`             | `Record<string, string>`                        | Not read anywhere in `@alineo-labs/agent`; has no effect on the sandbox.                                                                                                                                                                                                                                 |
 | `registryDependencies` | `string[]`                                      | URLs of other agent specs. `alineo add` fetches and saves each one first, depth-first, before saving this spec. No cycle detection.                                                                                                                                                                      |
-| `setup`                | `SetupStep[]`                                   | Steps run inside the sandbox after CLI install, before the checkpoint. Each is `{ name, run, cwd? }` — `run` is a bash command, `cwd` optionally changes directory first. Any change here invalidates the setup-hash cache, forcing a fresh install+setup on the next `Alineo.load()`.                   |
+| `setup`                | `SetupStep[]`                                   | Steps run inside the sandbox after CLI install, before the checkpoint. Each is `{ name, run, cwd? }` — `run` is a bash command, `cwd` optionally changes directory first. Any change here invalidates the setup-hash cache, forcing a fresh install+setup on the next `Agent.load()`.                    |
 
 ## Validation
 
-Both `alineo add` and `Alineo.load()` call the same `validateAgentSpec()`. It checks four things:
+Both `alineo add` and `Agent.load()` call the same `validateAgentSpec()`. It checks four things:
 
 - `name` is present and is a string.
 - `cli` is exactly `"pi"`.

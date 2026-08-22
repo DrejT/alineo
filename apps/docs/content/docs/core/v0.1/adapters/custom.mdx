@@ -1,6 +1,6 @@
 ---
 title: Custom adapter
-description: Implement IStorageAdapter to use any storage backend with @alineo-labs/sandbox.
+description: Implement IStorageAdapter to use any storage backend with alineo.
 ---
 
 `IStorageAdapter` is the interface that both `SQLiteAdapter` and `PostgresAdapter` implement. You can implement it yourself to use any storage backend — Redis, DynamoDB, a REST API, etc.
@@ -188,10 +188,10 @@ export class MemoryAdapter implements IStorageAdapter {
 
 ## Using a custom adapter
 
-Pass it to `Sandbox` the same way as the built-in adapters:
+Pass it to `Alineo` the same way as the built-in adapters:
 
 ```ts
-const client = new Sandbox({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new MemoryAdapter(),
 });

@@ -3,7 +3,7 @@ title: File operations
 description: Write, read, move, delete, search, list, patch, and transfer files inside the sandbox container.
 ---
 
-`SandboxHandle` exposes file operation methods that cover reading, writing, patching, searching, and transferring files. All paths are inside the container.
+`Sandbox` exposes file operation methods that cover reading, writing, patching, searching, and transferring files. All paths are inside the container.
 
 ## writeFile
 
@@ -146,7 +146,7 @@ await sb.exec("python3 /tmp/script.py").pipe(process.stdout);
 
 ## File ops in the workflow builder
 
-`writeFile`, `readFile`, `deleteFile`, and `moveFile` are available in `SandboxBuilder` for use in `@alineo-labs/workflow` (`createDirectory`, `deleteDirectory`, `getFileInfo`, `replaceInFiles`, `searchFiles`, `listDirectory`, and `transfer` are not queueable — call them directly on a `SandboxHandle` outside the workflow builder). `readFile` takes an extra `as` argument to store the result in `vars`:
+`writeFile`, `readFile`, `deleteFile`, and `moveFile` are available in `SandboxBuilder` for use in `@alineo-labs/workflow` (`createDirectory`, `deleteDirectory`, `getFileInfo`, `replaceInFiles`, `searchFiles`, `listDirectory`, and `transfer` are not queueable — call them directly on a `Sandbox` outside the workflow builder). `readFile` takes an extra `as` argument to store the result in `vars`:
 
 ```ts
 await workflow(client)

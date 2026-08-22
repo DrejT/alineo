@@ -3,7 +3,7 @@ title: Environments
 description: Define a named setup recipe once, snapshot it, and spawn cheap isolated sandboxes from it on demand.
 ---
 
-An **environment** is a named sandbox configuration with a setup recipe. It's built once — installs packages, writes config, compiles assets — snapshots the result, and restores from that snapshot on every subsequent call. Setup never runs again unless you explicitly rebuild.
+An **environment** is a named sandbox configuration with a setup recipe. alineo builds it once — installs packages, writes config, compiles assets — snapshots the result, and restores from that snapshot on every subsequent call. Setup never runs again unless you explicitly rebuild.
 
 Each sandbox spawned from an environment is fully isolated. Changes in one do not affect others or the snapshot.
 
@@ -28,7 +28,7 @@ const env = client.environment("python-data-science", {
 | ----------- | ----------------------------------------------- | --------------------------------------------------------------------------------- |
 | `image`     | `string \| { uri, auth? }`                      | Container image. Same format as `SandboxOptions.image`.                           |
 | `resources` | `{ cpu: string; memory: string; gpu?: string }` | Applied to both the build sandbox and each spawned sandbox.                       |
-| `setup`     | `(sb: SandboxHandle) => Promise<void>`          | Runs once to configure the environment.                                           |
+| `setup`     | `(sb: Sandbox) => Promise<void>`                | Runs once to configure the environment.                                           |
 | `shell`     | `string`                                        | Shell binary for all `exec()` calls in this environment. Defaults to `"/bin/sh"`. |
 
 ## Spawning a sandbox
@@ -95,10 +95,10 @@ await client.environments.delete("python-data-science");
 ## Example
 
 ```ts
-import { Sandbox } from "@alineo-labs/sandbox";
+import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Sandbox({
+const client = new Alineo({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
