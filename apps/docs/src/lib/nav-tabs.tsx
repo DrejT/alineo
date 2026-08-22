@@ -1,4 +1,4 @@
-import { Package, Workflow, Bot, Terminal, FlaskConical, ChefHat } from "lucide-react";
+import { Package, Workflow, Bot, Terminal } from "lucide-react";
 import type { LayoutTab } from "fumadocs-ui/layouts/shared";
 import { coreLatestVersion, alineoLatestVersion } from "@/lib/source";
 
@@ -30,16 +30,5 @@ export const docsTabs: LayoutTab[] = [
     description: "alineo-cli",
     icon: <Terminal className="size-4" />,
   },
-  {
-    url: "/docs/examples",
-    title: "Examples",
-    description: "Runnable examples",
-    icon: <FlaskConical className="size-4" />,
-  },
-  {
-    url: "/docs/cookbooks",
-    title: "Cookbooks",
-    description: "Task-oriented recipes",
-    icon: <ChefHat className="size-4" />,
-  },
+  // Examples/Cookbooks tabs removed from the switcher for now — see PR description.
 ];
