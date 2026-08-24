@@ -12,7 +12,7 @@
     },
     "apps/docs": {
       "name": "docs",
-      "version": "0.1.4",
+      "version": "0.2.0",
       "dependencies": {
         "fumadocs-core": "^16.10.5",
         "fumadocs-mdx": "^15.0.12",
@@ -82,7 +82,7 @@
     },
     "cookbooks/ai-agent-bugfix": {
       "name": "alineo-cookbook-ai-agent-bugfix",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "dependencies": {
         "@alineo-labs/opensandbox": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
@@ -92,7 +92,7 @@
     },
     "cookbooks/ci-test-runner": {
       "name": "alineo-cookbook-ci-test-runner",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -100,7 +100,7 @@
     },
     "cookbooks/parallel-test-shards": {
       "name": "alineo-cookbook-parallel-test-shards",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -108,7 +108,7 @@
     },
     "cookbooks/resumable-etl-pipeline": {
       "name": "alineo-cookbook-resumable-etl-pipeline",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -116,7 +116,7 @@
     },
     "cookbooks/untrusted-code-execution": {
       "name": "alineo-cookbook-untrusted-code-execution",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -124,7 +124,7 @@
     },
     "examples/benchmark": {
       "name": "alineo-example-benchmark",
-      "version": "0.0.4",
+      "version": "0.0.6",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -132,7 +132,7 @@
     },
     "examples/cancellation": {
       "name": "alineo-example-cancellation",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -140,7 +140,7 @@
     },
     "examples/capture": {
       "name": "alineo-example-capture",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -148,7 +148,7 @@
     },
     "examples/control-flow": {
       "name": "alineo-example-control-flow",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -157,7 +157,7 @@
     },
     "examples/environments": {
       "name": "alineo-example-environments",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -165,7 +165,7 @@
     },
     "examples/error-handling": {
       "name": "alineo-example-error-handling",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -173,7 +173,7 @@
     },
     "examples/exec-code": {
       "name": "alineo-example-exec-code",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -181,7 +181,7 @@
     },
     "examples/file-ops": {
       "name": "alineo-example-file-ops",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -189,7 +189,7 @@
     },
     "examples/hello-world": {
       "name": "alineo-example-hello-world",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -197,7 +197,7 @@
     },
     "examples/interactive-exec": {
       "name": "alineo-example-interactive-exec",
-      "version": "0.0.8",
+      "version": "0.0.10",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -205,7 +205,7 @@
     },
     "examples/pi-agent": {
       "name": "alineo-example-pi-agent",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/opensandbox": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
@@ -215,7 +215,7 @@
     },
     "examples/ports": {
       "name": "alineo-example-ports",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -223,7 +223,7 @@
     },
     "examples/read-file": {
       "name": "alineo-example-read-file",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -231,7 +231,7 @@
     },
     "examples/rlm-repo-fanout": {
       "name": "alineo-example-rlm-repo-fanout",
-      "version": "0.0.7",
+      "version": "0.0.9",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -240,7 +240,7 @@
     },
     "examples/run-bash-script": {
       "name": "alineo-example-run-bash-script",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -248,7 +248,7 @@
     },
     "examples/sandbox-extensions": {
       "name": "alineo-example-sandbox-extensions",
-      "version": "0.0.12",
+      "version": "0.0.14",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -257,7 +257,7 @@
     },
     "examples/sandbox-fork": {
       "name": "alineo-example-sandbox-fork",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -265,7 +265,7 @@
     },
     "examples/snapshot-replay": {
       "name": "alineo-example-snapshot-replay",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -273,7 +273,7 @@
     },
     "packages/adapters/flue": {
       "name": "@alineo-labs/flue",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "devDependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@flue/runtime": "1.0.0-beta.9",
@@ -282,13 +282,13 @@
         "typescript": "6.0.3",
       },
       "peerDependencies": {
-        "@alineo-labs/sandbox": ">=0.1.0",
+        "@alineo-labs/sandbox": ">=0.2.0",
         "@flue/runtime": ">=1.0.0-beta",
       },
     },
     "packages/adapters/otel": {
       "name": "@alineo-labs/otel",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
       },
@@ -304,7 +304,7 @@
     },
     "packages/adapters/postgres": {
       "name": "@alineo-labs/postgres",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "postgres": "3.4.9",
@@ -317,7 +317,7 @@
     },
     "packages/adapters/sqlite": {
       "name": "@alineo-labs/sqlite",
-      "version": "0.1.1",
+      "version": "0.1.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
       },
@@ -329,7 +329,7 @@
     },
     "packages/agent": {
       "name": "alineo",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
@@ -343,7 +343,7 @@
     },
     "packages/agent-browser": {
       "name": "@alineo-labs/agent-browser",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
       },
@@ -356,7 +356,7 @@
     },
     "packages/cli": {
       "name": "alineo-cli",
-      "version": "0.1.1",
+      "version": "0.1.3",
       "bin": {
         "alineo": "./dist/index.mjs",
       },
@@ -376,7 +376,7 @@
     },
     "packages/core": {
       "name": "@alineo-labs/core",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@alineo-labs/opensandbox": "workspace:*",
       },
@@ -399,10 +399,10 @@
       "name": "@alineo-labs/model-providers",
       "version": "0.1.0",
       "dependencies": {
-        "@ai-sdk/google": "^3.0.104",
-        "@ai-sdk/groq": "^3.0.56",
-        "@ai-sdk/openai": "^3.0.85",
-        "ai": "^6.0.226",
+        "@ai-sdk/google": "^4.0.50",
+        "@ai-sdk/groq": "^4.0.30",
+        "@ai-sdk/openai": "^4.0.46",
+        "ai": "^7.0.77",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -421,7 +421,7 @@
     },
     "packages/sdks/typescript": {
       "name": "@alineo-labs/sandbox",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
@@ -435,7 +435,7 @@
     },
     "packages/workflow": {
       "name": "@alineo-labs/workflow",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
       },
@@ -448,7 +448,7 @@
     },
     "tests/integration": {
       "name": "@alineo-labs/integration-tests",
-      "version": "0.0.13",
+      "version": "0.0.15",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -466,17 +466,17 @@
     "unrs-resolver",
   ],
   "packages": {
-    "@ai-sdk/gateway": ["@ai-sdk/gateway@3.0.168", "", { "dependencies": { "@ai-sdk/provider": "3.0.15", "@ai-sdk/provider-utils": "4.0.44", "@vercel/oidc": "3.2.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-3uc/I4kSjPaeUa2aIl0lfPTxv8O4EkN6Tw1UtCnXLPYfqEbUgsetqUf6o4YAUqalzh6yFsNyWpVQtdoA5cVZAg=="],
+    "@ai-sdk/gateway": ["@ai-sdk/gateway@4.0.62", "", { "dependencies": { "@ai-sdk/provider": "4.0.7", "@ai-sdk/provider-utils": "5.0.29", "@vercel/oidc": "3.2.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-zR3pustGWhw5eUZHG+fJZx/V/PBe+LxdDpc5hDFWxozG/3MB/+eY62jn+YiR+9uOH+Hx63e5zJoeKLfZfPktWQ=="],
 
-    "@ai-sdk/google": ["@ai-sdk/google@3.0.106", "", { "dependencies": { "@ai-sdk/provider": "3.0.15", "@ai-sdk/provider-utils": "4.0.44" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-Qau+tQgYHigCY4qPY9OFhMvsTJrzXYpqyVzEUfrUAyhf7qTokMwxg+jr3H18t61z3HBLVV4v9aOj1PCQlsMX2w=="],
+    "@ai-sdk/google": ["@ai-sdk/google@4.0.50", "", { "dependencies": { "@ai-sdk/provider": "4.0.7", "@ai-sdk/provider-utils": "5.0.29" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-n7aMmqw6ZGVNBDAiv89fZkuZp3ahfzwZTXsdW27WugXdFSIuLTlYBZ+FlKGRdk1pRMPrdIGT2GPL2Ra0Gc2Tkg=="],
 
-    "@ai-sdk/groq": ["@ai-sdk/groq@3.0.58", "", { "dependencies": { "@ai-sdk/provider": "3.0.15", "@ai-sdk/provider-utils": "4.0.44" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-daZwjVIFPn2Yo56SZfUXxK/hR8+CgDInh6mBCyKqgCboy1H1D1Knn46uacd8QufztZB8TYuM7448HUwJbV8StA=="],
+    "@ai-sdk/groq": ["@ai-sdk/groq@4.0.30", "", { "dependencies": { "@ai-sdk/provider": "4.0.7", "@ai-sdk/provider-utils": "5.0.29" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-qReVQtws0YCKLRBVaBXX6uD1UUvRTiwYXkEH+h0LpO6BtOhH4Pid/ANclxXGqiHm5J/Cb1XgWg2tQtG2sbsBiw=="],
 
-    "@ai-sdk/openai": ["@ai-sdk/openai@3.0.93", "", { "dependencies": { "@ai-sdk/provider": "3.0.15", "@ai-sdk/provider-utils": "4.0.44" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-Y4T5nL5tuzQ0/VeqS2pnbbIzYQc006H9YavKoTEHmKmETPZ57H0VVS9QZLd1uczThfeUPr1Fuc4x+zHNMMlgHg=="],
+    "@ai-sdk/openai": ["@ai-sdk/openai@4.0.46", "", { "dependencies": { "@ai-sdk/provider": "4.0.7", "@ai-sdk/provider-utils": "5.0.29" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-J53QUkZGOV9YIYf9caVjejdPZfVZ3V2xD5KyTAmMWFiMDkC/IcifEQHJferpGFaQkfmSehPGVPCLE4g8+VdkTA=="],
 
-    "@ai-sdk/provider": ["@ai-sdk/provider@3.0.15", "", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-XeZW1CcDF2GMbH4wejW6xBRI2QCOgnkVYUnxoeDadB1mf85riL2bMUeDoh+6gJ/r4mjNfzUPW8OjLjvwTP0u1Q=="],
+    "@ai-sdk/provider": ["@ai-sdk/provider@4.0.7", "", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-6or44XprPzKbr8zkmzosowSE0pxkvJcoojBL+mCZvPUt3kvXp3XSNqeVun9golb1acEfSo6yaEBRT18h2VU+1Q=="],
 
-    "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.44", "", { "dependencies": { "@ai-sdk/provider": "3.0.15", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.8", "undici": "^5.29.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-f59ud5yuRih2R++3Nmh5qHryjQZ4UbhGo27PYfWw86lSWQeBrf8SlwWxiOT/k1fCVDkghHZuSfLlmERWS+1RRQ=="],
+    "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@5.0.29", "", { "dependencies": { "@ai-sdk/provider": "4.0.7", "@standard-schema/spec": "^1.1.0", "@workflow/serde": "4.1.0", "eventsource-parser": "^3.0.8", "undici": "^7.28.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-7EIbwXiXKGa7EFk6tDZpuZBs6lxhEJpOuHeqrDb3Vd85uYdjwkdRuHnZDVDIIb2+QTSRmyph2NrXcbvuO/KAjQ=="],
 
     "@alineo-labs/agent-browser": ["@alineo-labs/agent-browser@workspace:packages/agent-browser"],
 
@@ -793,8 +793,6 @@
     "@eslint/object-schema": ["@eslint/object-schema@3.0.5", "", {}, "sha512-vqTaUEgxzm+YDSdElad6PiRoX4t8VGDjCtt05zn4nU810UIx/uNEV7/lZJ6KwFThKZOzOxzXy48da+No7HZaMw=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.2", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A=="],
-
-    "@fastify/busboy": ["@fastify/busboy@2.1.1", "", {}, "sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.7.5", "", { "dependencies": { "@floating-ui/utils": "^0.2.11" } }, "sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ=="],
 
@@ -1428,6 +1426,8 @@
 
     "@vscode/l10n": ["@vscode/l10n@0.0.18", "", {}, "sha512-KYSIHVmslkaCDyw013pphY+d7x1qV8IZupYfeIfzNA+nsaWHbn5uPuQRvdRFsa9zFzGeudPuoGoZ1Op4jrJXIQ=="],
 
+    "@workflow/serde": ["@workflow/serde@4.1.0", "", {}, "sha512-pav4F2BoirECWR7Nf1TKt+2eETcBj7jj4cBefQ8VXQCA6NPkaKeLfj/zMgi+3zYV5ZIBT4GuUiphsj0/b9hPQQ=="],
+
     "@xterm/addon-fit": ["@xterm/addon-fit@0.10.0", "", { "peerDependencies": { "@xterm/xterm": "^5.0.0" } }, "sha512-UFYkDm4HUahf2lnEyHvio51TNGiLK66mqP2JoATy7hRZeXaGMRDr00JiSF7m63vR5WKATF605yEggJKsw0JpMQ=="],
 
     "@xterm/xterm": ["@xterm/xterm@5.5.0", "", {}, "sha512-hqJHYaQb5OptNunnyAnkHyM8aCjZ1MEIDTQu1iIbbTD/xops91NB5yq1ZK/dC2JDbVWtF23zUtl9JE2NqwT87A=="],
@@ -1440,7 +1440,7 @@
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
-    "ai": ["ai@6.0.248", "", { "dependencies": { "@ai-sdk/gateway": "3.0.168", "@ai-sdk/provider": "3.0.15", "@ai-sdk/provider-utils": "4.0.44", "@opentelemetry/api": "^1.9.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-2SttUbO8yIPuCrFC4Zj/WEdGxyoPUkFdX5gbAsB0CA8RJJw2ioDIiCNpwtSlohsFRgelhH5UxgIQ2wIesvoVGw=="],
+    "ai": ["ai@7.0.77", "", { "dependencies": { "@ai-sdk/gateway": "4.0.62", "@ai-sdk/provider": "4.0.7", "@ai-sdk/provider-utils": "5.0.29" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-muLtBSTAUCreR77L16w4AFBiX2gK/RNt84EKp8m03SN9+MfNlC5EGqYYttRjYKV3xe0a33yj1Zawj1EnjejIWw=="],
 
     "ajv": ["ajv@6.15.0", "", { "dependencies": { "fast-deep-equal": "^3.1.1", "fast-json-stable-stringify": "^2.0.0", "json-schema-traverse": "^0.4.1", "uri-js": "^4.2.2" } }, "sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw=="],
 
@@ -3048,7 +3048,7 @@
 
     "zwitch": ["zwitch@2.0.4", "", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
 
-    "@ai-sdk/provider-utils/undici": ["undici@5.29.0", "", { "dependencies": { "@fastify/busboy": "^2.0.0" } }, "sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg=="],
+    "@ai-sdk/provider-utils/undici": ["undici@7.29.0", "", {}, "sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw=="],
 
     "@alineo-labs/sandbox-app/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
