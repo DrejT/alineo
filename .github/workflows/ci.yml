@@ -23,33 +23,8 @@ jobs:
       - name: Build all packages
         run: bun run build
 
-      - name: Typecheck opensandbox
-        run: bunx tsc --noEmit --strict
-        working-directory: packages/opensandbox
-
-      - name: Typecheck core
-        run: bunx tsc --noEmit --strict
-        working-directory: packages/core
-
-      - name: Typecheck SDK
-        run: bunx tsc --noEmit --strict
-        working-directory: packages/sdks/typescript
-
-      - name: Typecheck workflow
-        run: bunx tsc --noEmit --strict
-        working-directory: packages/workflow
-
-      - name: Typecheck postgres adapter
-        run: bunx tsc --noEmit --strict
-        working-directory: packages/adapters/postgres
-
-      - name: Typecheck sqlite adapter
-        run: bunx tsc --noEmit --strict
-        working-directory: packages/adapters/sqlite
-
-      - name: Typecheck otel adapter
-        run: bunx tsc --noEmit --strict
-        working-directory: packages/adapters/otel
+      - name: Typecheck packages
+        run: bun run typecheck
 
       - name: Typecheck sandbox
         run: bun run typecheck
