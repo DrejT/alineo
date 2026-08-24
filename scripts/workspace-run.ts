@@ -75,6 +75,21 @@ async function run(cmd: string[]): Promise<number> {
   return proc.exited;
 }
 
+// typecheck resolves cross-package "workspace:*" imports against each package's built
+// `types` entry point (e.g. opensandbox's package.json points "types" at dist/index.d.mts),
+// not its source — so a package that hasn't been built yet is unresolvable to a dependent's
+// tsc run. Build every package first (in the same topological order) so typecheck is
+// self-sufficient and doesn't rely on a separate build step having already run.
+if (task === "typecheck") {
+  for (const pkg of sorted) {
+    const scripts = pkg.json.scripts as Record<string, string> | undefined;
+    if (!scripts?.build) continue;
+    console.log(`\n> build ${pkg.name}`);
+    const code = await run(["bun", "run", "--cwd", pkg.dir, "build"]);
+    if (code !== 0) process.exit(code);
+  }
+}
+
 for (const pkg of sorted) {
   if (task === "typecheck") {
     const tsconfig = join(pkg.dir, "tsconfig.json");
