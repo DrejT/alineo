@@ -1,15 +1,15 @@
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { agentSource } from "@/lib/source";
-import { PackageSwitcher } from "@/components/package-switcher";
+import { docsTabs } from "@/lib/nav-tabs";
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   return (
     <DocsLayout
       tree={agentSource.pageTree}
-      nav={{ title: "drej", url: "/" }}
+      nav={{ enabled: true, title: null }}
       themeSwitch={{ enabled: false }}
-      searchToggle={{ enabled: true }}
-      sidebar={{ banner: <PackageSwitcher key="package-switcher" /> }}
+      searchToggle={{ enabled: false }}
+      tabs={docsTabs}
     >
       {children}
     </DocsLayout>

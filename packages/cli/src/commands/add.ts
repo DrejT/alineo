@@ -11,7 +11,7 @@ export async function add(
   opts: { name?: string; log?: (message: string) => void } = {},
 ): Promise<void> {
   const log = opts.log ?? console.log;
-  if (!url) throw new Error("Usage: drejx add <url>");
+  if (!url) throw new Error("Usage: alineo add <url>");
 
   const config = await readConfig();
   const spec = await fetchSpec(url);
@@ -30,7 +30,7 @@ export async function add(
   await Bun.write(dest, JSON.stringify(spec, null, 2) + "\n");
 
   log(`Agent spec saved: ${dest}`);
-  log(`Load it with: Agent.load("${dest}") from @drej/agent`);
+  log(`Load it with: Alineo.load(await Bun.file("${dest}").json(), { adapter }) from alineo`);
 }
 
 async function fetchSpec(url: string): Promise<AgentSpec> {
@@ -48,7 +48,7 @@ export const addCommand: CliCommand = {
   name: "add",
   group: "sdk",
   variants: [
-    { usage: "drejx add <url> [--name <n>]", summary: "Fetch and save an agent spec locally" },
+    { usage: "alineo add <url> [--name <n>]", summary: "Fetch and save an agent spec locally" },
   ],
   run: async (argv) => {
     const url = argv.find((a) => !a.startsWith("--")) ?? "";

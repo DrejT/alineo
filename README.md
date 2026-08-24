@@ -1,16 +1,16 @@
-# drej
+# alineo
 
-[![CI](https://github.com/DrejT/drej/actions/workflows/ci.yml/badge.svg)](https://github.com/DrejT/drej/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/drej)](https://www.npmjs.com/package/drej)
+[![CI](https://github.com/DrejT/alineo/actions/workflows/ci.yml/badge.svg)](https://github.com/DrejT/alineo/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/alineo)](https://www.npmjs.com/package/alineo)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
 Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Sandbox({
   baseUrl: "http://127.0.0.1:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });
@@ -23,34 +23,54 @@ await sb.exec('echo "hello from a sandbox"').pipe(process.stdout);
 await sb.close();
 ```
 
-**[Full documentation →](https://docs.drej.dev)**
+**[Full documentation →](https://docs.alineo.tech)**
 
 ---
 
 ## Packages
 
-| Package                                        | Description                                                 |
-| ---------------------------------------------- | ----------------------------------------------------------- |
-| [`drej`](packages/sdks/typescript)             | Core SDK — `Drej` client, `Sandbox`, `ExecHandle`           |
-| [`@drej/workflow`](packages/workflow)          | Lazy pipeline builder — retry, branching, fan-out, parallel |
-| [`@drej/agent`](packages/agent)                | Run Pi coding agents in sandbox containers                  |
-| [`@drej/sqlite`](packages/adapters/sqlite)     | SQLite storage adapter (local dev, zero infra)              |
-| [`@drej/postgres`](packages/adapters/postgres) | Postgres storage adapter (production)                       |
-| [`@drej/otel`](packages/adapters/otel)         | OpenTelemetry hooks adapter                                 |
-| [`@drej/flue`](packages/adapters/flue)         | Flue runtime adapter — run Flue workflows against a drej `Sandbox` |
-| [`drejx`](packages/cli)                        | CLI — local OpenSandbox setup, spec management, agent session lifecycle |
+| Package                                                 | Description                                                 |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| [`@alineo-labs/sandbox`](packages/sdks/typescript)         | Sandbox client — `Sandbox`, `SandboxHandle`, `ExecHandle`    |
+| [`@alineo-labs/workflow`](packages/workflow)               | Lazy pipeline builder — retry, branching, fan-out, parallel |
+| [`alineo`](packages/agent)                                 | Run Pi coding agents in sandbox containers                  |
+| [`@alineo-labs/sqlite`](packages/adapters/sqlite)          | SQLite storage adapter (local dev, zero infra)              |
+| [`@alineo-labs/postgres`](packages/adapters/postgres)      | Postgres storage adapter (production)                       |
+| [`@alineo-labs/otel`](packages/adapters/otel)              | OpenTelemetry hooks adapter                                 |
+| [`@alineo-labs/flue`](packages/adapters/flue)              | Flue runtime adapter — run Flue workflows against a `SandboxHandle` |
+| [`alineo-cli`](packages/cli)                               | CLI — local OpenSandbox setup, spec management, agent session lifecycle |
 
 ---
 
 ## Local setup
 
-drej runs sandboxes against an [OpenSandbox](https://open-sandbox.ai) instance. The fastest way to get one locally:
+alineo runs sandboxes against an [OpenSandbox](https://open-sandbox.ai) instance. The fastest way to get one locally:
 
 ```bash
-bunx drejx init
+bunx alineo-cli init
 ```
 
-Or run the server directly with `uvx opensandbox-server` — see [`drejx`](packages/cli) for details.
+Or run the server directly with `uvx opensandbox-server` — see [`alineo-cli`](packages/cli) for details.
+
+---
+
+## Agent Skills
+
+Alineo ships a `SKILL.md` at `.agents/skills/alineo/` — a curated reference for the SDK, CLI, and
+storage adapters that AI coding agents can load directly. Install it with the
+[Skills CLI](https://skills.sh) (`npx skills`), the open package manager for agent skills:
+
+```bash
+npx skills add DrejT/alineo --skill alineo
+```
+
+---
+
+## Windows Support
+
+This repo features native cross-platform support and can be developed directly on Windows without requiring WSL or Git Bash.
+- **Native Scripts**: All repository scripts (e.g., `bun run setup`, `bun run build`) leverage Bun's native shell APIs.
+- **Docker Integration**: The local `alineo init` command dynamically detects Windows and uses Named Pipes (`//./pipe/docker_engine`) for Docker socket injection automatically.
 
 ---
 

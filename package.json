@@ -1,5 +1,5 @@
 {
-  "name": "drej",
+  "name": "alineo",
   "private": true,
   "workspaces": [
     "packages/core",
@@ -11,32 +11,33 @@
     "packages/adapters/otel",
     "packages/adapters/flue",
     "packages/agent",
+    "packages/agent-browser",
+    "packages/harness",
+    "packages/model-providers",
     "packages/cli",
     "examples/*",
+    "cookbooks/*",
     "tests/integration",
     "apps/docs",
-    "apps/www",
     "apps/registry",
-    "apps/sandbox"
+    "apps/sandbox",
+    "apps/telemetry"
   ],
   "scripts": {
-    "setup": "bash scripts/setup.sh",
+    "setup": "bun scripts/setup.ts",
     "build": "bun scripts/workspace-run.ts build",
     "typecheck": "bun scripts/workspace-run.ts typecheck",
     "test": "bun scripts/workspace-run.ts test",
     "test:integration": "bun run --cwd tests/integration test",
-    "lint": "oxlint packages examples",
-    "lint:fix": "oxlint --fix packages examples",
-    "format": "oxfmt packages examples apps '!**/CHANGELOG.md'",
-    "format:check": "oxfmt --check packages examples apps '!**/CHANGELOG.md'",
+    "lint": "oxlint packages examples cookbooks",
+    "lint:fix": "oxlint --fix packages examples cookbooks",
+    "format": "oxfmt packages examples cookbooks apps \"!**/CHANGELOG.md\"",
+    "format:check": "oxfmt --check packages examples cookbooks apps \"!**/CHANGELOG.md\"",
     "release:publish": "bun scripts/resolve-workspace-protocol.ts && bun changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.71.0"
-  },
-  "overrides": {
-    "vite": "7.3.6"
   }
 }

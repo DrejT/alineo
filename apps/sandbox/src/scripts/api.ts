@@ -14,8 +14,8 @@ export interface FileEntry {
   size: number;
 }
 
-import type { PiModel, PiSessionState, SessionStats } from "@drej/agent";
-export type { PiModel, PiSessionState, SessionStats, ThinkingLevel } from "@drej/agent";
+import type { PiModel, PiSessionState, SessionStats } from "alineo";
+export type { PiModel, PiSessionState, SessionStats, ThinkingLevel } from "alineo";
 
 export interface ForkPoint {
   entryId: string;
@@ -25,7 +25,7 @@ export interface ForkPoint {
 /**
  * Base URL for the API/WS backend. Empty string means same-origin (local dev,
  * where the Bun backend serves both the API and the built frontend). Set to
- * e.g. "https://sandbox-api.drej.dev" for the Cloudflare Pages deployment,
+ * e.g. "https://sandbox-api.alineo.tech" for the Cloudflare Pages deployment,
  * where the frontend and backend are on different origins.
  */
 const API_BASE = import.meta.env.PUBLIC_API_BASE_URL ?? "";

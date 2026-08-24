@@ -1,4 +1,4 @@
-# Contributing to drej
+# Contributing to alineo
 
 ## Prerequisites
 
@@ -9,8 +9,8 @@
 ## Local setup
 
 ```bash
-git clone https://github.com/DrejT/drej.git
-cd drej
+git clone https://github.com/DrejT/alineo.git
+cd alineo
 bun run setup
 ```
 
@@ -70,12 +70,12 @@ Choose `minor` for new features, `patch` for bug fixes. The changeset must be co
 | Package | Description |
 |---|---|
 | `packages/core` | `Sandbox` class, ledger types, storage adapter interface |
-| `packages/sdks/typescript` | Public `drej` npm package — `Drej` client |
+| `packages/sdks/typescript` | Public `alineo` npm package — `Alineo` client |
 | `packages/opensandbox` | OpenSandbox HTTP clients (control + exec) |
-| `packages/workflow` | `@drej/workflow` — lazy workflow builder |
-| `packages/adapters/sqlite` | `@drej/sqlite` — SQLite storage adapter |
-| `packages/adapters/postgres` | `@drej/postgres` — Postgres storage adapter |
-| `packages/adapters/otel` | `@drej/otel` — OpenTelemetry hooks adapter |
+| `packages/workflow` | `@alineo-labs/workflow` — lazy workflow builder |
+| `packages/adapters/sqlite` | `@alineo-labs/sqlite` — SQLite storage adapter |
+| `packages/adapters/postgres` | `@alineo-labs/postgres` — Postgres storage adapter |
+| `packages/adapters/otel` | `@alineo-labs/otel` — OpenTelemetry hooks adapter |
 | `examples/*` | Runnable examples (also serve as integration tests) |
 
 ## Commit style

@@ -1,0 +1,71 @@
+---
+title: alineo init
+description: Start a local OpenSandbox server in Docker and configure the current project.
+---
+
+```bash
+bunx alineo-cli init
+```
+
+## What it does
+
+1. Checks that Docker is running.
+2. If an OpenSandbox container named `alineo-opensandbox` is already running, exits immediately — nothing changes.
+3. If the container exists but is stopped, restarts it.
+4. Otherwise, pulls `opensandbox/server:latest` and starts it, mounting the Docker socket so the server can manage sandbox containers.
+5. Waits up to 60 seconds for the server to report healthy.
+6. Writes `alineo.config.json` in the current directory (project root) if it doesn't already exist.
+
+## Output files
+
+### `alineo.config.json`
+
+Written once, in the project root (not under `.alineo/`). Contains the connection details and defaults used by both the `alineo` CLI and the `alineo` SDK package.
+
+```json
+{
+  "serverUrl": "http://127.0.0.1:8080",
+  "useServerProxy": true,
+  "apiKey": "",
+  "adapterPath": "./.alineo/ledger.db",
+  "agentsDir": "./agents",
+  "defaults": {
+    "resources": { "cpu": "1000m", "memory": "1Gi" }
+  }
+}
+```
+
+| Field                | Description                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `serverUrl`          | The OpenSandbox server URL.                                                                                 |
+| `useServerProxy`     | Always `true` when started via `alineo init`. The `alineo` SDK package reads this for its `Sandbox` client. |
+| `apiKey`             | Empty for local dev. Set this if your server requires authentication.                                       |
+| `adapterPath`        | Path to the SQLite ledger database for this project.                                                        |
+| `agentsDir`          | Directory `alineo add`/`list`/`remove` read and write agent spec files in.                                  |
+| `defaults.resources` | CPU/memory used for an agent's sandbox when its spec omits `resources`.                                     |
+
+## Idempotency
+
+`alineo init` is safe to run multiple times. If the server is already running it prints the URL and exits. If `alineo.config.json` already exists it is not overwritten.
+
+## Docker requirements
+
+- Docker Engine must be running before calling `alineo init`.
+- Port `8080` must be free.
+- The Docker socket `/var/run/docker.sock` must be accessible (standard on Linux and macOS with Docker Desktop).
+
+## Stopping the server
+
+`alineo init` starts the server but does not provide a stop command. To stop it:
+
+```bash
+docker stop alineo-opensandbox
+```
+
+To remove the container entirely:
+
+```bash
+docker rm alineo-opensandbox
+```
+
+The next `alineo init` will start a fresh container.

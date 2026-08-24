@@ -1,12 +1,12 @@
 /**
- * Demonstrates the Sandbox file operations API:
+ * Demonstrates the SandboxHandle file operations API:
  * writeFile, readFile, moveFile, deleteFile, searchFiles, listDirectory,
  * createDirectory, deleteDirectory, getFileInfo, replaceInFiles, transfer
  */
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -19,7 +19,7 @@ const sb = await client.sandbox({
   name: "file-ops-demo",
 });
 
-console.log(`Sandbox ID: ${sb.sandboxId}\n`);
+console.log(`SandboxHandle ID: ${sb.sandboxId}\n`);
 
 try {
   // Create directories directly (no exec needed)

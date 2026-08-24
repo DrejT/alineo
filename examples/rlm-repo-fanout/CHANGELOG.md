@@ -1,5 +1,58 @@
 # drej-example-rlm-repo-fanout
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [3ce92a3]
+- Updated dependencies [31d59b0]
+- Updated dependencies [8bfd7c6]
+- Updated dependencies [d628de4]
+- Updated dependencies [d628de4]
+  - alineo@0.2.0
+  - @alineo-labs/sandbox@0.2.0
+  - @alineo-labs/sqlite@0.1.3
+
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [0163e7c]
+  - @alineo-labs/sqlite@0.1.2
+
+## 0.0.7
+
+### Patch Changes
+
+- 47ffd2d: Fix the evidence-verification step crashing with `PiAdapter: bridge not started`. It called
+  `child.bash(...)` on an `Agent.attach()`-returned agent — but `attach()` deliberately never
+  starts the Pi bridge (see its own doc comment), so `.bash()`/`.prompt()` were never available
+  on it. Switched to sourcing `/etc/alineo-env` over the plain `sandbox.exec()` API (already used
+  successfully one line above, for the repo-HEAD check), which inspects the exact same
+  environment the bridge would have started Pi with, without needing it running.
+
+  Verified via a real end-to-end run: the verification step for a spawned child now runs to
+  completion instead of crashing the whole script.
+
+- Updated dependencies [0240c0f]
+- Updated dependencies [3649a55]
+  - @alineo-labs/agent@0.1.1
+  - @alineo-labs/sqlite@0.1.1
+
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [e1f6621]
+- Updated dependencies [bd95393]
+- Updated dependencies [735ecf7]
+- Updated dependencies [2a61e0c]
+- Updated dependencies [637b678]
+- Updated dependencies [acc51e3]
+  - @alineo-labs/agent@1.0.0
+  - @alineo-labs/sqlite@1.0.0
+  - alineo@1.0.0
+
 ## 0.0.5
 
 ### Patch Changes

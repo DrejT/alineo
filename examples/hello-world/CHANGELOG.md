@@ -1,5 +1,38 @@
 # drej-example-hello-world
 
+## 0.0.15
+
+### Patch Changes
+
+- Updated dependencies [d628de4]
+  - @alineo-labs/sandbox@0.2.0
+  - @alineo-labs/sqlite@0.1.3
+
+## 0.0.14
+
+### Patch Changes
+
+- Updated dependencies [0163e7c]
+  - @alineo-labs/sqlite@0.1.2
+
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [3649a55]
+  - @alineo-labs/sqlite@0.1.1
+
+## 0.0.12
+
+### Patch Changes
+
+- Updated dependencies [bd95393]
+- Updated dependencies [2a61e0c]
+- Updated dependencies [637b678]
+- Updated dependencies [acc51e3]
+  - @alineo-labs/sqlite@1.0.0
+  - alineo@1.0.0
+
 ## 0.0.11
 
 ### Patch Changes

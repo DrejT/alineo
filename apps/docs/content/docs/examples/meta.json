@@ -1,0 +1,19 @@
+{
+  "title": "Examples",
+  "pages": [
+    "hello-world",
+    "exec-code",
+    "file-ops",
+    "read-file",
+    "capture",
+    "run-bash-script",
+    "interactive-exec",
+    "ports",
+    "control-flow",
+    "cancellation",
+    "error-handling",
+    "environments",
+    "snapshot-replay",
+    "sandbox-fork"
+  ]
+}

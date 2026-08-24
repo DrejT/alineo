@@ -1,10 +1,10 @@
-import { Drej } from "drej";
-import { workflow } from "@drej/workflow";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { workflow } from "@alineo-labs/workflow";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
 test("retry, when, and forEach all execute correctly", async () => {
-  const client = new Drej({
+  const client = new Sandbox({
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),

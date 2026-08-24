@@ -1,9 +1,9 @@
 import type { Server, ServerWebSocket } from "bun";
-import type { Sandbox } from "drej";
+import type { SandboxHandle } from "@alineo-labs/sandbox";
 import * as registry from "../registry";
 import type { WSData } from "./types";
 
-function resolveSandbox(data: Extract<WSData, { kind: "terminal" }>): Sandbox | undefined {
+function resolveSandbox(data: Extract<WSData, { kind: "terminal" }>): SandboxHandle | undefined {
   if (data.source === "sandbox") return registry.sandboxes.get(data.id);
   return registry.agents.get(data.id)?.sandbox;
 }

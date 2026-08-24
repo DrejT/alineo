@@ -1,11 +1,11 @@
 # hello-world
 
-The simplest drej example: spin up an Ubuntu sandbox, run `echo "hello world"`, and stream the output.
+The simplest alineo example: spin up an Ubuntu sandbox, run `echo "hello world"`, and stream the output.
 
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

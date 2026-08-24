@@ -5,10 +5,10 @@ var http = require("http");
 var fs = require("fs");
 
 var PORT = 3001;
-var ENV_FILE = "/etc/drej-env";
-var PI_CONFIG_FILE = "/etc/drej-pi.json";
+var ENV_FILE = "/etc/alineo-env";
+var PI_CONFIG_FILE = "/etc/alineo-pi.json";
 
-// Re-read /etc/drej-env into process.env on each Pi (re)start so setEnv() changes take effect.
+// Re-read /etc/alineo-env into process.env on each Pi (re)start so setEnv() changes take effect.
 function loadEnv() {
   if (!fs.existsSync(ENV_FILE)) return;
   var lines = fs.readFileSync(ENV_FILE, "utf8").split("\n");
@@ -18,7 +18,7 @@ function loadEnv() {
   }
 }
 
-// Build the pi CLI args from /etc/drej-pi.json (model/provider config, written by the host).
+// Build the pi CLI args from /etc/alineo-pi.json (model/provider config, written by the host).
 // Supports: provider, model, resume (--continue to resume the most recent session).
 function buildPiArgs() {
   var args = ["--mode", "rpc", "--approve"];
@@ -762,5 +762,5 @@ http
     });
   })
   .listen(PORT, "0.0.0.0", function () {
-    process.stderr.write("drej-bridge :" + PORT + "\n");
+    process.stderr.write("alineo-bridge :" + PORT + "\n");
   });

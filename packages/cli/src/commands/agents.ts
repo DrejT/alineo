@@ -25,11 +25,11 @@ export async function agents(opts: { json?: boolean } = {}): Promise<void> {
     );
   }
   if (tracked.length === 0) {
-    console.log("(no running drej-tracked sessions — run 'drejx spawn <spec>' to start one)");
+    console.log("(no running alineo-tracked sessions — run 'alineo spawn <spec>' to start one)");
   }
 
   if (untracked.length > 0) {
-    console.log(`\nUntracked (not created by drejx, e.g. agent-spawned children):`);
+    console.log(`\nUntracked (not created by alineo, e.g. agent-spawned children):`);
     for (const id of untracked) console.log(`  ${id}`);
   }
 }
@@ -37,7 +37,7 @@ export async function agents(opts: { json?: boolean } = {}): Promise<void> {
 export const agentsCommand: CliCommand = {
   name: "agents",
   group: "agent",
-  variants: [{ usage: "drejx agents [--json]", summary: "List running agent sessions" }],
+  variants: [{ usage: "alineo agents [--json]", summary: "List running agent sessions" }],
   run: async (argv) => {
     await agents({ json: argv.includes("--json") });
   },

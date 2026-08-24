@@ -1,9 +1,9 @@
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "hello-agent",
   "title": "Hello Agent",
-  "description": "A minimal Pi agent on node:22. Demonstrates the @drej/agent API.",
-  "author": "drej",
+  "description": "A minimal Pi agent on node:22. Demonstrates the alineo API.",
+  "author": "alineo",
   "categories": ["agent", "starter"],
   "cli": "pi",
   "model": "gemini-flash-latest",

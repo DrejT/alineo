@@ -3,7 +3,7 @@ title: Reliability & error recovery
 description: Handle transient API errors with auto-retry, observe retry events, and abort mid-flight bash commands.
 ---
 
-Pi has built-in transient-error recovery that fires automatically when the AI provider returns a 429 (rate limit) or 5xx (server error). The `@drej/agent` bridge surfaces this as observable events so you can build responsive UIs without writing retry logic yourself.
+Pi has built-in transient-error recovery that fires automatically when the AI provider returns a 429 (rate limit) or 5xx (server error). The `alineo` bridge surfaces this as observable events so you can build responsive UIs without writing retry logic yourself.
 
 ## Auto-retry
 

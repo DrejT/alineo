@@ -3,7 +3,7 @@ title: Workspace setup
 description: Declarative bash steps that run after Pi install and are baked into the snapshot.
 ---
 
-The `setup` field in an agent spec lets you declare a list of named bash commands that run inside the sandbox after the Pi CLI is installed, before the snapshot is taken. Because the steps are baked into the snapshot, they only run once — subsequent `Agent.load()` calls restore the prepared workspace in seconds.
+The `setup` field in an agent spec lets you declare a list of named bash commands that run inside the sandbox after the Pi CLI is installed, before the snapshot is taken. Because the steps are baked into the snapshot, they only run once — subsequent `Alineo.load()` calls restore the prepared workspace in seconds.
 
 ## Defining setup steps
 
@@ -52,7 +52,7 @@ On subsequent loads, none of these lines appear — the workspace is already in 
 
 ## Cache invalidation
 
-Any change to a step's `name`, `run`, or `cwd` is included in the [setup hash](/docs/agent/getting-started/snapshotting) and automatically invalidates the snapshot. The next `Agent.load()` will run all steps again from scratch and create a new checkpoint.
+Any change to a step's `name`, `run`, or `cwd` is included in the [setup hash](/docs/agent/getting-started/snapshotting) and automatically invalidates the snapshot. The next `Alineo.load()` will run all steps again from scratch and create a new checkpoint.
 
 ## Self-contained steps
 

@@ -1,0 +1,12 @@
+{
+  "name": "alineo-cookbook-parallel-test-shards",
+  "version": "0.0.3",
+  "private": true,
+  "scripts": {
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "@alineo-labs/sandbox": "workspace:*",
+    "@alineo-labs/sqlite": "workspace:*"
+  }
+}

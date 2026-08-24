@@ -5,7 +5,7 @@ Demonstrates sandbox environments: build a reusable sandbox image once, then res
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "apps/docs/**"
+      - "packages/sdks/typescript/CHANGELOG.md"
+      - "packages/cli/CHANGELOG.md"
 
 jobs:
   deploy:
@@ -33,6 +35,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: drej-docs
+          projectName: alineo-docs
           directory: apps/docs/out
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

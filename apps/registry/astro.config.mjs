@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   output: "static",
-  site: "https://registry.drej.dev",
+  site: "https://registry.alineo.tech",
   integrations: [sitemap()],
   vite: {
     plugins: [tailwindcss()],

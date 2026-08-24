@@ -1,0 +1,43 @@
+---
+title: alineo prompt
+description: Send one prompt to a running agent sandbox and print the reply.
+---
+
+```bash
+bunx alineo-cli prompt <sandbox-id> <message> [--spec <path>] [--json]
+```
+
+## Arguments
+
+| Argument     | Description                                                       |
+| ------------ | ----------------------------------------------------------------- |
+| `sandbox-id` | The sandbox ID printed by `alineo spawn`/`alineo fork`. Required. |
+| `message`    | The prompt text to send. Required.                                |
+
+## Flags
+
+| Flag            | Description                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--spec <path>` | Skip the ledger lookup for the spec file — see [Why sandbox ID, not name](#why-sandbox-id-not-name) below. |
+| `--json`        | Print `{ name, sandboxId, reply }` as JSON instead of the raw reply text.                                  |
+
+## What it does
+
+Calls [`Agent.resume(sandboxId, { adapter, specPath })`](/docs/agent/api-reference/agent#agentresume), sends `message`, and prints the full reply once Pi finishes responding. `Agent.resume()` restarts the sandbox's bridge process — Pi and the workspace are untouched, but any interactive stream a _different_ process had open against that sandbox will be interrupted.
+
+## Example
+
+```bash
+bunx alineo-cli prompt 4af65c3b-24a2-4fd1-999d-918faa9b97fd "What's in /tmp?"
+```
+
+## Why sandbox ID, not name
+
+Every other `alineo` command that looks up a session takes a sandbox ID, not a name. Names aren't unique — running `alineo spawn` twice on the same spec produces two sandboxes with the same name — and a name-based ledger lookup can hand back a sandbox that already died ungracefully (crashed before its `close()` ran, expired via OpenSandbox's own TTL) since nothing tells the ledger it stopped. `Agent.resume()`'s own `connect()` call is the actual authoritative liveness check; addressing by sandbox ID means that's the _only_ check, not a second opinion layered on an already-stale one.
+
+`--spec <path>` skips `Agent.resume()`'s own ledger lookup for the spec file entirely — needed when the sandbox's own `sandbox_created` event lives in a different ledger than this CLI invocation's own. This happens when prompting a child sandbox created via `alineo fork` from inside another sandbox: the child's creation event is recorded in _that sandbox's own_ internal ledger, not the one this CLI invocation reads from.
+
+## Notes
+
+- `prompt` waits for the entire reply before printing anything — there's no streaming/incremental output on the CLI. For streaming, use `@alineo-labs/agent`'s `agent.prompt()` directly.
+- If the sandbox no longer exists (closed, expired, or never existed), `Agent.resume()`'s `connect()` call fails and the command errors out rather than hanging.

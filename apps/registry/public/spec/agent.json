@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://registry.drej.dev/spec/agent.json",
+  "$id": "https://registry.alineo.tech/spec/agent.json",
   "title": "AgentSpec",
-  "description": "JSON spec for a drej agent, fetched by `drejx add` and run by `@drej/agent`'s Agent.load(). See https://docs.drej.dev/docs/drejx/registry/schema for the full field reference.",
+  "description": "JSON spec for an alineo agent, fetched by `alineo add` and run by `alineo`'s Alineo.load(). See https://docs.alineo.tech/docs/alineo/registry/schema for the full field reference.",
   "type": "object",
   "required": ["name", "cli"],
   "properties": {
@@ -21,7 +21,7 @@
     },
     "description": {
       "type": "string",
-      "description": "Shown by `drejx list`, falling back from `title` if unset."
+      "description": "Shown by `alineo list`, falling back from `title` if unset."
     },
     "author": {
       "type": "string",
@@ -67,17 +67,17 @@
       },
       "required": ["cpu", "memory"],
       "additionalProperties": false,
-      "description": "Falls back to defaults.resources in drej.config.json if omitted."
+      "description": "Falls back to defaults.resources in alineo.config.json if omitted."
     },
     "metadata": {
       "type": "object",
       "additionalProperties": { "type": "string" },
-      "description": "Not read anywhere in @drej/agent; has no effect on the sandbox."
+      "description": "Not read anywhere in alineo; has no effect on the sandbox."
     },
     "registryDependencies": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "URLs of other agent specs. drejx add fetches and saves each one first, depth-first. No cycle detection."
+      "description": "URLs of other agent specs. alineo add fetches and saves each one first, depth-first. No cycle detection."
     },
     "setup": {
       "type": "array",

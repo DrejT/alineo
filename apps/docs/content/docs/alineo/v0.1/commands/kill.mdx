@@ -1,0 +1,33 @@
+---
+title: alineo kill
+description: Stop a sandbox by ID.
+---
+
+```bash
+bunx alineo-cli kill <sandbox-id>
+```
+
+## Arguments
+
+| Argument     | Description                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------- |
+| `sandbox-id` | The sandbox ID, as shown by `alineo agents` or printed by `alineo spawn`/`alineo fork`. Required. |
+
+## What it does
+
+Connects to the sandbox via a live control-plane check (the same authoritative liveness check `alineo prompt` uses — see [Why sandbox ID, not name](/docs/alineo/0.1/commands/prompt#why-sandbox-id-not-name)) and closes it, deleting the container and releasing its resources.
+
+## Example
+
+```bash
+bunx alineo-cli kill 4af65c3b-24a2-4fd1-999d-918faa9b97fd
+```
+
+```
+Killed sandbox 4af65c3b-24a2-4fd1-999d-918faa9b97fd
+```
+
+## Notes
+
+- `kill` only stops the sandbox it's given — it does not recursively stop any children that sandbox may have forked via `alineo fork`. Kill each one individually, or check `alineo agents` for the full list including untracked (agent-spawned) sandboxes.
+- If the sandbox is already stopped or never existed, the underlying live check fails and `kill` errors out rather than silently succeeding.

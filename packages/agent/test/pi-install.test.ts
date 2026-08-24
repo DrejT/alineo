@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import type { Sandbox } from "@drej/core";
+import type { SandboxHandle } from "@alineo-labs/core";
 import { PiAdapter } from "../src/adapters/pi";
 import type { AgentSpec } from "../src/schema";
 
@@ -11,7 +11,7 @@ function fakeSandbox() {
       return Promise.resolve({ stdout: "", stderr: "", exitCode: 0 });
     },
     proxy: (_port: number) => Promise.resolve({ url: "http://fake-proxy", headers: {} }),
-  } as unknown as Sandbox;
+  } as unknown as SandboxHandle;
   return { sb, commands };
 }
 
@@ -55,18 +55,18 @@ describe("PiAdapter.startBridge", () => {
   it("starts the bridge with no prefix when unsetVars is omitted", async () => {
     const { sb, commands } = fakeSandbox();
     await new PiAdapter().startBridge(sb);
-    expect(commands).toContain("node /drej-bridge.js &");
+    expect(commands).toContain("node /alineo-bridge.js &");
   });
 
   it("starts the bridge with no prefix when unsetVars is empty", async () => {
     const { sb, commands } = fakeSandbox();
     await new PiAdapter().startBridge(sb, []);
-    expect(commands).toContain("node /drej-bridge.js &");
+    expect(commands).toContain("node /alineo-bridge.js &");
   });
 
   it("prefixes an explicit unset of every named var in the same command", async () => {
     const { sb, commands } = fakeSandbox();
     await new PiAdapter().startBridge(sb, ["GEMINI_API_KEY", "SECRET_TEST_VALUE"]);
-    expect(commands).toContain("unset GEMINI_API_KEY SECRET_TEST_VALUE; node /drej-bridge.js &");
+    expect(commands).toContain("unset GEMINI_API_KEY SECRET_TEST_VALUE; node /alineo-bridge.js &");
   });
 });

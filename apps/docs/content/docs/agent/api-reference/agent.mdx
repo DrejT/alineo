@@ -1,83 +1,96 @@
 ---
-title: Agent
-description: Complete reference for the Agent class, AgentSpec, AgentStream, and all Pi RPC commands.
+title: Alineo
+description: Complete reference for the Alineo class, AgentSpec, AgentStream, and all Pi RPC commands.
 ---
 
 ```ts
 import {
-  Agent,
+  Alineo,
   textOnly,
   type AgentSpec,
   type AgentStream,
   type AgentEvent,
   type SetupStep,
-} from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+} from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 ```
 
-`@drej/agent` has no storage-adapter dependency of its own — every method below that takes `opts.adapter` requires it. Use `SQLiteAdapter` from `@drej/sqlite` for local dev or `PostgresAdapter` from `@drej/postgres` for production.
+`alineo` has no storage-adapter dependency of its own — every method below that takes `opts.adapter` requires it. Use `SQLiteAdapter` from `@alineo-labs/sqlite` for local dev or `PostgresAdapter` from `@alineo-labs/postgres` for production.
 
 ---
 
-## Agent
+## Alineo
 
 A live AI coding agent running inside an OpenSandbox container. Wraps a Pi CLI process (`pi --mode rpc --approve`) in an HTTP bridge so the host can send prompts and receive streamed responses.
 
-### Agent.load()
+### Alineo.load()
 
 ```ts
 static async load(
-  specPath: string,
+  spec: AgentSpec | Record<string, unknown>,
   opts: { adapter: IStorageAdapter; rebuild?: boolean; spawnDepth?: number; maxAgents?: number },
-): Promise<Agent>
+): Promise<Alineo>
 ```
 
-Load and validate the JSON spec at `specPath`, spin up a `node:22` sandbox, install the Pi CLI and any `setup` steps, and return a ready `Agent`.
+Validate `spec`, spin up a `node:22` sandbox, install the Pi CLI and any `setup` steps, and return a ready `Alineo`. `spec` is an already-parsed object, not a file path — read one from disk yourself first (`await Bun.file(path).json()`), fetch it over HTTP, or build it programmatically. It's validated internally regardless (via `validateAgentSpec()`), so a raw `JSON.parse()`'d object works fine.
 
 On first load the container is checkpointed after install. Subsequent calls restore from the snapshot — skipping the install and starting in ~3s instead of ~90s. See [Snapshotting](/docs/agent/getting-started/snapshotting).
 
 ```ts
-const agent = await Agent.load("./agents/my-agent.json", { adapter });
+const spec = await Bun.file("./agents/my-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 
 // Force a full reinstall, ignoring the cached snapshot:
-const agent = await Agent.load("./agents/my-agent.json", { adapter, rebuild: true });
+const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
 `spawnDepth`/`maxAgents` override the spec's own fields — see [Spawning child agents](#spawning-child-agents) below.
 
-### Agent.resume()
+### Alineo.resume()
 
 ```ts
-static async resume(sandboxId: string, opts: { adapter: IStorageAdapter; specPath?: string }): Promise<Agent>
+static async resume(
+  sandboxId: string,
+  opts: {
+    adapter: IStorageAdapter;
+    spec?: AgentSpec | Record<string, unknown>;
+    specPath?: string;
+  },
+): Promise<Alineo>
 ```
 
 Reconnect to an existing sandbox after the host process has exited. The container must still be running. Only the bridge process is restarted — Pi and the workspace are untouched. Pi resumes the most recent session via `--continue`.
 
+Unlike `load()`, `resume()` still accepts a bare path (`specPath`) — or, if you already have the spec object in memory, pass it directly via `spec` and skip the read. If neither is set, the ledger is queried for the sandbox's name and the spec is read from `./agents/<name>.json`.
+
 ```ts
 // Save the sandbox ID from a previous run...
-const agent = await Agent.resume(savedSandboxId, { adapter });
+const agent = await Alineo.resume(savedSandboxId, { adapter });
 
 // Or pass the spec path explicitly:
-const agent = await Agent.resume(savedSandboxId, { adapter, specPath: "./agents/my-agent.json" });
+const agent2 = await Alineo.resume(savedSandboxId, { adapter, specPath: "./agents/my-agent.json" });
+
+// Or pass an already-parsed spec object:
+const agent3 = await Alineo.resume(savedSandboxId, { adapter, spec });
 ```
 
-### Agent.attach()
+### Alineo.attach()
 
 ```ts
 static async attach(
   sandboxId: string,
   opts: { adapter: IStorageAdapter; name: string; resources?: { cpu: string; memory: string; gpu?: string } },
-): Promise<Agent>
+): Promise<Alineo>
 ```
 
-Connect to an already-running sandbox **without** touching its Pi bridge — unlike `resume()`, which kills and restarts the bridge process. Use this when you only need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()` (the returned `Agent` has no bridge, so those throw).
+Connect to an already-running sandbox **without** touching its Pi bridge — unlike `resume()`, which kills and restarts the bridge process. Use this when you only need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()` (the returned `Alineo` has no bridge, so those throw).
 
-The main caller is `drejx fork`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
+The main caller is `alineo fork`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
 
 ```ts
-const self = await Agent.attach(process.env.DREJ_SANDBOX_ID!, {
+const self = await Alineo.attach(process.env.ALINEO_SANDBOX_ID!, {
   adapter,
   name: "my-session",
 });
@@ -91,10 +104,10 @@ const child = await self.spawn("./agents/worker.json");
 ### agent.spawn()
 
 ```ts
-spawn(childSpecPath: string, opts?: { spawnDepth?: number; maxAgents?: number }): Promise<Agent>
+spawn(childSpecPath: string, opts?: { spawnDepth?: number; maxAgents?: number }): Promise<Alineo>
 ```
 
-Fork **this agent's own live sandbox** — filesystem, installed packages, checked-out state, everything currently on disk — into a brand-new independent sandbox running its own Pi bridge. Unlike `Agent.load()` (always starts from a spec's own snapshot) or `agent.fork()`/`agent.clone()` (Pi's own conversation-branching — same container, same bridge, new session branch), this is sandbox-level forking: the child sees exactly what this agent's sandbox sees right now, including uncommitted work. No install/setup steps run — the child inherits whatever is already installed on this agent's sandbox.
+Fork **this agent's own live sandbox** — filesystem, installed packages, checked-out state, everything currently on disk — into a brand-new independent sandbox running its own Pi bridge. Unlike `Alineo.load()` (always starts from a spec's own snapshot) or `agent.fork()`/`agent.clone()` (Pi's own conversation-branching — same container, same bridge, new session branch), this is sandbox-level forking: the child sees exactly what this agent's sandbox sees right now, including uncommitted work. No install/setup steps run — the child inherits whatever is already installed on this agent's sandbox.
 
 ```ts
 const child = await agent.spawn("./agents/worker.json", { spawnDepth: 2, maxAgents: 5 });
@@ -462,7 +475,7 @@ Manually trigger Pi's context compaction. Returns a `CompactResult`: `{ summary,
 async setEnv(vars: Record<string, string>): Promise<void>
 ```
 
-Merge `vars` into the sandbox environment. Writes to `/etc/drej-env` inside the container and restarts Pi so it picks up the new values. Awaits Pi's readiness before returning.
+Merge `vars` into the sandbox environment. Writes to `/etc/alineo-env` inside the container and restarts Pi so it picks up the new values. Awaits Pi's readiness before returning.
 
 ```ts
 await agent.setEnv({ DATABASE_URL: "postgres://...", DEBUG: "1" });
@@ -499,10 +512,10 @@ try {
 ### agent.sandbox
 
 ```ts
-readonly sandbox: Sandbox
+readonly sandbox: SandboxHandle
 ```
 
-Direct access to the underlying `Sandbox` — the full [Core SDK Sandbox API](/docs/core/concepts/sandboxes), bypassing Pi. Use this to read or write files, run shell commands, or inspect the container independently of Pi.
+Direct access to the underlying `SandboxHandle` — the full [Core SDK Sandbox API](/docs/core/v0.1/concepts/sandboxes), bypassing Pi. Use this to read or write files, run shell commands, or inspect the container independently of Pi.
 
 ```ts
 await agent.sandbox.writeFile("/workspace/input.csv", data);
@@ -538,10 +551,10 @@ readonly fromSnapshot: boolean
 
 ## AgentSpec
 
-The JSON shape of an agent spec file. Pass the path to `Agent.load(specPath)`.
+The JSON shape of an agent spec file. Pass the path to `Alineo.load(specPath)`.
 
 ```ts
-import type { AgentSpec } from "@drej/agent";
+import type { AgentSpec } from "alineo";
 ```
 
 | Field                  | Type                                     | Description                                                                                                                                                                                                                                                                                                     |
@@ -553,14 +566,14 @@ import type { AgentSpec } from "@drej/agent";
 | `provider`             | `string?`                                | AI provider passed via `--provider`. Omit for a direct Google API key.                                                                                                                                                                                                                                          |
 | `packages`             | `string[]?`                              | APT packages to install before Pi (e.g. `["python3", "git"]`).                                                                                                                                                                                                                                                  |
 | `env`                  | `Record<string,string>?`                 | Env vars for the sandbox. Values may reference host env: `"${MY_VAR}"`.                                                                                                                                                                                                                                         |
-| `resources`            | `{ cpu: string; memory: string; gpu? }?` | Container resource limits. Falls back to `drej.config.json` defaults.                                                                                                                                                                                                                                           |
+| `resources`            | `{ cpu: string; memory: string; gpu? }?` | Container resource limits. Falls back to `alineo.config.json` defaults.                                                                                                                                                                                                                                         |
 | `setup`                | `SetupStep[]?`                           | Workspace setup steps — run after Pi install, baked into the snapshot.                                                                                                                                                                                                                                          |
 | `title`                | `string?`                                | Human-readable display name.                                                                                                                                                                                                                                                                                    |
 | `description`          | `string?`                                | Short description of the agent.                                                                                                                                                                                                                                                                                 |
 | `author`               | `string?`                                | Author name.                                                                                                                                                                                                                                                                                                    |
 | `categories`           | `string[]?`                              | Arbitrary category tags.                                                                                                                                                                                                                                                                                        |
-| `metadata`             | `Record<string,string>?`                 | Not read anywhere in `@drej/agent`; has no effect on the sandbox.                                                                                                                                                                                                                                               |
-| `registryDependencies` | `string[]?`                              | Other agent spec URLs. Not read by `@drej/agent` itself — used by `drejx add`, which fetches and saves each one first, depth-first.                                                                                                                                                                             |
+| `metadata`             | `Record<string,string>?`                 | Not read anywhere in `alineo`; has no effect on the sandbox.                                                                                                                                                                                                                                                    |
+| `registryDependencies` | `string[]?`                              | Other agent spec URLs. Not read by `alineo` itself — used by `alineo add`, which fetches and saves each one first, depth-first.                                                                                                                                                                                 |
 | `spawnDepth`           | `number?`                                | Nesting-depth budget for `agent.spawn()`, force-decremented into each child's env. Non-negative integer. Required (directly or via `--depth`/`opts.spawnDepth`) for `agent.spawn()` to be allowed at all.                                                                                                       |
 | `maxAgents`            | `number?`                                | Optional cap on total descendants for this lineage, independent of `spawnDepth`. Non-negative integer. Unset means uncapped — unlike `spawnDepth`, omitting this doesn't disable spawning.                                                                                                                      |
 
@@ -568,7 +581,7 @@ import type { AgentSpec } from "@drej/agent";
 
 ```json
 {
-  "$schema": "https://registry.drej.dev/spec/agent.json",
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "my-agent",
   "cli": "pi",
   "model": "gemini-flash-latest",
@@ -589,7 +602,7 @@ import type { AgentSpec } from "@drej/agent";
 A single workspace setup step.
 
 ```ts
-import type { SetupStep } from "@drej/agent";
+import type { SetupStep } from "alineo";
 ```
 
 | Field  | Type      | Required | Description                                                        |
@@ -675,7 +688,7 @@ function textOnly(stream: AgentStream): AsyncIterable<string>;
 Filter an `AgentStream` to just `text` events, yielding the `text` string of each. Equivalent to the old `PromptStream` behavior.
 
 ```ts
-import { textOnly } from "@drej/agent";
+import { textOnly } from "alineo";
 
 for await (const chunk of textOnly(agent.prompt("Hello"))) {
   process.stdout.write(chunk);
@@ -687,7 +700,7 @@ for await (const chunk of textOnly(agent.prompt("Hello"))) {
 ## SessionStats
 
 ```ts
-import type { SessionStats } from "@drej/agent";
+import type { SessionStats } from "alineo";
 ```
 
 Returned by `agent.getSessionStats()`.
@@ -714,7 +727,7 @@ Returned by `agent.getSessionStats()`.
 ## PiSlashCommand
 
 ```ts
-import type { PiSlashCommand } from "@drej/agent";
+import type { PiSlashCommand } from "alineo";
 ```
 
 Returned by `agent.getCommands()`.
@@ -728,15 +741,15 @@ Returned by `agent.getCommands()`.
 
 ---
 
-## drej.config.json
+## alineo.config.json
 
-`@drej/agent` reads `drej.config.json` from the current working directory to configure the client. All fields are optional.
+`alineo` reads `alineo.config.json` from the current working directory to configure the client. All fields are optional.
 
-```json title="drej.config.json"
+```json title="alineo.config.json"
 {
   "serverUrl": "http://127.0.0.1:8080",
   "apiKey": "",
-  "adapterPath": "./.drej/ledger.db",
+  "adapterPath": "./.alineo/ledger.db",
   "useServerProxy": true,
   "agentsDir": "./agents",
   "defaults": {
@@ -745,13 +758,13 @@ Returned by `agent.getCommands()`.
 }
 ```
 
-| Field                | Default                           | Description                                                               |
-| -------------------- | --------------------------------- | ------------------------------------------------------------------------- |
-| `serverUrl`          | `http://127.0.0.1:8080`           | OpenSandbox server URL                                                    |
-| `apiKey`             | `""`                              | OpenSandbox API key (empty for local dev)                                 |
-| `adapterPath`        | `./.drej/ledger.db`               | Path to the SQLite ledger database                                        |
-| `useServerProxy`     | `true`                            | Route execd traffic through the server. Required when using `drejx init`. |
-| `agentsDir`          | `./agents`                        | Directory containing agent spec files                                     |
-| `defaults.resources` | `{ cpu: "1000m", memory: "1Gi" }` | Default resource limits when the spec omits `resources`                   |
+| Field                | Default                           | Description                                                                |
+| -------------------- | --------------------------------- | -------------------------------------------------------------------------- |
+| `serverUrl`          | `http://127.0.0.1:8080`           | OpenSandbox server URL                                                     |
+| `apiKey`             | `""`                              | OpenSandbox API key (empty for local dev)                                  |
+| `adapterPath`        | `./.alineo/ledger.db`             | Path to the SQLite ledger database                                         |
+| `useServerProxy`     | `true`                            | Route execd traffic through the server. Required when using `alineo init`. |
+| `agentsDir`          | `./agents`                        | Directory containing agent spec files                                      |
+| `defaults.resources` | `{ cpu: "1000m", memory: "1Gi" }` | Default resource limits when the spec omits `resources`                    |
 
-`drejx init` writes this file automatically.
+`alineo init` writes this file automatically.

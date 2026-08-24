@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://registry.drej.dev/sitemap-index.xml
+Sitemap: https://registry.alineo.tech/sitemap-index.xml

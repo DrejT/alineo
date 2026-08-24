@@ -1,10 +1,10 @@
 {
-  "name": "@drej/opensandbox",
-  "version": "0.3.1",
+  "name": "@alineo-labs/opensandbox",
+  "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DrejT/drej.git",
+    "url": "git+https://github.com/DrejT/alineo.git",
     "directory": "packages/opensandbox"
   },
   "files": [

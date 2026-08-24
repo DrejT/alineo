@@ -1,22 +1,22 @@
 ---
 title: Builder API
-description: workflow(), WorkflowBuilder, and SandboxBuilder — the @drej/workflow lazy orchestration layer.
+description: workflow(), WorkflowBuilder, and SandboxBuilder — the @alineo-labs/workflow lazy orchestration layer.
 ---
 
 ```ts
-import { workflow, WorkflowBuilder, SandboxBuilder } from "@drej/workflow";
+import { workflow, WorkflowBuilder, SandboxBuilder } from "@alineo-labs/workflow";
 ```
 
 ## workflow()
 
 ```ts
-workflow(client: Drej): WorkflowBuilder
+workflow(client: Sandbox): WorkflowBuilder
 ```
 
-Creates a `WorkflowBuilder` attached to a `Drej` client.
+Creates a `WorkflowBuilder` attached to a `Sandbox` client.
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 await workflow(client)
   .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "512Mi" } }, (sb) => {

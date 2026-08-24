@@ -1,31 +1,31 @@
-import { Drej, SandboxStatus, type SandboxDetails } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
-import { ControlClient, SandboxState } from "@drej/opensandbox";
-import { readConfig, type DrejxConfig } from "./config.js";
+import { Sandbox, SandboxStatus, type SandboxDetails } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+import { ControlClient, SandboxState } from "@alineo-labs/opensandbox";
+import { readConfig, type AlineoConfig } from "./config.js";
 
 export interface SessionSnapshot {
   tracked: SandboxDetails[];
-  /** Sandbox IDs running in OpenSandbox but with no ledger record (e.g. agent-spawned children). */
+  /** SandboxHandle IDs running in OpenSandbox but with no ledger record (e.g. agent-spawned children). */
   untracked: string[];
 }
 
 /**
- * Data layer shared by `drejx ps` and the TUI dashboard: drej-tracked running
+ * Data layer shared by `alineo ps` and the TUI dashboard: alineo-tracked running
  * sessions from the ledger, merged with raw OpenSandbox sandboxes the ledger
  * never recorded.
  *
  * The ledger only learns a sandbox stopped when its own `close()` call runs
  * and emits `sandbox_closed` — an ungraceful death (a crash, OpenSandbox's
- * own TTL expiring the container, someone deleting it outside drej entirely)
+ * own TTL expiring the container, someone deleting it outside alineo entirely)
  * leaves a "Running" ledger row forever, since nothing ever told it
  * otherwise. Every ledger-"Running" entry is cross-checked here against the
  * live OpenSandbox control plane — the actual source of truth — and dropped
  * if the control plane no longer has it Running.
  */
-export async function getSessions(config?: DrejxConfig): Promise<SessionSnapshot> {
+export async function getSessions(config?: AlineoConfig): Promise<SessionSnapshot> {
   const cfg = config ?? (await readConfig());
   const adapter = new SQLiteAdapter(cfg.adapterPath);
-  const client = new Drej({
+  const client = new Sandbox({
     baseUrl: cfg.serverUrl,
     apiKey: cfg.apiKey,
     adapter,

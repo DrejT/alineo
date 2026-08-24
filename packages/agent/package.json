@@ -1,10 +1,10 @@
 {
-  "name": "@drej/agent",
-  "version": "0.6.2",
+  "name": "alineo",
+  "version": "0.2.0",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DrejT/drej.git",
+    "url": "git+https://github.com/DrejT/alineo.git",
     "directory": "packages/agent"
   },
   "files": [
@@ -28,8 +28,9 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@drej/core": "workspace:*",
-    "drej": "workspace:*"
+    "@alineo-labs/core": "workspace:*",
+    "@alineo-labs/sandbox": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "bun-types": "1.3.14",

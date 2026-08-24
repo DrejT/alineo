@@ -44,16 +44,20 @@ export async function compact(
 }
 
 /**
- * Set or update env vars in the running container. Writes to /etc/drej-env and restarts
+ * Set or update env vars in the running container. Writes to /etc/alineo-env and restarts
  * the Pi subprocess so it picks up the new env. Waits until Pi is ready before returning.
  */
 export async function setEnv(a: AgentInternal, vars: Record<string, string>): Promise<void> {
   a.env = { ...a.env, ...vars };
-  await a.sandbox.writeFile("/etc/drej-env", toShellExports(a.env));
+  await a.sandbox.writeFile("/etc/alineo-env", toShellExports(a.env));
   await a.adapter.reloadEnv(a.env);
 }
 
 /** Delete the sandbox container and release all resources. Always call in a `finally` block. */
 export async function close(a: AgentInternal): Promise<void> {
+  // Force-shut any prompt()/bash() streams left dangling by sseStream's early-return on
+  // `[DONE]` (see PiAdapter.disposeConnections()) -- otherwise those connections can keep
+  // the process alive indefinitely even after the sandbox itself is gone.
+  a.adapter.disposeConnections();
   await a.sandbox.close();
 }

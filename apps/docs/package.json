@@ -1,13 +1,16 @@
 {
   "name": "docs",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
+    "predev": "bun scripts/sync-doc-versions.ts && bun scripts/sync-redirects.ts",
     "dev": "next dev",
+    "prebuild": "bun scripts/sync-doc-versions.ts && bun scripts/sync-redirects.ts",
     "build": "next build",
     "start": "next start",
+    "test": "bun test",
     "lint": "eslint",
-    "deploy": "next build && wrangler pages deploy out --project-name=drej-docs",
+    "deploy": "next build && bunx wrangler@latest pages deploy out --project-name=alineo-docs",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
@@ -15,7 +18,7 @@
     "fumadocs-mdx": "^15.0.12",
     "fumadocs-ui": "^16.10.5",
     "lucide-react": "^1.22.0",
-    "next": "16.2.10",
+    "next": "16.3.1",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },
@@ -25,8 +28,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "bun-types": "1.3.14",
     "eslint": "^10",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

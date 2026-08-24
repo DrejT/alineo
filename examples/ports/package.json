@@ -1,12 +1,12 @@
 {
-  "name": "drej-example-ports",
-  "version": "0.0.11",
+  "name": "alineo-example-ports",
+  "version": "0.0.15",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
   },
   "dependencies": {
-    "@drej/sqlite": "workspace:*",
-    "drej": "workspace:*"
+    "@alineo-labs/sandbox": "workspace:*",
+    "@alineo-labs/sqlite": "workspace:*"
   }
 }

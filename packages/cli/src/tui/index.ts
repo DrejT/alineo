@@ -1,7 +1,7 @@
 import { createCliRenderer, BoxRenderable } from "@opentui/core";
-import type { SandboxDetails } from "drej";
-import { Agent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import type { SandboxDetails } from "@alineo-labs/sandbox";
+import { Alineo } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { createDashboardView, type DashboardView } from "./dashboard.js";
 import { createChatView, type ChatView } from "./chat.js";
@@ -57,7 +57,7 @@ export async function launchTui(): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
     try {
-      const agent = await Agent.resume(session.sandboxId, {
+      const agent = await Alineo.resume(session.sandboxId, {
         adapter,
         specPath: `${config.agentsDir}/${session.name}.json`,
       });
@@ -73,7 +73,9 @@ export async function launchTui(): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
     try {
-      const agent = await Agent.load(specPath, { adapter });
+      // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+      const spec = await Bun.file(specPath).json();
+      const agent = await Alineo.load(spec, { adapter });
       mount(createChatView(renderer, agent, () => showDashboard()));
     } catch (err) {
       showDashboard(

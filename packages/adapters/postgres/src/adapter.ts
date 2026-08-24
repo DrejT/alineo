@@ -7,8 +7,8 @@ import type {
   ListSandboxOptions,
   EnvironmentRecord,
   CheckpointInfo,
-} from "@drej/core";
-import { SandboxStatus } from "@drej/core";
+} from "@alineo-labs/core";
+import { SandboxStatus } from "@alineo-labs/core";
 import { MIGRATION_SQL } from "./migrations";
 
 type Row = {
@@ -29,6 +29,7 @@ type AggRow = {
   completed_at: string | null;
   is_closed: string;
   exec_count: string;
+  run_id: string | null;
 };
 
 function aggRowToDetails(row: AggRow): SandboxDetails {
@@ -39,6 +40,10 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
     startedAt: Number(row.started_at),
     completedAt: row.completed_at != null ? Number(row.completed_at) : undefined,
     execCount: Number(row.exec_count),
+    // Older ledger rows written before this field existed have no runId recorded at
+    // all — fall back to the sandboxId itself so every session still has *some*
+    // stable, unique identity rather than an empty string.
+    runId: row.run_id ?? row.sandbox_id,
   };
 }
 
@@ -46,6 +51,7 @@ function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): Sandbo
   let result = details;
   if (opts?.before != null) result = result.filter((d) => d.startedAt < opts.before!);
   if (opts?.status != null) result = result.filter((d) => d.status === opts.status);
+  if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
   if (opts?.limit != null) result = result.slice(0, opts.limit);
   return result;
 }
@@ -80,7 +86,7 @@ export class PostgresAdapter implements IStorageAdapter {
 
   async append(entry: LedgerEntry): Promise<void> {
     await this.sql`
-      INSERT INTO drej_events (sandbox_id, name, step_idx, branch, event, payload, error, ts)
+      INSERT INTO alineo_events (sandbox_id, name, step_idx, branch, event, payload, error, ts)
       VALUES (
         ${entry.sandboxId},
         ${entry.name},
@@ -97,7 +103,7 @@ export class PostgresAdapter implements IStorageAdapter {
   async readAll(name: string, sandboxId: string): Promise<LedgerEntry[]> {
     const rows = await this.sql<Row[]>`
       SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
-      FROM drej_events
+      FROM alineo_events
       WHERE name = ${name} AND sandbox_id = ${sandboxId}
       ORDER BY ts ASC
     `;
@@ -107,7 +113,7 @@ export class PostgresAdapter implements IStorageAdapter {
   async lastCheckpoint(name: string, sandboxId: string): Promise<LedgerEntry | null> {
     const rows = await this.sql<Row[]>`
       SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
-      FROM drej_events
+      FROM alineo_events
       WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'checkpoint_created'
       ORDER BY ts DESC
       LIMIT 1
@@ -124,8 +130,9 @@ export class PostgresAdapter implements IStorageAdapter {
           MIN(CASE WHEN event = 'sandbox_created' THEN ts END) AS started_at,
           MAX(CASE WHEN event = 'sandbox_closed'  THEN ts END) AS completed_at,
           MAX(CASE WHEN event = 'sandbox_closed'  THEN 1 ELSE 0 END)::int AS is_closed,
-          COUNT(CASE WHEN event = 'exec_complete' THEN 1 END)::int AS exec_count
-        FROM drej_events
+          COUNT(CASE WHEN event = 'exec_complete' THEN 1 END)::int AS exec_count,
+          MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'runId' END) AS run_id
+        FROM alineo_events
         ${whereClause}
         GROUP BY name, sandbox_id
       )
@@ -150,13 +157,13 @@ export class PostgresAdapter implements IStorageAdapter {
   }
 
   async deleteSandbox(name: string, sandboxId: string): Promise<void> {
-    await this.sql`DELETE FROM drej_events WHERE name = ${name} AND sandbox_id = ${sandboxId}`;
+    await this.sql`DELETE FROM alineo_events WHERE name = ${name} AND sandbox_id = ${sandboxId}`;
   }
 
   async listCheckpoints(name: string, sandboxId: string): Promise<CheckpointInfo[]> {
     const rows = await this.sql<Row[]>`
       SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
-      FROM drej_events
+      FROM alineo_events
       WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'checkpoint_created'
       ORDER BY ts ASC
     `;
@@ -170,7 +177,7 @@ export class PostgresAdapter implements IStorageAdapter {
     const rows = await this.sql<
       { name: string; snapshot_id: string; image: string; built_at: string }[]
     >`
-      SELECT name, snapshot_id, image, built_at FROM drej_environments WHERE name = ${name}
+      SELECT name, snapshot_id, image, built_at FROM alineo_environments WHERE name = ${name}
     `;
     if (!rows.length) return null;
     const r = rows[0];
@@ -179,7 +186,7 @@ export class PostgresAdapter implements IStorageAdapter {
 
   async saveEnvironment(record: EnvironmentRecord): Promise<void> {
     await this.sql`
-      INSERT INTO drej_environments (name, snapshot_id, image, built_at)
+      INSERT INTO alineo_environments (name, snapshot_id, image, built_at)
       VALUES (${record.name}, ${record.snapshotId}, ${record.image}, ${record.builtAt})
       ON CONFLICT (name) DO UPDATE
         SET snapshot_id = excluded.snapshot_id,
@@ -189,14 +196,14 @@ export class PostgresAdapter implements IStorageAdapter {
   }
 
   async deleteEnvironment(name: string): Promise<void> {
-    await this.sql`DELETE FROM drej_environments WHERE name = ${name}`;
+    await this.sql`DELETE FROM alineo_environments WHERE name = ${name}`;
   }
 
   async listEnvironments(): Promise<EnvironmentRecord[]> {
     const rows = await this.sql<
       { name: string; snapshot_id: string; image: string; built_at: string }[]
     >`
-      SELECT name, snapshot_id, image, built_at FROM drej_environments ORDER BY built_at DESC
+      SELECT name, snapshot_id, image, built_at FROM alineo_environments ORDER BY built_at DESC
     `;
     return rows.map((r) => ({
       name: r.name,

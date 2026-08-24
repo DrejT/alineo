@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { LedgerEvent, SandboxStatus, type LedgerEntry } from "@drej/core";
+import { existsSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { LedgerEvent, SandboxStatus, type LedgerEntry } from "@alineo-labs/core";
 import { SQLiteAdapter } from "../src/adapter.ts";
 
 function entry(overrides?: Partial<LedgerEntry>): LedgerEntry {
@@ -154,7 +157,7 @@ describe("SQLiteAdapter", () => {
       const d = await db.getSandboxDetails("my-sb", "abc-123");
       expect(d?.sandboxId).toBe("abc-123");
       expect(d?.name).toBe("my-sb");
-      expect((d as any)?.runId).toBeUndefined();
+      expect(d?.runId).toBe("abc-123");
       expect((d as any)?.workflowName).toBeUndefined();
     });
   });
@@ -304,6 +307,30 @@ describe("SQLiteAdapter", () => {
       });
       await db.deleteEnvironment("py");
       expect(await db.getEnvironment("node")).not.toBeNull();
+    });
+  });
+
+  describe("constructor", () => {
+    it("creates missing parent directories instead of throwing SQLITE_CANTOPEN", async () => {
+      const root = join(tmpdir(), `alineo-sqlite-test-${Date.now()}`);
+      const dir = join(root, "nested", "path");
+      const dbPath = join(dir, "ledger.db");
+      expect(existsSync(dir)).toBe(false);
+
+      const nested = new SQLiteAdapter(dbPath);
+      try {
+        await nested.connect();
+        await nested.append(entry());
+        expect(await nested.readAll("test-session", "session-1")).toHaveLength(1);
+        expect(existsSync(dbPath)).toBe(true);
+      } finally {
+        await nested.close();
+        try {
+          rmSync(root, { recursive: true, force: true });
+        } catch (e: any) {
+          if (e.code !== "EBUSY" && e.code !== "EPERM") throw e;
+        }
+      }
     });
   });
 });

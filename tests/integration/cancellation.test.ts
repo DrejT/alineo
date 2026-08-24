@@ -1,9 +1,9 @@
-import { Drej, CommandError } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox, CommandError } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect, describe } from "bun:test";
 
-function makeClient(): Drej {
-  return new Drej({
+function makeClient(): Sandbox {
+  return new Sandbox({
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),

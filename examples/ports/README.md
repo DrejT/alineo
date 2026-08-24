@@ -5,7 +5,7 @@ Demonstrates `sb.proxy()`: start an HTTP server inside a sandbox and send reques
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

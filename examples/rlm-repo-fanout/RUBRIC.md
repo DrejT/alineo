@@ -4,7 +4,7 @@ Self-graded against the [RLM
 rubric](https://github.com/rawwerks/recursive-coding-agents/blob/main/rlm-rubric/rlm-rubric.md)
 (G1–G7). Structured the way the rubric itself asks evidence to be presented:
 run shape, then per-gate evidence, then the strongest case against, then
-what would change the verdict. See `plans/drejx-rlm-substrate.md` for the
+what would change the verdict. See `plans/alineo-rlm-substrate.md` for the
 full design rationale this example implements.
 
 ## Run shape
@@ -13,7 +13,7 @@ full design rationale this example implements.
 - **Master spec**: `agents/master.json` — Pi CLI, NVIDIA NIM's
   `nvidia/nvidia-nemotron-nano-9b-v2` (chosen after benchmarking several
   NVIDIA NIM models for speed/reliability/tenacity — see "Why this model"
-  below), `spawnDepth: 1`. No `drejx_*` Pi tools registered (PR #124's
+  below), `spawnDepth: 1`. No `alineo_*` Pi tools registered (PR #124's
   extension is deliberately absent — see "Why no Pi tools" below).
 - **Master's actual prompt**: one sentence — "Read ./TASK.md in your working
   directory and complete the task described there. Report a summary...". The
@@ -22,24 +22,24 @@ full design rationale this example implements.
 - **Worker spec**: `agents/worker.json` — Pi CLI only, `nvidia/nemotron-3-nano-30b-a3b`
   (faster than the master's model — a worker's task is a single bounded edit,
   not multi-step decomposition, so speed matters more than tenacity here). No
-  `drejx` install, no `drej.config.json`, no fork tools of any kind reachable.
-- **Tools enabled for the master**: Pi's built-in bash tool only. `drejx` is
+  `alineo` install, no `alineo.config.json`, no fork tools of any kind reachable.
+- **Tools enabled for the master**: Pi's built-in bash tool only. `alineo` is
   a CLI on `$PATH` inside the sandbox, invoked the same way `ls` or `git`
   would be — not a registered tool the model calls by name.
-- **Tools enabled for a worker**: Pi's built-in bash + file tools. No `drejx`
+- **Tools enabled for a worker**: Pi's built-in bash + file tools. No `alineo`
   binary present at all.
 
 ## Per-gate evidence
 
-| Gate                                                 | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **G1** — model-call outer shape                      | `master.prompt(...)` in `index.ts`: one prompt in, streamed text out. Unchanged from `drejx spawn --prompt`.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **G2** — context externalized as symbolic state      | The goal is `TASK.md`, a file written by a setup step (see `agents/master.json`'s `setup`), not string-interpolated into the prompt. The prompt only names the file.                                                                                                                                                                                                                                                                                                                                                                         |
-| **G3** — root model has handles to that state        | The master reaches `TASK.md` via a path (`./TASK.md`) and reaches each child via a session name (`rlm-fanout-master` → forked child's own ledger name), not by having content pasted at it.                                                                                                                                                                                                                                                                                                                                                  |
-| **G4** — persistent executable environment           | The whole run is one OpenSandbox sandbox per agent — filesystem, installed packages (`git`, `drejx`), and the cloned repo all persist across every tool call in a turn. This is what a drej sandbox already is.                                                                                                                                                                                                                                                                                                                              |
-| **G5** — code calls sub-LMs over constructed slices  | The master's own bash tool runs `drejx fork rlm-fanout-master ./agents/worker.json --prompt "<slice>" --json` in a loop it writes itself — a script inside the sandbox calling `Agent.spawn()` (via the CLI) over a constructed per-file instruction, not the master verbally invoking a registered typed tool. Verified in `index.ts`: every forked child found via the control plane has the master's exact `git rev-parse HEAD` — proof the child is a _fork_ of live state, not an independent `drejx spawn` from a spec's own snapshot. |
-| **G6** — model decides the decomposition             | `TASK.md` says "decide how to split the work" and never states a child count or a fixed loop. `index.ts` asserts only "at least one child was spawned," not an exact number — the actual count is the model's call, whatever it turns out to be for a given run.                                                                                                                                                                                                                                                                             |
-| **G7** — intermediate state stays in the environment | Each child's result is its own `git diff` output inside its own sandbox, reported back as that child's _own_ final answer (short diff text, not the full edited file re-pasted into the master's context) via the same `drejx fork ... --prompt ... --json` call that forked it.                                                                                                                                                                                                                                                             |
+| Gate                                                 | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **G1** — model-call outer shape                      | `master.prompt(...)` in `index.ts`: one prompt in, streamed text out. Unchanged from `alineo spawn --prompt`.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **G2** — context externalized as symbolic state      | The goal is `TASK.md`, a file written by a setup step (see `agents/master.json`'s `setup`), not string-interpolated into the prompt. The prompt only names the file.                                                                                                                                                                                                                                                                                                                                                                           |
+| **G3** — root model has handles to that state        | The master reaches `TASK.md` via a path (`./TASK.md`) and reaches each child via a session name (`rlm-fanout-master` → forked child's own ledger name), not by having content pasted at it.                                                                                                                                                                                                                                                                                                                                                    |
+| **G4** — persistent executable environment           | The whole run is one OpenSandbox sandbox per agent — filesystem, installed packages (`git`, `alineo`), and the cloned repo all persist across every tool call in a turn. This is what a alineo sandbox already is.                                                                                                                                                                                                                                                                                                                             |
+| **G5** — code calls sub-LMs over constructed slices  | The master's own bash tool runs `alineo fork rlm-fanout-master ./agents/worker.json --prompt "<slice>" --json` in a loop it writes itself — a script inside the sandbox calling `Agent.spawn()` (via the CLI) over a constructed per-file instruction, not the master verbally invoking a registered typed tool. Verified in `index.ts`: every forked child found via the control plane has the master's exact `git rev-parse HEAD` — proof the child is a _fork_ of live state, not an independent `alineo spawn` from a spec's own snapshot. |
+| **G6** — model decides the decomposition             | `TASK.md` says "decide how to split the work" and never states a child count or a fixed loop. `index.ts` asserts only "at least one child was spawned," not an exact number — the actual count is the model's call, whatever it turns out to be for a given run.                                                                                                                                                                                                                                                                               |
+| **G7** — intermediate state stays in the environment | Each child's result is its own `git diff` output inside its own sandbox, reported back as that child's _own_ final answer (short diff text, not the full edited file re-pasted into the master's context) via the same `alineo fork ... --prompt ... --json` call that forked it.                                                                                                                                                                                                                                                              |
 
 ## Independent verification (what `index.ts` actually checks, not what the model claims)
 
@@ -50,23 +50,27 @@ full design rationale this example implements.
   checked via the child's own bash tool, i.e. inside the same process tree
   Pi itself uses, not a raw `exec()` session that wouldn't prove anything
   about what Pi can see.
-- A spawned child's `DREJX_SPAWN_DEPTH` is exactly `"0"` — present and
+- A spawned child's `ALINEO_SPAWN_DEPTH` is exactly `"0"` — present and
   zeroed, not merely absent.
-- A spawned child has no `drejx` binary on `$PATH` at all — a second,
+- A spawned child has no `alineo` binary on `$PATH` at all — a second,
   structural negative control: even ignoring the depth check, a worker
-  cannot invoke `drejx spawn` because the command doesn't exist for it.
+  cannot invoke `alineo spawn` because the command doesn't exist for it.
 - The master's own `repo` HEAD is unchanged after the run — no commit was
   made, matching "report only" scope.
 
 ## Why no Pi tools
 
-`packages/cli/pi-extension/drejx.ts` (PR #124) registers `drejx_run` /
-`drejx_prompt` / `drejx_agents` / `drejx_kill` as callable tools — useful for
+`packages/cli/pi-extension/alineo.ts` (PR #124) used to register `alineo_run` /
+`alineo_prompt` / `alineo_agents` / `alineo_kill` as callable tools — useful for
 a one-off "spawn a helper" UX, but structurally a parent _verbally_ deciding
 "call this tool," which the rubric explicitly disqualifies for G5. Leaving
-those tools out of `master.json` entirely means every spawn in a real run of
-this example is provably a bash/script invocation, not a tool call — there's
-nothing else the model _could_ have used.
+those tools out of `master.json` entirely meant every spawn in a real run of
+this example was provably a bash/script invocation, not a tool call — there
+was nothing else the model _could_ have used. Those typed tools have since
+been removed from the extension entirely (issue #21 Bug B — the asymmetry
+between them and the always-bash-only `alineo fork` measurably steered a
+model toward the wrong primitive elsewhere), so this is no longer a
+per-example opt-out; it's now true of every alineo-based spec by default.
 
 ## Why this model
 
@@ -100,7 +104,7 @@ per model tried, before landing on a model with none of them:
 - **`nvidia/nemotron-3-nano-30b-a3b`** (a native NVIDIA model, so no
   cross-vendor template mismatch) had completely clean tool calls, but
   showed real run-to-run variance in _tenacity_ — some runs explored the
-  repo thoroughly and attempted a real `drejx spawn` call, others gave up
+  repo thoroughly and attempted a real `alineo spawn` call, others gave up
   after two tool calls without trying. Good for the worker's single bounded
   edit; not reliable enough for the master's longer decomposition work.
 - **`nvidia/nemotron-3-super-120b-a12b`** showed the most persistent
@@ -108,7 +112,7 @@ per model tried, before landing on a model with none of them:
   self-recovering from a missing `bun` runtime by installing it unprompted
   — but its own reasoning text and a nested second tool-call attempt
   repeatedly bled into the _first_ call's command argument string in live
-  runs (`"ls.\n\nWe need to use drejx spawn command...<tool_call>\n<function=bash>\n<parameter=command>\nls -la"`),
+  runs (`"ls.\n\nWe need to use alineo spawn command...<tool_call>\n<function=bash>\n<parameter=command>\nls -la"`),
   producing an unparseable shell string and ending the turn early.
 - **`meta/llama-3.1-8b-instruct`** had clean tool _names_ but reliably sent
   its bash tool's `timeout` argument as the string `"null"` instead of a
@@ -154,24 +158,24 @@ per model tried, before landing on a model with none of them:
 
 ## What would change the verdict
 
-- If `drejx spawn`'s depth/env checks were found to be bypassable (e.g. a
-  worker could still reach a `drejx` binary through some path not covered by
+- If `alineo spawn`'s depth/env checks were found to be bypassable (e.g. a
+  worker could still reach a `alineo` binary through some path not covered by
   `agents/worker.json`'s scoping), G5's isolation claim would need to be
   re-verified live again, the same way the original leak was found.
 - If a real run consistently produces zero or one child regardless of task
   size, that would be evidence the guidance in `TASK.md` needs to nudge
   harder toward decomposition (the one open decision noted in
-  `plans/drejx-rlm-substrate.md` — deliberately left for exactly this kind of
+  `plans/alineo-rlm-substrate.md` — deliberately left for exactly this kind of
   observation).
 
 ## Debugging history: every real bug found getting this to run live
 
 **Naming note**: the CLI command for forking a running session's own live
-sandbox was called `drejx spawn` at the time everything below happened. It
-was later renamed to `drejx fork` (`drejx spawn` now means "start a fresh
-agent," the old meaning of `drejx run`) — see the `feat/sandbox-id-addressing`
+sandbox was called `alineo spawn` at the time everything below happened. It
+was later renamed to `alineo fork` (`alineo spawn` now means "start a fresh
+agent," the old meaning of `alineo run`) — see the `feat/sandbox-id-addressing`
 branch. The entries below keep the name that existed at the time, for
-historical accuracy; read `drejx spawn` below as what's now `drejx fork`.
+historical accuracy; read `alineo spawn` below as what's now `alineo fork`.
 
 Getting a live run of this example working surfaced a chain of real, distinct
 bugs — worth recording in full since several looked like something else
@@ -181,12 +185,12 @@ entirely until isolated:
    `nvidia/nemotron-3-super-120b-a12b:free` — an OpenRouter-style suffix that
    doesn't exist on NVIDIA's own native API. Found via `pi --list-models
 nvidia` and a working local `pi -p` call with the correct ID (no `:free`).
-2. **Stale published `drejx`.** The setup step's `npm install -g drejx`
+2. **Stale published `alineo-cli`.** The setup step's `npm install -g alineo-cli`
    always installs whatever's currently on npm — it silently ran against
-   `drejx@0.5.0` (pre-`spawn`) until the `chore: version packages` PR merged
+   `alineo-cli@0.5.0` (pre-`spawn`) until the `chore: version packages` PR merged
    and `0.6.0` published. (`examples/rlm-repo-fanout/index.ts` has a
    `REBUILD=1` escape hatch to force past a stale cached snapshot after any
-   future `drejx` release.)
+   future `alineo-cli` release.)
 3. **A genuine OpenSandbox proxy bug.** Confirmed via DeepWiki against
    `opensandbox-group/OpenSandbox`: the generic `/sandboxes/{id}/proxy/{port}`
    endpoint (what `sb.proxy()` routes through) proxies via an `httpx` client
@@ -213,9 +217,9 @@ nvidia` and a working local `pi -p` call with the correct ID (no `:free`).
    example builds a sandbox fine either way; only the _live model call_
    fails. `index.ts` now checks `NVIDIA_API_KEY` up front and refuses with a
    clear message instead of building a doomed sandbox.
-6. **Missing `bun` runtime.** `drejx`'s own npm package ships with a
+6. **Missing `bun` runtime.** `alineo`'s own npm package ships with a
    `#!/usr/bin/env bun` shebang — the `node:22` base image has no `bun` at
-   all, so `drejx` couldn't run regardless of everything else being correct.
+   all, so `alineo` couldn't run regardless of everything else being correct.
    `master.json`'s setup now installs bun and symlinks it onto `/usr/local/bin`
    (already on `$PATH` by default), rather than relying on a per-exec-session
    `PATH` export that wouldn't persist anyway.
@@ -238,7 +242,7 @@ nvidia` and a working local `pi -p` call with the correct ID (no `:free`).
      instead of a real tool call.
    - `nvidia/nemotron-3-super-120b-a12b` — its own reasoning text and a
      _second_, nested tool-call attempt bled into the _first_ call's command
-     argument (`"ls.\n\nWe need to use drejx spawn command...<tool_call>\n
+     argument (`"ls.\n\nWe need to use alineo spawn command...<tool_call>\n
 <function=bash>\n<parameter=command>\nls -la"`), producing an
      unparseable shell string and a `127` exit — the master's turn ended
      right after, without retrying.
@@ -262,44 +266,44 @@ nvidia` and a working local `pi -p` call with the correct ID (no `:free`).
     corruption** across every multi-turn stress test, including
     self-correcting a real mistake via the `edit` tool unprompted (see "Why
     this model"). Switched the master to this model.
-11. **Missing `mkdir -p .drej` before writing `drej.config.json`.** With a
-    clean model finally reaching a real `drejx spawn` call, the next failure
-    was `Error: unable to open database file` — `drejx`'s own `init`/
-    `writeConfig` always creates the `.drej` directory before writing the
-    config that points `adapterPath` at `.drej/ledger.db`, but this
-    example's setup step hand-writes `drej.config.json` via `printf` and
+11. **Missing `mkdir -p .alineo` before writing `alineo.config.json`.** With a
+    clean model finally reaching a real `alineo spawn` call, the next failure
+    was `Error: unable to open database file` — `alineo`'s own `init`/
+    `writeConfig` always creates the `.alineo` directory before writing the
+    config that points `adapterPath` at `.alineo/ledger.db`, but this
+    example's setup step hand-writes `alineo.config.json` via `printf` and
     skipped that step, so `SQLiteAdapter` had nowhere to create the file.
-    Fixed by adding `mkdir -p .drej` to the same setup step.
-12. **`drejx spawn`'s session lookup can never find its own caller when the
-    caller wasn't started via `drejx run`.** With the database fixed,
-    `drejx spawn` still failed: `No running session named
-'rlm-fanout-master'`. Root cause: `drejx spawn <name> ...` looks its own
+    Fixed by adding `mkdir -p .alineo` to the same setup step.
+12. **`alineo spawn`'s session lookup can never find its own caller when the
+    caller wasn't started via `alineo run`.** With the database fixed,
+    `alineo spawn` still failed: `No running session named
+'rlm-fanout-master'`. Root cause: `alineo spawn <name> ...` looks its own
     session up by name in the local ledger to get a sandbox ID — but the
     master here was created via `Agent.load()` from a _host_ process, using
     a _host-side_ `SQLiteAdapter('./ledger.db')`. That `sandbox_created`
-    event lives only in that host file. `drejx spawn`, running _inside_ the
+    event lives only in that host file. `alineo spawn`, running _inside_ the
     sandbox, opens a _different_, freshly-created `SQLiteAdapter` pointed at
-    `.drej/ledger.db` _inside the container_ — an empty file that has never
+    `.alineo/ledger.db` _inside the container_ — an empty file that has never
     heard of a sandbox named `rlm-fanout-master`, because the two ledgers
     are different files on different filesystems that were never going to
     see each other. Fixed by having every agent-creation path
     (`Agent.load()`, `Agent.resume()`, `Agent.spawn()`) write a
-    `DREJ_SANDBOX_ID` env var to `/etc/drej-env`, and having `drejx spawn`
+    `ALINEO_SANDBOX_ID` env var to `/etc/alineo-env`, and having `alineo spawn`
     resolve its own sandbox ID from that env var first, falling back to the
     old ledger lookup only if it's unset (`packages/agent/src/agent.ts`,
     `packages/cli/src/commands/spawn.ts`).
 13. **`Agent.attach()`'s own self-connect broke immediately after #12's
     fix.** Once self-identification worked, the very next call —
-    `Agent.attach()` reading `/etc/drej-env` via a network exec call to
+    `Agent.attach()` reading `/etc/alineo-env` via a network exec call to
     resolve its _own_ sandbox's endpoint — failed with "Unable to connect.
     Is the computer able to access the url?". Fixed by reading the file from
     the local filesystem directly when the target sandbox ID matches this
-    process's own `DREJ_SANDBOX_ID` (`packages/agent/src/agent.ts`), since a
+    process's own `ALINEO_SANDBOX_ID` (`packages/agent/src/agent.ts`), since a
     process attaching to _itself_ already has the file on disk and never
     needed the network round-trip. (Bisected via targeted diagnostic
-    `console.error` calls at each step of `Agent.attach()`/`drejx spawn`,
+    `console.error` calls at each step of `Agent.attach()`/`alineo spawn`,
     surgically patching the two changed compiled files inside an
-    already-`npm install -g`'d `drejx` — the fix wasn't published to npm
+    already-`npm install -g`'d `alineo` — the fix wasn't published to npm
     yet, so the real installed package needed the new code grafted in to
     test it before a release.)
 14. **A red herring turned up during #13's diagnosis: an unset
@@ -322,26 +326,26 @@ nvidia` and a working local `pi -p` call with the correct ID (no `:free`).
     pattern without `index.ts`'s built-in default), but it wasn't the actual
     fix for the committed example — #12 and #13 were.
 
-With #1–14 fixed and patched in locally, a live run got `drejx spawn`
+With #1–14 fixed and patched in locally, a live run got `alineo spawn`
 returning a clean success (`isError=false`) for the first time in the entire
 investigation — the master correctly reading `TASK.md`, spawning a real
 child via the exact documented syntax, with no tool-call corruption, no
 database error, no self-lookup failure, and no connection error. The one
 remaining source of run-to-run flakiness is ordinary model noise unrelated
-to any of the above (e.g. typing `trejx` instead of `drejx`), not a
+to any of the above (e.g. typing `trejx` instead of `alineo`), not a
 structural issue.
 
 **Important caveat for anyone re-running this example today**: fixes #12 and
 #13 live in `packages/agent` and `packages/cli` source, not yet in a
 published npm release — `master.json`'s setup step still does
-`npm install -g drejx`, which pulls the last published version without
+`npm install -g alineo-cli`, which pulls the last published version without
 these fixes. A live run of the _committed_ example will still fail at the
-`drejx spawn` step until a new `drejx`/`@drej/agent` version is published
+`alineo spawn` step until a new `alineo`/`@alineo-labs/agent` version is published
 via the normal changeset flow (see `.changeset/spawn-self-attach-fix.md`).
 The confirmation above was done by installing the published package as
 normal, then surgically overwriting the two changed compiled files with
 local builds before prompting — a valid way to verify the fix live, but not
-what a fresh `npm install -g drejx` gets you until that release ships.
+what a fresh `npm install -g alineo-cli` gets you until that release ships.
 `Agent.spawn()`'s own mechanism (fork, env-leak fix, depth injection,
 depth-zero refusal) remains independently, thoroughly verified via `.bash()`
 and direct SDK calls, unaffected by any of #8–14 above since none of those

@@ -7,5 +7,5 @@ export default defineConfig({
   outDir: "dist",
   platform: "node",
   clean: true,
-  deps: { neverBundle: ["@flue/runtime", "drej"] },
+  deps: { neverBundle: ["@flue/runtime", "@alineo-labs/sandbox"] },
 });

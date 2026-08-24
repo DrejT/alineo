@@ -1,22 +1,22 @@
-# @drej/sqlite
+# @alineo-labs/sqlite
 
-SQLite storage adapter for [drej](https://drej.dev). Stores the sandbox ledger in a local `.db` file — zero infrastructure, works out of the box.
+SQLite storage adapter for [alineo](https://alineo.tech). Stores the sandbox ledger in a local `.db` file — zero infrastructure, works out of the box.
 
 ```bash
-bun add @drej/sqlite
+bun add @alineo-labs/sqlite
 ```
 
-For production workloads that need durability across multiple processes or machines, use [`@drej/postgres`](https://github.com/DrejT/drej/tree/main/packages/adapters/postgres) instead.
+For production workloads that need durability across multiple processes or machines, use [`@alineo-labs/postgres`](https://github.com/DrejT/alineo/tree/main/packages/adapters/postgres) instead.
 
 ---
 
 ## Usage
 
 ```ts
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Sandbox({
   baseUrl: "http://localhost:8080",
   adapter: new SQLiteAdapter("./ledger.db"),
 });

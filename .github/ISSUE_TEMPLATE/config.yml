@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Feature request or idea
-    url: https://github.com/DrejT/drej/discussions/categories/ideas
+    url: https://github.com/DrejT/alineo/discussions/categories/ideas
     about: Brainstorm and propose new features in GitHub Discussions.
   - name: Question or discussion
-    url: https://github.com/DrejT/drej/discussions
+    url: https://github.com/DrejT/alineo/discussions
     about: Ask questions and discuss ideas in GitHub Discussions.

@@ -1,4 +1,4 @@
-/** Base class for all drej workflow runtime errors. */
+/** Base class for all alineo workflow runtime errors. */
 export class WorkflowError extends Error {
   constructor(message: string) {
     super(message);
@@ -36,7 +36,7 @@ export class ExecConnectionError extends WorkflowError {
 
 /**
  * Thrown when a command exits with a non-zero exit code. Carries the exit
- * code and original command. For `Sandbox.exec()`, only thrown when `strict`
+ * code and original command. For `SandboxHandle.exec()`, only thrown when `strict`
  * is enabled (the default — pass `{ strict: false }` to opt out). For
  * `BashSession.exec()` (a persistent session from `createSession()`), always
  * thrown on non-zero exit; there is no `strict` option for session execs.
@@ -54,7 +54,7 @@ export class CommandError extends WorkflowError {
 
 /**
  * Reserved for a per-step timeout mechanism — not currently thrown anywhere
- * in this codebase. `SandboxOptions.timeout`/`step.timeout` in `@drej/workflow`
+ * in this codebase. `SandboxOptions.timeout`/`step.timeout` in `@alineo-labs/workflow`
  * bound sandbox container lifetime, which is a related but distinct concept.
  */
 export class StepTimeoutError extends WorkflowError {

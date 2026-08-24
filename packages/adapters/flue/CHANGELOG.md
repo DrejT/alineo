@@ -1,5 +1,53 @@
 # @drej/flue
 
+## 1.0.0
+
+### Minor Changes
+
+- d628de4: **Breaking:** the `peerDependencies` entry `alineo` is renamed to `@alineo-labs/sandbox`, per the
+  naming inversion in [#182](https://github.com/DrejT/alineo/issues/182) — install
+  `@alineo-labs/sandbox` instead of `alineo` alongside this package. `alineo(sandbox, opts)`'s
+  `sandbox` parameter is now typed as `SandboxHandle` from `@alineo-labs/sandbox` (was `Sandbox`
+  from `alineo`); any object satisfying the same shape still works, this only affects callers who
+  import the type name explicitly. `alineo(sandbox, opts)`'s own behavior is unchanged.
+
+### Patch Changes
+
+- Updated dependencies [d628de4]
+  - @alineo-labs/sandbox@0.2.0
+
+## 0.1.0
+
+### Major Changes
+
+- 2a61e0c: Rename the project from drej to alineo. Breaking change: every published package's name
+  changed.
+
+  - SDK: `drej` → `alineo` (`import { Drej } from "drej"` → `import { Alineo } from "alineo"`).
+    `DrejError`/`DrejOptions` → `AlineoError`/`AlineoOptions`.
+  - CLI: `drejx` → `alineo-cli` (npm package name), binary command `drejx` → `alineo`
+    (`drejx init` → `alineo init`, etc). `~/.config/drejx/` → `~/.config/alineo/`,
+    project-local `drej.config.json` → `alineo.config.json`, `.drej/` → `.alineo/`.
+  - Scoped packages: `@drej/*` → `@alineo-labs/*` across all 14 previously-scoped packages.
+  - Environment variables: `DREJ_*`/`DREJX_*` → `ALINEO_*` (the two-prefix split collapses to
+    one now that the CLI binary and SDK class share the same root name).
+
+  This is a code-level rename only — package/CLI/env-var/config-path identifiers. GitHub
+  org/repo, deploy domains, and Cloudflare project names are unchanged in this pass (that
+  infra isn't provisioned under the new name yet).
+
+### Patch Changes
+
+- bd95393: Remove `private: true` from the 10 publishable packages so they can actually be published to
+  npm. No functional or API changes — this is the last step of npm-publish readiness (repository
+  URLs, `publishConfig`, and `bin`/`repository` fields were already correct).
+- acc51e3: Update package.json repository fields to the renamed GitHub repo (DrejT/drej -> DrejT/alineo). No behavior change.
+- Updated dependencies [bd95393]
+- Updated dependencies [2a61e0c]
+- Updated dependencies [637b678]
+- Updated dependencies [acc51e3]
+  - alineo@1.0.0
+
 ## 3.0.0
 
 ### Patch Changes

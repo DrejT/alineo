@@ -1,5 +1,5 @@
 import {
-  Sandbox,
+  SandboxHandle,
   LedgerEvent,
   SandboxStatus,
   type IStorageAdapter,
@@ -10,17 +10,22 @@ import {
   type EnvironmentRecord,
   type CheckpointInfo,
   type PendingInteractiveExec,
-} from "@drej/core";
-import { ControlClient, SandboxState, SnapshotState } from "@drej/opensandbox";
+} from "@alineo-labs/core";
+import { ControlClient, SandboxState, SnapshotState } from "@alineo-labs/opensandbox";
 
-import { DrejError, type DrejOptions, type SandboxOptions, type ResumeOptions } from "./types";
+import {
+  SandboxClientError,
+  type SandboxClientOptions,
+  type SandboxOptions,
+  type ResumeOptions,
+} from "./types";
 import {
   Environment,
   type EnvironmentOptions,
   type EnvironmentSandboxOptions,
 } from "./environment";
 
-export { Sandbox, BashSession } from "@drej/core";
+export { SandboxHandle, BashSession } from "@alineo-labs/core";
 export type {
   ExecHandle,
   InteractiveExecHandle,
@@ -28,7 +33,7 @@ export type {
   ExecOptions,
   ExecCodeOptions,
   PendingInteractiveExec,
-} from "@drej/core";
+} from "@alineo-labs/core";
 export {
   LedgerEvent,
   SandboxStatus,
@@ -36,7 +41,7 @@ export {
   ExecConnectionError,
   CommandError,
   StepTimeoutError,
-} from "@drej/core";
+} from "@alineo-labs/core";
 export type {
   IStorageAdapter,
   SandboxDetails,
@@ -47,9 +52,14 @@ export type {
   DiagnosticLog,
   DiagnosticEvent,
   Metrics,
-} from "@drej/core";
-export { DrejError, type DrejOptions, type SandboxOptions, type ResumeOptions } from "./types";
-export type { CheckpointInfo } from "@drej/core";
+} from "@alineo-labs/core";
+export {
+  SandboxClientError,
+  type SandboxClientOptions,
+  type SandboxOptions,
+  type ResumeOptions,
+} from "./types";
+export type { CheckpointInfo } from "@alineo-labs/core";
 export {
   Environment,
   type EnvironmentOptions,
@@ -57,16 +67,16 @@ export {
 } from "./environment";
 
 /**
- * Main entry point for drej. Manages sandbox lifecycle and session history.
+ * Main entry point for the sandbox client. Manages sandbox lifecycle and session history.
  *
  * @example
  * ```ts
- * import { Drej } from "drej";
- * import { SQLiteAdapter } from "@drej/sqlite";
+ * import { Sandbox } from "@alineo-labs/sandbox";
+ * import { SQLiteAdapter } from "@alineo-labs/sqlite";
  *
- * const client = new Drej({
+ * const client = new Sandbox({
  *   baseUrl: "http://localhost:8080",
- *   adapter: new SQLiteAdapter("./drej.db"),
+ *   adapter: new SQLiteAdapter("./alineo.db"),
  * });
  *
  * const sb = await client.sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } });
@@ -76,7 +86,7 @@ export {
  * await sb.close();
  * ```
  */
-export class Drej {
+export class Sandbox {
   private readonly _control: ControlClient;
   private readonly _adapter: IStorageAdapter;
   private readonly _maxConcurrency: number | undefined;
@@ -87,7 +97,7 @@ export class Drej {
   private _adapterClosed = false;
   private readonly _envBuilds = new Map<string, Promise<string>>();
 
-  constructor(options: DrejOptions) {
+  constructor(options: SandboxClientOptions) {
     this._control = new ControlClient({
       baseUrl: options.baseUrl,
       apiKey: options.apiKey ?? "",
@@ -115,7 +125,7 @@ export class Drej {
   }
 
   /**
-   * Create a new sandbox container and return a live `Sandbox` object.
+   * Create a new sandbox container and return a live `SandboxHandle` object.
    *
    * Waits until the container reaches `Running` state before returning.
    * Call `sb.close()` when done to release resources (use try/finally).
@@ -131,18 +141,24 @@ export class Drej {
    * }
    * ```
    */
-  async sandbox(opts: SandboxOptions): Promise<Sandbox> {
+  async sandbox(opts: SandboxOptions): Promise<SandboxHandle> {
     await this._ensureConnected();
     await this._acquireSlot();
 
     const image = typeof opts.image === "string" ? { uri: opts.image } : opts.image;
+    const runId = opts.runId ?? crypto.randomUUID();
 
     let sandboxId: string;
     try {
       const rawSb = await this._control.createSandbox({
         image,
         env: opts.env,
-        metadata: opts.metadata,
+        // runId also rides along in the control-plane's own metadata (echoed back by
+        // GET /v1/sandboxes), not just the ledger — the ledger alone can't correlate
+        // sandboxes across separate adapter instances (e.g. a forked child writing to
+        // its own in-container ledger file), but the control plane is one shared
+        // service every caller talks to regardless of which adapter they're using.
+        metadata: { ...opts.metadata, runId },
         entrypoint: opts.entrypoint ?? ["tail", "-f", "/dev/null"],
         resourceLimits: opts.resources,
         timeout: opts.timeout,
@@ -158,17 +174,23 @@ export class Drej {
         sandboxId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId, resources: opts.resources },
+        payload: { sandboxId, resources: opts.resources, runId },
       });
 
-      const sb = new Sandbox(sandboxId, name, {
+      const sb = new SandboxHandle(sandboxId, name, {
         control: this._control,
         adapter: this._adapter,
         hooks: opts.hooks,
         onClose: () => this._releaseSlot(),
         shell: opts.shell,
-        fork: (snapshotId, tag) =>
-          this._forkFromSnapshot(snapshotId, name, opts.resources, opts.shell),
+        fork: (snapshotId, tag, overrideRunId) =>
+          this._forkFromSnapshot(
+            snapshotId,
+            name,
+            opts.resources,
+            opts.shell,
+            overrideRunId ?? runId,
+          ),
         useServerProxy: this._useServerProxy,
       });
       opts.hooks?.onSandboxCreated?.(sandboxId, name);
@@ -202,16 +224,20 @@ export class Drej {
    * await sb2.close();
    * ```
    */
-  async resume(sandboxId: string, opts?: ResumeOptions): Promise<Sandbox> {
+  async resume(sandboxId: string, opts?: ResumeOptions): Promise<SandboxHandle> {
     await this._ensureConnected();
     const allSessions = await this._adapter.listAllSandboxDetails();
     const session = allSessions.find((s) => s.sandboxId === sandboxId);
-    if (!session) throw new DrejError(`Session ${sandboxId} not found`, 404);
+    if (!session) throw new SandboxClientError(`Session ${sandboxId} not found`, 404);
 
     return this._resumeSession(session.name, sandboxId, opts?.tag);
   }
 
-  private async _resumeSession(name: string, sandboxId: string, tag?: string): Promise<Sandbox> {
+  private async _resumeSession(
+    name: string,
+    sandboxId: string,
+    tag?: string,
+  ): Promise<SandboxHandle> {
     const entries = await this._adapter.readAll(name, sandboxId);
 
     let checkpointIdx: number;
@@ -222,11 +248,14 @@ export class Drej {
           (e.payload as { name?: string } | undefined)?.name === tag,
       );
       if (checkpointIdx === -1)
-        throw new DrejError(`No checkpoint with tag '${tag}' found for session ${sandboxId}`, 404);
+        throw new SandboxClientError(
+          `No checkpoint with tag '${tag}' found for session ${sandboxId}`,
+          404,
+        );
     } else {
       checkpointIdx = entries.map((e) => e.event).lastIndexOf(LedgerEvent.CheckpointCreated);
       if (checkpointIdx === -1)
-        throw new DrejError(`No checkpoint found for session ${sandboxId}`, 404);
+        throw new SandboxClientError(`No checkpoint found for session ${sandboxId}`, 404);
     }
 
     const { snapshotId } = entries[checkpointIdx].payload as { snapshotId: string };
@@ -237,6 +266,11 @@ export class Drej {
         | { resources?: { cpu?: string; memory?: string; gpu?: string } }
         | undefined
     )?.resources;
+    // Inherit the original sandbox's runId — a resumed sandbox is a continuation of the
+    // same run, not a new one. Falls back to a fresh UUID only for ledger data written
+    // before this field existed.
+    const runId =
+      (createdEntry?.payload as { runId?: string } | undefined)?.runId ?? crypto.randomUUID();
 
     const replayCache = new Map<number, ExecResult>();
     const pendingStdout = new Map<number, string[]>();
@@ -294,7 +328,11 @@ export class Drej {
 
     await this._acquireSlot();
     try {
-      const rawSb = await this._control.createSandbox({ snapshotId, resourceLimits: resources });
+      const rawSb = await this._control.createSandbox({
+        snapshotId,
+        resourceLimits: resources,
+        metadata: { runId },
+      });
       const newSessionId = rawSb.id;
       await this._waitForRunning(newSessionId);
 
@@ -304,10 +342,10 @@ export class Drej {
         sandboxId: newSessionId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newSessionId, resumedFrom: sandboxId, snapshotId },
+        payload: { sandboxId: newSessionId, resumedFrom: sandboxId, snapshotId, runId },
       });
 
-      return new Sandbox(
+      return new SandboxHandle(
         newSessionId,
         name,
         {
@@ -316,12 +354,13 @@ export class Drej {
           onClose: () => this._releaseSlot(),
           fork:
             resources?.cpu && resources?.memory
-              ? (snapshotId, tag) =>
+              ? (snapshotId, tag, overrideRunId) =>
                   this._forkFromSnapshot(
                     snapshotId,
                     name,
                     resources as { cpu: string; memory: string; gpu?: string },
                     undefined,
+                    overrideRunId ?? runId,
                   )
               : undefined,
           useServerProxy: this._useServerProxy,
@@ -342,13 +381,18 @@ export class Drej {
    * is still running. Unlike `resume()`, no snapshot is involved — the container keeps
    * its current state. The execd endpoint is resolved lazily on first use.
    *
-   * @throws `DrejError` (409) if the sandbox is not in Running state.
+   * @throws `SandboxClientError` (409) if the sandbox is not in Running state.
    *
    * @param opts.resources  CPU/memory/GPU to use if `.fork()` is later called on the
-   *   returned `Sandbox`. The control API doesn't echo back a running sandbox's own
+   *   returned `SandboxHandle`. The control API doesn't echo back a running sandbox's own
    *   resource limits, so there's no way to discover them automatically here — omit
-   *   this and `.fork()` will throw. Pass it (e.g. from `drej.config.json`'s
+   *   this and `.fork()` will throw. Pass it (e.g. from `alineo.config.json`'s
    *   defaults) when the caller needs fork support on a merely-connected sandbox.
+   * @param opts.runId  Default run-correlation ID for any later `.fork()` call on the
+   *   returned `SandboxHandle`. `connect()` has no way to discover the sandbox's original
+   *   `runId` (no ledger lookup is attempted — the caller may be using a completely
+   *   different adapter than whatever originally created it, as `alineo fork` does when
+   *   self-attaching). Omit this and pass `runId` explicitly to `.fork()` itself instead.
    *
    * @example
    * ```ts
@@ -361,24 +405,31 @@ export class Drej {
   async connect(
     sandboxId: string,
     name: string,
-    opts?: { resources?: { cpu: string; memory: string; gpu?: string } },
-  ): Promise<Sandbox> {
+    opts?: { resources?: { cpu: string; memory: string; gpu?: string }; runId?: string },
+  ): Promise<SandboxHandle> {
     await this._ensureConnected();
     const info = await this._control.getSandbox(sandboxId);
     if (info.status.state !== SandboxState.Running) {
-      throw new DrejError(
-        `Sandbox ${sandboxId} is ${info.status.state} — can only connect to Running sandboxes`,
+      throw new SandboxClientError(
+        `SandboxHandle ${sandboxId} is ${info.status.state} — can only connect to Running sandboxes`,
         409,
       );
     }
     await this._acquireSlot();
     const resources = opts?.resources;
-    return new Sandbox(sandboxId, name, {
+    return new SandboxHandle(sandboxId, name, {
       control: this._control,
       adapter: this._adapter,
       onClose: () => this._releaseSlot(),
       fork: resources
-        ? (snapshotId, tag) => this._forkFromSnapshot(snapshotId, name, resources, undefined)
+        ? (snapshotId, tag, overrideRunId) =>
+            this._forkFromSnapshot(
+              snapshotId,
+              name,
+              resources,
+              undefined,
+              overrideRunId ?? opts?.runId,
+            )
         : undefined,
       useServerProxy: this._useServerProxy,
     });
@@ -394,6 +445,8 @@ export class Drej {
    * @param snapshotId  The snapshot ID returned by `sb.checkpoint()`.
    * @param name        A name for the new sandbox session in the ledger.
    * @param resources   CPU and memory for the restored container.
+   * @param runId       Run-correlation ID for the restored sandbox — see `SandboxDetails.runId`.
+   *   Defaults to a fresh `crypto.randomUUID()` if omitted.
    *
    * @example
    * ```ts
@@ -410,11 +463,17 @@ export class Drej {
     snapshotId: string,
     name: string,
     resources: { cpu: string; memory: string; gpu?: string },
-  ): Promise<Sandbox> {
+    runId?: string,
+  ): Promise<SandboxHandle> {
     await this._ensureConnected();
     await this._acquireSlot();
     try {
-      const rawSb = await this._control.createSandbox({ snapshotId, resourceLimits: resources });
+      const finalRunId = runId ?? crypto.randomUUID();
+      const rawSb = await this._control.createSandbox({
+        snapshotId,
+        resourceLimits: resources,
+        metadata: { runId: finalRunId },
+      });
       const newId = rawSb.id;
       await this._waitForRunning(newId);
       await this._adapter.append({
@@ -423,13 +482,20 @@ export class Drej {
         sandboxId: newId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newId, fromSnapshot: snapshotId },
+        payload: { sandboxId: newId, fromSnapshot: snapshotId, runId: finalRunId },
       });
-      return new Sandbox(newId, name, {
+      return new SandboxHandle(newId, name, {
         control: this._control,
         adapter: this._adapter,
         onClose: () => this._releaseSlot(),
-        fork: (snapshotId, tag) => this._forkFromSnapshot(snapshotId, name, resources, undefined),
+        fork: (snapshotId, tag, overrideRunId) =>
+          this._forkFromSnapshot(
+            snapshotId,
+            name,
+            resources,
+            undefined,
+            overrideRunId ?? finalRunId,
+          ),
         useServerProxy: this._useServerProxy,
       });
     } catch (err) {
@@ -439,7 +505,7 @@ export class Drej {
   }
 
   /**
-   * Sandbox history management. List, inspect, and delete past sandbox records.
+   * SandboxHandle history management. List, inspect, and delete past sandbox records.
    *
    * @example
    * ```ts
@@ -544,7 +610,7 @@ export class Drej {
     name: string,
     opts: EnvironmentOptions,
     extra?: EnvironmentSandboxOptions,
-  ): Promise<Sandbox> {
+  ): Promise<SandboxHandle> {
     await this._ensureConnected();
 
     const record = await this._adapter.getEnvironment(name);
@@ -587,7 +653,7 @@ export class Drej {
 
     const checkpoint = await this._adapter.lastCheckpoint(buildName, sb.sandboxId);
     if (!checkpoint)
-      throw new DrejError(`Environment build for '${name}' produced no checkpoint`, 500);
+      throw new SandboxClientError(`Environment build for '${name}' produced no checkpoint`, 500);
     const { snapshotId } = checkpoint.payload as { snapshotId: string };
 
     await this._adapter.saveEnvironment({ name, snapshotId, image, builtAt: Date.now() });
@@ -600,13 +666,15 @@ export class Drej {
     envName: string,
     envShell?: string,
     extra?: EnvironmentSandboxOptions,
-  ): Promise<Sandbox> {
+  ): Promise<SandboxHandle> {
     await this._acquireSlot();
     try {
+      const runId = crypto.randomUUID();
       const rawSb = await this._control.createSandbox({
         snapshotId,
         resourceLimits: resources,
         env: extra?.env,
+        metadata: { runId },
       });
       const newId = rawSb.id;
       await this._waitForRunning(newId);
@@ -618,17 +686,23 @@ export class Drej {
         sandboxId: newId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newId, fromEnvironment: envName, snapshotId },
+        payload: { sandboxId: newId, fromEnvironment: envName, snapshotId, runId },
       });
 
-      const sb = new Sandbox(newId, sessionName, {
+      const sb = new SandboxHandle(newId, sessionName, {
         control: this._control,
         adapter: this._adapter,
         hooks: extra?.hooks,
         onClose: () => this._releaseSlot(),
         shell: extra?.shell ?? envShell,
-        fork: (snapshotId, tag) =>
-          this._forkFromSnapshot(snapshotId, sessionName, resources, extra?.shell ?? envShell),
+        fork: (snapshotId, tag, overrideRunId) =>
+          this._forkFromSnapshot(
+            snapshotId,
+            sessionName,
+            resources,
+            extra?.shell ?? envShell,
+            overrideRunId ?? runId,
+          ),
         useServerProxy: this._useServerProxy,
       });
       extra?.hooks?.onSandboxCreated?.(newId, sessionName);
@@ -644,10 +718,19 @@ export class Drej {
     parentName: string,
     resources: { cpu: string; memory: string; gpu?: string },
     shell?: string,
-  ): Promise<Sandbox> {
+    runId?: string,
+  ): Promise<SandboxHandle> {
     await this._acquireSlot();
     try {
-      const rawSb = await this._control.createSandbox({ snapshotId, resourceLimits: resources });
+      // Resolved once here, not left to the control-plane call, the ledger write, and
+      // the child's own fork closure to each fall back independently — they'd otherwise
+      // generate different UUIDs for what should be a single sandbox's one identity.
+      const finalRunId = runId ?? crypto.randomUUID();
+      const rawSb = await this._control.createSandbox({
+        snapshotId,
+        resourceLimits: resources,
+        metadata: { runId: finalRunId },
+      });
       const newId = rawSb.id;
       await this._waitForRunning(newId);
 
@@ -658,15 +741,16 @@ export class Drej {
         sandboxId: newId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newId, forkedFrom: snapshotId },
+        payload: { sandboxId: newId, forkedFrom: snapshotId, runId: finalRunId },
       });
 
-      return new Sandbox(newId, sessionName, {
+      return new SandboxHandle(newId, sessionName, {
         control: this._control,
         adapter: this._adapter,
         onClose: () => this._releaseSlot(),
         shell,
-        fork: (sid, tag) => this._forkFromSnapshot(sid, sessionName, resources, shell),
+        fork: (sid, tag, overrideRunId) =>
+          this._forkFromSnapshot(sid, sessionName, resources, shell, overrideRunId ?? finalRunId),
         useServerProxy: this._useServerProxy,
       });
     } catch (err) {
@@ -684,15 +768,18 @@ export class Drej {
       const s = await this._control.getSandbox(sandboxId);
       if (s.status.state === SandboxState.Running) return;
       if (s.status.state === SandboxState.Failed || s.status.state === SandboxState.Terminated) {
-        throw new DrejError(
-          `Sandbox ${sandboxId} entered state ${s.status.state}: ${s.status.message ?? ""}`,
+        throw new SandboxClientError(
+          `SandboxHandle ${sandboxId} entered state ${s.status.state}: ${s.status.message ?? ""}`,
           500,
         );
       }
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, 1_000);
     }
-    throw new DrejError(`Sandbox ${sandboxId} did not reach Running within ${timeoutMs}ms`, 408);
+    throw new SandboxClientError(
+      `SandboxHandle ${sandboxId} did not reach Running within ${timeoutMs}ms`,
+      408,
+    );
   }
 
   private async _acquireSlot(): Promise<void> {

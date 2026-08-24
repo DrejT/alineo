@@ -16,6 +16,15 @@ export interface SandboxDetails {
   completedAt?: number;
   /** Number of exec() calls that completed. */
   execCount: number;
+  /**
+   * Identifies the logical run this sandbox belongs to. Always present — a fresh
+   * `crypto.randomUUID()` if the caller didn't supply one via `SandboxOptions.runId`.
+   * A resumed, forked, or restored-from-snapshot sandbox always inherits its origin's
+   * `runId` rather than getting a new one, so every sandbox descended from the same
+   * root call (directly or via `sb.fork()`/`Alineo.spawn()`/`alineo fork`) shares it —
+   * the mechanism `client.sandboxes.list({ runId })` correlates on.
+   */
+  runId: string;
 }
 
 /** Options for filtering session listings. */
@@ -25,11 +34,13 @@ export interface ListSandboxOptions {
   limit?: number;
   /** Return only sessions that started before this Unix timestamp (ms). */
   before?: number;
+  /** Return only sessions belonging to this run — see `SandboxDetails.runId`. */
+  runId?: string;
 }
 
 /** Events emitted during execution and stored in the ledger. */
 export enum LedgerEvent {
-  // ── Sandbox substrate events ──────────────────────────────────────────────
+  // ── SandboxHandle substrate events ──────────────────────────────────────────────
   /** Emitted when a sandbox is created and reaches Running state. */
   SandboxCreated = "sandbox_created",
   /** Emitted at the start of each exec() or execCode() call. */
@@ -47,7 +58,7 @@ export enum LedgerEvent {
   /** Emitted when resume() restores the container to Running. */
   SandboxResumed = "sandbox_resumed",
 
-  // ── Workflow layer events (used by @drej/workflow) ────────────────────────
+  // ── Workflow layer events (used by @alineo-labs/workflow) ────────────────────────
   /** Emitted once when a workflow run starts, before any steps execute. */
   RunStarted = "run_started",
   /** Emitted at the beginning of each step. */
@@ -72,7 +83,7 @@ export enum LedgerEvent {
 export interface LedgerEntry {
   /** Unix timestamp in milliseconds. */
   ts: number;
-  /** Sandbox session name. */
+  /** SandboxHandle session name. */
   name: string;
   sandboxId: string;
   /** Zero-based index of the step that produced this event. `-1` for session-level events. */
@@ -114,14 +125,14 @@ export interface EnvironmentRecord {
 /**
  * Persistence interface for session event storage.
  *
- * Implement this interface to plug in any storage backend. drej ships two
- * official implementations: `@drej/sqlite` (local dev, zero infra) and
- * `@drej/postgres` (production).
+ * Implement this interface to plug in any storage backend. alineo ships two
+ * official implementations: `@alineo-labs/sqlite` (local dev, zero infra) and
+ * `@alineo-labs/postgres` (production).
  *
  * @example
  * ```ts
- * import { SQLiteAdapter } from "@drej/sqlite";
- * const client = new Drej({ baseUrl, adapter: new SQLiteAdapter("./drej.db") });
+ * import { SQLiteAdapter } from "@alineo-labs/sqlite";
+ * const client = new Sandbox({ baseUrl, adapter: new SQLiteAdapter("./alineo.db") });
  * ```
  */
 export interface IStorageAdapter {

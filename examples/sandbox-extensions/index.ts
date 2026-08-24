@@ -4,17 +4,17 @@
  *   Feature 2 — watchMetrics()
  *   Feature 3 — pause() / resume()
  *   Feature 4 — createSession() / BashSession
- *   Feature 7 — Agent.resume()
+ *   Feature 7 — Alineo.resume()
  *
  * Run: bun examples/sandbox-extensions/index.ts
  * Needs: OpenSandbox server running (uvx opensandbox-server)
  */
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
-import { Agent } from "@drej/agent";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+import { Alineo } from "alineo";
 
-const adapter = new SQLiteAdapter("./.drej/test-extensions.db");
-const client = new Drej({
+const adapter = new SQLiteAdapter("./.alineo/test-extensions.db");
+const client = new Sandbox({
   baseUrl: "http://127.0.0.1:8080",
   apiKey: "",
   adapter,
@@ -31,7 +31,7 @@ const sb = await client.sandbox({
   resources: { cpu: "500m", memory: "256Mi" },
   name: "ext-test",
 });
-console.log(`Sandbox: ${sb.sandboxId}`);
+console.log(`SandboxHandle: ${sb.sandboxId}`);
 
 try {
   // ── Feature 1 — diagnosticLogs / diagnosticEvents ─────────────────────────
@@ -110,10 +110,14 @@ try {
   console.log("\nSandbox closed.");
 }
 
-// ── Feature 7 — Agent.resume() ───────────────────────────────────────────────
-section("7. Agent.resume() — reconnect to a running agent");
+// ── Feature 7 — Alineo.resume() ───────────────────────────────────────────────
+section("7. Alineo.resume() — reconnect to a running agent");
 
-const agent = await Agent.load("../pi-agent/agents/hello-agent.json", { adapter });
+const AGENT_SPEC_PATH = "../pi-agent/agents/hello-agent.json";
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+// Alineo.resume() below still accepts a bare path via opts.specPath -- unchanged.
+const agentSpec = await Bun.file(AGENT_SPEC_PATH).json();
+const agent = await Alineo.load(agentSpec, { adapter });
 const agentSandboxId = agent.sandboxId;
 console.log(`Original agent sandbox: ${agentSandboxId}`);
 
@@ -127,14 +131,14 @@ console.log("\n");
 // Simulate the host process exiting by NOT calling agent.close() — instead we
 // forcibly kill the bridge inside the container, then reconnect via resume().
 console.log("Simulating bridge crash (pkill)...");
-await agent.sandbox.exec("pkill -f 'node /drej-bridge.js' 2>/dev/null; true", { strict: false });
+await agent.sandbox.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; true", { strict: false });
 
 // Wait a moment so the process is fully dead.
 await new Promise<void>((r) => setTimeout(r, 500));
 
-const resumed = await Agent.resume(agentSandboxId, {
+const resumed = await Alineo.resume(agentSandboxId, {
   adapter,
-  specPath: "../pi-agent/agents/hello-agent.json",
+  specPath: AGENT_SPEC_PATH,
 });
 console.log(`Resumed agent sandbox: ${resumed.sandboxId}`);
 

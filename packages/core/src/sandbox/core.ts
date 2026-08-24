@@ -1,5 +1,5 @@
-import { ExecClient, PtyClient, SnapshotState, SandboxState } from "@drej/opensandbox";
-import type { SSEEvent, RunInSessionRequest } from "@drej/opensandbox";
+import { ExecClient, PtyClient, SnapshotState, SandboxState } from "@alineo-labs/opensandbox";
+import type { SSEEvent, RunInSessionRequest } from "@alineo-labs/opensandbox";
 import { SandboxError, CommandError } from "../errors";
 import type { LedgerEntry } from "../ledger";
 import { LedgerEvent } from "../ledger";
@@ -18,16 +18,16 @@ import { BashSession } from "./bash-session";
 /**
  * Owns all private sandbox state (exec sequencing, ledger queue, pause/close
  * flags) plus the exec-stream methods that are most tightly coupled to it.
- * `Sandbox` (in `sandbox.ts`) extends this and adds the file/lifecycle/
+ * `SandboxHandle` (in `sandbox.ts`) extends this and adds the file/lifecycle/
  * observability methods as thin delegators to sibling modules.
  */
 export class SandboxCore implements SandboxInternal {
   readonly sandboxId: string;
   readonly name: string;
   readonly deps: SandboxDeps;
-  /** Cached exec results for replay mode (populated by `Drej.resume()`). */
+  /** Cached exec results for replay mode (populated by `Sandbox.resume()`). */
   readonly replayCache: Map<number, ExecResult>;
-  /** Interactive sessions still open at the last checkpoint (populated by `Drej.resume()`). */
+  /** Interactive sessions still open at the last checkpoint (populated by `Sandbox.resume()`). */
   readonly pendingInteractive: Map<number, PendingInteractiveExec>;
   readonly openSessionClosers = new Set<() => Promise<void>>();
 
@@ -78,6 +78,16 @@ export class SandboxCore implements SandboxInternal {
     this._execClient = null;
   }
 
+  /**
+   * Force-cancel any exec streams left dangling by `parseSSE`'s early-return
+   * optimization (see `ExecClient.disposeConnections()`). No-op if no exec client
+   * was ever resolved — deliberately doesn't call `getExecClient()`, which would
+   * lazily resolve a brand-new one against a sandbox that's about to be deleted.
+   */
+  disposeExecClient(): void {
+    this._execClient?.disposeConnections();
+  }
+
   nextSeq(): number {
     return ++this._seq;
   }
@@ -116,14 +126,17 @@ export class SandboxCore implements SandboxInternal {
       if (s.status.state === SandboxState.Running) return;
       if (s.status.state === SandboxState.Failed || s.status.state === SandboxState.Terminated) {
         throw new SandboxError(
-          `Sandbox entered ${s.status.state}: ${s.status.message ?? ""}`,
+          `SandboxHandle entered ${s.status.state}: ${s.status.message ?? ""}`,
           this.sandboxId,
         );
       }
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, 1_000);
     }
-    throw new SandboxError(`Sandbox did not reach Running within ${timeoutMs}ms`, this.sandboxId);
+    throw new SandboxError(
+      `SandboxHandle did not reach Running within ${timeoutMs}ms`,
+      this.sandboxId,
+    );
   }
 
   async waitForSnapshot(snapshotId: string, timeoutMs = 120_000): Promise<void> {
@@ -193,7 +206,7 @@ export class SandboxCore implements SandboxInternal {
   exec(cmd: string, opts?: ExecOptions & { interactive?: false }): ExecHandle;
   exec(cmd: string, opts: ExecOptions & { interactive: true }): InteractiveExecHandle;
   // Fallback for callers holding a plain `ExecOptions` whose `interactive` flag isn't
-  // known at the type level (e.g. passed through from a queued op) — see `@drej/workflow`.
+  // known at the type level (e.g. passed through from a queued op) — see `@alineo-labs/workflow`.
   exec(cmd: string, opts: ExecOptions): ExecHandle | InteractiveExecHandle;
   exec(cmd: string, opts: ExecOptions = {}): ExecHandle {
     if (opts.interactive) return this._execInteractive(cmd, opts);
@@ -366,8 +379,8 @@ export class SandboxCore implements SandboxInternal {
    * ```
    */
   async createCodeContext(
-    language: import("@drej/opensandbox").CodeLanguage,
-  ): Promise<import("@drej/opensandbox").CodeContext> {
+    language: import("@alineo-labs/opensandbox").CodeLanguage,
+  ): Promise<import("@alineo-labs/opensandbox").CodeContext> {
     const ec = await this.getExecClient();
     return ec.createContext(language as string);
   }

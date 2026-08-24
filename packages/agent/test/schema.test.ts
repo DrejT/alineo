@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { validateAgentSpec } from "../src/schema";
+import { validateAgentSpec, type AgentSpec } from "../src/schema";
+import { AgentSpecValidationError } from "../src/errors";
 
 describe("validateAgentSpec", () => {
   it("accepts a valid minimal spec", () => {
@@ -107,5 +108,58 @@ describe("validateAgentSpec", () => {
 
   it("throws for a non-numeric maxAgents", () => {
     expect(() => validateAgentSpec({ name: "x", cli: "pi", maxAgents: "1" })).toThrow(/maxAgents/);
+  });
+
+  // -- #185: aggregated, structured validation errors ------------------------------------------
+
+  it("throws AgentSpecValidationError, not a bare Error", () => {
+    try {
+      validateAgentSpec({ cli: "pi" });
+      throw new Error("expected validateAgentSpec to throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(AgentSpecValidationError);
+    }
+  });
+
+  it("aggregates every problem in one throw instead of failing on the first", () => {
+    try {
+      validateAgentSpec({ cli: "docker", spawnDepth: -1, resources: { cpu: 5 } });
+      throw new Error("expected validateAgentSpec to throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(AgentSpecValidationError);
+      const err = e as AgentSpecValidationError;
+      // name, cli, spawnDepth, resources.cpu, resources.memory -- five independent problems,
+      // all reported, not just the first one encountered.
+      expect(err.issues.length).toBe(5);
+      const paths = err.issues.map((i) => i.path.join("."));
+      expect(paths).toEqual(
+        expect.arrayContaining(["name", "cli", "spawnDepth", "resources.cpu", "resources.memory"]),
+      );
+    }
+  });
+
+  it("validates resources field types, not just its presence", () => {
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", resources: { cpu: 500, memory: "256Mi" } }),
+    ).toThrow(/resources/);
+  });
+
+  it("validates setup step shape", () => {
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", setup: [{ name: "missing run field" }] }),
+    ).toThrow(/setup/);
+  });
+
+  it("validates env values must be strings", () => {
+    expect(() => validateAgentSpec({ name: "x", cli: "pi", env: { PORT: 3000 } })).toThrow(/env/);
+  });
+
+  it("passes unknown top-level fields through untouched (forward-compat)", () => {
+    const spec = validateAgentSpec({
+      name: "x",
+      cli: "pi",
+      someFutureField: "kept, not stripped",
+    }) as AgentSpec & { someFutureField: string };
+    expect(spec.someFutureField).toBe("kept, not stripped");
   });
 });

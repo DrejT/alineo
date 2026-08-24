@@ -1,5 +1,5 @@
 /**
- * Pi agent example — exercises every @drej/agent command:
+ * Pi agent example — exercises every alineo command:
  *
  *   prompt, bash, steer, followUp, abort, newSession
  *   getMessages, getAvailableModels
@@ -13,17 +13,19 @@
  *   sandbox.exec, sandbox.writeFile, sandbox.readFile
  *
  * Run:  cd examples/pi-agent && bun index.ts
- * Needs: OpenSandbox running (drejx init) and NVIDIA_API_KEY in .env
+ * Needs: OpenSandbox running (alineo init) and NVIDIA_API_KEY in .env
  */
-import { Agent, textOnly } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo, textOnly } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 function section(label: string) {
   console.log(`\n── ${label} ${"─".repeat(Math.max(0, 58 - label.length))}\n`);
 }
 
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
-const agent = await Agent.load("./agents/hello-agent.json", { adapter });
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+const spec = await Bun.file("./agents/hello-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(`\nSandbox: ${agent.sandboxId}\n${"─".repeat(60)}`);
 await agent.sandbox.exec("mkdir -p /workspace");
 
@@ -327,5 +329,5 @@ try {
   console.log();
 } finally {
   await agent.close();
-  console.log("Agent closed.");
+  console.log("Alineo closed.");
 }

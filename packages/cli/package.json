@@ -1,14 +1,14 @@
 {
-  "name": "drejx",
-  "version": "0.7.2",
+  "name": "alineo-cli",
+  "version": "0.1.3",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DrejT/drej.git",
+    "url": "git+https://github.com/DrejT/alineo.git",
     "directory": "packages/cli"
   },
   "bin": {
-    "drejx": "./dist/index.mjs"
+    "alineo": "./dist/index.mjs"
   },
   "files": [
     "dist",
@@ -29,22 +29,22 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@drej/agent": "workspace:*",
-    "@drej/opensandbox": "workspace:*",
-    "@drej/sqlite": "workspace:*",
+    "@alineo-labs/opensandbox": "workspace:*",
+    "@alineo-labs/sandbox": "workspace:*",
+    "@alineo-labs/sqlite": "workspace:*",
     "@opentui/core": "^0.4.3",
-    "drej": "workspace:*"
+    "alineo": "workspace:*"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.80.3",
     "bun-types": "1.3.14",
     "tsdown": "0.22.3",
-    "typebox": "^1.3.5",
     "typescript": "6.0.3"
   },
   "pi": {
     "extensions": [
-      "./pi-extension/drejx.ts"
-    ]
+      "./pi-extension/alineo.ts"
+    ],
+    "extensionsDeprecationNotice": "pi-extension/alineo.ts's alineo_spawn/alineo_prompt/alineo_agents/alineo_kill typed tools have been removed in favor of bash-only CLI usage for all five alineo subcommands (alineo_fork was already bash-only) -- the typed-vs-not asymmetry between them was implicated in issue #21 Bug B (a model reached for the typed alineo_spawn tool instead of the alineo fork shell command the guidance text recommended for that scenario). Kept in place for backward compatibility -- no removal planned yet. The general Pi-extension-loading mechanism itself (this \"pi.extensions\" field, and a spec's own setup steps installing a custom .pi/extensions/*.ts file, e.g. @alineo-labs/agent-browser's) is NOT deprecated -- only this specific extension's typed-tool-registration responsibility is."
   }
 }

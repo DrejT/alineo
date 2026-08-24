@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Sandbox } from "../src/sandbox/index.ts";
+import { SandboxHandle } from "../src/sandbox/index.ts";
 import type { SandboxDeps, PendingInteractiveExec } from "../src/sandbox/index.ts";
 import type { IStorageAdapter } from "../src/ledger.ts";
 import type { ExecResult } from "../src/exec-handle.ts";
@@ -55,10 +55,10 @@ function appendedEvents(adapter: IStorageAdapter) {
   return (adapter.append as ReturnType<typeof vi.fn>).mock.calls.map((c: [any]) => c[0]);
 }
 
-describe("Sandbox interactive exec", () => {
+describe("SandboxHandle interactive exec", () => {
   it("logs exec_start with interactive:true and the launch command", async () => {
     const adapter = makeAdapter();
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty } = makeFakePty();
     (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
@@ -71,7 +71,7 @@ describe("Sandbox interactive exec", () => {
 
   it("logs each write() as an exec_event with type stdin", async () => {
     const adapter = makeAdapter();
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty } = makeFakePty();
     (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
@@ -89,7 +89,7 @@ describe("Sandbox interactive exec", () => {
 
   it("logs output chunks as exec_event with type stdout", async () => {
     const adapter = makeAdapter();
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty, emitOutput } = makeFakePty();
     (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
@@ -108,7 +108,7 @@ describe("Sandbox interactive exec", () => {
 
   it("resolves with the exit code and logs exec_complete", async () => {
     const adapter = makeAdapter();
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty, emitExit } = makeFakePty();
     (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
@@ -124,7 +124,7 @@ describe("Sandbox interactive exec", () => {
 
   it("throws CommandError on non-zero exit with strict:true (default)", async () => {
     const adapter = makeAdapter();
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty, emitExit } = makeFakePty();
     (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
@@ -137,7 +137,7 @@ describe("Sandbox interactive exec", () => {
 
   it("does not throw on non-zero exit with strict:false", async () => {
     const adapter = makeAdapter();
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter));
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty, emitExit } = makeFakePty();
     (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
@@ -152,7 +152,7 @@ describe("Sandbox interactive exec", () => {
   it("sb.close() closes any still-open interactive session", async () => {
     const adapter = makeAdapter();
     const deps = makeDeps(adapter);
-    const sb = new Sandbox("sb-1", "test", deps);
+    const sb = new SandboxHandle("sb-1", "test", deps);
     const { pty } = makeFakePty();
     (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
@@ -168,7 +168,7 @@ describe("Sandbox interactive exec", () => {
     const adapter = makeAdapter();
     const cached: ExecResult = { stdout: "done before checkpoint\n", stderr: "", exitCode: 0 };
     const replayCache = new Map([[1, cached]]);
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter), replayCache);
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
     const resolvePty = vi.fn();
     (sb as any).resolvePtyClient = resolvePty;
 
@@ -191,7 +191,7 @@ describe("Sandbox interactive exec", () => {
         },
       ],
     ]);
-    const sb = new Sandbox("sb-1", "test", makeDeps(adapter), new Map(), pendingInteractive);
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), new Map(), pendingInteractive);
     const { pty } = makeFakePty();
     (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
 

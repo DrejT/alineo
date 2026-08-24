@@ -1,7 +1,7 @@
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -21,8 +21,8 @@ df -h /
 echo ""
 
 echo "=== writing a file and reading it back ==="
-echo "hello from drej" > /tmp/drej-test.txt
-cat /tmp/drej-test.txt
+echo "hello from alineo" > /tmp/alineo-test.txt
+cat /tmp/alineo-test.txt
 echo ""
 
 echo "=== done ==="
@@ -34,7 +34,7 @@ const sb = await client.sandbox({
   name: "bash-script",
 });
 
-console.log(`Sandbox ID: ${sb.sandboxId}\n`);
+console.log(`SandboxHandle ID: ${sb.sandboxId}\n`);
 
 try {
   await sb.exec(script, { shell: "/bin/bash" }).pipe(process.stdout);

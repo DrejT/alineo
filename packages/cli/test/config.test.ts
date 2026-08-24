@@ -1,5 +1,12 @@
 import { describe, it, expect } from "bun:test";
-import { serverConfigContent, serverConfigPath, configPath } from "../src/config.js";
+import { join } from "path";
+import {
+  serverConfigContent,
+  serverConfigPath,
+  serverConfigDir,
+  serverDataDir,
+  configPath,
+} from "../src/config.js";
 
 describe("serverConfigContent", () => {
   it("contains [server]", () => {
@@ -12,6 +19,10 @@ describe("serverConfigContent", () => {
 
   it("contains [docker]", () => {
     expect(serverConfigContent()).toContain("[docker]");
+  });
+
+  it("contains [store]", () => {
+    expect(serverConfigContent()).toContain("[store]");
   });
 
   it('contains eip = "http://127.0.0.1:8080"', () => {
@@ -29,6 +40,10 @@ describe("serverConfigContent", () => {
   it("contains port = 8080", () => {
     expect(serverConfigContent()).toContain("port = 8080");
   });
+
+  it("pins [store].path to the container-side mount target set up in init.ts (/data)", () => {
+    expect(serverConfigContent()).toContain(`path = "/data/opensandbox.db"`);
+  });
 });
 
 describe("serverConfigPath", () => {
@@ -37,8 +52,14 @@ describe("serverConfigPath", () => {
   });
 });
 
+describe("serverDataDir", () => {
+  it("lives under serverConfigDir(), not inside a project or the container", () => {
+    expect(serverDataDir()).toBe(join(serverConfigDir(), "opensandbox-data"));
+  });
+});
+
 describe("configPath", () => {
-  it("equals drej.config.json", () => {
-    expect(configPath()).toBe("drej.config.json");
+  it("equals alineo.config.json", () => {
+    expect(configPath()).toBe("alineo.config.json");
   });
 });

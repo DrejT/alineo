@@ -1,7 +1,7 @@
-// Imported from @drej/core rather than `drej` — the `drej` package's built dist currently
+// Imported from @alineo-labs/core rather than `alineo` — the `alineo` package's built dist currently
 // drops this type-only re-export (a bundling gap in packages/sdks/typescript, not something
 // this app should work around by duplicating the type).
-import type { InteractiveExecHandle } from "@drej/core";
+import type { InteractiveExecHandle } from "@alineo-labs/core";
 
 export type WSData =
   | {

@@ -1,4 +1,4 @@
-import type { ExecClient } from "@drej/opensandbox";
+import type { ExecClient } from "@alineo-labs/opensandbox";
 import type { LedgerEvent } from "../ledger";
 import type { SandboxDeps } from "./types";
 
@@ -24,4 +24,5 @@ export interface SandboxInternal {
   isClosed(): boolean;
   setClosed(closed: boolean): void;
   clearExecClient(): void;
+  disposeExecClient(): void;
 }

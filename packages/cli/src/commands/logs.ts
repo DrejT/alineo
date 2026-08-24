@@ -1,14 +1,14 @@
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import type { CliCommand } from "./types.js";
 
 export async function logs(name: string, opts: { json?: boolean } = {}): Promise<void> {
-  if (!name) throw new Error("Usage: drejx logs <name> [--json]");
+  if (!name) throw new Error("Usage: alineo logs <name> [--json]");
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  const client = new Drej({
+  const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter,
@@ -45,7 +45,9 @@ export async function logs(name: string, opts: { json?: boolean } = {}): Promise
 export const logsCommand: CliCommand = {
   name: "logs",
   group: "agent",
-  variants: [{ usage: "drejx logs <name> [--json]", summary: "Print ledger events for a session" }],
+  variants: [
+    { usage: "alineo logs <name> [--json]", summary: "Print ledger events for a session" },
+  ],
   run: async (argv) => {
     await logs(argv[0] ?? "", { json: argv.includes("--json") });
   },

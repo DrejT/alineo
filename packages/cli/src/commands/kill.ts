@@ -1,5 +1,5 @@
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import type { CliCommand } from "./types.js";
 
@@ -10,11 +10,11 @@ import type { CliCommand } from "./types.js";
  * is the actual authority on whether it still exists to kill.
  */
 export async function kill(sandboxId: string): Promise<void> {
-  if (!sandboxId) throw new Error("Usage: drejx kill <sandbox-id>");
+  if (!sandboxId) throw new Error("Usage: alineo kill <sandbox-id>");
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  const client = new Drej({
+  const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter,
@@ -29,7 +29,7 @@ export async function kill(sandboxId: string): Promise<void> {
 export const killCommand: CliCommand = {
   name: "kill",
   group: "agent",
-  variants: [{ usage: "drejx kill <sandbox-id>", summary: "Stop a sandbox" }],
+  variants: [{ usage: "alineo kill <sandbox-id>", summary: "Stop a sandbox" }],
   run: async (argv) => {
     await kill(argv[0] ?? "");
   },

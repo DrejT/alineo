@@ -1,0 +1,158 @@
+---
+title: Control flow
+description: retry, when, forEach, parallel, and sequence — composable workflow primitives from @alineo-labs/workflow.
+---
+
+Control-flow primitives are provided by `@alineo-labs/workflow`. They're available on `SandboxBuilder` (the callback argument in `.sandbox()`) and are queued synchronously — nothing runs until `.pipe()` or `.result()` is awaited.
+
+```bash
+bun add @alineo-labs/workflow
+```
+
+## retry
+
+Retry an inner callback up to `maxAttempts` times on failure. Retries on any thrown error, including `CommandError` from a non-zero exit.
+
+```ts
+await workflow(client)
+  .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {
+    sb.retry(
+      5,
+      (sb) => {
+        sb.exec(`
+          R=$((RANDOM % 2))
+          if [ $R -eq 0 ]; then exit 1; fi
+          echo "success"
+        `);
+      },
+      { delayMs: 200, backoff: "exponential" },
+    );
+  })
+  .pipe(process.stdout);
+```
+
+### RetryOptions
+
+| Option    | Type                       | Default   | Description                                    |
+| --------- | -------------------------- | --------- | ---------------------------------------------- |
+| `delayMs` | `number`                   | `1000`    | Delay between retries in milliseconds          |
+| `backoff` | `"fixed" \| "exponential"` | `"fixed"` | `"exponential"` doubles the delay each attempt |
+
+With exponential backoff, attempt delays are: `delayMs`, `delayMs * 2`, `delayMs * 4`, etc.
+
+## when
+
+Branch on runtime state. The predicate receives the current context: `stdout` accumulated across every exec run so far in the sandbox, `exitCode` from the most recent exec, and `vars` captured so far:
+
+```ts
+await workflow(client)
+  .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {
+    sb.exec("test -f /etc/hostname", { strict: false });
+    sb.when(
+      (ctx) => ctx.exitCode === 0,
+      (sb) => {
+        sb.exec('echo "/etc/hostname exists"');
+      },
+      (sb) => {
+        sb.exec('echo "/etc/hostname missing"');
+      },
+    );
+  })
+  .pipe(process.stdout);
+```
+
+The `else` branch (third argument) is optional. `ctx.stdout` is accumulated stdout from all execs so far. `ctx.vars` holds values captured with `sb.readFile(path, as)`.
+
+## forEach
+
+Iterate over a list of items. Each item runs the inner callback in the same sandbox:
+
+```ts
+await workflow(client)
+  .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {
+    sb.forEach(["alpha.txt", "beta.txt", "gamma.txt"], (sb, item) => {
+      sb.exec(`echo "writing /tmp/${item}" && echo hello > /tmp/${item}`);
+    });
+    sb.exec("ls /tmp/*.txt");
+  })
+  .pipe(process.stdout);
+```
+
+### ForEachOptions
+
+| Option        | Type     | Default | Description                                                         |
+| ------------- | -------- | ------- | ------------------------------------------------------------------- |
+| `concurrency` | `number` | `1`     | Number of items to process simultaneously (within the same sandbox) |
+
+## parallel
+
+Run the same operation across multiple sandbox configurations simultaneously:
+
+```ts
+await workflow(client)
+  .parallel(
+    [
+      { image: "node:20", resources: { cpu: "500m", memory: "512Mi" } },
+      { image: "node:22", resources: { cpu: "500m", memory: "512Mi" } },
+      { image: "node:24", resources: { cpu: "500m", memory: "512Mi" } },
+    ],
+    (sb) => {
+      sb.exec("npm ci");
+      sb.exec("npm test");
+    },
+  )
+  .pipe(process.stdout);
+```
+
+Each configuration gets its own container. All run concurrently; results are merged in declaration order.
+
+## sequence
+
+Run sandboxes one after another, passing each stage's result to the next:
+
+```ts
+await workflow(client)
+  .sequence([
+    {
+      image: "node:22",
+      name: "build",
+      resources: { cpu: "1", memory: "512Mi" },
+      run: (sb) => {
+        sb.exec("npm run build");
+        sb.readFile("/dist/bundle.js", "bundle");
+      },
+    },
+    {
+      image: "ubuntu:22.04",
+      name: "deploy",
+      resources: { cpu: "500m", memory: "256Mi" },
+      run: (sb, prev) => {
+        // prev.vars.bundle is available here
+        sb.exec(`echo "deploying bundle (${String(prev?.vars.bundle ?? "").length} bytes)"`);
+      },
+    },
+  ])
+  .pipe(process.stdout);
+```
+
+## Composing control flow
+
+`retry`, `when`, and `forEach` compose — you can nest them freely:
+
+```ts
+sb.forEach(["a", "b", "c"], (sb, item) => {
+  sb.retry(
+    3,
+    (sb) => {
+      sb.exec(`process ${item}`);
+    },
+    { backoff: "exponential" },
+  );
+
+  sb.when(
+    (ctx) => ctx.exitCode === 0,
+    (sb) => sb.exec(`echo "${item} succeeded"`),
+    (sb) => sb.exec(`echo "${item} failed after retries"`),
+  );
+});
+```

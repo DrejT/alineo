@@ -6,9 +6,9 @@ import {
   type CliRenderer,
   type SelectOption,
 } from "@opentui/core";
-import { Drej } from "drej";
-import type { SandboxDetails } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import type { SandboxDetails } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { getSessions, formatAge } from "../sessions-data.js";
 
@@ -37,7 +37,7 @@ export function createDashboardView(
     new TextRenderable(renderer, {
       id: "dashboard-title",
       content:
-        "drejx — sessions   (↑/↓ move · enter chat · n new · l logs · k kill · r refresh · q quit)",
+        "alineo — sessions   (↑/↓ move · enter chat · n new · l logs · k kill · r refresh · q quit)",
     }),
   );
 
@@ -85,7 +85,7 @@ export function createDashboardView(
     status.content = `killing ${session.name}...`;
     try {
       const config = await readConfig();
-      const client = new Drej({
+      const client = new Sandbox({
         baseUrl: config.serverUrl,
         apiKey: config.apiKey,
         adapter: new SQLiteAdapter(config.adapterPath),

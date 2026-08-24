@@ -1,11 +1,11 @@
 # control-flow
 
-Demonstrates all of drej's built-in workflow control-flow primitives in a single sandbox.
+Demonstrates all of alineo's built-in workflow control-flow primitives in a single sandbox.
 
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

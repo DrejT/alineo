@@ -1,10 +1,10 @@
 /**
  * Demonstrates capturing exec stdout and using it in subsequent steps.
  */
-import { Drej } from "drej";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const client = new Drej({
+const client = new Sandbox({
   baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
   apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
   adapter: new SQLiteAdapter("./ledger.db"),
@@ -17,7 +17,7 @@ const sb = await client.sandbox({
   name: "capture-demo",
 });
 
-console.log(`Sandbox ID: ${sb.sandboxId}`);
+console.log(`SandboxHandle ID: ${sb.sandboxId}`);
 
 try {
   const { stdout: nodeVersion } = await sb.exec('node -e "process.stdout.write(process.version)"');

@@ -1,21 +1,32 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
-
 @source "../../node_modules/fumadocs-ui/dist/**/*.js";
 
 html {
   color-scheme: light;
 }
 
+/* Set dark color scheme for browser defaults (scrollbars, etc.) */
+html.dark {
+  color-scheme: dark;
+}
+
 @theme {
   /* Wire Tailwind font tokens to Next.js font CSS vars */
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 
-  /* drej palette — fumadocs token overrides, matching apps/www's brand tokens
-     (apps/www/src/styles/global.css): monochrome + single blue accent,
-     reserved for primary actions/links only. */
+  /* Radius scale — xs/sm/xl already land on the right values from Tailwind's
+     defaults (4px inline code via rounded-sm, 12px cards via rounded-xl);
+     lg/md are tuned to match fumadocs-ui's own hardcoded usage:
+     rounded-lg backs sidebar nav items + navbar chrome (target: 6px),
+     rounded-md is free for inputs/pill-adjacent chrome (target: 8px). */
+  --radius-lg: 6px;
+  --radius-md: 8px;
+  --radius-pill: 9999px;
+
+  /* Light theme tokens */
   --color-fd-background: oklch(1 0 0);
   --color-fd-foreground: oklch(0.15 0 0);
   --color-fd-muted: oklch(0.97 0 0);
@@ -25,40 +36,61 @@ html {
   --color-fd-card: oklch(0.985 0 0);
   --color-fd-card-foreground: oklch(0.15 0 0);
   --color-fd-border: oklch(0.9 0 0);
-  --color-fd-primary: oklch(0.47 0.17 259);
+  --color-fd-primary: oklch(0 0 0);
   --color-fd-primary-foreground: oklch(1 0 0);
   --color-fd-secondary: oklch(0.97 0 0);
   --color-fd-secondary-foreground: oklch(0.15 0 0);
   --color-fd-accent: oklch(0.94 0 0);
   --color-fd-accent-foreground: oklch(0.15 0 0);
-  --color-fd-ring: oklch(0.47 0.17 259);
+  --color-fd-ring: oklch(0 0 0);
+}
+
+/* Dark theme overrides: Pure black background, white text/animations */
+html.dark {
+  --color-fd-background: oklch(0 0 0);
+  --color-fd-foreground: oklch(0.95 0 0);
+  --color-fd-muted: oklch(0.15 0 0);
+  --color-fd-muted-foreground: oklch(0.6 0 0);
+  --color-fd-popover: oklch(0 0 0);
+  --color-fd-popover-foreground: oklch(0.95 0 0);
+  --color-fd-card: oklch(0.05 0 0);
+  --color-fd-card-foreground: oklch(0.95 0 0);
+  --color-fd-border: oklch(0.2 0 0);
+  --color-fd-primary: oklch(1 0 0);
+  --color-fd-primary-foreground: oklch(0 0 0);
+  --color-fd-secondary: oklch(0.1 0 0);
+  --color-fd-secondary-foreground: oklch(0.95 0 0);
+  --color-fd-accent: oklch(0.15 0 0);
+  --color-fd-accent-foreground: oklch(0.95 0 0);
+  --color-fd-ring: oklch(1 0 0);
 }
 
 @layer base {
-  /* Signature: page titles in monospace */
   .nd-docs-layout h1 {
-    @apply font-mono! tracking-[-0.025em] leading-[1.15];
+    @apply font-semibold tracking-[-0.025em] leading-[1.15];
   }
-
   .nd-docs-layout .prose h2 {
     @apply font-semibold tracking-[-0.015em] leading-[1.25];
   }
-
   .nd-docs-layout .prose h3 {
     @apply font-medium tracking-[-0.01em] leading-[1.3];
   }
-
   .nd-docs-layout .prose a {
     @apply text-fd-primary underline decoration-fd-border hover:decoration-fd-primary;
   }
-
-  /* Neutral code block backgrounds — light shiki theme's per-token colors stay
-     baked in, only the panel background is overridden here. */
+  /* Neutral code block backgrounds */
   .shiki {
     @apply bg-fd-secondary!;
   }
-
   :not(pre) > code {
-    @apply bg-fd-secondary text-fd-primary rounded-sm px-[0.4em] py-[0.15em] text-[0.875em];
+    /* @tailwindcss/typography's .prose never sets a wrap rule on inline code, so a long
+       unbroken identifier (ALINEO_OBSERVABILITY, CreateSandboxOptions.metadata, ...) — common
+       in changelog/API prose — overflows its container edge-to-edge on narrow viewports
+       instead of wrapping. break-words lets it break mid-token only when it doesn't fit. */
+    @apply bg-fd-secondary text-fd-primary rounded-sm px-[0.4em] py-[0.15em] text-[0.875em] break-words;
+  }
+  /* Pill-shaped ⌘K search trigger in the top navbar */
+  [data-search-full] {
+    @apply rounded-(--radius-pill)!;
   }
 }

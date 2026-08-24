@@ -1,4 +1,4 @@
-import type { Metrics, DiagnosticLog, DiagnosticEvent, FileInfo } from "@drej/opensandbox";
+import type { Metrics, DiagnosticLog, DiagnosticEvent, FileInfo } from "@alineo-labs/opensandbox";
 import type { CheckpointInfo } from "../ledger";
 import { SandboxCore } from "./core";
 import * as files from "./files";
@@ -6,7 +6,7 @@ import * as lifecycle from "./lifecycle";
 import * as observability from "./observability";
 
 /**
- * A live sandbox container. Returned by `Drej.sandbox()` and `Drej.resume()`.
+ * A live sandbox container. Returned by `Sandbox.sandbox()` and `Sandbox.resume()`.
  *
  * Call `exec()` to run commands, `checkpoint()` to snapshot state, and `close()`
  * when done. Multiple sandboxes can be held simultaneously — just assign to
@@ -21,7 +21,7 @@ import * as observability from "./observability";
  * await sb.close();
  * ```
  */
-export class Sandbox extends SandboxCore {
+export class SandboxHandle extends SandboxCore {
   /** Write a file into the sandbox. */
   async writeFile(path: string, content: string): Promise<void> {
     return files.writeFile(this, path, content);
@@ -94,7 +94,7 @@ export class Sandbox extends SandboxCore {
    * await sb.transfer("/app/output.json", fork);
    * ```
    */
-  async transfer(path: string, target: Sandbox): Promise<void> {
+  async transfer(path: string, target: SandboxHandle): Promise<void> {
     const content = await this.readFile(path);
     await target.writeFile(path, content);
   }
@@ -179,10 +179,10 @@ export class Sandbox extends SandboxCore {
   }
 
   /**
-   * Snapshot the current sandbox and return a new independent `Sandbox` from that state.
+   * Snapshot the current sandbox and return a new independent `SandboxHandle` from that state.
    *
    * The original sandbox keeps running. Both operate on separate containers restored
-   * from the same snapshot. Equivalent to `checkpoint()` followed by `Drej.restoreSnapshot()`
+   * from the same snapshot. Equivalent to `checkpoint()` followed by `Sandbox.restoreSnapshot()`
    * into a new sandbox, but without closing the original.
    *
    * @example
@@ -193,17 +193,20 @@ export class Sandbox extends SandboxCore {
    * await sb.exec("npm test");         // runs on original
    * await fork.exec("npm run build");  // runs on fork
    * ```
+   *
+   * @param runId  Override the forked sandbox's run-correlation ID (see `SandboxDetails.runId`)
+   *   instead of inheriting this sandbox's own default.
    */
-  async fork(tag?: string): Promise<Sandbox> {
-    return lifecycle.fork(this, tag);
+  async fork(tag?: string, runId?: string): Promise<SandboxHandle> {
+    return lifecycle.fork(this, tag, runId);
   }
 
   /**
    * Capture a snapshot of the sandbox's current filesystem state.
    *
    * Writes a `checkpoint_created` event to the ledger with the snapshot ID and
-   * returns the snapshot ID. Use `Drej.resume(sandboxId)` to restore from
-   * the latest checkpoint, or pass the returned ID to `Drej.restoreSnapshot()`.
+   * returns the snapshot ID. Use `Sandbox.resume(sandboxId)` to restore from
+   * the latest checkpoint, or pass the returned ID to `Sandbox.restoreSnapshot()`.
    */
   async checkpoint(name?: string): Promise<string> {
     return lifecycle.checkpoint(this, name);

@@ -5,7 +5,7 @@ Demonstrates the two error-handling modes for exec commands, and the error types
 ## Setup
 
 ```bash
-bunx drejx init   # starts OpenSandbox in Docker (one-time setup)
+bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 ```
 
 ## Run

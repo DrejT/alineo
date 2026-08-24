@@ -19,14 +19,14 @@ Queue a shell command. `strict: true` (default) throws `CommandError` on non-zer
 ## execCode
 
 ```ts
-import { CodeLanguage } from "@drej/opensandbox";
+import { CodeLanguage } from "@alineo-labs/opensandbox";
 
 sb.execCode(`print("hello")`, { context: { id: "my-context", language: CodeLanguage.Python } });
 ```
 
 Queue a code snippet via the interpreter. There's no `language` shorthand or `stateful` flag — `ExecCodeOptions` only takes an optional `context: { id, language }`. Reusing the same `id` across calls shares interpreter state between them; a call with no `context` runs stateless.
 
-`SandboxBuilder` has no queued equivalent of `Sandbox.createCodeContext()` — you supply the context object directly (as above) rather than obtaining one from execd first. If you need a context created via `createCodeContext()`, use the direct `Sandbox` API outside the workflow builder instead (see [Executing code](/docs/core/building/exec)).
+`SandboxBuilder` has no queued equivalent of `SandboxHandle.createCodeContext()` — you supply the context object directly (as above) rather than obtaining one from execd first. If you need a context created via `createCodeContext()`, use the direct `SandboxHandle` API outside the workflow builder instead (see [Executing code](/docs/core/v0.1/building/exec)).
 
 ## writeFile
 
@@ -68,4 +68,4 @@ sb.checkpoint("after-install");
 
 Queue a container snapshot. The checkpoint name is optional. After checkpointing, `client.resume(sandboxId)` can restore the container to this state.
 
-See [Snapshots](/docs/core/building/snapshots) for the full checkpoint/resume model.
+See [Snapshots](/docs/core/v0.1/building/snapshots) for the full checkpoint/resume model.

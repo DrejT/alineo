@@ -1,0 +1,19 @@
+{
+  "name": "@alineo-labs/harness",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "bun-types": "1.3.14",
+    "typescript": "6.0.3"
+  }
+}

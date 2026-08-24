@@ -1,0 +1,199 @@
+---
+title: Custom adapter
+description: Implement IStorageAdapter to use any storage backend with alineo.
+---
+
+`IStorageAdapter` is the interface that both `SQLiteAdapter` and `PostgresAdapter` implement. You can implement it yourself to use any storage backend — Redis, DynamoDB, a REST API, etc.
+
+## Interface
+
+```ts
+export interface IStorageAdapter {
+  connect?(): Promise<void>;
+  close?(): Promise<void>;
+  append(entry: LedgerEntry): Promise<void>;
+  readAll(name: string, sandboxId: string): Promise<LedgerEntry[]>;
+  lastCheckpoint(name: string, sandboxId: string): Promise<LedgerEntry | null>;
+  listSandboxDetails(name: string, opts?: ListSandboxOptions): Promise<SandboxDetails[]>;
+  listAllSandboxDetails(opts?: ListSandboxOptions): Promise<SandboxDetails[]>;
+  getSandboxDetails(name: string, sandboxId: string): Promise<SandboxDetails | null>;
+  deleteSandbox(name: string, sandboxId: string): Promise<void>;
+  listCheckpoints(name: string, sandboxId: string): Promise<CheckpointInfo[]>;
+  getEnvironment(name: string): Promise<EnvironmentRecord | null>;
+  saveEnvironment(record: EnvironmentRecord): Promise<void>;
+  deleteEnvironment(name: string): Promise<void>;
+  listEnvironments(): Promise<EnvironmentRecord[]>;
+}
+```
+
+Import types from `@alineo-labs/core`:
+
+```ts
+import type {
+  IStorageAdapter,
+  LedgerEntry,
+  LedgerEvent,
+  SandboxDetails,
+  ListSandboxOptions,
+  CheckpointInfo,
+  EnvironmentRecord,
+} from "@alineo-labs/core";
+```
+
+## Method reference
+
+| Method                               | Required | Description                                                                                                                                                                         |
+| ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connect()`                          | No       | Initialize connections. Called lazily, once, the first time the client needs the adapter — not by any method you call yourself.                                                     |
+| `close()`                            | No       | Release connections. Called when the event loop drains naturally (`beforeExit`) — long-running servers never reach this, so the pool stays open for the process lifetime by design. |
+| `append(entry)`                      | Yes      | Persist a single ledger event. Called during every live exec.                                                                                                                       |
+| `readAll(name, sandboxId)`           | Yes      | Return all events for a session in ascending `ts` order. Used by `resume()`.                                                                                                        |
+| `lastCheckpoint(name, sandboxId)`    | Yes      | Return the most recent `checkpoint_created` entry, or `null`.                                                                                                                       |
+| `listSandboxDetails(name, opts?)`    | Yes      | Return sessions with this name, newest first.                                                                                                                                       |
+| `listAllSandboxDetails(opts?)`       | Yes      | Return all sessions across all names, newest first.                                                                                                                                 |
+| `getSandboxDetails(name, sandboxId)` | Yes      | Return a single session, or `null`.                                                                                                                                                 |
+| `deleteSandbox(name, sandboxId)`     | Yes      | Delete all events for a session.                                                                                                                                                    |
+| `listCheckpoints(name, sandboxId)`   | Yes      | Return all checkpoints for a session, in creation order.                                                                                                                            |
+| `getEnvironment(name)`               | Yes      | Return the cached record for a named environment, or `null` if not built yet.                                                                                                       |
+| `saveEnvironment(record)`            | Yes      | Upsert an environment record after a successful build.                                                                                                                              |
+| `deleteEnvironment(name)`            | Yes      | Remove the record for a named environment. Does not delete the server-side snapshot.                                                                                                |
+| `listEnvironments()`                 | Yes      | Return all environment records, newest first.                                                                                                                                       |
+
+## LedgerEntry
+
+```ts
+interface LedgerEntry {
+  ts: number; // Unix timestamp in milliseconds
+  name: string; // sandbox name
+  sandboxId: string;
+  stepIndex: number; // -1 for sandbox-level events
+  branch?: number; // parallel branch index
+  event: LedgerEvent;
+  payload?: unknown; // event-specific data
+  error?: string;
+}
+```
+
+## Example: in-memory adapter
+
+Useful for testing:
+
+```ts
+import type {
+  IStorageAdapter,
+  LedgerEntry,
+  SandboxDetails,
+  ListSandboxOptions,
+  CheckpointInfo,
+  EnvironmentRecord,
+} from "@alineo-labs/core";
+import { SandboxStatus, LedgerEvent } from "@alineo-labs/core";
+
+export class MemoryAdapter implements IStorageAdapter {
+  private readonly _events: LedgerEntry[] = [];
+  private readonly _environments = new Map<string, EnvironmentRecord>();
+
+  async append(entry: LedgerEntry): Promise<void> {
+    this._events.push(entry);
+  }
+
+  async readAll(name: string, sandboxId: string): Promise<LedgerEntry[]> {
+    return this._events
+      .filter((e) => e.name === name && e.sandboxId === sandboxId)
+      .sort((a, b) => a.ts - b.ts);
+  }
+
+  async lastCheckpoint(name: string, sandboxId: string): Promise<LedgerEntry | null> {
+    const checkpoints = (await this.readAll(name, sandboxId)).filter(
+      (e) => e.event === LedgerEvent.CheckpointCreated,
+    );
+    return checkpoints.at(-1) ?? null;
+  }
+
+  async listSandboxDetails(name: string, opts?: ListSandboxOptions): Promise<SandboxDetails[]> {
+    return (await this.listAllSandboxDetails(opts)).filter((d) => d.name === name);
+  }
+
+  async listAllSandboxDetails(opts?: ListSandboxOptions): Promise<SandboxDetails[]> {
+    const byId = new Map<string, LedgerEntry[]>();
+    for (const e of this._events) {
+      const key = e.sandboxId;
+      if (!byId.has(key)) byId.set(key, []);
+      byId.get(key)!.push(e);
+    }
+
+    let details: SandboxDetails[] = [];
+    for (const [sandboxId, events] of byId) {
+      const created = events.find((e) => e.event === LedgerEvent.SandboxCreated);
+      const closed = events.find((e) => e.event === LedgerEvent.SandboxClosed);
+      if (!created) continue;
+      details.push({
+        name: created.name,
+        sandboxId,
+        status: closed ? SandboxStatus.Completed : SandboxStatus.Running,
+        startedAt: created.ts,
+        completedAt: closed?.ts,
+        execCount: events.filter((e) => e.event === LedgerEvent.ExecComplete).length,
+      });
+    }
+
+    details.sort((a, b) => b.startedAt - a.startedAt);
+    if (opts?.status) details = details.filter((d) => d.status === opts.status);
+    if (opts?.before) details = details.filter((d) => d.startedAt < opts.before!);
+    if (opts?.limit) details = details.slice(0, opts.limit);
+    return details;
+  }
+
+  async getSandboxDetails(name: string, sandboxId: string): Promise<SandboxDetails | null> {
+    const all = await this.listAllSandboxDetails();
+    return all.find((d) => d.name === name && d.sandboxId === sandboxId) ?? null;
+  }
+
+  async deleteSandbox(name: string, sandboxId: string): Promise<void> {
+    const toRemove = this._events
+      .filter((e) => e.name === name && e.sandboxId === sandboxId)
+      .map((e) => this._events.indexOf(e));
+    for (const idx of toRemove.reverse()) {
+      this._events.splice(idx, 1);
+    }
+  }
+
+  async listCheckpoints(name: string, sandboxId: string): Promise<CheckpointInfo[]> {
+    const events = await this.readAll(name, sandboxId);
+    return events
+      .filter((e) => e.event === LedgerEvent.CheckpointCreated)
+      .map((e) => {
+        const payload = e.payload as { snapshotId: string; name?: string };
+        return { snapshotId: payload.snapshotId, tag: payload.name, createdAt: e.ts };
+      });
+  }
+
+  async getEnvironment(name: string): Promise<EnvironmentRecord | null> {
+    return this._environments.get(name) ?? null;
+  }
+
+  async saveEnvironment(record: EnvironmentRecord): Promise<void> {
+    this._environments.set(record.name, record);
+  }
+
+  async deleteEnvironment(name: string): Promise<void> {
+    this._environments.delete(name);
+  }
+
+  async listEnvironments(): Promise<EnvironmentRecord[]> {
+    return [...this._environments.values()].sort((a, b) => b.builtAt - a.builtAt);
+  }
+}
+```
+
+## Using a custom adapter
+
+Pass it to `Alineo` the same way as the built-in adapters:
+
+```ts
+const client = new Alineo({
+  baseUrl: "http://localhost:8080",
+  adapter: new MemoryAdapter(),
+});
+// No connect() call needed — the adapter is used as soon as the client is.
+```

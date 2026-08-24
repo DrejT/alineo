@@ -10,13 +10,15 @@
  *   - A tool_end event for each tool_start
  *   - The final text answer from Pi
  */
-import { Agent, textOnly, type AgentEvent } from "@drej/agent";
-import { SQLiteAdapter } from "@drej/sqlite";
+import { Alineo, textOnly, type AgentEvent } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
-const adapter = new SQLiteAdapter("./.drej/ledger.db");
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
-const agent = await Agent.load(SPEC, { adapter });
+// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+const spec = await Bun.file(SPEC).json();
+const agent = await Alineo.load(spec, { adapter });
 console.log(
   `\nSandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}\n${"─".repeat(60)}\n`,
 );
@@ -24,7 +26,7 @@ console.log(
 // Write a small Python script for Pi to discover and run.
 await agent.sandbox.writeFile(
   "/workspace/greet.py",
-  'name = "drej"\nprint(f"Hello from {name}! 2 + 2 = {2 + 2}")\n',
+  'name = "alineo"\nprint(f"Hello from {name}! 2 + 2 = {2 + 2}")\n',
 );
 
 // ── Run a prompt that forces Pi to use tools ──────────────────────────────────
@@ -96,4 +98,4 @@ if (starts.length > 0 && ends.length > 0 && textOutput.length > 0) {
 }
 
 await agent.close();
-console.log("Agent closed.");
+console.log("Alineo closed.");

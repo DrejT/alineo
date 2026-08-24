@@ -1,12 +1,12 @@
-# @drej/workflow
+# @alineo-labs/workflow
 
-Lazy pipeline builder for [drej](https://drej.dev) — retry, conditional branching, fan-out, and parallel sandboxes, all flushed in one `await`.
+Lazy pipeline builder for [alineo](https://alineo.tech) — retry, conditional branching, fan-out, and parallel sandboxes, all flushed in one `await`.
 
 ```bash
-bun add @drej/workflow
+bun add @alineo-labs/workflow
 ```
 
-**[Full documentation →](https://docs.drej.dev/docs/workflow)**
+**[Full documentation →](https://docs.alineo.tech/docs/workflow)**
 
 ---
 
@@ -15,7 +15,7 @@ bun add @drej/workflow
 `workflow(client).sandbox(opts, fn)` returns a builder. The `fn` callback receives a `SandboxBuilder` — all methods on it queue operations synchronously. Nothing runs until you `await .pipe()` or `.result()`.
 
 ```ts
-import { workflow } from "@drej/workflow";
+import { workflow } from "@alineo-labs/workflow";
 
 await workflow(client)
   .sandbox({ image: "node:20-slim", resources: { cpu: "1", memory: "512Mi" } }, (sb) => {
