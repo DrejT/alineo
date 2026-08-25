@@ -1,6 +1,7 @@
-import type { ControlClient } from "@alineo-labs/opensandbox";
+import type { ControlClient, NetworkPolicy } from "@alineo-labs/opensandbox";
 import type { IStorageAdapter } from "../ledger";
 import type { ExecResult } from "../exec-handle";
+import type { CredentialBinding, CredentialBroker } from "../credentials";
 import type { SandboxHandle } from "./sandbox";
 
 export interface ExecOptions {
@@ -57,6 +58,8 @@ export interface SandboxHooks {
   onSandboxFailed?(sandboxId: string, error: Error): void;
   onSandboxPaused?(sandboxId: string): void;
   onSandboxResumed?(sandboxId: string): void;
+  /** Fires on `sb.credentials.set()`/`.patch()` — never carries the credential value. */
+  onCredentialInjected?(sandboxId: string, name: string, binding: CredentialBinding): void;
 }
 
 /** Internal dependencies injected by `Sandbox`. */
@@ -64,6 +67,8 @@ export interface SandboxDeps {
   control: ControlClient;
   adapter: IStorageAdapter;
   hooks?: SandboxHooks;
+  /** Broker for `sb.credentials.*` — undefined unless the sandbox was created with `credentialProxy: true`. */
+  credentialBroker?: CredentialBroker;
   /** Called when `close()` completes — used by `Sandbox` for concurrency accounting. */
   onClose?: () => void;
   /** Default shell for all `exec()` calls on this sandbox. Defaults to `"/bin/sh"`. */
@@ -74,7 +79,12 @@ export interface SandboxDeps {
    * default to (see `fork()`'s own docs in `lifecycle.ts` for why an explicit override is
    * needed across a process boundary).
    */
-  fork?: (snapshotId: string, tag?: string, runId?: string) => Promise<SandboxHandle>;
+  fork?: (
+    snapshotId: string,
+    tag?: string,
+    runId?: string,
+    opts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
+  ) => Promise<SandboxHandle>;
   /** Route execd and proxy calls through the OpenSandbox server. Required when the server runs in Docker. */
   useServerProxy?: boolean;
 }

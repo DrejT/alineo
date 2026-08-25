@@ -57,6 +57,13 @@ export enum LedgerEvent {
   SandboxPaused = "sandbox_paused",
   /** Emitted when resume() restores the container to Running. */
   SandboxResumed = "sandbox_resumed",
+  /**
+   * Emitted by `sb.credentials.set()`/`.patch()`. Payload is binding metadata only
+   * (name, host, injection type) — the credential value is never written to the ledger.
+   */
+  CredentialBound = "credential_bound",
+  /** Emitted by `sb.credentials.remove()`. */
+  CredentialRevoked = "credential_revoked",
 
   // ── Workflow layer events (used by @alineo-labs/workflow) ────────────────────────
   /** Emitted once when a workflow run starts, before any steps execute. */

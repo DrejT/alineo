@@ -10,8 +10,13 @@ import {
   type EnvironmentRecord,
   type CheckpointInfo,
   type PendingInteractiveExec,
+  type CredentialBroker,
+  type CredentialResolver,
 } from "@alineo-labs/core";
+import { reconstructBoundCredentials, resolveBoundCredential } from "@alineo-labs/core";
 import { ControlClient, SandboxState, SnapshotState } from "@alineo-labs/opensandbox";
+import type { NetworkPolicy } from "@alineo-labs/opensandbox";
+import { OpenSandboxCredentialBroker } from "@alineo-labs/vault";
 
 import {
   SandboxClientError,
@@ -52,7 +57,11 @@ export type {
   DiagnosticLog,
   DiagnosticEvent,
   Metrics,
+  CredentialBroker,
+  CredentialBinding,
 } from "@alineo-labs/core";
+export type { NetworkPolicy, NetworkRule, CredentialProxyConfig } from "@alineo-labs/opensandbox";
+export { OpenSandboxCredentialBroker } from "@alineo-labs/vault";
 export {
   SandboxClientError,
   type SandboxClientOptions,
@@ -89,6 +98,7 @@ export {
 export class Sandbox {
   private readonly _control: ControlClient;
   private readonly _adapter: IStorageAdapter;
+  private readonly _credentialBroker: CredentialBroker;
   private readonly _maxConcurrency: number | undefined;
   private readonly _useServerProxy: boolean;
   private _activeCount = 0;
@@ -105,6 +115,9 @@ export class Sandbox {
     this._adapter = options.adapter;
     this._maxConcurrency = options.maxConcurrency;
     this._useServerProxy = options.useServerProxy ?? false;
+    this._credentialBroker =
+      options.credentialBroker ??
+      new OpenSandboxCredentialBroker(this._control, this._useServerProxy);
 
     // Close the adapter when the event loop drains naturally (scripts, short-lived processes).
     // Long-running servers never reach beforeExit, so Postgres pools stay alive for the
@@ -162,6 +175,8 @@ export class Sandbox {
         entrypoint: opts.entrypoint ?? ["tail", "-f", "/dev/null"],
         resourceLimits: opts.resources,
         timeout: opts.timeout,
+        networkPolicy: opts.networkPolicy,
+        credentialProxy: opts.credentialProxy ? { enabled: true } : undefined,
       });
       sandboxId = rawSb.id;
 
@@ -174,22 +189,30 @@ export class Sandbox {
         sandboxId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId, resources: opts.resources, runId },
+        payload: {
+          sandboxId,
+          resources: opts.resources,
+          runId,
+          networkPolicy: opts.networkPolicy,
+          credentialProxy: opts.credentialProxy,
+        },
       });
 
       const sb = new SandboxHandle(sandboxId, name, {
         control: this._control,
         adapter: this._adapter,
+        credentialBroker: this._credentialBroker,
         hooks: opts.hooks,
         onClose: () => this._releaseSlot(),
         shell: opts.shell,
-        fork: (snapshotId, tag, overrideRunId) =>
+        fork: (snapshotId, tag, overrideRunId, forkOpts) =>
           this._forkFromSnapshot(
             snapshotId,
             name,
             opts.resources,
             opts.shell,
             overrideRunId ?? runId,
+            forkOpts,
           ),
         useServerProxy: this._useServerProxy,
       });
@@ -230,13 +253,14 @@ export class Sandbox {
     const session = allSessions.find((s) => s.sandboxId === sandboxId);
     if (!session) throw new SandboxClientError(`Session ${sandboxId} not found`, 404);
 
-    return this._resumeSession(session.name, sandboxId, opts?.tag);
+    return this._resumeSession(session.name, sandboxId, opts?.tag, opts?.resolveCredential);
   }
 
   private async _resumeSession(
     name: string,
     sandboxId: string,
     tag?: string,
+    resolveCredential?: CredentialResolver,
   ): Promise<SandboxHandle> {
     const entries = await this._adapter.readAll(name, sandboxId);
 
@@ -261,16 +285,29 @@ export class Sandbox {
     const { snapshotId } = entries[checkpointIdx].payload as { snapshotId: string };
 
     const createdEntry = entries.find((e) => e.event === LedgerEvent.SandboxCreated);
-    const resources = (
-      createdEntry?.payload as
-        | { resources?: { cpu?: string; memory?: string; gpu?: string } }
-        | undefined
-    )?.resources;
+    const createdPayload = createdEntry?.payload as
+      | {
+          resources?: { cpu?: string; memory?: string; gpu?: string };
+          runId?: string;
+          networkPolicy?: NetworkPolicy;
+          credentialProxy?: boolean;
+        }
+      | undefined;
+    const resources = createdPayload?.resources;
     // Inherit the original sandbox's runId — a resumed sandbox is a continuation of the
     // same run, not a new one. Falls back to a fresh UUID only for ledger data written
     // before this field existed.
-    const runId =
-      (createdEntry?.payload as { runId?: string } | undefined)?.runId ?? crypto.randomUUID();
+    const runId = createdPayload?.runId ?? crypto.randomUUID();
+    // Same reasoning applies to network policy / credential proxy — a resumed sandbox gets
+    // the same egress posture as its origin, recovered from ledger data since the OpenSandbox
+    // control plane doesn't echo `networkPolicy` back on GET /v1/sandboxes.
+    const networkPolicy = createdPayload?.networkPolicy;
+    const credentialProxy = createdPayload?.credentialProxy;
+
+    // Latest bound/revoked state per credential name, scanned across the whole session
+    // history (not just the pre-checkpoint slice below, which is exec-replay-specific) —
+    // the vault itself doesn't survive the resume, so this is how we know what to re-`set()`.
+    const boundCredentials = reconstructBoundCredentials(entries);
 
     const replayCache = new Map<number, ExecResult>();
     const pendingStdout = new Map<number, string[]>();
@@ -332,6 +369,8 @@ export class Sandbox {
         snapshotId,
         resourceLimits: resources,
         metadata: { runId },
+        networkPolicy,
+        credentialProxy: credentialProxy ? { enabled: true } : undefined,
       });
       const newSessionId = rawSb.id;
       await this._waitForRunning(newSessionId);
@@ -342,25 +381,34 @@ export class Sandbox {
         sandboxId: newSessionId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newSessionId, resumedFrom: sandboxId, snapshotId, runId },
+        payload: {
+          sandboxId: newSessionId,
+          resumedFrom: sandboxId,
+          snapshotId,
+          runId,
+          networkPolicy,
+          credentialProxy,
+        },
       });
 
-      return new SandboxHandle(
+      const sb = new SandboxHandle(
         newSessionId,
         name,
         {
           control: this._control,
           adapter: this._adapter,
+          credentialBroker: this._credentialBroker,
           onClose: () => this._releaseSlot(),
           fork:
             resources?.cpu && resources?.memory
-              ? (snapshotId, tag, overrideRunId) =>
+              ? (snapshotId, tag, overrideRunId, forkOpts) =>
                   this._forkFromSnapshot(
                     snapshotId,
                     name,
                     resources as { cpu: string; memory: string; gpu?: string },
                     undefined,
                     overrideRunId ?? runId,
+                    forkOpts,
                   )
               : undefined,
           useServerProxy: this._useServerProxy,
@@ -368,6 +416,22 @@ export class Sandbox {
         replayCache,
         pendingInteractive,
       );
+
+      // Vault state is sidecar-runtime-only — re-register whatever was bound on the original
+      // sandbox. "env"-sourced credentials resolve automatically; anything else needs
+      // `resolveCredential` or resume() throws rather than silently dropping it. No-op (empty
+      // map, loop doesn't run) if the original session never bound any.
+      for (const [credName, { binding, source }] of boundCredentials) {
+        const value = await resolveBoundCredential(
+          credName,
+          source,
+          resolveCredential,
+          newSessionId,
+        );
+        await sb.credentials.set(credName, value, binding, source);
+      }
+
+      return sb;
     } catch (err) {
       this._releaseSlot();
       throw err;
@@ -420,15 +484,17 @@ export class Sandbox {
     return new SandboxHandle(sandboxId, name, {
       control: this._control,
       adapter: this._adapter,
+      credentialBroker: this._credentialBroker,
       onClose: () => this._releaseSlot(),
       fork: resources
-        ? (snapshotId, tag, overrideRunId) =>
+        ? (snapshotId, tag, overrideRunId, forkOpts) =>
             this._forkFromSnapshot(
               snapshotId,
               name,
               resources,
               undefined,
               overrideRunId ?? opts?.runId,
+              forkOpts,
             )
         : undefined,
       useServerProxy: this._useServerProxy,
@@ -464,6 +530,7 @@ export class Sandbox {
     name: string,
     resources: { cpu: string; memory: string; gpu?: string },
     runId?: string,
+    opts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
     await this._acquireSlot();
@@ -473,6 +540,8 @@ export class Sandbox {
         snapshotId,
         resourceLimits: resources,
         metadata: { runId: finalRunId },
+        networkPolicy: opts?.networkPolicy,
+        credentialProxy: opts?.credentialProxy ? { enabled: true } : undefined,
       });
       const newId = rawSb.id;
       await this._waitForRunning(newId);
@@ -482,19 +551,27 @@ export class Sandbox {
         sandboxId: newId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newId, fromSnapshot: snapshotId, runId: finalRunId },
+        payload: {
+          sandboxId: newId,
+          fromSnapshot: snapshotId,
+          runId: finalRunId,
+          networkPolicy: opts?.networkPolicy,
+          credentialProxy: opts?.credentialProxy,
+        },
       });
       return new SandboxHandle(newId, name, {
         control: this._control,
         adapter: this._adapter,
+        credentialBroker: this._credentialBroker,
         onClose: () => this._releaseSlot(),
-        fork: (snapshotId, tag, overrideRunId) =>
+        fork: (snapshotId, tag, overrideRunId, forkOpts) =>
           this._forkFromSnapshot(
             snapshotId,
             name,
             resources,
             undefined,
             overrideRunId ?? finalRunId,
+            forkOpts,
           ),
         useServerProxy: this._useServerProxy,
       });
@@ -692,16 +769,18 @@ export class Sandbox {
       const sb = new SandboxHandle(newId, sessionName, {
         control: this._control,
         adapter: this._adapter,
+        credentialBroker: this._credentialBroker,
         hooks: extra?.hooks,
         onClose: () => this._releaseSlot(),
         shell: extra?.shell ?? envShell,
-        fork: (snapshotId, tag, overrideRunId) =>
+        fork: (snapshotId, tag, overrideRunId, forkOpts) =>
           this._forkFromSnapshot(
             snapshotId,
             sessionName,
             resources,
             extra?.shell ?? envShell,
             overrideRunId ?? runId,
+            forkOpts,
           ),
         useServerProxy: this._useServerProxy,
       });
@@ -719,6 +798,7 @@ export class Sandbox {
     resources: { cpu: string; memory: string; gpu?: string },
     shell?: string,
     runId?: string,
+    forkOpts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
   ): Promise<SandboxHandle> {
     await this._acquireSlot();
     try {
@@ -730,6 +810,8 @@ export class Sandbox {
         snapshotId,
         resourceLimits: resources,
         metadata: { runId: finalRunId },
+        networkPolicy: forkOpts?.networkPolicy,
+        credentialProxy: forkOpts?.credentialProxy ? { enabled: true } : undefined,
       });
       const newId = rawSb.id;
       await this._waitForRunning(newId);
@@ -741,16 +823,30 @@ export class Sandbox {
         sandboxId: newId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newId, forkedFrom: snapshotId, runId: finalRunId },
+        payload: {
+          sandboxId: newId,
+          forkedFrom: snapshotId,
+          runId: finalRunId,
+          networkPolicy: forkOpts?.networkPolicy,
+          credentialProxy: forkOpts?.credentialProxy,
+        },
       });
 
       return new SandboxHandle(newId, sessionName, {
         control: this._control,
         adapter: this._adapter,
+        credentialBroker: this._credentialBroker,
         onClose: () => this._releaseSlot(),
         shell,
-        fork: (sid, tag, overrideRunId) =>
-          this._forkFromSnapshot(sid, sessionName, resources, shell, overrideRunId ?? finalRunId),
+        fork: (sid, tag, overrideRunId, nextForkOpts) =>
+          this._forkFromSnapshot(
+            sid,
+            sessionName,
+            resources,
+            shell,
+            overrideRunId ?? finalRunId,
+            nextForkOpts,
+          ),
         useServerProxy: this._useServerProxy,
       });
     } catch (err) {

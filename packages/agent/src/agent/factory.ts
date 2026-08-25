@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
 import { readProjectConfig } from "../config";
 import { validateAgentSpec, type AgentSpec } from "../schema";
-import { PiAdapter, resolveEnv, parseShellExports } from "../adapters/pi";
+import {
+  PiAdapter,
+  resolveEnv,
+  extractCredentialBindings,
+  parseShellExports,
+} from "../adapters/pi";
 import { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "../snapshots";
 import {
   assertValidSpawnDepth,
@@ -65,6 +70,15 @@ export async function loadAgent(
   resolvedEnv.ALINEO_RUN_ID = runId;
   const resources = { ...config.defaults.resources, ...(spec.resources ?? {}) };
 
+  const credentialBindings = extractCredentialBindings(spec.env ?? {});
+  const needsCredentialProxy = credentialBindings.length > 0;
+  // `credentialProxy` requires `networkPolicy` to also be set (see SandboxOptions docs). There's
+  // no spec-level network-restriction feature yet, so this stays wide open by default — the
+  // point here is purely "make injection available for the bound host(s)", not lockdown.
+  const networkPolicy = needsCredentialProxy
+    ? { defaultAction: "allow" as const, egress: [] }
+    : undefined;
+
   const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
@@ -86,7 +100,10 @@ export async function loadAgent(
       try {
         console.log(`[agent] restoring from snapshot...`);
         const t1 = Date.now();
-        sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources, runId);
+        sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources, runId, {
+          networkPolicy,
+          credentialProxy: needsCredentialProxy,
+        });
         console.log(`[agent] snapshot ready  ${elapsed(t1)} (${sb.sandboxId})`);
         fromSnapshot = true;
       } catch (err) {
@@ -111,6 +128,8 @@ export async function loadAgent(
       name: spec.name,
       env: resolvedEnv,
       runId,
+      networkPolicy,
+      credentialProxy: needsCredentialProxy,
     });
     console.log(`[agent] sandbox ready   ${elapsed(t1)} (${sb.sandboxId})`);
 
@@ -137,6 +156,12 @@ export async function loadAgent(
       createdAt: Date.now(),
     });
     console.log(`[agent] checkpoint done ${elapsed(t3)}`);
+  }
+
+  // Applied on every load() (fresh or from-snapshot) — the vault is sidecar-runtime-only, so
+  // whichever path just created `sb` needs these re-registered against its own sandboxId.
+  for (const { name, value, binding, source } of credentialBindings) {
+    await sb!.credentials.set(name, value, binding, source);
   }
 
   // ── Always: write fresh config + start bridge ─────────────────────────────
@@ -306,10 +331,21 @@ export async function spawnChild(
   const runId = process.env.ALINEO_RUN_ID ?? crypto.randomUUID();
   childEnv.ALINEO_RUN_ID = runId;
 
+  // Distinct from whatever `self` (the parent) already has bound — `fork()` carries the
+  // parent's own bound credentials over on its own; this is for bindings that only exist in
+  // the *child's* spec, which `fork()` has no way to know about on its own.
+  const childCredentialBindings = extractCredentialBindings(childSpec.env ?? {});
+
   console.log(`[agent] forking sandbox for spawn (${childSpec.name})...`);
   const t0 = Date.now();
-  const forkedSb = await self.sandbox.fork(childSpec.name, runId);
+  const forkedSb = await self.sandbox.fork(childSpec.name, runId, {
+    credentialProxy: childCredentialBindings.length > 0,
+  });
   console.log(`[agent] fork ready      ${elapsed(t0)} (${forkedSb.sandboxId})`);
+
+  for (const { name, value, binding, source } of childCredentialBindings) {
+    await forkedSb.credentials.set(name, value, binding, source);
+  }
 
   const adapter = new PiAdapter();
   childEnv.ALINEO_SANDBOX_ID = forkedSb.sandboxId;

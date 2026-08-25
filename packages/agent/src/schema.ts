@@ -2,6 +2,28 @@ import * as z from "zod";
 import { AgentSpecValidationError } from "./errors";
 
 /**
+ * Opt-in alternative to a plain `AgentSpec.env` string value — instead of interpolating
+ * straight into the container's environment, `credential` is registered with the sandbox's
+ * `CredentialBroker` via `sb.credentials.set()` and injected transparently into outbound
+ * requests to `host`. The sandbox process never sees the resolved value at all. Requires the
+ * agent's sandbox to be created with `credentialProxy: true` — `Alineo.load()`/`.resume()`/
+ * `.spawn()` set this automatically whenever `env` contains at least one binding like this.
+ */
+export interface CredentialEnvBinding {
+  /** Host env var reference to resolve the real value from, e.g. `"${OPENAI_API_KEY}"`. */
+  credential: string;
+  /** FQDN or wildcard domain this credential is injected for. */
+  host: string;
+  /** Narrows the binding to requests whose path starts with this prefix. */
+  pathPrefix?: string;
+  /** How the credential reaches the request. */
+  injection:
+    | { type: "header"; name: string }
+    | { type: "query"; param: string }
+    | { type: "path"; segment: string };
+}
+
+/**
  * A single named setup step run inside the sandbox after Pi CLI install,
  * before the snapshot is taken. The step is a bash shell command.
  */
@@ -62,8 +84,12 @@ export interface AgentSpec {
   /**
    * Environment variables available inside the sandbox.
    * Values may reference host env vars: `{ GEMINI_API_KEY: "${GEMINI_API_KEY}" }`.
+   *
+   * A value can instead be a `CredentialEnvBinding` to opt that one key out of plain env-var
+   * interpolation entirely — the key never becomes a container env var; its value is injected
+   * transparently into matching outbound requests instead. See `CredentialEnvBinding`.
    */
-  env?: Record<string, string>;
+  env?: Record<string, string | CredentialEnvBinding>;
   /**
    * CPU/memory/GPU resource limits for the sandbox container.
    * Falls back to defaults in `alineo.config.json` if omitted.
@@ -113,6 +139,19 @@ export interface AgentSpec {
  * If you add/change/remove a field on `AgentSpec`/`SetupStep`, update the matching schema field
  * here too — `packages/agent/test/schema.test.ts` is the drift check.
  */
+const CredentialEnvBindingSchema = z
+  .object({
+    credential: z.string({ error: "Each credential env binding must have a 'credential' string" }),
+    host: z.string({ error: "Each credential env binding must have a 'host' string" }),
+    pathPrefix: z.string().optional(),
+    injection: z.union([
+      z.object({ type: z.literal("header"), name: z.string() }),
+      z.object({ type: z.literal("query"), param: z.string() }),
+      z.object({ type: z.literal("path"), segment: z.string() }),
+    ]),
+  })
+  .loose();
+
 const SetupStepSchema = z
   .object({
     name: z.string({ error: "Each setup step must have a 'name' string" }),
@@ -153,7 +192,7 @@ const AgentSpecSchema = z
     provider: z.string().optional(),
     model: z.string().optional(),
     packages: z.array(z.string()).optional(),
-    env: z.record(z.string(), z.string()).optional(),
+    env: z.record(z.string(), z.union([z.string(), CredentialEnvBindingSchema])).optional(),
     resources: z
       .object({
         cpu: z.string(),

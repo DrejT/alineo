@@ -1,9 +1,11 @@
 import type { Metrics, DiagnosticLog, DiagnosticEvent, FileInfo } from "@alineo-labs/opensandbox";
 import type { CheckpointInfo } from "../ledger";
+import type { CredentialBinding, CredentialSource, CredentialResolver } from "../credentials";
 import { SandboxCore } from "./core";
 import * as files from "./files";
 import * as lifecycle from "./lifecycle";
 import * as observability from "./observability";
+import * as creds from "./credentials";
 
 /**
  * A live sandbox container. Returned by `Sandbox.sandbox()` and `Sandbox.resume()`.
@@ -121,6 +123,37 @@ export class SandboxHandle extends SandboxCore {
   }
 
   /**
+   * Register, update, revoke, and list credentials injected into this sandbox's outbound
+   * requests without the sandbox process ever holding the real value. Requires the sandbox to
+   * have been created with `credentialProxy: true` — every method throws `SandboxError`
+   * otherwise.
+   *
+   * @example
+   * ```ts
+   * await sb.credentials.set("github", process.env.GH_TOKEN!, {
+   *   host: "api.github.com",
+   *   injection: { type: "header", name: "Authorization" },
+   * });
+   * await sb.credentials.remove("github");
+   * ```
+   */
+  readonly credentials = {
+    set: (
+      name: string,
+      value: string,
+      binding: CredentialBinding,
+      source?: CredentialSource,
+    ): Promise<void> => creds.set(this, name, value, binding, source),
+    patch: (
+      name: string,
+      changes: Partial<{ value: string; binding: CredentialBinding; source: CredentialSource }>,
+    ): Promise<void> => creds.patch(this, name, changes),
+    remove: (name: string): Promise<void> => creds.remove(this, name),
+    listBindings: (): Promise<Array<{ name: string; binding: CredentialBinding }>> =>
+      creds.listBindings(this),
+  };
+
+  /**
    * Stream real-time CPU and memory metrics from execd via SSE.
    *
    * Holds a long-lived connection — break out of the loop when done to avoid
@@ -196,9 +229,19 @@ export class SandboxHandle extends SandboxCore {
    *
    * @param runId  Override the forked sandbox's run-correlation ID (see `SandboxDetails.runId`)
    *   instead of inheriting this sandbox's own default.
+   * @param opts.resolveCredential  Resolves values for any credentials this sandbox has bound
+   *   via `sb.credentials.set()` whose source can't be resolved automatically — see
+   *   `CredentialResolver`. No-op if this sandbox never bound any.
+   * @param opts.credentialProxy  Force-enables the child's credential proxy even if this
+   *   sandbox has nothing bound to carry over — for registering brand-new credentials on the
+   *   child right after `fork()` returns.
    */
-  async fork(tag?: string, runId?: string): Promise<SandboxHandle> {
-    return lifecycle.fork(this, tag, runId);
+  async fork(
+    tag?: string,
+    runId?: string,
+    opts?: { resolveCredential?: CredentialResolver; credentialProxy?: boolean },
+  ): Promise<SandboxHandle> {
+    return lifecycle.fork(this, tag, runId, opts);
   }
 
   /**
