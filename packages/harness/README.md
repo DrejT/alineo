@@ -88,9 +88,6 @@ token-budget enforcement (`estimateTokens()` reports size; truncating or rejecti
 over-budget harness is left to the caller) and no real tokenizer integration — the char/4
 heuristic is deliberately zero-dependency.
 
-See [`ANALYSIS.md`](./ANALYSIS.md) for the fuller current-state analysis and design
-rationale behind this feature set.
-
 ## Provider-neutral by design
 
 This package's original design comment cited Anthropic's own Claude prompting docs as the
