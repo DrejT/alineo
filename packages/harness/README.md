@@ -42,28 +42,54 @@ A `Harness` is an ordered collection of named sections, each an ordered list of 
 fragments. `.role(text)`, `.context(text)`, `.guardrail(text)`, `.mindset(text)`,
 `.format(text)`, and `.examples(text)` are sugar over the general `.section(name, text)` —
 custom section names work identically, just without a dedicated method. Calling the same
-section again appends another fragment rather than replacing it.
+section again appends another fragment rather than replacing it. Section names must be legal
+XML tag names (letters/digits/`._-`, not starting with a digit); `.section()` throws
+otherwise, rather than letting `render()` produce silently-malformed output later.
 
 There is no conditional logic inside `Harness` itself — it's a dumb accumulator, not a rules
 engine. Whether a fragment gets added at all is entirely the caller's decision, made before
-calling `.add()`.
+calling `.section()`.
 
-- **`render()`** — the final composed prompt string. Each non-empty section is wrapped in an
-  XML tag matching its name; a section nobody wrote to is omitted entirely, not emitted as an
-  empty tag pair.
+- **`render(options?)`** — the final composed prompt string.
+  - `{ format: "xml" }` (default) — each non-empty section wrapped in an XML tag matching
+    its name; a section nobody wrote to is omitted entirely, not emitted as an empty tag
+    pair. Fragment text is scanned for a close-tag-shaped sequence matching its own section
+    (e.g. `</role>` inside a `.role()` fragment) and neutralizes it (`<\/role>`) so untrusted
+    fragment content can never forge a section boundary.
+  - `{ format: "markdown" }` — the same `## name` header shape `dumps()`/`log()` use.
+    OpenAI's and Gemini's own docs treat this as a first-class equivalent to XML tags, not a
+    fallback — see "Provider-neutral by design" below.
 - **`log()`** — a `console.log`-for-a-harness debug view: shows the section→fragment
-  structure (the same shape `dumps()` writes to disk), not the rendered/tag-wrapped prompt.
-- **`dumps(path)` / `load(path)`** — always a markdown file, one `## name` header per
-  non-empty section. `load(path)` **replaces** the harness's content entirely; it does not
-  merge with whatever was already there.
+  structure (the same shape `dumps()` writes to disk / `render({ format: "markdown" })`
+  returns), not the XML-tag-wrapped prompt.
+- **`dumps(path)` / `load(path, options?)`** — always a markdown file, one `## name` header
+  per non-empty section. `load(path)` **replaces** the harness's content entirely by default;
+  pass `{ merge: true }` to add to existing content instead.
+- **`.lock(name)` / `.isLocked(name)`** — opt-in write protection. After `.lock("guardrail")`,
+  any further `.section("guardrail", ...)` call (directly or via `.merge()`) throws
+  `SectionLockedError` instead of silently appending. Unlocked sections are unaffected;
+  single-writer callers that never call `.lock()` see no behavior change.
+- **`.clone()`** — an independent deep copy (sections, order, and locks), synchronous, no
+  I/O. Writes to the clone never affect the original or vice versa.
+- **`.merge(other, options?)`** — appends every section from `other` onto `this`, in `this`'s
+  canonical order, respecting `this`'s locks. Throws `SectionLockedError` if `other` would
+  write into a locked section on `this`, unless `{ overwriteLocked: true }` is passed. Does
+  not mutate `other`.
+- **`estimateTokens()`** — `Math.ceil(render().length / 4)`, the same chars-per-token rule of
+  thumb quoted across providers' own docs for English text. Not a real tokenizer — for quick
+  cost/budget visibility, not billing-accurate counts.
 
 ## Non-goals
 
 This package has no awareness of agents, master/worker relationships, spawn depth, or RLM
-orchestration, and no access-control/"locked section" enforcement — a `Harness` will happily
-let anyone write to any section. Restricting who gets to write into which section in
-practice, and composing pieces of multiple harnesses together are both explicitly out of
-scope for this initial build.
+orchestration — `.lock()`/`.clone()`/`.merge()` are generic primitives a caller can build
+agent-aware policy on top of, not agent-aware themselves. There is also no automatic
+token-budget enforcement (`estimateTokens()` reports size; truncating or rejecting an
+over-budget harness is left to the caller) and no real tokenizer integration — the char/4
+heuristic is deliberately zero-dependency.
+
+See [`ANALYSIS.md`](./ANALYSIS.md) for the fuller current-state analysis and design
+rationale behind this feature set.
 
 ## Provider-neutral by design
 
@@ -94,12 +120,11 @@ package. (In `alineo`'s private/commercial fork, that caller is `packages/cli`'s
 `harness-setup.ts`, which renders Pi-specific `.pi/SYSTEM.md` content — deliberately not
 brought over here, since it's product-specific rather than a general-purpose primitive.)
 
-**Known gap:** OpenAI and Google treat Markdown-header rendering (`## Section`) as a
-first-class equivalent to XML tags, not a fallback. This package already round-trips through
-that exact shape internally (`dumps()`/`load()`), so exposing it as an alternate `render()`
-mode (XML vs. Markdown) would close the one real gap between "aspirationally
-provider-neutral" and actually offering both conventions its own research says providers
-treat as interchangeable. Not yet implemented.
+**Closed gap:** OpenAI and Google treat Markdown-header rendering (`## Section`) as a
+first-class equivalent to XML tags, not a fallback. This package already round-tripped
+through that exact shape internally (`dumps()`/`load()`); `render({ format: "markdown" })`
+now exposes it as an alternate `render()` mode alongside the XML default, so both conventions
+its own research says providers treat as interchangeable are available from the same call.
 
 Sources: [GPT-5 prompting guide (OpenAI Cookbook)](https://developers.openai.com/cookbook/examples/gpt-5/gpt-5_prompting_guide),
 [Prompt engineering (OpenAI API docs)](https://developers.openai.com/api/docs/guides/prompt-engineering),
