@@ -11,6 +11,15 @@ export type {
 export { LogLevel, ConsoleLogger, noopLogger } from "./logger";
 export type { ILogger } from "./logger";
 
+export type {
+  CredentialBinding,
+  CredentialBroker,
+  CredentialSource,
+  CredentialResolver,
+  BoundCredential,
+} from "./credentials";
+export { resolveBoundCredential, reconstructBoundCredentials } from "./credentials";
+
 export { SandboxHandle, BashSession, resolveExecClient, composeHooks } from "./sandbox/index";
 export type {
   ExecOptions,

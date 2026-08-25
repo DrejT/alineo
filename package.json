@@ -10,6 +10,7 @@
     "packages/adapters/sqlite",
     "packages/adapters/otel",
     "packages/adapters/flue",
+    "packages/adapters/vault",
     "packages/agent",
     "packages/agent-browser",
     "packages/harness",

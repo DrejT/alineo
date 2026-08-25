@@ -111,6 +111,16 @@ export function serverDataDir(): string {
  * support, >=v1.0.21 is recommended for full functionality -- the "v1.1.0+" the warning
  * message itself suggests does not exist as a published tag. v1.0.22 is the latest.
  */
+/**
+ * `egress.image`/`egress.mode` are configured unconditionally, not opt-in. Per OpenSandbox's
+ * own control flow, a configured `egress.image` is inert for any sandbox created without a
+ * `networkPolicy` — no sidecar is attached, no behavior changes for anyone not touching
+ * `SandboxOptions.networkPolicy`/`credentialProxy`. Without this block, a fresh `alineo init`
+ * server rejects any `networkPolicy`/`credentialProxy` request outright with
+ * "egress.image must be configured" — this is what closes that gap (see issue #203,
+ * plans/credential-injection.md Phase 4). `dns+nft` (rather than `dns`) is required for
+ * `credentialProxy`'s Credential Vault to activate at all.
+ */
 export function serverConfigContent(): string {
   return `[server]
 host = "0.0.0.0"
@@ -127,5 +137,9 @@ network_mode = "bridge"
 [store]
 type = "sqlite"
 path = "/data/opensandbox.db"
+
+[egress]
+image = "opensandbox/egress:v1.1.7"
+mode = "dns+nft"
 `;
 }

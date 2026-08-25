@@ -1,5 +1,11 @@
-import type { IStorageAdapter, SandboxHooks } from "@alineo-labs/core";
+import type {
+  IStorageAdapter,
+  SandboxHooks,
+  CredentialBroker,
+  CredentialResolver,
+} from "@alineo-labs/core";
 import { SandboxStatus } from "@alineo-labs/core";
+import type { NetworkPolicy } from "@alineo-labs/opensandbox";
 
 export { SandboxStatus };
 
@@ -46,12 +52,31 @@ export interface SandboxClientOptions {
    * in Docker (e.g. started via `alineo init`). Defaults to `false`.
    */
   useServerProxy?: boolean;
+  /**
+   * Broker for `sb.credentials.*` — registers credentials with, and resolves endpoints
+   * against, whatever backend actually injects them. Defaults to
+   * `OpenSandboxCredentialBroker` (from `@alineo-labs/vault`), wired to this client's own
+   * `ControlClient`/`useServerProxy`, if omitted. Only relevant for sandboxes created with
+   * `credentialProxy: true`.
+   */
+  credentialBroker?: CredentialBroker;
 }
 
 /** Options for `Sandbox.resume()`. */
 export interface ResumeOptions {
   /** Resume from the checkpoint with this tag. Defaults to the most recent checkpoint. */
   tag?: string;
+  /**
+   * Resolves values for credentials bound via `sb.credentials.set()` on the original sandbox
+   * whose `CredentialSource` isn't `"env"` (or whose env var has since become unset) — the
+   * vault's own state doesn't survive a resume (it's sidecar-runtime-only), so anything
+   * previously bound needs a value from somewhere. `"env"`-sourced credentials resolve
+   * automatically without this. Only relevant if the original sandbox had any
+   * `sb.credentials.set()` calls; a no-op otherwise. `resume()` throws `SandboxError` if a
+   * bound credential can't be resolved (no matching env var, and no callback or one that
+   * returns `undefined`) rather than silently omitting it.
+   */
+  resolveCredential?: CredentialResolver;
 }
 
 /** Options for `Sandbox.sandbox()`. */
@@ -100,4 +125,16 @@ export interface SandboxOptions {
    * to start the Jupyter kernel service that `execCode()` depends on.
    */
   entrypoint?: string[];
+  /**
+   * Outbound network policy, enforced by an egress sidecar attached to this sandbox. Requires
+   * the OpenSandbox server to have `egress.image` configured (`alineo init` does this by
+   * default). Omit for unrestricted egress and no sidecar at all — the default, unchanged
+   * behavior.
+   */
+  networkPolicy?: NetworkPolicy;
+  /**
+   * Opts this sandbox into transparent credential injection via `sb.credentials.*`. Requires
+   * `networkPolicy` to also be set and the server to be running `egress.mode = "dns+nft"`.
+   */
+  credentialProxy?: boolean;
 }

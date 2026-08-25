@@ -1,22 +1,22 @@
 {
-  "name": "@alineo-labs/sandbox",
-  "version": "0.2.0",
+  "name": "@alineo-labs/vault",
+  "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DrejT/alineo.git",
-    "directory": "packages/sdks/typescript"
+    "directory": "packages/adapters/vault"
   },
   "files": [
     "dist"
   ],
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "types": "./src/index.ts"
+      "types": "./dist/index.d.mts"
     }
   },
   "publishConfig": {
@@ -24,19 +24,15 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsdown",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "build": "tsdown"
   },
   "dependencies": {
     "@alineo-labs/core": "workspace:*",
-    "@alineo-labs/opensandbox": "workspace:*",
-    "@alineo-labs/vault": "workspace:*"
+    "@alineo-labs/opensandbox": "workspace:*"
   },
   "devDependencies": {
     "bun-types": "1.3.14",
     "tsdown": "0.22.3",
-    "typescript": "6.0.3",
-    "vitest": "4.1.9"
+    "typescript": "6.0.3"
   }
 }

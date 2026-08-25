@@ -23,6 +23,21 @@ The `setup` field in an agent spec lets you declare a list of named bash command
 }
 ```
 
+`env` values are normally plain strings, but any entry can instead be an object describing a credential to inject rather than a container environment variable — the value never becomes part of the sandbox's own `env` at all:
+
+```json
+"env": {
+  "GEMINI_API_KEY": "${GEMINI_API_KEY}",
+  "GITHUB_TOKEN": {
+    "credential": "${GH_TOKEN}",
+    "host": "api.github.com",
+    "injection": { "type": "header", "name": "Authorization" }
+  }
+}
+```
+
+See [Credentials](/docs/core/0.2/concepts/credentials) for what injection means and how it behaves across `resume()`/`fork()`/spawned children.
+
 Each step is a `SetupStep`:
 
 | Field  | Type     | Required | Description                                                       |

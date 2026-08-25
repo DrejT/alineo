@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { SandboxHandle } from "@alineo-labs/core";
+import type { SandboxHandle, CredentialBinding, CredentialSource } from "@alineo-labs/core";
 import { PromptTimeoutError } from "../errors";
-import type { AgentSpec } from "../schema";
+import type { AgentSpec, CredentialEnvBinding } from "../schema";
 import type {
   AgentEvent,
   AgentStream,
@@ -38,12 +38,60 @@ export function toShellExports(env: Record<string, string>): string {
   );
 }
 
-export function resolveEnv(env: Record<string, string>): Record<string, string> {
+/**
+ * Resolves plain string entries of `AgentSpec.env`, interpolating `${VAR}` from `process.env`.
+ * Credential-bound entries (`{ credential, host, injection }`) are deliberately skipped here —
+ * see `extractCredentialBindings()` — they never become a container env var at all.
+ */
+export function resolveEnv(
+  env: Record<string, string | CredentialEnvBinding>,
+): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {
+    if (typeof value !== "string") continue;
     result[key] = value.replace(/\$\{([^}]+)\}/g, (_, name: string) => process.env[name] ?? "");
   }
   return result;
+}
+
+/** Matches a `credential` value that is *only* a single `${VAR}` reference, nothing else. */
+const SOLE_ENV_REF = /^\$\{([^}]+)\}$/;
+
+/**
+ * Pulls the credential-bound entries out of `AgentSpec.env` — the opt-in alternative to plain
+ * env-var interpolation (see `AgentSpec.env`'s docs). Each entry's `credential` value is
+ * interpolated the same way `resolveEnv()` interpolates plain strings; the resolved value is
+ * only ever handed to `sb.credentials.set()`, never written into the container's environment.
+ *
+ * Also derives a `CredentialSource` for each: `credential: "${VAR}"` (the whole value, nothing
+ * else around it) becomes `{ type: "env", varName: "VAR" }`, letting `fork()`/`resume()`
+ * re-resolve it automatically later without needing a callback. Anything else — a literal
+ * value, or `${VAR}` embedded in a larger string — becomes `{ type: "external" }`, since it
+ * isn't reliably re-derivable the same way twice.
+ */
+export function extractCredentialBindings(
+  env: Record<string, string | CredentialEnvBinding>,
+): Array<{ name: string; value: string; binding: CredentialBinding; source: CredentialSource }> {
+  const out: Array<{
+    name: string;
+    value: string;
+    binding: CredentialBinding;
+    source: CredentialSource;
+  }> = [];
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === "string") continue;
+    const soleRef = value.credential.match(SOLE_ENV_REF);
+    out.push({
+      name: key,
+      value: value.credential.replace(
+        /\$\{([^}]+)\}/g,
+        (_, name: string) => process.env[name] ?? "",
+      ),
+      binding: { host: value.host, pathPrefix: value.pathPrefix, injection: value.injection },
+      source: soleRef ? { type: "env", varName: soleRef[1] } : { type: "external" },
+    });
+  }
+  return out;
 }
 
 /** Inverse of `toShellExports` — parses `/etc/alineo-env`'s content back into a plain object. */

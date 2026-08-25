@@ -45,6 +45,31 @@ export interface Sandbox {
   platform?: unknown;
 }
 
+/** A single ordered rule in a `NetworkPolicy`. `target` is an FQDN or wildcard domain — no CIDR/IP targets yet. */
+export interface NetworkRule {
+  action: "allow" | "deny";
+  target: string;
+}
+
+/**
+ * Outbound network policy for a sandbox, enforced by its egress sidecar. Requires the
+ * OpenSandbox server to have `egress.image` configured — see `alineo init`'s generated
+ * `server.toml`. `defaultAction` defaults server-side to `"deny"` if omitted.
+ */
+export interface NetworkPolicy {
+  defaultAction?: "allow" | "deny";
+  egress: NetworkRule[];
+}
+
+/**
+ * Opts a sandbox into transparent MITM credential injection via the egress sidecar's
+ * Credential Vault (OSEP-0012). Requires `networkPolicy` to also be set and the server to be
+ * running `egress.mode = "dns+nft"` — see `@alineo-labs/vault`.
+ */
+export interface CredentialProxyConfig {
+  enabled: boolean;
+}
+
 export interface CreateSandboxOptions {
   image?: ImageSpec;
   snapshotId?: string;
@@ -54,6 +79,8 @@ export interface CreateSandboxOptions {
   env?: Record<string, string>;
   metadata?: Record<string, string>;
   secureAccess?: boolean;
+  networkPolicy?: NetworkPolicy;
+  credentialProxy?: CredentialProxyConfig;
 }
 
 export interface ListSandboxesOptions {

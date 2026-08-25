@@ -99,5 +99,12 @@ export function composeHooks(
           h.onSandboxResumed && call("onSandboxResumed", i, () => h.onSandboxResumed!(sandboxId)),
       );
     },
+    onCredentialInjected(sandboxId, name, binding) {
+      active.forEach(
+        (h, i) =>
+          h.onCredentialInjected &&
+          call("onCredentialInjected", i, () => h.onCredentialInjected!(sandboxId, name, binding)),
+      );
+    },
   };
 }
