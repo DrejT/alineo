@@ -55,6 +55,14 @@ All examples default to `useServerProxy: true` — traffic routes through the Op
 Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable
 (e.g. when using `uvx opensandbox-server` on the host).
 
-This example has **not been run against a live server** — see plans/credential-injection.md for
-the open caveats (vault request/response schema and the egress sidecar's management port are
-sourced from OpenSandbox's own docs, not yet independently verified).
+Verified end-to-end against a live `opensandbox/server:latest` + `opensandbox/egress:v1.1.7`
+(Docker runtime): registration, transparent injection, revocation, and `fork()` credential
+carrying all work as described above. `@alineo-labs/vault`'s wire protocol was corrected against
+OpenSandbox's actual Go source (`components/egress/pkg/credentialvault`) during that
+verification — see plans/credential-injection.md's addendum for what changed and why.
+
+Two known limitations, both from the real Credential Vault API rather than this package:
+only `{ type: "header" }` credential bindings are supported (`query`/`path` injection has no
+direct equivalent in the sidecar's `Auth` model — see `UnsupportedInjectionError`), and
+`OpenSandboxCredentialBroker.patch()` requires both `value` and `binding` together (the vault
+never echoes a credential's value back, so a partial update can't preserve the unspecified half).

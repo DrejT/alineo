@@ -38,6 +38,9 @@ const sb = await client.sandbox({
 console.log(`SandboxHandle ID: ${sb.sandboxId}`);
 
 try {
+  // ubuntu:22.04 doesn't ship curl.
+  await sb.exec("apt-get update -qq && apt-get install -y -qq curl >/dev/null");
+
   // ── Part 1: register + use a credential ───────────────────────────────────
   //
   // `source: { type: "env", varName: "GH_TOKEN" }` means resume()/fork() can re-resolve this
