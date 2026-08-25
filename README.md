@@ -3,8 +3,11 @@
 [![CI](https://github.com/DrejT/alineo/actions/workflows/ci.yml/badge.svg)](https://github.com/DrejT/alineo/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/alineo)](https://www.npmjs.com/package/alineo)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/XGkPu3YBH4)
 
 Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.
+
+<!-- TODO: demo GIF/video — drop in here once recorded -->
 
 ```ts
 import { Sandbox } from "@alineo-labs/sandbox";
@@ -24,6 +27,16 @@ await sb.close();
 ```
 
 **[Full documentation →](https://docs.alineo.tech)**
+
+---
+
+## Cookbook
+
+Task-oriented recipes for real end-to-end scenarios — untrusted code execution, parallel test
+sharding, resumable pipelines, and more — built by composing sandboxes, exec, checkpoints, forks,
+and agents. Each one is a small, standalone package you can copy out and adapt.
+
+**[Browse the cookbook →](cookbooks)**
 
 ---
 
@@ -71,6 +84,20 @@ npx skills add DrejT/alineo --skill alineo
 This repo features native cross-platform support and can be developed directly on Windows without requiring WSL or Git Bash.
 - **Native Scripts**: All repository scripts (e.g., `bun run setup`, `bun run build`) leverage Bun's native shell APIs.
 - **Docker Integration**: The local `alineo init` command dynamically detects Windows and uses Named Pipes (`//./pipe/docker_engine`) for Docker socket injection automatically.
+
+---
+
+## Community
+
+- **Discord**: [Join us](https://discord.com/invite/XGkPu3YBH4) — questions, discussion, and help in real time
+- **Issues**: [Report a bug](https://github.com/DrejT/alineo/issues) or request a feature
+- **Contributing**: see [CONTRIBUTING.md](CONTRIBUTING.md)
+
+---
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=DrejT/alineo&type=Date)](https://star-history.com/#DrejT/alineo&Date)
 
 ---
 

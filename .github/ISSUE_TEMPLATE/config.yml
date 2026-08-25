@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Chat on Discord
+    url: https://discord.com/invite/XGkPu3YBH4
+    about: Ask questions or discuss ideas in real time.
   - name: Feature request or idea
     url: https://github.com/DrejT/alineo/discussions/categories/ideas
     about: Brainstorm and propose new features in GitHub Discussions.

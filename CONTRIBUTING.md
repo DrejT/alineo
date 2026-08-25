@@ -1,5 +1,9 @@
 # Contributing to alineo
 
+Questions, proposing a non-trivial change, or just want to talk it through first? Come say hi on
+[Discord](https://discord.com/invite/XGkPu3YBH4) — it's the fastest way to get an answer before
+opening a PR.
+
 ## Prerequisites
 
 - [Bun](https://bun.sh) >= 1.3
