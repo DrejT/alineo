@@ -15,13 +15,14 @@ new Sandbox(options: SandboxClientOptions)
 
 ### SandboxClientOptions
 
-| Option           | Type              | Required | Description                                                                                                                       |
-| ---------------- | ----------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `baseUrl`        | `string`          | Yes      | OpenSandbox server URL, e.g. `"http://localhost:8080"`                                                                            |
-| `apiKey`         | `string`          | No       | OpenSandbox API key. Empty string for local dev with no auth.                                                                     |
-| `adapter`        | `IStorageAdapter` | Yes      | Storage adapter for the run ledger                                                                                                |
-| `maxConcurrency` | `number`          | No       | Max simultaneous active sandboxes. Omit for no limit.                                                                             |
-| `useServerProxy` | `boolean`         | No       | Route execd and proxy traffic through the server. Required when the server runs in Docker via `alineo init`. Defaults to `false`. |
+| Option             | Type               | Required | Description                                                                                                                                                |
+| ------------------ | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseUrl`          | `string`           | Yes      | OpenSandbox server URL, e.g. `"http://localhost:8080"`                                                                                                     |
+| `apiKey`           | `string`           | No       | OpenSandbox API key. Empty string for local dev with no auth.                                                                                              |
+| `adapter`          | `IStorageAdapter`  | Yes      | Storage adapter for the run ledger                                                                                                                         |
+| `maxConcurrency`   | `number`           | No       | Max simultaneous active sandboxes. Omit for no limit.                                                                                                      |
+| `useServerProxy`   | `boolean`          | No       | Route execd and proxy traffic through the server. Required when the server runs in Docker via `alineo init`. Defaults to `false`.                          |
+| `credentialBroker` | `CredentialBroker` | No       | Backend for `sb.credentials.*`. Defaults to `OpenSandboxCredentialBroker` (`@alineo-labs/vault`) — see [Credentials](/docs/core/0.2/concepts/credentials). |
 
 ```ts
 const client = new Sandbox({
@@ -62,7 +63,10 @@ try {
 ### resume()
 
 ```ts
-await client.resume(sandboxId: string, opts?: { tag?: string }): Promise<SandboxHandle>
+await client.resume(
+  sandboxId: string,
+  opts?: { tag?: string; resolveCredential?: CredentialResolver },
+): Promise<SandboxHandle>
 ```
 
 Restores a sandbox session from its last checkpoint (or the checkpoint matching `opts.tag`, if given):
@@ -70,9 +74,10 @@ Restores a sandbox session from its last checkpoint (or the checkpoint matching 
 1. Reads the ledger to find the last `checkpoint_created` event (or the last one matching `opts.tag`)
 2. Creates a new container from the snapshot
 3. Populates a replay cache from execs that completed before the checkpoint
-4. Returns a `SandboxHandle` — pre-checkpoint execs return cached results; later execs run live
+4. Re-registers any credentials the sandbox had bound (see [Credentials](/docs/core/0.2/concepts/credentials)) — `opts.resolveCredential` supplies values that can't be re-derived automatically
+5. Returns a `SandboxHandle` — pre-checkpoint execs return cached results; later execs run live
 
-Throws `SandboxClientError` (404) if the session is not found or has no matching checkpoint.
+Throws `SandboxClientError` (404) if the session is not found or has no matching checkpoint. Throws `SandboxError` if a bound credential can't be resolved.
 
 ```ts
 const sbResume = await client.resume(originalSandboxId);
@@ -198,8 +203,21 @@ See [SandboxHandle](#sandboxhandle-class) below for the object returned by `sand
 | `sb.listDirectory(path, opts?)`   | `Promise<FileInfo[]>`                 | List directory entries with metadata                  |
 | `sb.checkpoint(name?)`            | `Promise<string>`                     | Snapshot the container state, returns the snapshot ID |
 | `sb.listCheckpoints()`            | `Promise<CheckpointInfo[]>`           | All checkpoints for this sandbox                      |
-| `sb.fork(tag?)`                   | `Promise<SandboxHandle>`              | Snapshot and return an independent copy               |
+| `sb.fork(tag?, runId?, opts?)`    | `Promise<SandboxHandle>`              | Snapshot and return an independent copy               |
 | `sb.close()`                      | `Promise<void>`                       | Delete the container and release resources            |
+
+### sb.credentials
+
+```ts
+sb.credentials: {
+  set(name: string, value: string, binding: CredentialBinding, source?: CredentialSource): Promise<void>
+  patch(name: string, changes: Partial<{ value: string; binding: CredentialBinding }>): Promise<void>
+  remove(name: string): Promise<void>
+  listBindings(): Promise<Array<{ name: string; binding: CredentialBinding }>>
+}
+```
+
+Register, update, remove, and list credentials injected into this sandbox's outbound requests — requires the sandbox to have been created with `credentialProxy: true`. See [Credentials](/docs/core/0.2/concepts/credentials).
 
 ### SandboxHandle properties
 

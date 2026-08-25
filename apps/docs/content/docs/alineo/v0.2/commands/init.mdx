@@ -16,6 +16,8 @@ bunx alineo-cli init
 5. Waits up to 60 seconds for the server to report healthy.
 6. Writes `alineo.config.json` in the current directory (project root) if it doesn't already exist.
 
+The server it starts is configured with credential injection available out of the box — a sandbox that opts in with `networkPolicy`/`credentialProxy` can use `sb.credentials.*` with no extra setup on the server side. See [Credentials](/docs/core/0.2/concepts/credentials). Sandboxes that don't ask for it are unaffected.
+
 ## Output files
 
 ### `alineo.config.json`

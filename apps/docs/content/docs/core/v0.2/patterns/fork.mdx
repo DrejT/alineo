@@ -44,6 +44,8 @@ The optional string argument is a tag stored in the ledger (same as `sb.checkpoi
 
 The forked sandbox gets a new `sandboxId` and a ledger session named `fork-<parentName>-<shortId>`. The original sandbox is unaffected.
 
+If the original sandbox has any credentials registered via `sb.credentials.set()`, the fork carries them over automatically — see [Credentials](/docs/core/0.2/concepts/credentials).
+
 ## Branching experiments
 
 Fork is well-suited for running diverging experiments from a shared base without rebuilding:
