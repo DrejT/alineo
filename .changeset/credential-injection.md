@@ -36,6 +36,11 @@ value.
   that doesn't request `networkPolicy`, but required before `credentialProxy: true` works at all
   against a fresh `alineo init` server.
 
-See `plans/credential-injection.md` for the full design (issue #203). Vault request/response
-schema and the egress sidecar's management port are sourced from OpenSandbox's own docs, not yet
-verified against a live server — see that plan's open caveats before relying on this in production.
+See `plans/credential-injection.md` for the full design (issue #203). Verified end-to-end against
+a live `opensandbox/server:latest` + `opensandbox/egress:v1.1.7`: registration, transparent
+injection, revocation, and `fork()` credential carrying. Two known limitations, both from the
+real Credential Vault API rather than this package: only `{ type: "header" }` credential bindings
+are supported for now (`query`/`path` injection has no direct equivalent in the sidecar's `Auth`
+model), and `OpenSandboxCredentialBroker.patch()` requires both `value` and `binding` together
+(the vault never echoes a credential's value back, so a partial update can't preserve the
+unspecified half).
