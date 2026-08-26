@@ -95,12 +95,6 @@ This repo features native cross-platform support and can be developed directly o
 
 ---
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=DrejT/alineo&type=Date)](https://star-history.com/#DrejT/alineo&Date)
-
----
-
 ## License
 
 Apache 2.0
