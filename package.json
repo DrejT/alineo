@@ -14,6 +14,7 @@
     "packages/agent",
     "packages/agent-browser",
     "packages/harness",
+    "packages/memory",
     "packages/model-providers",
     "packages/cli",
     "examples/*",
