@@ -1,4 +1,4 @@
-import type { IStorageAdapter, LedgerEntry } from "@alineo-labs/core";
+import type { IStorageAdapter, LedgerEntry, SandboxDetails } from "@alineo-labs/core";
 import type { ResourceRef } from "./types";
 
 /** One sandbox session's identity, as needed to read its ledger entries back out. */
@@ -10,49 +10,85 @@ export interface SandboxSessionRef {
 export interface EpisodicRecallOptions {
   /**
    * Resolve which sandbox sessions belong to a resource. Episodic memory needs no new
-   * storage or ledger schema change — it's a read-shaped view over what the ledger already
-   * owns — but the ledger has no `resourceId` column (`IStorageAdapter.readAll` is keyed by
-   * `name`/`sandboxId`, and nothing like `resourceId` exists anywhere in the ledger schema
-   * today). Rather than force a schema migration to answer "which sessions belong to this
-   * resource," the default resolver treats a session's `name` as the join key: name every
-   * sandbox after the `resourceId` it belongs to, and `episodicRecall` finds it via
-   * `listAllSandboxDetails`. Apps with a different naming convention can supply their own
-   * resolver instead — see the resourceId↔sandboxId indexing question in the memory-layer
-   * research notes for why this is left a caller-supplied seam rather than a fixed index.
+   * storage — it's a read-shaped view over what the ledger already owns — because
+   * `SandboxDetails.resourceId` is threaded through the ledger's `sandbox_created` payload
+   * the same way `runId` already was, not a new schema column. The default resolver matches
+   * on that field; sessions written before it existed (or by a caller that never set
+   * `SandboxOptions.resourceId`) fall back to matching the ledger's `name` against
+   * `resourceId` — i.e. sandboxes named after the resource they belong to. Supply a custom
+   * resolver if neither convention fits your app.
    */
   resolveSessions?: (adapter: IStorageAdapter, ref: ResourceRef) => Promise<SandboxSessionRef[]>;
   /** Return only the most recent N entries across all resolved sessions, oldest first. */
   limit?: number;
+  /**
+   * `"flat"` (default) returns only the entries of sessions directly resolved for this
+   * resource. `"lineage"` also walks each resolved session's `parentSandboxId` chain
+   * (written by `sb.fork()`) upward and includes every ancestor session's entries too — so
+   * memory recalled for a forked sandbox includes what happened before the fork. Still one
+   * merged, flat, time-ordered stream in the result — alineo's ledger has no branch/lane
+   * concept the way e.g. Pi's own session storage does, so "lineage" is the closest
+   * approximation to branch-awareness available without inventing one.
+   */
+  branch?: "flat" | "lineage";
 }
 
-async function resolveSessionsByName(
+async function resolveSessionsByResourceId(
   adapter: IStorageAdapter,
   ref: ResourceRef,
 ): Promise<SandboxSessionRef[]> {
   const details = await adapter.listAllSandboxDetails();
   return details
-    .filter((d) => d.name === ref.resourceId)
+    .filter(
+      (d) => d.resourceId === ref.resourceId || (d.resourceId == null && d.name === ref.resourceId),
+    )
     .map((d) => ({ name: d.name, sandboxId: d.sandboxId }));
 }
 
+/** Walk `parentSandboxId` upward from each of `sessions`, returning the transitive closure
+ * (originals included, no duplicates). Stops at a sandboxId with no known details (deleted,
+ * or from before this field existed) rather than throwing. */
+async function withAncestors(
+  adapter: IStorageAdapter,
+  sessions: SandboxSessionRef[],
+): Promise<SandboxSessionRef[]> {
+  const allDetails = await adapter.listAllSandboxDetails();
+  const bySandboxId = new Map<string, SandboxDetails>(allDetails.map((d) => [d.sandboxId, d]));
+
+  const seen = new Map<string, SandboxSessionRef>();
+  for (const session of sessions) {
+    let current: SandboxSessionRef | undefined = session;
+    while (current && !seen.has(current.sandboxId)) {
+      seen.set(current.sandboxId, current);
+      const parentId: string | undefined = bySandboxId.get(current.sandboxId)?.parentSandboxId;
+      const parentDetails: SandboxDetails | undefined = parentId
+        ? bySandboxId.get(parentId)
+        : undefined;
+      current = parentDetails
+        ? { name: parentDetails.name, sandboxId: parentDetails.sandboxId }
+        : undefined;
+    }
+  }
+  return [...seen.values()];
+}
+
 /**
- * Episodic memory, deliberately not a provider at all: the exploration research's own gap
- * analysis already concluded this is "a read API over the existing ledger, reshaped by
- * resourceId... without touching the execution ledger's schema." That means no new pluggable
- * interface is needed — it's a pure function over the `IStorageAdapter` alineo already has,
- * merging and time-ordering every resolved session's ledger entries.
- *
- * Flat, not branch-aware: alineo's ledger has no branch/lane concept the way Pi's own
- * session storage does, so this returns one merged chronological stream. Revisit if/when the
- * ledger grows branching.
+ * Episodic memory, deliberately not a provider at all: it's a read API over the ledger
+ * alineo already has (`@alineo-labs/core`'s `IStorageAdapter`), reshaped by `resourceId`. No
+ * new storage, no ledger schema change — `resourceId` rides along in the existing
+ * `sandbox_created` payload the same way `runId` does.
  */
 export async function episodicRecall(
   adapter: IStorageAdapter,
   ref: ResourceRef,
   opts: EpisodicRecallOptions = {},
 ): Promise<LedgerEntry[]> {
-  const resolve = opts.resolveSessions ?? resolveSessionsByName;
-  const sessions = await resolve(adapter, ref);
+  const resolve = opts.resolveSessions ?? resolveSessionsByResourceId;
+  let sessions = await resolve(adapter, ref);
+
+  if (opts.branch === "lineage") {
+    sessions = await withAncestors(adapter, sessions);
+  }
 
   const perSession = await Promise.all(
     sessions.map((session) => adapter.readAll(session.name, session.sandboxId)),

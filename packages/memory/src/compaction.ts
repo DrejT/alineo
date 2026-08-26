@@ -1,0 +1,72 @@
+import { isPrunable } from "./semantic";
+import type { IPrunableSemanticMemoryProvider, ISemanticMemoryProvider } from "./semantic";
+import type { ResourceRef } from "./types";
+
+export interface CompactionOptions {
+  /** Drop the oldest facts beyond this count, keeping the most recently remembered ones. */
+  maxFacts?: number;
+  /** Drop any fact remembered more than this many milliseconds ago. */
+  maxAgeMs?: number;
+  /** Override "now" for age comparisons — mainly for tests. Defaults to `Date.now()`. */
+  now?: number;
+}
+
+export interface CompactionResult {
+  removed: number;
+  remaining: number;
+}
+
+/**
+ * Prune a resource's semantic memory so facts don't accumulate forever. Without this, a
+ * `remember()`'d fact stays verbatim until manually deleted — fine for a demo, not for an
+ * agent that runs for months. Requires a provider that supports the optional
+ * `IPrunableSemanticMemoryProvider` capability (`listAll`/`forget`); throws otherwise, same
+ * "loud on missing capability" convention as `Memory.remember()`/`recall()`.
+ *
+ * Both `maxAgeMs` and `maxFacts` may be set together — age-based removal runs first, then the
+ * count cap is applied to whatever's left. Neither set is a no-op (returns `{removed: 0, ...}`
+ * without calling `forget()`).
+ */
+export async function compactSemanticMemory(
+  provider: ISemanticMemoryProvider,
+  ref: ResourceRef,
+  opts: CompactionOptions = {},
+): Promise<CompactionResult> {
+  if (!isPrunable(provider)) {
+    throw new Error(
+      "compactSemanticMemory() requires a provider implementing IPrunableSemanticMemoryProvider (listAll/forget) — this provider only implements remember/recall.",
+    );
+  }
+  return compactPrunable(provider, ref, opts);
+}
+
+async function compactPrunable(
+  provider: IPrunableSemanticMemoryProvider,
+  ref: ResourceRef,
+  opts: CompactionOptions,
+): Promise<CompactionResult> {
+  const now = opts.now ?? Date.now();
+  const facts = await provider.listAll(ref);
+
+  const toRemove = new Set<string>();
+
+  if (opts.maxAgeMs != null) {
+    for (const fact of facts) {
+      if (now - fact.rememberedAt > opts.maxAgeMs) toRemove.add(fact.id);
+    }
+  }
+
+  if (opts.maxFacts != null) {
+    const remaining = facts.filter((f) => !toRemove.has(f.id));
+    if (remaining.length > opts.maxFacts) {
+      const oldestFirst = [...remaining].sort((a, b) => a.rememberedAt - b.rememberedAt);
+      const excess = oldestFirst.length - opts.maxFacts;
+      for (let i = 0; i < excess; i++) toRemove.add(oldestFirst[i]!.id);
+    }
+  }
+
+  if (toRemove.size === 0) return { removed: 0, remaining: facts.length };
+
+  const removed = await provider.forget(ref, [...toRemove]);
+  return { removed, remaining: facts.length - removed };
+}

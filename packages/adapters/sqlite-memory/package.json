@@ -1,11 +1,11 @@
 {
-  "name": "alineo",
-  "version": "0.2.0",
+  "name": "@alineo-labs/sqlite-memory",
+  "version": "0.1.0",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DrejT/alineo.git",
-    "directory": "packages/agent"
+    "directory": "packages/adapters/sqlite-memory"
   },
   "files": [
     "dist"
@@ -28,10 +28,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@alineo-labs/core": "workspace:*",
-    "@alineo-labs/memory": "workspace:*",
-    "@alineo-labs/sandbox": "workspace:*",
-    "zod": "^4.4.3"
+    "@alineo-labs/memory": "workspace:*"
   },
   "devDependencies": {
     "bun-types": "1.3.14",

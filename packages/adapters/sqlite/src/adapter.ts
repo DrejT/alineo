@@ -39,6 +39,8 @@ type AggRow = {
   is_closed: number;
   exec_count: number;
   run_id: string | null;
+  resource_id: string | null;
+  parent_sandbox_id: string | null;
 };
 
 const AGG_SQL = (whereClause: string) => `
@@ -50,7 +52,9 @@ const AGG_SQL = (whereClause: string) => `
       MAX(CASE WHEN event = 'sandbox_closed'  THEN ts END) AS completed_at,
       MAX(CASE WHEN event = 'sandbox_closed'  THEN 1 ELSE 0 END) AS is_closed,
       CAST(COUNT(CASE WHEN event = 'exec_complete' THEN 1 END) AS INTEGER) AS exec_count,
-      MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.runId') END) AS run_id
+      MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.runId') END) AS run_id,
+      MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.resourceId') END) AS resource_id,
+      MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.parentSandboxId') END) AS parent_sandbox_id
     FROM alineo_events
     ${whereClause}
     GROUP BY name, sandbox_id
@@ -77,6 +81,8 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
     // all — fall back to the sandboxId itself so every session still has *some*
     // stable, unique identity rather than an empty string.
     runId: row.run_id ?? row.sandbox_id,
+    resourceId: row.resource_id ?? undefined,
+    parentSandboxId: row.parent_sandbox_id ?? undefined,
   };
 }
 
@@ -88,6 +94,7 @@ function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): Sandbo
   }
   if (opts?.status != null) result = result.filter((d) => d.status === opts.status);
   if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
+  if (opts?.resourceId != null) result = result.filter((d) => d.resourceId === opts.resourceId);
   if (opts?.limit != null) result = result.slice(0, opts.limit);
   return result;
 }

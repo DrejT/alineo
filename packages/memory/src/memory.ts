@@ -1,3 +1,4 @@
+import { compactSemanticMemory, type CompactionOptions, type CompactionResult } from "./compaction";
 import { MemoryCapabilityError } from "./errors";
 import type { ISemanticMemoryProvider, MemoryFact } from "./semantic";
 import type { ResourceRef } from "./types";
@@ -52,5 +53,19 @@ export class Memory {
   async recall(ref: ResourceRef, query: string, opts?: { topK?: number }): Promise<MemoryFact[]> {
     if (!this.semanticProvider) throw new MemoryCapabilityError("semantic");
     return this.semanticProvider.recall(ref, query, opts);
+  }
+
+  /**
+   * Prune old/excess facts from semantic memory — see `compactSemanticMemory()`.
+   * @throws {MemoryCapabilityError} if no semantic memory provider was configured.
+   * @throws if the configured provider doesn't support the pruning capability
+   *   (`IPrunableSemanticMemoryProvider`).
+   */
+  async compactSemanticMemory(
+    ref: ResourceRef,
+    opts?: CompactionOptions,
+  ): Promise<CompactionResult> {
+    if (!this.semanticProvider) throw new MemoryCapabilityError("semantic");
+    return compactSemanticMemory(this.semanticProvider, ref, opts);
   }
 }

@@ -34,7 +34,43 @@ export interface ISemanticMemoryProvider {
   recall(ref: ResourceRef, query: string, opts?: { topK?: number }): Promise<MemoryFact[]>;
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
+/** A fact as returned by `IPrunableSemanticMemoryProvider.listAll` — every provider that
+ * supports pruning must give each fact a stable `id` (so `forget()` can name it after a
+ * separate round trip — a plain object-identity check would break on a real, persisted
+ * backend where `listAll()` reconstructs fresh objects from rows) and say when it was
+ * remembered. */
+export type RememberedFact = MemoryFact & { id: string; rememberedAt: number };
+
+/**
+ * Optional capability: a semantic memory provider that can enumerate and remove its own
+ * facts. Kept separate from `ISemanticMemoryProvider` rather than added to it — most callers
+ * only ever `remember()`/`recall()`, and not every provider needs to support pruning to be
+ * useful (an append-only audit-style store, for instance). `compactSemanticMemory()` requires
+ * this capability; `Memory` checks for it structurally rather than requiring every provider
+ * to implement it.
+ */
+export interface IPrunableSemanticMemoryProvider extends ISemanticMemoryProvider {
+  /** Every fact currently stored for this resource, newest or oldest first is unspecified. */
+  listAll(ref: ResourceRef): Promise<RememberedFact[]>;
+  /** Remove the facts with these `id`s. Returns the number actually removed. */
+  forget(ref: ResourceRef, ids: string[]): Promise<number>;
+}
+
+/** True if `provider` implements the optional pruning capability. */
+export function isPrunable(
+  provider: ISemanticMemoryProvider,
+): provider is IPrunableSemanticMemoryProvider {
+  return (
+    typeof (provider as Partial<IPrunableSemanticMemoryProvider>).listAll === "function" &&
+    typeof (provider as Partial<IPrunableSemanticMemoryProvider>).forget === "function"
+  );
+}
+
+/** Shared ranking primitive for any backend doing its own naive (non-indexed) vector scan —
+ * exported so real backends (`@alineo-labs/sqlite-memory`, `@alineo-labs/postgres-memory`)
+ * don't each reimplement it. A backend with a real vector index (pgvector, sqlite-vec) should
+ * rank in SQL instead and never needs this. */
+export function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0;
   let normA = 0;
   let normB = 0;
@@ -54,8 +90,8 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * production recommendation (no persistence, no approximate-nearest-neighbor indexing —
  * O(n) scan per `recall()`).
  */
-export class InMemorySemanticMemoryProvider implements ISemanticMemoryProvider {
-  private readonly entries = new Map<string, { fact: MemoryFact; vector: number[] }[]>();
+export class InMemorySemanticMemoryProvider implements IPrunableSemanticMemoryProvider {
+  private readonly entries = new Map<string, { fact: RememberedFact; vector: number[] }[]>();
 
   constructor(private readonly embeddings: EmbeddingProvider) {}
 
@@ -64,7 +100,7 @@ export class InMemorySemanticMemoryProvider implements ISemanticMemoryProvider {
     if (!vector) return;
     const key = scopeKey(ref);
     const bucket = this.entries.get(key) ?? [];
-    bucket.push({ fact, vector });
+    bucket.push({ fact: { ...fact, id: crypto.randomUUID(), rememberedAt: Date.now() }, vector });
     this.entries.set(key, bucket);
   }
 
@@ -85,5 +121,20 @@ export class InMemorySemanticMemoryProvider implements ISemanticMemoryProvider {
       .sort((a, b) => b.score - a.score)
       .slice(0, topK)
       .map((ranked) => ranked.fact);
+  }
+
+  async listAll(ref: ResourceRef): Promise<RememberedFact[]> {
+    return (this.entries.get(scopeKey(ref)) ?? []).map((entry) => entry.fact);
+  }
+
+  async forget(ref: ResourceRef, ids: string[]): Promise<number> {
+    const key = scopeKey(ref);
+    const bucket = this.entries.get(key);
+    if (!bucket) return 0;
+    const idSet = new Set(ids);
+    const kept = bucket.filter((entry) => !idSet.has(entry.fact.id));
+    const removed = bucket.length - kept.length;
+    this.entries.set(key, kept);
+    return removed;
   }
 }

@@ -8,6 +8,8 @@
     "packages/workflow",
     "packages/adapters/postgres",
     "packages/adapters/sqlite",
+    "packages/adapters/sqlite-memory",
+    "packages/adapters/postgres-memory",
     "packages/adapters/otel",
     "packages/adapters/flue",
     "packages/adapters/vault",

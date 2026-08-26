@@ -1,4 +1,5 @@
 import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
+import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import type { PiAdapter } from "../adapters/pi";
 import type { AgentSpec } from "../schema";
 import type { AgentSnapshotRecord } from "../snapshots";
@@ -71,6 +72,27 @@ export class Alineo {
    * transitively, `alineo fork`) always inherits its parent's `runId`.
    */
   readonly runId: string;
+  /**
+   * Optional provider-agnostic memory (`@alineo-labs/memory`), wired in via `opts.memory` on
+   * `load()`/`resume()`/`attach()`. `undefined` unless explicitly configured — `alineo` never
+   * constructs a `Memory` on your own behalf, matching this package's "own the pipeline,
+   * don't assume a backend" design. `spawn()` carries the parent's `memory` (if any) onto the
+   * child automatically, the same way it force-computes spawn-depth rather than reading it
+   * back off the child's own spec.
+   */
+  memory?: Memory;
+
+  /**
+   * Convenience `ResourceRef` scoping `.memory` calls to this agent — `resourceId` defaults
+   * to this agent's `name`, the same "sandbox session named after its resource" convention
+   * `@alineo-labs/memory`'s `episodicRecall()` default resolver expects (this agent's
+   * sandbox's ledger session name IS `spec.name`, so the two line up with no extra wiring).
+   * Only meaningful once `.memory` is set; pass a different `ResourceRef` explicitly to
+   * `.memory` methods instead if this agent's name isn't the resource identity you want.
+   */
+  get resourceRef(): ResourceRef {
+    return { resourceId: this.name };
+  }
 
   private constructor(
     sandbox: SandboxHandle,
@@ -122,10 +144,14 @@ export class Alineo {
       spawnDepth?: number;
       maxAgents?: number;
       runId?: string;
+      /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
+      memory?: Memory;
     },
   ): Promise<Alineo> {
     const r = await factory.loadAgent(spec, opts);
-    return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    agent.memory = opts.memory;
+    return agent;
   }
 
   /**
@@ -167,10 +193,14 @@ export class Alineo {
       spec?: AgentSpec | Record<string, unknown>;
       specPath?: string;
       runId?: string;
+      /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
+      memory?: Memory;
     },
   ): Promise<Alineo> {
     const r = await factory.resumeAgent(sandboxId, opts);
-    return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    agent.memory = opts.memory;
+    return agent;
   }
 
   /**
@@ -209,10 +239,14 @@ export class Alineo {
       adapter: IStorageAdapter;
       name: string;
       resources?: { cpu: string; memory: string; gpu?: string };
+      /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
+      memory?: Memory;
     },
   ): Promise<Alineo> {
     const r = await factory.attachAgent(sandboxId, opts);
-    return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    agent.memory = opts.memory;
+    return agent;
   }
 
   /**
@@ -253,7 +287,11 @@ export class Alineo {
     opts: { spawnDepth?: number; maxAgents?: number } = {},
   ): Promise<Alineo> {
     const r = await factory.spawnChild(this, childSpecPath, opts);
-    return new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    const child = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    // Inherited, not re-derived from the child's own spec — same "force-computed, not
+    // read back off the child" precedent spawnDepth/maxAgents already set nearby.
+    child.memory = this.memory;
+    return child;
   }
 
   // --- streaming ---

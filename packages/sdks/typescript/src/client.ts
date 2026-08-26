@@ -157,6 +157,7 @@ export class Sandbox {
 
     const image = typeof opts.image === "string" ? { uri: opts.image } : opts.image;
     const runId = opts.runId ?? crypto.randomUUID();
+    const resourceId = opts.resourceId;
 
     let sandboxId: string;
     try {
@@ -190,6 +191,7 @@ export class Sandbox {
           sandboxId,
           resources: opts.resources,
           runId,
+          resourceId,
           networkPolicy: opts.networkPolicy,
           credentialProxy: opts.credentialProxy,
         },
@@ -211,6 +213,8 @@ export class Sandbox {
             opts.resources,
             opts.shell,
             overrideRunId ?? runId,
+            sandboxId,
+            resourceId,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -288,6 +292,7 @@ export class Sandbox {
       | {
           resources?: { cpu?: string; memory?: string; gpu?: string };
           runId?: string;
+          resourceId?: string;
           networkPolicy?: NetworkPolicy;
           credentialProxy?: boolean;
         }
@@ -297,6 +302,9 @@ export class Sandbox {
     // same run, not a new one. Falls back to a fresh UUID only for ledger data written
     // before this field existed.
     const runId = createdPayload?.runId ?? crypto.randomUUID();
+    // Same inheritance as runId — a resumed sandbox keeps scoping to the same memory
+    // resource as its origin. Unlike runId, no fallback: absence just means "not scoped."
+    const resourceId = createdPayload?.resourceId;
     // Same reasoning applies to network policy / credential proxy — a resumed sandbox gets
     // the same egress posture as its origin, recovered from ledger data since the OpenSandbox
     // control plane doesn't echo `networkPolicy` back on GET /v1/sandboxes.
@@ -385,6 +393,7 @@ export class Sandbox {
           resumedFrom: sandboxId,
           snapshotId,
           runId,
+          resourceId,
           networkPolicy,
           credentialProxy,
         },
@@ -409,6 +418,8 @@ export class Sandbox {
                     resources as { cpu: string; memory: string; gpu?: string },
                     undefined,
                     overrideRunId ?? runId,
+                    newSessionId,
+                    resourceId,
                     forkOpts,
                   )
               : undefined,
@@ -470,7 +481,14 @@ export class Sandbox {
   async connect(
     sandboxId: string,
     name: string,
-    opts?: { resources?: { cpu: string; memory: string; gpu?: string }; runId?: string },
+    opts?: {
+      resources?: { cpu: string; memory: string; gpu?: string };
+      runId?: string;
+      /** Default resource scope for any later `.fork()` call — see `SandboxOptions.resourceId`.
+       *  Same rationale as `opts.runId`: `connect()` does no ledger lookup, so it can't
+       *  discover the sandbox's original `resourceId` on its own. */
+      resourceId?: string;
+    },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
     const info = await this._control.getSandbox(sandboxId);
@@ -496,7 +514,9 @@ export class Sandbox {
               name,
               resources,
               undefined,
-              overrideRunId ?? opts.runId,
+              overrideRunId ?? opts?.runId,
+              sandboxId,
+              opts?.resourceId,
               forkOpts,
             )
         : undefined,
@@ -533,7 +553,14 @@ export class Sandbox {
     name: string,
     resources: { cpu: string; memory: string; gpu?: string },
     runId?: string,
-    opts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
+    opts?: {
+      networkPolicy?: NetworkPolicy;
+      credentialProxy?: boolean;
+      /** Resource scope for the restored sandbox — see `SandboxOptions.resourceId`. Unlike
+       *  `resume()`, `restoreSnapshot()` has no prior ledger session of its own to inherit
+       *  from (the snapshot may have come from anywhere), so this must be passed explicitly. */
+      resourceId?: string;
+    },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
     await this._acquireSlot();
@@ -558,6 +585,7 @@ export class Sandbox {
           sandboxId: newId,
           fromSnapshot: snapshotId,
           runId: finalRunId,
+          resourceId: opts?.resourceId,
           networkPolicy: opts?.networkPolicy,
           credentialProxy: opts?.credentialProxy,
         },
@@ -576,6 +604,8 @@ export class Sandbox {
             resources,
             undefined,
             overrideRunId ?? finalRunId,
+            newId,
+            opts?.resourceId,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -787,6 +817,8 @@ export class Sandbox {
             resources,
             extra?.shell ?? envShell,
             overrideRunId ?? runId,
+            newId,
+            undefined,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -805,6 +837,8 @@ export class Sandbox {
     resources: { cpu: string; memory: string; gpu?: string },
     shell?: string,
     runId?: string,
+    parentSandboxId?: string,
+    resourceId?: string,
     forkOpts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
   ): Promise<SandboxHandle> {
     await this._acquireSlot();
@@ -834,6 +868,12 @@ export class Sandbox {
           sandboxId: newId,
           forkedFrom: snapshotId,
           runId: finalRunId,
+          // Inherited unchanged from the parent — a fork is a continuation of the same
+          // resource's memory, not a new resource. parentSandboxId, unlike resourceId, is
+          // never inherited further down: it always names the *immediate* parent, so a
+          // lineage can be walked one hop at a time (see episodicRecall's lineage option).
+          resourceId,
+          parentSandboxId,
           networkPolicy: forkOpts?.networkPolicy,
           credentialProxy: forkOpts?.credentialProxy,
         },
@@ -854,6 +894,8 @@ export class Sandbox {
             resources,
             shell,
             overrideRunId ?? finalRunId,
+            newId,
+            resourceId,
             nextForkOpts,
           ),
         useServerProxy: this._useServerProxy,

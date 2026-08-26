@@ -4,18 +4,33 @@ A provider-agnostic memory layer for alineo agents: working memory, semantic rec
 episodic recall over the existing ledger — scoped by a durable `resourceId` that survives past
 any one sandbox session.
 
-This package owns memory **concepts and scoping**. It does not own or assume a storage
-backend — you bring your own `IWorkingMemoryProvider` / `ISemanticMemoryProvider` (a real
-Postgres/pgvector or SQLite/sqlite-vec backend, or one of the in-memory reference
-implementations shipped here for development and tests).
+This package owns memory **concepts, scoping, and pipeline** (injection, compaction,
+lifecycle hooks). It does not own a storage backend itself — bring your own
+`IWorkingMemoryProvider` / `ISemanticMemoryProvider`, whether that's the in-memory reference
+implementations shipped here, the file-based `@alineo-labs/sqlite-memory` backend, or the
+shared `@alineo-labs/postgres-memory` backend.
 
 ## Why `resourceId`, not `sandboxId`
 
-A `sandboxId` identifies one sandbox _session_ — what the ledger already keys episodic events
-by. A `resourceId` is a durable identity (a user, an account, a project) expected to outlive
-any number of sandbox sessions. Working and semantic memory are keyed by `resourceId` because
-their entire point is surviving past the session they were learned in; conflating the two
-would silently break that guarantee.
+A `sandboxId` identifies one sandbox *session*. A `resourceId` is a durable identity (a user,
+an account, a project) expected to outlive any number of sandbox sessions. Working and
+semantic memory are keyed by `resourceId` because their entire point is surviving past the
+session they were learned in.
+
+`resourceId` (and `parentSandboxId`, for forked sandboxes) ride along in the ledger's existing
+`sandbox_created` event payload — the same mechanism `SandboxDetails.runId` already used —
+so there's no ledger schema change. Set it when creating a sandbox:
+
+```ts
+const sb = await client.sandbox({
+  image: "node:22",
+  resources: { cpu: "500m", memory: "512Mi" },
+  resourceId: "user-42", // ties this session's memory to a durable resource
+});
+```
+
+`resume()`, `restoreSnapshot()`, and `sb.fork()` all inherit the originating session's
+`resourceId` automatically, the same way they already inherit `runId`.
 
 ```ts
 import type { ResourceRef } from "@alineo-labs/memory";
@@ -47,15 +62,10 @@ await memory.workingMemory.delete(ref, "preferredLanguage");
 ### Semantic memory — optional
 
 Vector recall over remembered facts. Omitting it is a first-class, typed state: calling
-`remember()`/`recall()` on a `Memory` with no semantic provider throws `MemoryCapabilityError`
-rather than silently no-op'ing or returning an empty array that looks like "no facts matched."
+`remember()`/`recall()` on a `Memory` with no semantic provider throws `MemoryCapabilityError`.
 
 ```ts
-import {
-  Memory,
-  InMemoryWorkingMemoryProvider,
-  InMemorySemanticMemoryProvider,
-} from "@alineo-labs/memory";
+import { Memory, InMemoryWorkingMemoryProvider, InMemorySemanticMemoryProvider } from "@alineo-labs/memory";
 
 const memory = new Memory({
   workingMemory: new InMemoryWorkingMemoryProvider(),
@@ -67,44 +77,107 @@ const facts = await memory.recall(ref, "UI preferences", { topK: 5 });
 ```
 
 `EmbeddingProvider` is a minimal `{ id, embed(texts) }` shape — pass any embedding model you
-like; this package never depends on a concrete one.
+like. `@alineo-labs/model-providers` ships `createNvidiaEmbeddingProvider()`, matching this
+shape structurally with no dependency on this package at all.
 
 ### Episodic memory — a function, not a provider
 
-A read-shaped view over the sandbox ledger alineo already has (`@alineo-labs/core`'s
-`IStorageAdapter`), reshaped by `resourceId`. No new storage, no ledger schema change.
+A read-shaped view over the sandbox ledger, reshaped by `resourceId`. No new storage.
 
 ```ts
 import { episodicRecall } from "@alineo-labs/memory";
 
 const entries = await episodicRecall(adapter, ref, { limit: 100 });
+
+// Include ancestor sessions reached via sb.fork()'s parentSandboxId chain:
+const withHistory = await episodicRecall(adapter, ref, { branch: "lineage" });
 ```
 
-By default, `episodicRecall` finds sessions belonging to a resource by matching the ledger's
-`name` field against `resourceId` — i.e. it expects sandboxes for that resource to have been
-named after it. If your app names sandboxes differently, supply `resolveSessions` to map a
-`ResourceRef` to the sessions that belong to it:
+By default, sessions are resolved by matching `SandboxDetails.resourceId` (or, for ledger data
+written before that field existed, by matching the ledger's `name` against `resourceId`).
+Supply `resolveSessions` to use a different convention entirely.
+
+## Real backends
+
+| Package | Working memory | Semantic memory | Notes |
+|---|---|---|---|
+| `@alineo-labs/memory` (this package) | `InMemoryWorkingMemoryProvider` | `InMemorySemanticMemoryProvider` | Process-local, non-durable — reference implementations only. |
+| `@alineo-labs/sqlite-memory` | `SQLiteWorkingMemoryProvider` | `SQLiteSemanticMemoryProvider` | File-based via `bun:sqlite`, zero external services, survives restarts. Cosine-similarity scan in JS (no vector index). |
+| `@alineo-labs/postgres-memory` | `PostgresWorkingMemoryProvider` | `PostgresSemanticMemoryProvider` | Shared, multi-process backend. Row-level security isolates `teamId`-scoped rows. Cosine-similarity scan in JS by default — see the package's own doc comment for the `pgvector` upgrade path. |
 
 ```ts
-await episodicRecall(adapter, ref, {
-  resolveSessions: async (adapter, ref) => myOwnResourceIndex.lookup(ref.resourceId),
+import { Memory } from "@alineo-labs/memory";
+import { SQLiteWorkingMemoryProvider, SQLiteSemanticMemoryProvider } from "@alineo-labs/sqlite-memory";
+import { createNvidiaEmbeddingProvider } from "@alineo-labs/model-providers";
+
+const memory = new Memory({
+  workingMemory: new SQLiteWorkingMemoryProvider("./alineo-memory.db"),
+  semantic: new SQLiteSemanticMemoryProvider("./alineo-memory.db", createNvidiaEmbeddingProvider()),
 });
 ```
 
-## Reference implementations are not production backends
+Neither backend package has been run against a live database in this repo's own test suite
+(no Postgres instance, and the SQLite one is unit-tested with `bun:sqlite` directly) — they
+ship type-checked and, for SQLite, tested against a real file; treat the Postgres one as
+reviewed-but-unverified until it's run against an actual server.
 
-`InMemoryWorkingMemoryProvider` and `InMemorySemanticMemoryProvider` are process-local,
-non-durable, and not shared across processes — they exist to prove the interfaces compose end
-to end and to give tests something real to run against, the same role `InMemoryStore` plays in
-LangGraph. Real backend packages (Postgres/pgvector, SQLite/sqlite-vec, or a wrapper around a
-dedicated memory vendor) are a separate, later concern.
+## Compaction
+
+A `remember()`'d fact stays verbatim forever unless pruned. `compactSemanticMemory()` (or
+`Memory.compactSemanticMemory()`) drops old/excess facts, for any provider implementing the
+optional `IPrunableSemanticMemoryProvider` capability (`listAll`/`forget` — all three semantic
+providers above support it):
+
+```ts
+await memory.compactSemanticMemory(ref, { maxFacts: 500, maxAgeMs: 30 * 24 * 60 * 60 * 1000 });
+```
+
+Age-based removal runs first; the count cap is then applied to whatever's left. Throws if the
+configured provider doesn't support pruning.
+
+## Sandbox lifecycle binding
+
+`createMemoryLifecycleHooks(memory, ref)` returns a `SandboxHooks` object (composable via
+`@alineo-labs/core`'s `composeHooks()`) that records the most recently active `sandboxId` and
+the most recent checkpoint's metadata into working memory — a durable answer to "what was the
+last checkpoint for this resource" without re-deriving it from the ledger every time. It does
+not restore sandbox state itself; that's `@alineo-labs/core`'s job.
+
+```ts
+import { composeHooks } from "@alineo-labs/core";
+import { createMemoryLifecycleHooks } from "@alineo-labs/memory";
+
+const sb = await client.sandbox({
+  image: "node:22",
+  resources: { cpu: "500m", memory: "512Mi" },
+  resourceId: ref.resourceId,
+  hooks: composeHooks([createMemoryLifecycleHooks(memory, ref)]),
+});
+```
+
+## Agent wiring
+
+`alineo`'s `Alineo` class accepts an optional `memory` on `load()`/`resume()`/`attach()`, and
+`spawn()` carries it over to the child automatically:
+
+```ts
+const agent = await Alineo.load(spec, { adapter, memory });
+await agent.memory?.remember(agent.resourceRef, { content: "user prefers concise answers" });
+```
+
+`agent.resourceRef` defaults `resourceId` to the agent's own `name` — the same convention
+`episodicRecall()`'s default resolver expects, so no extra wiring is needed to make episodic
+recall work for an agent's own sandbox sessions.
 
 ## What's intentionally out of scope here
 
-- Real backend packages — none shipped yet.
-- Team/RLS enforcement mechanics — `ResourceRef.teamId` is passed to every provider; what a
-  given provider does with it (Postgres RLS, app-layer filtering, ignoring it) is that
-  provider's problem.
-- Branchable/forkable episodic memory — `episodicRecall` returns one flat, time-ordered
-  stream today. Worth revisiting if the ledger grows a branch/lane concept.
-- Checkpoint/resume binding for `Memory` itself.
+- Approximate-nearest-neighbor vector indexing (pgvector/sqlite-vec) — both shipped backends
+  do an in-JS cosine scan; fine at moderate scale, not a production ANN setup.
+- Team/RLS enforcement beyond what `@alineo-labs/postgres-memory`'s migration defines — a
+  SQLite or in-memory deployment gets structural isolation only, not a security boundary.
+- Full branch/lane episodic memory — `episodicRecall({branch: "lineage"})` walks fork
+  ancestry, but alineo's ledger still has no first-class branch concept the way e.g. Pi's own
+  session storage does.
+- Restoring sandbox filesystem/process state from a checkpoint — `createMemoryLifecycleHooks`
+  only records checkpoint *metadata* into working memory; the actual restore is
+  `@alineo-labs/core`'s `resume()`.

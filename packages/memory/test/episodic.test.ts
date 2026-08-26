@@ -47,16 +47,16 @@ function detail(
 }
 
 describe("episodicRecall", () => {
-  it("merges and time-orders entries across every session named after the resourceId", async () => {
+  it("merges and time-orders entries across every session tagged with the resourceId", async () => {
     const adapter = makeAdapter({
       details: [
-        detail({ sandboxId: "sb-1", name: "user-1" }),
-        detail({ sandboxId: "sb-2", name: "user-1" }),
-        detail({ sandboxId: "sb-other", name: "someone-else" }),
+        detail({ sandboxId: "sb-1", name: "session-a", resourceId: "user-1" }),
+        detail({ sandboxId: "sb-2", name: "session-b", resourceId: "user-1" }),
+        detail({ sandboxId: "sb-other", name: "someone-else", resourceId: "user-2" }),
       ],
       entriesBySandboxId: {
-        "sb-1": [entry({ ts: 100, sandboxId: "sb-1" })],
-        "sb-2": [entry({ ts: 50, sandboxId: "sb-2" })],
+        "sb-1": [entry({ ts: 100, sandboxId: "sb-1", name: "session-a" })],
+        "sb-2": [entry({ ts: 50, sandboxId: "sb-2", name: "session-b" })],
         "sb-other": [entry({ ts: 25, sandboxId: "sb-other", name: "someone-else" })],
       },
     });
@@ -64,6 +64,23 @@ describe("episodicRecall", () => {
     const result = await episodicRecall(adapter, { resourceId: "user-1" });
 
     expect(result.map((e) => e.sandboxId)).toEqual(["sb-2", "sb-1"]);
+  });
+
+  it("falls back to matching name against resourceId when resourceId was never recorded", async () => {
+    const adapter = makeAdapter({
+      details: [
+        detail({ sandboxId: "sb-1", name: "user-1" }), // no resourceId — pre-migration data
+        detail({ sandboxId: "sb-other", name: "someone-else" }),
+      ],
+      entriesBySandboxId: {
+        "sb-1": [entry({ ts: 100, sandboxId: "sb-1" })],
+        "sb-other": [entry({ ts: 25, sandboxId: "sb-other", name: "someone-else" })],
+      },
+    });
+
+    const result = await episodicRecall(adapter, { resourceId: "user-1" });
+
+    expect(result.map((e) => e.sandboxId)).toEqual(["sb-1"]);
   });
 
   it("returns an empty array when no session matches the resourceId", async () => {
@@ -74,7 +91,7 @@ describe("episodicRecall", () => {
 
   it("respects limit by keeping only the most recent N entries", async () => {
     const adapter = makeAdapter({
-      details: [detail({ sandboxId: "sb-1", name: "user-1" })],
+      details: [detail({ sandboxId: "sb-1", name: "user-1", resourceId: "user-1" })],
       entriesBySandboxId: {
         "sb-1": [
           entry({ ts: 1, sandboxId: "sb-1" }),
@@ -89,7 +106,7 @@ describe("episodicRecall", () => {
     expect(result.map((e) => e.ts)).toEqual([2, 3]);
   });
 
-  it("uses a custom resolveSessions when supplied instead of the name-based default", async () => {
+  it("uses a custom resolveSessions when supplied instead of the default resolver", async () => {
     const adapter = makeAdapter({
       details: [],
       entriesBySandboxId: { "sb-custom": [entry({ ts: 1, sandboxId: "sb-custom" })] },
@@ -102,5 +119,78 @@ describe("episodicRecall", () => {
     );
 
     expect(result).toHaveLength(1);
+  });
+
+  describe("branch: lineage", () => {
+    it("includes ancestor sessions reachable via parentSandboxId", async () => {
+      const adapter = makeAdapter({
+        details: [
+          detail({ sandboxId: "sb-root", name: "root", resourceId: "user-1" }),
+          detail({
+            sandboxId: "sb-fork",
+            name: "fork-root",
+            resourceId: "user-1",
+            parentSandboxId: "sb-root",
+          }),
+        ],
+        entriesBySandboxId: {
+          "sb-root": [entry({ ts: 10, sandboxId: "sb-root", name: "root" })],
+          "sb-fork": [entry({ ts: 20, sandboxId: "sb-fork", name: "fork-root" })],
+        },
+      });
+
+      // Default resolver only returns sessions matching resourceId directly — both do here,
+      // so simulate the common case of only the fork being "the" session of interest by
+      // resolving just the fork, then let lineage walk back up to its parent.
+      const result = await episodicRecall(
+        adapter,
+        { resourceId: "user-1" },
+        {
+          branch: "lineage",
+          resolveSessions: async () => [{ name: "fork-root", sandboxId: "sb-fork" }],
+        },
+      );
+
+      expect(result.map((e) => e.sandboxId).sort()).toEqual(["sb-fork", "sb-root"]);
+    });
+
+    it("stops at a session with no recorded parentSandboxId", async () => {
+      const adapter = makeAdapter({
+        details: [detail({ sandboxId: "sb-root", name: "root", resourceId: "user-1" })],
+        entriesBySandboxId: {
+          "sb-root": [entry({ ts: 10, sandboxId: "sb-root", name: "root" })],
+        },
+      });
+
+      const result = await episodicRecall(adapter, { resourceId: "user-1" }, { branch: "lineage" });
+
+      expect(result.map((e) => e.sandboxId)).toEqual(["sb-root"]);
+    });
+
+    it("does not walk lineage in the default 'flat' mode", async () => {
+      const adapter = makeAdapter({
+        details: [
+          detail({ sandboxId: "sb-root", name: "root", resourceId: "user-1" }),
+          detail({
+            sandboxId: "sb-fork",
+            name: "fork-root",
+            resourceId: "user-1",
+            parentSandboxId: "sb-root",
+          }),
+        ],
+        entriesBySandboxId: {
+          "sb-root": [entry({ ts: 10, sandboxId: "sb-root", name: "root" })],
+          "sb-fork": [entry({ ts: 20, sandboxId: "sb-fork", name: "fork-root" })],
+        },
+      });
+
+      const result = await episodicRecall(
+        adapter,
+        { resourceId: "user-1" },
+        { resolveSessions: async () => [{ name: "fork-root", sandboxId: "sb-fork" }] },
+      );
+
+      expect(result.map((e) => e.sandboxId)).toEqual(["sb-fork"]);
+    });
   });
 });
