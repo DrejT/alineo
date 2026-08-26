@@ -30,8 +30,6 @@ try {
 
 ---
 
-## More things you can do
-
 **Watch every tool call** — iterate the raw stream instead of `textOnly()` for full observability:
 
 ```ts
