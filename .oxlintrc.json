@@ -56,6 +56,12 @@
       }
     },
     {
+      "files": ["**/workflow/test/sandbox-builder.test.ts"],
+      "rules": {
+        "typescript/require-await": "off"
+      }
+    },
+    {
       "files": ["**/pi-bridge.js"],
       "rules": {
         "typescript/no-unsafe-assignment": "off",
