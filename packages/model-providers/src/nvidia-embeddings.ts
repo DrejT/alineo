@@ -13,7 +13,11 @@ const DEFAULT_MODEL = "nvidia/nv-embedqa-e5-v5";
  */
 export interface NvidiaEmbeddingProvider {
   id: string;
-  embed(texts: string[]): Promise<number[][]>;
+  /** `opts.type` selects NIM's `input_type` for this specific call — `"passage"` when storing
+   *  a fact, `"query"` when embedding a search string — overriding the constructor-time
+   *  default below. Matches `@alineo-labs/memory`'s `EmbeddingProvider.embed()` shape exactly,
+   *  so this is a drop-in `EmbeddingProvider` without either package depending on the other. */
+  embed(texts: string[], opts?: { type?: "query" | "passage" }): Promise<number[][]>;
 }
 
 export interface NvidiaEmbeddingOptions {
@@ -22,9 +26,10 @@ export interface NvidiaEmbeddingOptions {
   /**
    * NIM's embedding endpoint asks whether the text being embedded is a search query or a
    * stored passage — asymmetric embedding models (most NIM ones) rank better when this
-   * matches how the text is actually used. Defaults to `"query"`, matching the common case of
-   * embedding a `recall()` search string; pass `"passage"` when embedding a fact via
-   * `remember()`.
+   * matches how the text is actually used. This is only the *fallback* used when a given
+   * `embed()` call doesn't specify its own `opts.type` (e.g. a caller using this provider
+   * directly rather than through `@alineo-labs/memory`, which always passes `type` explicitly
+   * on every `remember()`/`recall()` call). Defaults to `"query"`.
    */
   inputType?: "query" | "passage";
 }
@@ -40,11 +45,12 @@ export function createNvidiaEmbeddingProvider(
   opts: NvidiaEmbeddingOptions = {},
 ): NvidiaEmbeddingProvider {
   const model = opts.model ?? DEFAULT_MODEL;
-  const inputType = opts.inputType ?? "query";
+  const defaultInputType = opts.inputType ?? "query";
   return {
     id: `nvidia:${model}`,
-    async embed(texts: string[]): Promise<number[][]> {
+    async embed(texts: string[], callOpts?: { type?: "query" | "passage" }): Promise<number[][]> {
       if (texts.length === 0) return [];
+      const inputType = callOpts?.type ?? defaultInputType;
       const apiKey = requireApiKey(ENV_VAR);
       const res = await fetch(`${BASE_URL}/embeddings`, {
         method: "POST",

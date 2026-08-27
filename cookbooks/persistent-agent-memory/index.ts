@@ -22,12 +22,21 @@ function section(label: string) {
   console.log(`\n── ${label} ${"─".repeat(Math.max(0, 58 - label.length))}\n`);
 }
 
-/** A real embedding call against NVIDIA NIM's OpenAI-compatible endpoint — the same API the
- *  agent spec below already needs a key for, so this recipe needs no second credential. */
+/**
+ * A real embedding call against NVIDIA NIM's OpenAI-compatible endpoint — the same API the
+ * agent spec below already needs a key for, so this recipe needs no second credential.
+ *
+ * `opts.type` matters here: NIM's embedding models are asymmetric, and `@alineo-labs/memory`'s
+ * `remember()`/`recall()` call `embed()` with `{type: "passage"}`/`{type: "query"}`
+ * respectively — hardcoding `input_type` to one value regardless of `opts.type` (an earlier
+ * version of this recipe did exactly that) silently degrades recall relevance rather than
+ * erroring, since a wrong-but-valid `input_type` still returns a vector, just a worse-ranked
+ * one for the intent it was actually used for.
+ */
 function nvidiaEmbeddings(): EmbeddingProvider {
   return {
     id: "nvidia-embed",
-    async embed(texts) {
+    async embed(texts, opts) {
       const res = await fetch("https://integrate.api.nvidia.com/v1/embeddings", {
         method: "POST",
         headers: {
@@ -37,7 +46,7 @@ function nvidiaEmbeddings(): EmbeddingProvider {
         body: JSON.stringify({
           input: texts,
           model: "nvidia/nv-embedqa-e5-v5",
-          input_type: "passage",
+          input_type: opts?.type ?? "query",
         }),
       });
       if (!res.ok) throw new Error(`embeddings request failed: ${res.status} ${await res.text()}`);

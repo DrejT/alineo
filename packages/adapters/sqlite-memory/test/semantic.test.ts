@@ -157,4 +157,66 @@ describe("SQLiteSemanticMemoryProvider", () => {
       }
     }
   });
+
+  describe("rememberMany", () => {
+    it("batches the embedding call into one embed() invocation for all facts", async () => {
+      const calls: string[][] = [];
+      const embeddings: EmbeddingProvider = {
+        id: "counting-fake",
+        async embed(texts) {
+          calls.push(texts);
+          return texts.map((t) => (t.toLowerCase().includes("cat") ? [1, 0] : [0, 1]));
+        },
+      };
+      const provider = new SQLiteSemanticMemoryProvider(":memory:", embeddings);
+      const ref = { resourceId: "user-1" };
+
+      await provider.rememberMany(ref, [
+        { content: "cat fact one" },
+        { content: "dog fact one" },
+        { content: "cat fact two" },
+      ]);
+
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toEqual(["cat fact one", "dog fact one", "cat fact two"]);
+      const all = await provider.listAll(ref);
+      expect(all.map((f) => f.content).sort()).toEqual(
+        ["cat fact one", "cat fact two", "dog fact one"].sort(),
+      );
+      provider.close();
+    });
+
+    it("recall() finds facts written via rememberMany, through the native vec0 index", async () => {
+      const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+      const ref = { resourceId: "user-1" };
+
+      await provider.rememberMany(ref, [
+        { content: "cat fact A" },
+        { content: "dog fact A" },
+        { content: "cat fact B" },
+      ]);
+
+      expect(provider.hasVectorIndex).toBe(true);
+      const results = await provider.recall(ref, "cat", { topK: 2 });
+      expect(results).toHaveLength(2);
+      expect(results.every((f) => f.content.includes("cat"))).toBe(true);
+      provider.close();
+    });
+
+    it("isolates facts written via rememberMany between resources", async () => {
+      const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+      await provider.rememberMany({ resourceId: "user-1" }, [{ content: "cat fact" }]);
+
+      expect(await provider.recall({ resourceId: "user-2" }, "cat")).toEqual([]);
+      provider.close();
+    });
+
+    it("is a no-op for an empty facts array", async () => {
+      const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+      await provider.rememberMany({ resourceId: "user-1" }, []);
+
+      expect(await provider.listAll({ resourceId: "user-1" })).toEqual([]);
+      provider.close();
+    });
+  });
 });

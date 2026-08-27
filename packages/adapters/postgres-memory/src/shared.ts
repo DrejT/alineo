@@ -16,7 +16,17 @@ export class PostgresMemoryConnection {
   }
 
   private ensureMigrated(): Promise<void> {
-    this.migratePromise ??= this.sql.unsafe(MIGRATION_SQL).then(() => undefined);
+    // Clear the cached promise on rejection — otherwise a transient DB blip on the very first
+    // call poisons this instance for the rest of the process lifetime: `??=` would keep
+    // returning the same rejected promise to every later get/set/list/delete/remember/recall,
+    // even after Postgres recovers, with no way to clear it short of a restart.
+    this.migratePromise ??= this.sql.unsafe(MIGRATION_SQL).then(
+      () => undefined,
+      (err) => {
+        this.migratePromise = null;
+        throw err;
+      },
+    );
     return this.migratePromise;
   }
 

@@ -106,6 +106,21 @@ describe("episodicRecall", () => {
     expect(result.map((e) => e.ts)).toEqual([2, 3]);
   });
 
+  it("limit: 0 returns nothing, not everything", async () => {
+    // `entries.slice(-0)` is `entries.slice(0)` — the whole array — so this needs its own
+    // branch rather than falling into the general negative-index slice.
+    const adapter = makeAdapter({
+      details: [detail({ sandboxId: "sb-1", name: "user-1", resourceId: "user-1" })],
+      entriesBySandboxId: {
+        "sb-1": [entry({ ts: 1, sandboxId: "sb-1" }), entry({ ts: 2, sandboxId: "sb-1" })],
+      },
+    });
+
+    const result = await episodicRecall(adapter, { resourceId: "user-1" }, { limit: 0 });
+
+    expect(result).toEqual([]);
+  });
+
   it("uses a custom resolveSessions when supplied instead of the default resolver", async () => {
     const adapter = makeAdapter({
       details: [],

@@ -4,12 +4,13 @@ import { dirname } from "node:path";
 import * as sqliteVec from "sqlite-vec";
 import type {
   EmbeddingProvider,
+  IBulkSemanticMemoryProvider,
   IPrunableSemanticMemoryProvider,
   MemoryFact,
   RememberedFact,
   ResourceRef,
 } from "@alineo-labs/memory";
-import { cosineSimilarity, scopeKey } from "@alineo-labs/memory";
+import { cosineSimilarity, factFromRow, scopeKey } from "@alineo-labs/memory";
 import { SEMANTIC_MEMORY_MIGRATION_SQL } from "./migrations";
 
 type Row = {
@@ -21,21 +22,6 @@ type Row = {
   source_entry_index: number | null;
   remembered_at: number;
 };
-
-function rowToFact(row: Row): RememberedFact {
-  return {
-    content: row.content,
-    sourceRef:
-      row.source_sandbox_id != null
-        ? { sandboxId: row.source_sandbox_id, entryIndex: row.source_entry_index! }
-        : undefined,
-    // No stored column — derived from source_sandbox_id, same "computed, not caller-set"
-    // rule @alineo-labs/memory's own providers follow.
-    verified: row.source_sandbox_id != null,
-    id: row.id,
-    rememberedAt: row.remembered_at,
-  };
-}
 
 const VEC_TABLE = "alineo_semantic_vec";
 
@@ -57,7 +43,9 @@ const VEC_TABLE = "alineo_semantic_vec";
  * regardless, so nothing about the fallback is a degraded schema — it's a genuinely
  * lower-performance code path over the same data.
  */
-export class SQLiteSemanticMemoryProvider implements IPrunableSemanticMemoryProvider {
+export class SQLiteSemanticMemoryProvider
+  implements IPrunableSemanticMemoryProvider, IBulkSemanticMemoryProvider
+{
   private readonly db: Database;
   private vecAvailable: boolean;
   private vecDimensions: number | null = null;
@@ -105,7 +93,7 @@ export class SQLiteSemanticMemoryProvider implements IPrunableSemanticMemoryProv
   }
 
   async remember(ref: ResourceRef, fact: MemoryFact): Promise<void> {
-    const [vector] = await this.embeddings.embed([fact.content]);
+    const [vector] = await this.embeddings.embed([fact.content], { type: "passage" });
     if (!vector) return;
 
     const result = this.db
@@ -132,13 +120,62 @@ export class SQLiteSemanticMemoryProvider implements IPrunableSemanticMemoryProv
     }
   }
 
+  /** Batches the embedding call for all `facts` into one `embed()` invocation, and wraps every
+   *  insert in a single transaction — see `IBulkSemanticMemoryProvider`. */
+  async rememberMany(ref: ResourceRef, facts: MemoryFact[]): Promise<void> {
+    if (facts.length === 0) return;
+    const vectors = await this.embeddings.embed(
+      facts.map((f) => f.content),
+      { type: "passage" },
+    );
+
+    // Sized from the first real vector seen, before any statement referencing the vec table is
+    // prepared — preparing an INSERT against a virtual table that doesn't exist yet fails
+    // immediately, so this must happen before `insertVec` below.
+    if (this.vecAvailable) {
+      const firstVector = vectors.find((v): v is number[] => v != null);
+      if (firstVector) this.ensureVecTable(firstVector.length);
+    }
+
+    const scope = scopeKey(ref);
+    const insertMeta = this.db.prepare(
+      `INSERT INTO alineo_semantic_memory
+         (id, scope, content, vector, source_sandbox_id, source_entry_index, remembered_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const insertVec =
+      this.vecAvailable && this.vecDimensions != null
+        ? this.db.prepare(`INSERT INTO ${VEC_TABLE}(rowid, scope, embedding) VALUES (?, ?, ?)`)
+        : null;
+    const now = Date.now();
+
+    const runAll = this.db.transaction(() => {
+      for (let i = 0; i < facts.length; i++) {
+        const vector = vectors[i];
+        const fact = facts[i]!;
+        if (!vector) continue;
+        const result = insertMeta.run(
+          crypto.randomUUID(),
+          scope,
+          fact.content,
+          JSON.stringify(vector),
+          fact.sourceRef?.sandboxId ?? null,
+          fact.sourceRef?.entryIndex ?? null,
+          now,
+        );
+        insertVec?.run(result.lastInsertRowid, scope, new Float32Array(vector));
+      }
+    });
+    runAll();
+  }
+
   async recall(
     ref: ResourceRef,
     query: string,
     opts: { topK?: number } = {},
   ): Promise<MemoryFact[]> {
     const topK = opts.topK ?? 5;
-    const [queryVector] = await this.embeddings.embed([query]);
+    const [queryVector] = await this.embeddings.embed([query], { type: "query" });
     if (!queryVector) return [];
 
     if (this.hasVectorIndex) {
@@ -156,7 +193,7 @@ export class SQLiteSemanticMemoryProvider implements IPrunableSemanticMemoryProv
           ORDER BY v.distance
         `)
         .all(new Float32Array(queryVector), scopeKey(ref), topK);
-      return rows.map(rowToFact);
+      return rows.map(factFromRow);
     }
 
     // Fallback: in-JS cosine scan, same as InMemorySemanticMemoryProvider.
@@ -168,14 +205,14 @@ export class SQLiteSemanticMemoryProvider implements IPrunableSemanticMemoryProv
       .map((row) => ({ row, score: cosineSimilarity(queryVector, JSON.parse(row.vector)) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, topK)
-      .map(({ row }) => rowToFact(row));
+      .map(({ row }) => factFromRow(row));
   }
 
   async listAll(ref: ResourceRef): Promise<RememberedFact[]> {
     const rows = this.db
       .prepare<Row, [string]>("SELECT * FROM alineo_semantic_memory WHERE scope = ?")
       .all(scopeKey(ref));
-    return rows.map(rowToFact);
+    return rows.map(factFromRow);
   }
 
   async forget(ref: ResourceRef, ids: string[]): Promise<number> {

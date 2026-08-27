@@ -297,7 +297,16 @@ export class Alineo {
       // mutate on its own, not a live share of the parent's scope. `child.resourceRef`
       // already names a different resource (the child spec's own `name`), so this seeds that
       // scope rather than overwriting the parent's.
-      await this.memory.fork(this.resourceRef, child.resourceRef.resourceId);
+      //
+      // The sandbox fork already succeeded by this point (`r.sandbox` is live) — if the
+      // memory-layer fork throws, close the child sandbox before rethrowing rather than
+      // leaving it orphaned with nothing left to close it.
+      try {
+        await this.memory.fork(this.resourceRef, child.resourceRef.resourceId);
+      } catch (err) {
+        await child.close().catch(() => {});
+        throw err;
+      }
     }
     return child;
   }

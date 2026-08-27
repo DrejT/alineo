@@ -7,13 +7,21 @@ export type { MemoryCapability } from "./errors";
 export { InMemoryWorkingMemoryProvider } from "./working";
 export type { IWorkingMemoryProvider } from "./working";
 
-export { InMemorySemanticMemoryProvider, isPrunable, cosineSimilarity } from "./semantic";
+export {
+  InMemorySemanticMemoryProvider,
+  isPrunable,
+  isBulkRememberable,
+  cosineSimilarity,
+  factFromRow,
+} from "./semantic";
 export type {
   EmbeddingProvider,
   ISemanticMemoryProvider,
   IPrunableSemanticMemoryProvider,
+  IBulkSemanticMemoryProvider,
   MemoryFact,
   RememberedFact,
+  SemanticFactRow,
 } from "./semantic";
 
 export { episodicRecall } from "./episodic";

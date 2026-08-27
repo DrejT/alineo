@@ -97,5 +97,8 @@ export async function episodicRecall(
   );
   const entries = perSession.flat().sort((a, b) => a.ts - b.ts);
 
-  return opts.limit != null ? entries.slice(-opts.limit) : entries;
+  if (opts.limit == null) return entries;
+  // `entries.slice(-0)` is `entries.slice(0)` — the whole array, not nothing — so `limit: 0`
+  // needs its own branch rather than falling into the general negative-index slice below.
+  return opts.limit <= 0 ? [] : entries.slice(-opts.limit);
 }

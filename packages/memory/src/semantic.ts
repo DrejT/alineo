@@ -8,7 +8,14 @@ import { type ResourceRef, scopeKey } from "./types";
  */
 export interface EmbeddingProvider {
   id: string;
-  embed(texts: string[]): Promise<number[][]>;
+  /**
+   * `opts.type` distinguishes embedding a fact being *stored* (`"passage"`) from embedding a
+   * search string at *recall* time (`"query"`) — asymmetric embedding models (most real ones,
+   * including NVIDIA NIM's) rank meaningfully better when this matches how the text is
+   * actually used, and conflating the two silently degrades relevance rather than erroring.
+   * Optional and provider-defined: a symmetric or single-purpose provider is free to ignore it.
+   */
+  embed(texts: string[], opts?: { type?: "query" | "passage" }): Promise<number[][]>;
 }
 
 /** One recalled or remembered fact. */
@@ -74,6 +81,58 @@ export function isPrunable(
   );
 }
 
+/**
+ * Optional capability: a semantic memory provider that can remember many facts in one call,
+ * batching the embedding call (one `embed()` invocation covering every fact's content) instead
+ * of one `embed()` per fact. `Memory.fork()` uses this when copying a resource's semantic
+ * memory wholesale — without it, forking a resource with hundreds of facts means hundreds of
+ * sequential embedding-API round trips just to reproduce vectors for content that's already
+ * known. Falls back to plain `remember()` calls (still parallelized, but not batched) for a
+ * provider that doesn't implement this.
+ */
+export interface IBulkSemanticMemoryProvider extends ISemanticMemoryProvider {
+  rememberMany(ref: ResourceRef, facts: MemoryFact[]): Promise<void>;
+}
+
+/** True if `provider` implements the optional bulk-remember capability. */
+export function isBulkRememberable(
+  provider: ISemanticMemoryProvider,
+): provider is IBulkSemanticMemoryProvider {
+  return typeof (provider as Partial<IBulkSemanticMemoryProvider>).rememberMany === "function";
+}
+
+/**
+ * Row shape common to `@alineo-labs/sqlite-memory` and `@alineo-labs/postgres-memory`'s
+ * semantic-memory tables — both store the same columns, differing only in what each driver
+ * hands back for `remembered_at` (a `number` from `bun:sqlite`, a numeric-string from
+ * `postgres`'s `BIGINT`; callers `Number()`-coerce before calling this).
+ */
+export interface SemanticFactRow {
+  id: string;
+  content: string;
+  source_sandbox_id: string | null;
+  source_entry_index: number | null;
+  remembered_at: number;
+}
+
+/** Shared row→fact mapping for any backend storing facts in the shape above — exported so
+ *  `@alineo-labs/sqlite-memory` and `@alineo-labs/postgres-memory` don't each hand-roll the
+ *  same conversion (including the `verified` derivation) with their own copy of this logic. */
+export function factFromRow(row: SemanticFactRow): RememberedFact {
+  return {
+    content: row.content,
+    sourceRef:
+      row.source_sandbox_id != null
+        ? { sandboxId: row.source_sandbox_id, entryIndex: row.source_entry_index! }
+        : undefined,
+    // Derived, not a stored column — same "computed, not caller-set" rule as remember()'s own
+    // in-memory implementation above.
+    verified: row.source_sandbox_id != null,
+    id: row.id,
+    rememberedAt: row.remembered_at,
+  };
+}
+
 /** Shared ranking primitive for any backend doing its own naive (non-indexed) vector scan —
  * exported so real backends (`@alineo-labs/sqlite-memory`, `@alineo-labs/postgres-memory`)
  * don't each reimplement it. A backend with a real vector index (pgvector, sqlite-vec) should
@@ -98,13 +157,44 @@ export function cosineSimilarity(a: number[], b: number[]): number {
  * production recommendation (no persistence, no approximate-nearest-neighbor indexing —
  * O(n) scan per `recall()`).
  */
-export class InMemorySemanticMemoryProvider implements IPrunableSemanticMemoryProvider {
+export class InMemorySemanticMemoryProvider
+  implements IPrunableSemanticMemoryProvider, IBulkSemanticMemoryProvider
+{
   private readonly entries = new Map<string, { fact: RememberedFact; vector: number[] }[]>();
 
   constructor(private readonly embeddings: EmbeddingProvider) {}
 
+  /** Batches the embedding call for all `facts` into one `embed()` invocation — see
+   *  `IBulkSemanticMemoryProvider`. */
+  async rememberMany(ref: ResourceRef, facts: MemoryFact[]): Promise<void> {
+    if (facts.length === 0) return;
+    const vectors = await this.embeddings.embed(
+      facts.map((f) => f.content),
+      { type: "passage" },
+    );
+    const key = scopeKey(ref);
+    const bucket = this.entries.get(key) ?? [];
+    const now = Date.now();
+    for (let i = 0; i < facts.length; i++) {
+      const vector = vectors[i];
+      const fact = facts[i]!;
+      if (!vector) continue;
+      bucket.push({
+        fact: {
+          content: fact.content,
+          sourceRef: fact.sourceRef,
+          verified: fact.sourceRef != null,
+          id: crypto.randomUUID(),
+          rememberedAt: now,
+        },
+        vector,
+      });
+    }
+    this.entries.set(key, bucket);
+  }
+
   async remember(ref: ResourceRef, fact: MemoryFact): Promise<void> {
-    const [vector] = await this.embeddings.embed([fact.content]);
+    const [vector] = await this.embeddings.embed([fact.content], { type: "passage" });
     if (!vector) return;
     const key = scopeKey(ref);
     const bucket = this.entries.get(key) ?? [];
@@ -131,7 +221,7 @@ export class InMemorySemanticMemoryProvider implements IPrunableSemanticMemoryPr
     const bucket = this.entries.get(scopeKey(ref));
     if (!bucket || bucket.length === 0) return [];
 
-    const [queryVector] = await this.embeddings.embed([query]);
+    const [queryVector] = await this.embeddings.embed([query], { type: "query" });
     if (!queryVector) return [];
 
     const topK = opts.topK ?? 5;

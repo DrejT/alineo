@@ -1,5 +1,10 @@
-import { isPrunable } from "./semantic";
-import type { ISemanticMemoryProvider, MemoryFact } from "./semantic";
+import { isBulkRememberable, isPrunable } from "./semantic";
+import type {
+  IBulkSemanticMemoryProvider,
+  IPrunableSemanticMemoryProvider,
+  ISemanticMemoryProvider,
+  MemoryFact,
+} from "./semantic";
 import type { ResourceRef } from "./types";
 import type { IWorkingMemoryProvider } from "./working";
 
@@ -65,16 +70,40 @@ export function withTeamAccessControl(
 }
 
 /**
- * Same enforcement for `ISemanticMemoryProvider`. Preserves the optional
- * `IPrunableSemanticMemoryProvider` capability when the wrapped provider has it — `isPrunable()`
- * still reports correctly against the wrapped result, so `compactSemanticMemory()` keeps
- * working through the wrapper.
+ * Which of `ISemanticMemoryProvider`'s optional capability interfaces `withTeamAccessControlSemantic`
+ * returns, computed from what the *input* provider actually implements — never the input's
+ * own concrete class. That distinction is load-bearing: the previous version of this function
+ * returned `T` (the caller's exact concrete provider type) via `as unknown as T`, which let
+ * `T` be inferred as a class with extra methods (e.g. a `.close()` a real provider exposes but
+ * neither `ISemanticMemoryProvider` nor this wrapper's returned object ever implements) —
+ * calling one of those through the "typed" result would throw at runtime with no compiler
+ * warning. Every branch below is a real interface the returned object literal actually
+ * satisfies structurally, so no unsafe cast is needed at the call site — only internally, where
+ * TypeScript can't otherwise prove a dynamically-assembled object matches a conditional type.
+ */
+type TeamGuardedSemanticProvider<T extends ISemanticMemoryProvider> =
+  T extends IPrunableSemanticMemoryProvider & IBulkSemanticMemoryProvider
+    ? IPrunableSemanticMemoryProvider & IBulkSemanticMemoryProvider
+    : T extends IPrunableSemanticMemoryProvider
+      ? IPrunableSemanticMemoryProvider
+      : T extends IBulkSemanticMemoryProvider
+        ? IBulkSemanticMemoryProvider
+        : ISemanticMemoryProvider;
+
+/**
+ * Same enforcement for `ISemanticMemoryProvider`. Preserves whichever optional capabilities
+ * the wrapped provider has (`IPrunableSemanticMemoryProvider`, `IBulkSemanticMemoryProvider`) —
+ * `isPrunable()`/`isBulkRememberable()` still report correctly against the wrapped result, so
+ * `compactSemanticMemory()` and `Memory.fork()`'s batched-embed path keep working through the
+ * wrapper. See `TeamGuardedSemanticProvider` for why the return type is never just `T`.
  */
 export function withTeamAccessControlSemantic<T extends ISemanticMemoryProvider>(
   provider: T,
   checker: TeamAccessChecker,
-): T {
-  const base: ISemanticMemoryProvider = {
+): TeamGuardedSemanticProvider<T> {
+  let result: ISemanticMemoryProvider &
+    Partial<IPrunableSemanticMemoryProvider> &
+    Partial<IBulkSemanticMemoryProvider> = {
     async remember(ref: ResourceRef, fact: MemoryFact) {
       await assertAccess(ref, checker);
       return provider.remember(ref, fact);
@@ -86,8 +115,8 @@ export function withTeamAccessControlSemantic<T extends ISemanticMemoryProvider>
   };
 
   if (isPrunable(provider)) {
-    return {
-      ...base,
+    result = {
+      ...result,
       async listAll(ref: ResourceRef) {
         await assertAccess(ref, checker);
         return provider.listAll(ref);
@@ -96,8 +125,18 @@ export function withTeamAccessControlSemantic<T extends ISemanticMemoryProvider>
         await assertAccess(ref, checker);
         return provider.forget(ref, ids);
       },
-    } as unknown as T;
+    };
   }
 
-  return base as unknown as T;
+  if (isBulkRememberable(provider)) {
+    result = {
+      ...result,
+      async rememberMany(ref: ResourceRef, facts: MemoryFact[]) {
+        await assertAccess(ref, checker);
+        return provider.rememberMany(ref, facts);
+      },
+    };
+  }
+
+  return result as TeamGuardedSemanticProvider<T>;
 }

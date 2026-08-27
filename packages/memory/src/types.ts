@@ -14,7 +14,18 @@ export interface ResourceRef {
   teamId?: string;
 }
 
-/** Composite key every in-memory reference provider in this package scopes its storage by. */
+/**
+ * Composite key every in-memory reference provider in this package scopes its storage by.
+ *
+ * Each part is escaped (`\` → `\\`, `:` → `\:`) before joining — without this, an untenanted
+ * caller passing `resourceId: "acme:corp"` would produce the exact same string as a tenanted
+ * caller passing `{teamId: "acme", resourceId: "corp"}`, silently colliding two different
+ * callers' storage onto one key. On a backend keyed solely by this string (in-memory,
+ * `@alineo-labs/sqlite-memory`), combined with `access-control.ts`'s `assertAccess()` skipping
+ * its check entirely for a `ref` with no `teamId`, an unescaped join made that a real
+ * cross-tenant read/write, not just a naming curiosity.
+ */
 export function scopeKey(ref: ResourceRef): string {
-  return ref.teamId ? `${ref.teamId}:${ref.resourceId}` : ref.resourceId;
+  const escape = (part: string) => part.replace(/\\/g, "\\\\").replace(/:/g, "\\:");
+  return ref.teamId ? `${escape(ref.teamId)}:${escape(ref.resourceId)}` : escape(ref.resourceId);
 }

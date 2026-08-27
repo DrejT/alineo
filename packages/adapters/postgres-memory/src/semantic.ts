@@ -1,11 +1,12 @@
 import type {
   EmbeddingProvider,
+  IBulkSemanticMemoryProvider,
   IPrunableSemanticMemoryProvider,
   MemoryFact,
   RememberedFact,
   ResourceRef,
 } from "@alineo-labs/memory";
-import { cosineSimilarity, scopeKey } from "@alineo-labs/memory";
+import { cosineSimilarity, factFromRow, scopeKey } from "@alineo-labs/memory";
 import { PostgresMemoryConnection } from "./shared";
 
 type Row = {
@@ -17,19 +18,10 @@ type Row = {
   remembered_at: string;
 };
 
-function rowToFact(row: Row): RememberedFact {
-  return {
-    content: row.content,
-    sourceRef:
-      row.source_sandbox_id != null
-        ? { sandboxId: row.source_sandbox_id, entryIndex: row.source_entry_index! }
-        : undefined,
-    // No stored column — derived from source_sandbox_id, same "computed, not caller-set"
-    // rule @alineo-labs/memory's own providers follow.
-    verified: row.source_sandbox_id != null,
-    id: row.id,
-    rememberedAt: Number(row.remembered_at),
-  };
+/** `remembered_at` comes back from Postgres's `BIGINT` column as a numeric string, unlike
+ *  `@alineo-labs/sqlite-memory`'s `number` — coerce before handing off to the shared mapping. */
+function toSharedRow(row: Row) {
+  return { ...row, remembered_at: Number(row.remembered_at) };
 }
 
 /**
@@ -44,7 +36,9 @@ function rowToFact(row: Row): RememberedFact {
  *
  * Like `PostgresWorkingMemoryProvider`, this ships type-checked against no live database.
  */
-export class PostgresSemanticMemoryProvider implements IPrunableSemanticMemoryProvider {
+export class PostgresSemanticMemoryProvider
+  implements IPrunableSemanticMemoryProvider, IBulkSemanticMemoryProvider
+{
   private readonly conn: PostgresMemoryConnection;
 
   constructor(
@@ -55,7 +49,7 @@ export class PostgresSemanticMemoryProvider implements IPrunableSemanticMemoryPr
   }
 
   async remember(ref: ResourceRef, fact: MemoryFact): Promise<void> {
-    const [vector] = await this.embeddings.embed([fact.content]);
+    const [vector] = await this.embeddings.embed([fact.content], { type: "passage" });
     if (!vector) return;
     await this.conn.withTeamContext(
       ref,
@@ -76,6 +70,38 @@ export class PostgresSemanticMemoryProvider implements IPrunableSemanticMemoryPr
     );
   }
 
+  /** Batches the embedding call for all `facts` into one `embed()` invocation, and runs every
+   *  insert inside the single transaction `withTeamContext` already opens, instead of one
+   *  transaction per fact — see `IBulkSemanticMemoryProvider`. */
+  async rememberMany(ref: ResourceRef, facts: MemoryFact[]): Promise<void> {
+    if (facts.length === 0) return;
+    const vectors = await this.embeddings.embed(
+      facts.map((f) => f.content),
+      { type: "passage" },
+    );
+    await this.conn.withTeamContext(ref, async (tx) => {
+      for (let i = 0; i < facts.length; i++) {
+        const vector = vectors[i];
+        const fact = facts[i]!;
+        if (!vector) continue;
+        await tx`
+          INSERT INTO alineo_semantic_memory
+            (id, scope, team_id, content, vector, source_sandbox_id, source_entry_index, remembered_at)
+          VALUES (
+            ${crypto.randomUUID()},
+            ${scopeKey(ref)},
+            ${ref.teamId ?? null},
+            ${fact.content},
+            ${tx.array(vector)},
+            ${fact.sourceRef?.sandboxId ?? null},
+            ${fact.sourceRef?.entryIndex ?? null},
+            ${Date.now()}
+          )
+        `;
+      }
+    });
+  }
+
   async recall(
     ref: ResourceRef,
     query: string,
@@ -87,7 +113,7 @@ export class PostgresSemanticMemoryProvider implements IPrunableSemanticMemoryPr
     );
     if (rows.length === 0) return [];
 
-    const [queryVector] = await this.embeddings.embed([query]);
+    const [queryVector] = await this.embeddings.embed([query], { type: "query" });
     if (!queryVector) return [];
 
     const topK = opts.topK ?? 5;
@@ -95,7 +121,7 @@ export class PostgresSemanticMemoryProvider implements IPrunableSemanticMemoryPr
       .map((row) => ({ row, score: cosineSimilarity(queryVector, row.vector) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, topK)
-      .map(({ row }) => rowToFact(row));
+      .map(({ row }) => factFromRow(toSharedRow(row)));
   }
 
   async listAll(ref: ResourceRef): Promise<RememberedFact[]> {
@@ -103,7 +129,7 @@ export class PostgresSemanticMemoryProvider implements IPrunableSemanticMemoryPr
       ref,
       (tx) => tx<Row[]>`SELECT * FROM alineo_semantic_memory WHERE scope = ${scopeKey(ref)}`,
     );
-    return rows.map(rowToFact);
+    return rows.map((row) => factFromRow(toSharedRow(row)));
   }
 
   async forget(ref: ResourceRef, ids: string[]): Promise<number> {

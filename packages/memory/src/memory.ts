@@ -1,6 +1,11 @@
 import { compactSemanticMemory, type CompactionOptions, type CompactionResult } from "./compaction";
 import { MemoryCapabilityError } from "./errors";
-import { isPrunable, type ISemanticMemoryProvider, type MemoryFact } from "./semantic";
+import {
+  isBulkRememberable,
+  isPrunable,
+  type ISemanticMemoryProvider,
+  type MemoryFact,
+} from "./semantic";
 import { scopeKey, type ResourceRef } from "./types";
 import type { IWorkingMemoryProvider } from "./working";
 
@@ -134,6 +139,12 @@ export class Memory {
    * whatever provider stores them) but get a fresh `id`/`rememberedAt` from the provider, same
    * as any other `remember()` call.
    *
+   * Both copy steps run their per-item writes concurrently (`Promise.all`), not sequentially.
+   * Semantic facts are additionally batched into one `embed()` call, not one per fact, when the
+   * provider supports the optional `IBulkSemanticMemoryProvider` capability (all three shipped
+   * providers do) — re-deriving vectors for content the provider already embedded once is
+   * otherwise a full round trip to the embedding API per fact.
+   *
    * Does not read or write anything about the *sandbox* itself — call this alongside
    * `sb.fork()`/`Alineo.spawn()`, not instead of it. `Alineo.spawn()` already calls this
    * automatically when the parent agent has `.memory` configured.
@@ -142,20 +153,24 @@ export class Memory {
     const childRef: ResourceRef = { resourceId: childResourceId, teamId: parentRef.teamId };
 
     const working = await this.workingMemory.list(parentRef);
-    for (const [key, value] of Object.entries(working)) {
-      await this.workingMemory.set(childRef, key, value);
-    }
+    await Promise.all(
+      Object.entries(working).map(([key, value]) => this.workingMemory.set(childRef, key, value)),
+    );
 
     let semanticFactsCopied = 0;
     if (this.semanticProvider && isPrunable(this.semanticProvider)) {
-      const facts = await this.semanticProvider.listAll(parentRef);
-      for (const fact of facts) {
-        await this.semanticProvider.remember(childRef, {
-          content: fact.content,
-          sourceRef: fact.sourceRef,
-        });
-        semanticFactsCopied++;
+      const semanticProvider = this.semanticProvider;
+      const facts = await semanticProvider.listAll(parentRef);
+      const toCopy: MemoryFact[] = facts.map((f) => ({
+        content: f.content,
+        sourceRef: f.sourceRef,
+      }));
+      if (isBulkRememberable(semanticProvider)) {
+        await semanticProvider.rememberMany(childRef, toCopy);
+      } else {
+        await Promise.all(toCopy.map((f) => semanticProvider.remember(childRef, f)));
       }
+      semanticFactsCopied = facts.length;
     }
 
     return { ref: childRef, workingKeysCopied: Object.keys(working).length, semanticFactsCopied };

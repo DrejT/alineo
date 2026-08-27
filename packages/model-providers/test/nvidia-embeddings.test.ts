@@ -96,4 +96,26 @@ describe("createNvidiaEmbeddingProvider", () => {
       input_type: "passage",
     });
   });
+
+  it("a per-call opts.type overrides the constructor-time default", async () => {
+    process.env.NVIDIA_API_KEY = "test-key";
+    const capturedInputTypes: string[] = [];
+    globalThis.fetch = mock((_url: string, init: RequestInit) => {
+      capturedInputTypes.push(JSON.parse(init.body as string).input_type);
+      return Promise.resolve(
+        new Response(JSON.stringify({ data: [{ index: 0, embedding: [1, 0] }] }), {
+          status: 200,
+        }),
+      );
+    }) as unknown as typeof fetch;
+    const { createNvidiaEmbeddingProvider } = await freshModule();
+    // Constructed with the "query" default (the module's own fallback).
+    const provider = createNvidiaEmbeddingProvider();
+
+    await provider.embed(["a fact being stored"], { type: "passage" });
+    await provider.embed(["a search string"], { type: "query" });
+    await provider.embed(["falls back to the constructor default"]);
+
+    expect(capturedInputTypes).toEqual(["passage", "query", "query"]);
+  });
 });

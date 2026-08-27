@@ -5,7 +5,7 @@ import {
   withTeamAccessControlSemantic,
 } from "../src/access-control.ts";
 import type { TeamAccessChecker } from "../src/access-control.ts";
-import { isPrunable, InMemorySemanticMemoryProvider } from "../src/semantic.ts";
+import { isBulkRememberable, isPrunable, InMemorySemanticMemoryProvider } from "../src/semantic.ts";
 import type { EmbeddingProvider } from "../src/semantic.ts";
 import { InMemoryWorkingMemoryProvider } from "../src/working.ts";
 
@@ -125,10 +125,41 @@ describe("withTeamAccessControlSemantic", () => {
 
   it("enforces access on listAll/forget when the wrapped provider is prunable", async () => {
     const inner = new InMemorySemanticMemoryProvider(fakeEmbeddings());
-    const provider = withTeamAccessControlSemantic(inner, allowOnly([])) as typeof inner;
+    // No cast needed to reach `.listAll`/`.forget` here — the wrapper's return type already
+    // includes `IPrunableSemanticMemoryProvider` when the input does. Before the fix for the
+    // "unsafe cast" finding, this test needed `as typeof inner` (the full concrete class) to
+    // typecheck at all — a cast that, if kept, would let a caller assign the wrapped result
+    // wherever `InMemorySemanticMemoryProvider` is expected and then call a method like
+    // `.rememberMany()` under a mistaken belief the wrapper still forwards it correctly for
+    // capabilities that were never actually re-implemented here.
+    const provider = withTeamAccessControlSemantic(inner, allowOnly([]));
     const ref = { resourceId: "user-1", teamId: "team-b" };
 
     await expect(provider.listAll(ref)).rejects.toThrow(MemoryAccessDeniedError);
     await expect(provider.forget(ref, ["some-id"])).rejects.toThrow(MemoryAccessDeniedError);
+  });
+
+  it("preserves the bulk-remember capability of the wrapped provider, enforcing access on it too", async () => {
+    const inner = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+    const provider = withTeamAccessControlSemantic(inner, allowOnly(["team-a"]));
+
+    expect(isBulkRememberable(provider)).toBe(true);
+    await provider.rememberMany({ resourceId: "user-1", teamId: "team-a" }, [
+      { content: "fact one" },
+      { content: "fact two" },
+    ]);
+    const facts = await inner.listAll({ resourceId: "user-1", teamId: "team-a" });
+    expect(facts.map((f) => f.content).sort()).toEqual(["fact one", "fact two"]);
+
+    await expect(
+      provider.rememberMany({ resourceId: "user-1", teamId: "team-b" }, [{ content: "denied" }]),
+    ).rejects.toThrow(MemoryAccessDeniedError);
+  });
+
+  it("does not add a bulk-remember capability the wrapped provider lacks", async () => {
+    const notBulkRememberable = { remember: async () => {}, recall: async () => [] };
+    const provider = withTeamAccessControlSemantic(notBulkRememberable, allowOnly(["team-a"]));
+
+    expect(isBulkRememberable(provider)).toBe(false);
   });
 });
