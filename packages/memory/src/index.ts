@@ -25,5 +25,14 @@ export type { CompactionOptions, CompactionResult } from "./compaction";
 export { createMemoryLifecycleHooks } from "./lifecycle-hooks";
 export type { MemoryLifecycleHooksOptions, LastCheckpointRecord } from "./lifecycle-hooks";
 
+export { SchemaWorkingMemory } from "./schema-working-memory";
+export type { SchemaValidator } from "./schema-working-memory";
+
+export { createMemoryTools } from "./tools";
+export type { MemoryTool } from "./tools";
+
+export { buildContextSnippet } from "./pipeline";
+export type { ContextSnippetOptions } from "./pipeline";
+
 export { Memory } from "./memory";
-export type { MemoryOptions } from "./memory";
+export type { MemoryOptions, AutoCompactOptions } from "./memory";

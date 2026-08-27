@@ -28,7 +28,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@alineo-labs/memory": "workspace:*"
+    "@alineo-labs/memory": "workspace:*",
+    "sqlite-vec": "^0.1.9"
   },
   "devDependencies": {
     "bun-types": "1.3.14",

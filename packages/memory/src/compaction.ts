@@ -1,5 +1,9 @@
 import { isPrunable } from "./semantic";
-import type { IPrunableSemanticMemoryProvider, ISemanticMemoryProvider } from "./semantic";
+import type {
+  IPrunableSemanticMemoryProvider,
+  ISemanticMemoryProvider,
+  RememberedFact,
+} from "./semantic";
 import type { ResourceRef } from "./types";
 
 export interface CompactionOptions {
@@ -9,11 +13,25 @@ export interface CompactionOptions {
   maxAgeMs?: number;
   /** Override "now" for age comparisons — mainly for tests. Defaults to `Date.now()`. */
   now?: number;
+  /**
+   * When set, facts selected for removal are summarized rather than just discarded: this
+   * function receives the to-be-removed facts (oldest first) and returns the contents of
+   * fewer, denser replacement facts, which are `remember()`'d *before* the originals are
+   * removed — pruning that consolidates information instead of throwing it away. Typically a
+   * thin wrapper around an LLM call ("summarize these N facts into fewer bullet points"); the
+   * function itself is caller-supplied so this package never depends on a concrete model.
+   * Replacement facts carry no `sourceRef` — they're synthesized, not tied to one ledger entry.
+   * Omit to fall back to plain deletion.
+   */
+  summarize?: (facts: RememberedFact[]) => Promise<string[]>;
 }
 
 export interface CompactionResult {
   removed: number;
   remaining: number;
+  /** Number of consolidated replacement facts written by `summarize`, if it was set and had
+   *  something to summarize. `0` when `summarize` was omitted or nothing was removed. */
+  summarized: number;
 }
 
 /**
@@ -65,8 +83,22 @@ async function compactPrunable(
     }
   }
 
-  if (toRemove.size === 0) return { removed: 0, remaining: facts.length };
+  if (toRemove.size === 0) return { removed: 0, remaining: facts.length, summarized: 0 };
+
+  let summarized = 0;
+  if (opts.summarize) {
+    // Oldest first — a summarizer condensing "what happened over time" reads better in
+    // chronological order than an arbitrary one.
+    const removedFacts = facts
+      .filter((f) => toRemove.has(f.id))
+      .sort((a, b) => a.rememberedAt - b.rememberedAt);
+    const consolidated = await opts.summarize(removedFacts);
+    for (const content of consolidated) {
+      await provider.remember(ref, { content });
+    }
+    summarized = consolidated.length;
+  }
 
   const removed = await provider.forget(ref, [...toRemove]);
-  return { removed, remaining: facts.length - removed };
+  return { removed, remaining: facts.length - removed + summarized, summarized };
 }

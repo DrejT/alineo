@@ -7,5 +7,5 @@ export default defineConfig({
   outDir: "dist",
   platform: "node",
   clean: true,
-  deps: { neverBundle: ["@alineo-labs/memory", "bun:sqlite"] },
+  deps: { neverBundle: ["@alineo-labs/memory", "bun:sqlite", "sqlite-vec"] },
 });

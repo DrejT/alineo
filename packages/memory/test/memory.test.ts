@@ -62,4 +62,66 @@ describe("Memory", () => {
     const results = await memory.recall(ref, "sky");
     expect(results[0]?.content).toBe("the sky is blue");
   });
+
+  describe("autoCompact", () => {
+    it("runs a compaction check after every remember() by default", async () => {
+      const semantic = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+      const memory = new Memory({
+        workingMemory: new InMemoryWorkingMemoryProvider(),
+        semantic,
+        autoCompact: { maxFacts: 1 },
+      });
+      const ref = { resourceId: "user-1" };
+
+      await memory.remember(ref, { content: "first" });
+      await memory.remember(ref, { content: "second" });
+
+      expect(await semantic.listAll(ref)).toHaveLength(1);
+    });
+
+    it("only checks every Nth remember() call when checkEvery is set", async () => {
+      const semantic = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+      const memory = new Memory({
+        workingMemory: new InMemoryWorkingMemoryProvider(),
+        semantic,
+        autoCompact: { maxFacts: 1, checkEvery: 3 },
+      });
+      const ref = { resourceId: "user-1" };
+
+      await memory.remember(ref, { content: "a" });
+      await memory.remember(ref, { content: "b" });
+      expect(await semantic.listAll(ref)).toHaveLength(2); // not checked yet
+
+      await memory.remember(ref, { content: "c" }); // 3rd call triggers the check
+
+      expect(await semantic.listAll(ref)).toHaveLength(1);
+    });
+
+    it("does nothing when the configured semantic provider doesn't support pruning", async () => {
+      const notPrunable = {
+        remember: async () => {},
+        recall: async () => [],
+      };
+      const memory = new Memory({
+        workingMemory: new InMemoryWorkingMemoryProvider(),
+        semantic: notPrunable,
+        autoCompact: { maxFacts: 0 },
+      });
+
+      await expect(
+        memory.remember({ resourceId: "user-1" }, { content: "fact" }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("does not run when autoCompact is not configured", async () => {
+      const semantic = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+      const memory = new Memory({ workingMemory: new InMemoryWorkingMemoryProvider(), semantic });
+      const ref = { resourceId: "user-1" };
+
+      await memory.remember(ref, { content: "a" });
+      await memory.remember(ref, { content: "b" });
+
+      expect(await semantic.listAll(ref)).toHaveLength(2);
+    });
+  });
 });

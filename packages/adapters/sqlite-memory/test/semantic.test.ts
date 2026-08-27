@@ -17,6 +17,36 @@ function fakeEmbeddings(): EmbeddingProvider {
 }
 
 describe("SQLiteSemanticMemoryProvider", () => {
+  it("uses the native sqlite-vec index, not the JS fallback scan, on this platform", async () => {
+    const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+    await provider.remember({ resourceId: "user-1" }, { content: "cat fact" });
+
+    expect(provider.hasVectorIndex).toBe(true);
+    provider.close();
+  });
+
+  it("keeps topK correct when another resource's facts are nearer to the query than this resource's own — the exact bug a naive post-join scope filter would hit under vec0's global top-k KNN", async () => {
+    const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+    // user-2 gets many exact "cat" matches (distance 0) — if scoping were applied AFTER
+    // vec0 picks its global nearest neighbors instead of natively via the partition key,
+    // these would crowd out user-1's own (less exact) matches and topK would come back
+    // short or wrong for user-1.
+    for (let i = 0; i < 10; i++) {
+      await provider.remember({ resourceId: "user-2" }, { content: `cat fact ${i}` });
+    }
+    await provider.remember({ resourceId: "user-1" }, { content: "cat fact A" });
+    await provider.remember({ resourceId: "user-1" }, { content: "cat fact B" });
+    await provider.remember({ resourceId: "user-1" }, { content: "cat fact C" });
+
+    const results = await provider.recall({ resourceId: "user-1" }, "cat", { topK: 3 });
+
+    expect(results).toHaveLength(3);
+    expect(
+      results.every((f) => f.content.startsWith("cat fact ") && /[ABC]$/.test(f.content)),
+    ).toBe(true);
+    provider.close();
+  });
+
   it("recalls facts ranked by similarity to the query", async () => {
     const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
     const ref = { resourceId: "user-1" };
