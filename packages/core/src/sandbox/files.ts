@@ -16,7 +16,7 @@ export async function readFile(sb: SandboxInternal, path: string): Promise<strin
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    if (value) chunks.push(value);
+    chunks.push(value);
   }
   const total = chunks.reduce((n, c) => n + c.length, 0);
   const merged = new Uint8Array(total);

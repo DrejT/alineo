@@ -59,11 +59,18 @@ const AGG_SQL = (whereClause: string) => `
 `;
 
 function aggRowToDetails(row: AggRow): SandboxDetails {
+  if (row.started_at == null) {
+    // AGG_SQL's WHERE clause already excludes rows with no started_at; this only
+    // trips if that invariant is ever broken.
+    throw new Error(
+      `corrupt ledger: aggregated row for ${row.name}/${row.sandbox_id} has no started_at`,
+    );
+  }
   return {
     name: row.name,
     sandboxId: row.sandbox_id,
     status: row.is_closed ? SandboxStatus.Completed : SandboxStatus.Running,
-    startedAt: row.started_at!,
+    startedAt: row.started_at,
     completedAt: row.completed_at ?? undefined,
     execCount: row.exec_count,
     // Older ledger rows written before this field existed have no runId recorded at
@@ -75,7 +82,10 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
 
 function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): SandboxDetails[] {
   let result = details;
-  if (opts?.before != null) result = result.filter((d) => d.startedAt < opts.before!);
+  if (opts?.before != null) {
+    const before = opts.before;
+    result = result.filter((d) => d.startedAt < before);
+  }
   if (opts?.status != null) result = result.filter((d) => d.status === opts.status);
   if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
   if (opts?.limit != null) result = result.slice(0, opts.limit);
@@ -106,16 +116,16 @@ export class SQLiteAdapter implements IStorageAdapter {
     // a no-op.
     try {
       mkdirSync(dirname(path), { recursive: true });
-    } catch (e: any) {
-      if (e.code !== "EEXIST") throw e;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
     this.db = new Database(path, { create: true });
   }
 
   async connect(): Promise<void> {
-    this.db.exec(MIGRATION_SQL);
+    this.db.run(MIGRATION_SQL);
     // WAL mode prevents writer from blocking readers on concurrent access
-    this.db.exec("PRAGMA journal_mode = WAL;");
+    this.db.run("PRAGMA journal_mode = WAL;");
   }
 
   async close(): Promise<void> {

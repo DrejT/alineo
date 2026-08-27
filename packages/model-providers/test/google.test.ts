@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import type * as GoogleModule from "../src/google";
 
 let originalFetch: typeof fetch;
 let originalKey: string | undefined;
@@ -15,8 +16,8 @@ afterEach(() => {
   mock.restore();
 });
 
-async function freshModule() {
-  return import(`../src/google?t=${crypto.randomUUID()}`);
+async function freshModule(): Promise<typeof GoogleModule> {
+  return import(`../src/google?t=${crypto.randomUUID()}`) as Promise<typeof GoogleModule>;
 }
 
 describe("googleProvider", () => {

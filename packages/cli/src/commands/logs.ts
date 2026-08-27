@@ -18,7 +18,9 @@ export async function logs(name: string, opts: { json?: boolean } = {}): Promise
   // listByName() connects the adapter as a side effect, so the direct
   // adapter.readAll() call below is safe to make on the same instance.
   const sessions = await client.sandboxes.listByName(name);
-  const session = sessions[0]; // newest first
+  // TS's array indexing types this as SandboxDetails (not | undefined), but an empty
+  // `sessions` array makes this genuinely undefined at runtime — this guard is real.
+  const session = sessions[0] as (typeof sessions)[number] | undefined; // newest first
   if (!session) {
     throw new Error(`No session named '${name}' found in the ledger.`);
   }

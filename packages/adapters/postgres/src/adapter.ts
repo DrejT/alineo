@@ -49,7 +49,10 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
 
 function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): SandboxDetails[] {
   let result = details;
-  if (opts?.before != null) result = result.filter((d) => d.startedAt < opts.before!);
+  if (opts?.before != null) {
+    const before = opts.before;
+    result = result.filter((d) => d.startedAt < before);
+  }
   if (opts?.status != null) result = result.filter((d) => d.status === opts.status);
   if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
   if (opts?.limit != null) result = result.slice(0, opts.limit);

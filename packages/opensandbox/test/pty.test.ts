@@ -52,7 +52,8 @@ async function connectFakeSocket(client: PtyClient, sessionId = "session-1") {
   const onOutput = vi.fn();
   const onExit = vi.fn();
   const connectPromise = client.connect(sessionId, onOutput, onExit);
-  const ws = FakeWebSocket.instances.at(-1)!;
+  const ws = FakeWebSocket.instances.at(-1);
+  if (!ws) throw new Error("expected a FakeWebSocket instance");
   ws.triggerOpen();
   await connectPromise;
   return { ws, onOutput, onExit };
@@ -83,7 +84,7 @@ describe("PtyClient", () => {
       "http://localhost:8080/pty",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ "X-EXECD-ACCESS-TOKEN": "tok" }),
+        headers: expect.objectContaining({ "X-EXECD-ACCESS-TOKEN": "tok" }) as unknown,
         body: JSON.stringify({ cwd: "/root" }),
       }),
     );
@@ -149,9 +150,9 @@ describe("PtyClient", () => {
   it('a {"type":"connected"} frame is ignored without crashing', async () => {
     const client = new PtyClient({ baseUrl: "http://localhost:8080", accessToken: "tok" });
     const { ws, onExit, onOutput } = await connectFakeSocket(client);
-    expect(() =>
-      ws.triggerMessage(JSON.stringify({ type: "connected", session_id: "s1", mode: "pty" })),
-    ).not.toThrow();
+    expect(() => {
+      ws.triggerMessage(JSON.stringify({ type: "connected", session_id: "s1", mode: "pty" }));
+    }).not.toThrow();
     expect(onExit).not.toHaveBeenCalled();
     expect(onOutput).not.toHaveBeenCalled();
   });

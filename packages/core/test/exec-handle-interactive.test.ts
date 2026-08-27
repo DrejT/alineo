@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { InteractiveExecHandle } from "../src/exec-handle.ts";
 import type { ExecDriver, ExecResult, PtyControls } from "../src/exec-handle.ts";
 
-function makePtyDriver(onDone: (r: ExecResult) => Promise<void> = async () => {}) {
+function makePtyDriver(
+  // eslint-disable-next-line typescript/require-await -- the default onDone must match ExecDriver's Promise-returning signature; nothing here needs to await
+  onDone: (r: ExecResult) => Promise<void> = async () => {},
+) {
   let push: (chunk: string) => void = () => {};
   let finish: (exitCode: number) => void = () => {};
   let fail: (err: unknown) => void = () => {};
@@ -19,9 +22,15 @@ function makePtyDriver(onDone: (r: ExecResult) => Promise<void> = async () => {}
 
   return {
     driver,
-    emitOutput: (chunk: string) => push(chunk),
-    emitExit: (exitCode: number) => finish(exitCode),
-    emitFail: (err: unknown) => fail(err),
+    emitOutput: (chunk: string) => {
+      push(chunk);
+    },
+    emitExit: (exitCode: number) => {
+      finish(exitCode);
+    },
+    emitFail: (err: unknown) => {
+      fail(err);
+    },
   };
 }
 
@@ -59,6 +68,7 @@ describe("InteractiveExecHandle — pty driver", () => {
         push("live output\n");
         finish(0);
       },
+      // eslint-disable-next-line typescript/require-await -- must match ExecDriver's Promise-returning onDone signature; nothing here needs to await
       onDone: async () => {},
     };
     const handle = new InteractiveExecHandle(driver);
@@ -90,10 +100,18 @@ describe("InteractiveExecHandle — pty driver", () => {
   it("write()/resize()/signal()/close() are no-ops without controls (finished/replayed session)", () => {
     const { driver } = makePtyDriver();
     const handle = new InteractiveExecHandle(driver);
-    expect(() => handle.write("x")).not.toThrow();
-    expect(() => handle.resize(1, 1)).not.toThrow();
-    expect(() => handle.signal("SIGTERM")).not.toThrow();
-    expect(() => void handle.close()).not.toThrow();
+    expect(() => {
+      handle.write("x");
+    }).not.toThrow();
+    expect(() => {
+      handle.resize(1, 1);
+    }).not.toThrow();
+    expect(() => {
+      handle.signal("SIGTERM");
+    }).not.toThrow();
+    expect(() => {
+      void handle.close();
+    }).not.toThrow();
   });
 
   it("rejects if the driver reports a setup failure", async () => {
@@ -105,9 +123,12 @@ describe("InteractiveExecHandle — pty driver", () => {
 
   it("calls onDone with the completed result", async () => {
     let captured: unknown;
-    const { driver, emitExit } = makePtyDriver(async (r) => {
-      captured = r;
-    });
+    const { driver, emitExit } = makePtyDriver(
+      // eslint-disable-next-line typescript/require-await -- onDone must match ExecDriver's Promise-returning signature; nothing here needs to await
+      async (r) => {
+        captured = r;
+      },
+    );
     const handle = new InteractiveExecHandle(driver);
     emitExit(3);
     await handle;
@@ -125,11 +146,14 @@ describe("InteractiveExecHandle — replay driver (already finished before check
     expect(result.stdout).toBe("cached\n");
   });
 
+  // eslint-disable-next-line typescript/require-await -- vitest `it` callbacks are conventionally async even when this one has nothing to await
   it("write() is a no-op — nothing left to attach to", async () => {
     const handle = new InteractiveExecHandle({
       type: "replay",
       result: { stdout: "", stderr: "", exitCode: 0 },
     });
-    expect(() => handle.write("too late")).not.toThrow();
+    expect(() => {
+      handle.write("too late");
+    }).not.toThrow();
   });
 });

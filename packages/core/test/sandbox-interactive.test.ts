@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { SandboxHandle } from "../src/sandbox/index.ts";
 import type { SandboxDeps, PendingInteractiveExec } from "../src/sandbox/index.ts";
-import type { IStorageAdapter } from "../src/ledger.ts";
+import { LedgerEvent } from "../src/ledger.ts";
+import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import type { ExecResult } from "../src/exec-handle.ts";
+import type { PtyOutputListener, PtyExitListener } from "@alineo-labs/opensandbox";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -22,23 +24,27 @@ function makeAdapter(): IStorageAdapter {
 }
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
+  const control = { deleteSandbox: vi.fn().mockResolvedValue(undefined) };
   return {
-    control: { deleteSandbox: vi.fn().mockResolvedValue(undefined) } as any,
+    control: control as unknown as SandboxDeps["control"],
     adapter,
   };
 }
 
 /** A controllable fake PtyClient — connect() resolves without ending the session until emitExit() is called. */
 function makeFakePty() {
-  let onOutputCb: (chunk: string) => void = () => {};
-  let onExitCb: (exitCode: number) => void = () => {};
+  let onOutputCb: PtyOutputListener = () => {};
+  let onExitCb: PtyExitListener = () => {};
   const pty = {
     create: vi.fn().mockResolvedValue("session-1"),
-    connect: vi.fn().mockImplementation(async (_sessionId: string, onOutput: any, onExit: any) => {
-      onOutputCb = onOutput;
-      onExitCb = onExit;
-      onOutput("$ "); // simulate the shell's initial prompt — the readiness signal exec() waits for
-    }),
+    connect: vi.fn().mockImplementation(
+      // eslint-disable-next-line typescript/require-await -- must be async to match PtyClient.connect's real signature; nothing here needs to await
+      async (_sessionId: string, onOutput: PtyOutputListener, onExit: PtyExitListener) => {
+        onOutputCb = onOutput;
+        onExitCb = onExit;
+        onOutput("$ "); // simulate the shell's initial prompt — the readiness signal exec() waits for
+      },
+    ),
     write: vi.fn(),
     resize: vi.fn(),
     signal: vi.fn(),
@@ -46,13 +52,17 @@ function makeFakePty() {
   };
   return {
     pty,
-    emitOutput: (chunk: string) => onOutputCb(chunk),
-    emitExit: (exitCode: number) => onExitCb(exitCode),
+    emitOutput: (chunk: string) => {
+      onOutputCb(chunk);
+    },
+    emitExit: (exitCode: number) => {
+      onExitCb(exitCode);
+    },
   };
 }
 
-function appendedEvents(adapter: IStorageAdapter) {
-  return (adapter.append as ReturnType<typeof vi.fn>).mock.calls.map((c: [any]) => c[0]);
+function appendedEvents(adapter: IStorageAdapter): LedgerEntry[] {
+  return (adapter.append as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0] as LedgerEntry);
 }
 
 describe("SandboxHandle interactive exec", () => {
@@ -60,12 +70,14 @@ describe("SandboxHandle interactive exec", () => {
     const adapter = makeAdapter();
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty } = makeFakePty();
-    (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
+    sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
     sb.exec("bash", { interactive: true });
-    await vi.waitFor(() => expect((sb as any).openSessionClosers.size).toBe(1));
+    await vi.waitFor(() => {
+      expect(sb.openSessionClosers.size).toBe(1);
+    });
 
-    const start = appendedEvents(adapter).find((e) => e.event === "exec_start");
+    const start = appendedEvents(adapter).find((e) => e.event === LedgerEvent.ExecStart);
     expect(start?.payload).toMatchObject({ cmd: "bash", interactive: true, seq: 1 });
   });
 
@@ -73,36 +85,49 @@ describe("SandboxHandle interactive exec", () => {
     const adapter = makeAdapter();
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty } = makeFakePty();
-    (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
+    sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
     const handle = sb.exec("bash", { interactive: true });
-    await vi.waitFor(() => expect((sb as any).openSessionClosers.size).toBe(1));
+    await vi.waitFor(() => {
+      expect(sb.openSessionClosers.size).toBe(1);
+    });
 
     handle.write("whoami\n");
-    await vi.waitFor(() => expect(pty.write).toHaveBeenCalledWith("whoami\n"));
+    await vi.waitFor(() => {
+      expect(pty.write).toHaveBeenCalledWith("whoami\n");
+    });
 
     const stdinEvents = appendedEvents(adapter).filter(
-      (e) => e.event === "exec_event" && e.payload?.type === "stdin",
+      (e) =>
+        e.event === LedgerEvent.ExecEvent &&
+        (e.payload as { type?: string } | undefined)?.type === "stdin",
     );
-    expect(stdinEvents.map((e) => e.payload.text)).toEqual(["whoami\n"]);
+    expect(stdinEvents.map((e) => (e.payload as { text: string }).text)).toEqual(["whoami\n"]);
   });
 
   it("logs output chunks as exec_event with type stdout", async () => {
     const adapter = makeAdapter();
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty, emitOutput } = makeFakePty();
-    (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
+    sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
     sb.exec("bash", { interactive: true });
-    await vi.waitFor(() => expect((sb as any).openSessionClosers.size).toBe(1));
+    await vi.waitFor(() => {
+      expect(sb.openSessionClosers.size).toBe(1);
+    });
 
     emitOutput("hello\n");
     await vi.waitFor(() => {
       const stdoutEvents = appendedEvents(adapter).filter(
-        (e) => e.event === "exec_event" && e.payload?.type === "stdout",
+        (e) =>
+          e.event === LedgerEvent.ExecEvent &&
+          (e.payload as { type?: string } | undefined)?.type === "stdout",
       );
       // "$ " is the fake's simulated initial prompt (the readiness signal exec() waits for)
-      expect(stdoutEvents.map((e) => e.payload.text)).toEqual(["$ ", "hello\n"]);
+      expect(stdoutEvents.map((e) => (e.payload as { text: string }).text)).toEqual([
+        "$ ",
+        "hello\n",
+      ]);
     });
   });
 
@@ -110,15 +135,17 @@ describe("SandboxHandle interactive exec", () => {
     const adapter = makeAdapter();
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty, emitExit } = makeFakePty();
-    (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
+    sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
     const handle = sb.exec("bash", { interactive: true, strict: false });
-    await vi.waitFor(() => expect((sb as any).openSessionClosers.size).toBe(1));
+    await vi.waitFor(() => {
+      expect(sb.openSessionClosers.size).toBe(1);
+    });
 
     emitExit(0);
     const result = await handle;
     expect(result.exitCode).toBe(0);
-    const complete = appendedEvents(adapter).find((e) => e.event === "exec_complete");
+    const complete = appendedEvents(adapter).find((e) => e.event === LedgerEvent.ExecComplete);
     expect(complete?.payload).toMatchObject({ exitCode: 0, seq: 1 });
   });
 
@@ -126,10 +153,12 @@ describe("SandboxHandle interactive exec", () => {
     const adapter = makeAdapter();
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty, emitExit } = makeFakePty();
-    (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
+    sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
     const handle = sb.exec("bash", { interactive: true });
-    await vi.waitFor(() => expect((sb as any).openSessionClosers.size).toBe(1));
+    await vi.waitFor(() => {
+      expect(sb.openSessionClosers.size).toBe(1);
+    });
 
     emitExit(1);
     await expect(handle).rejects.toThrow("Command exited with code 1");
@@ -139,10 +168,12 @@ describe("SandboxHandle interactive exec", () => {
     const adapter = makeAdapter();
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const { pty, emitExit } = makeFakePty();
-    (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
+    sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
     const handle = sb.exec("bash", { interactive: true, strict: false });
-    await vi.waitFor(() => expect((sb as any).openSessionClosers.size).toBe(1));
+    await vi.waitFor(() => {
+      expect(sb.openSessionClosers.size).toBe(1);
+    });
 
     emitExit(1);
     const result = await handle;
@@ -154,14 +185,16 @@ describe("SandboxHandle interactive exec", () => {
     const deps = makeDeps(adapter);
     const sb = new SandboxHandle("sb-1", "test", deps);
     const { pty } = makeFakePty();
-    (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
+    sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
     sb.exec("bash", { interactive: true });
-    await vi.waitFor(() => expect((sb as any).openSessionClosers.size).toBe(1));
+    await vi.waitFor(() => {
+      expect(sb.openSessionClosers.size).toBe(1);
+    });
 
     await sb.close();
     expect(pty.close).toHaveBeenCalled();
-    expect((sb as any).openSessionClosers.size).toBe(0);
+    expect(sb.openSessionClosers.size).toBe(0);
   });
 
   it("replayed (already-finished) interactive exec resolves instantly without opening a pty", async () => {
@@ -170,7 +203,7 @@ describe("SandboxHandle interactive exec", () => {
     const replayCache = new Map([[1, cached]]);
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
     const resolvePty = vi.fn();
-    (sb as any).resolvePtyClient = resolvePty;
+    sb.resolvePtyClient = resolvePty;
 
     const handle = sb.exec("bash", { interactive: true });
     const result = await handle;
@@ -193,18 +226,25 @@ describe("SandboxHandle interactive exec", () => {
     ]);
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), new Map(), pendingInteractive);
     const { pty } = makeFakePty();
-    (sb as any).resolvePtyClient = vi.fn().mockResolvedValue(pty);
+    sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);
 
     const handle = sb.exec("bash", { interactive: true });
     // Resuming pays a fixed settle delay (see sandbox.ts) before replaying stdin.
-    await vi.waitFor(() => expect(pty.write).toHaveBeenCalledTimes(2), { timeout: 8000 });
-    expect(pty.write.mock.calls.map((c: [string]) => c[0])).toEqual([
+    await vi.waitFor(
+      () => {
+        expect(pty.write).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 8000 },
+    );
+    expect(pty.write.mock.calls.map((c) => c[0] as string)).toEqual([
       "export FOO=bar\n",
       "echo $FOO\n",
     ]);
 
     handle.write("echo new\n");
-    await vi.waitFor(() => expect(pty.write).toHaveBeenCalledTimes(3));
-    expect(pty.write.mock.calls[2][0]).toBe("echo new\n");
+    await vi.waitFor(() => {
+      expect(pty.write).toHaveBeenCalledTimes(3);
+    });
+    expect(pty.write.mock.calls[2]?.[0]).toBe("echo new\n");
   }, 10_000);
 });

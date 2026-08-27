@@ -1,4 +1,4 @@
-import { SnapshotState } from "./types";
+import type { SnapshotState } from "./types";
 import type {
   Sandbox,
   CreateSandboxOptions,

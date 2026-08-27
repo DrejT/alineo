@@ -84,7 +84,9 @@ export class ExecHandle implements PromiseLike<ExecResult> {
           const result: ExecResult = { stdout: this._chunks.join(""), stderr: "", exitCode };
           this._notify();
           driver.onDone(result).then(
-            () => resolve(result),
+            () => {
+              resolve(result);
+            },
             (err) => {
               this._err = err;
               this._hasErr = true;
@@ -151,7 +153,7 @@ export class ExecHandle implements PromiseLike<ExecResult> {
     onfulfilled?: ((value: ExecResult) => T | PromiseLike<T>) | null,
     onrejected?: ((reason: unknown) => E | PromiseLike<E>) | null,
   ): Promise<T | E> {
-    return this._promise.then(onfulfilled, onrejected) as Promise<T | E>;
+    return this._promise.then(onfulfilled, onrejected);
   }
 
   /** Resolve the full result: `{ stdout, stderr, exitCode }`. */
@@ -233,6 +235,7 @@ export class InteractiveExecHandle extends ExecHandle {
   }
 
   /** Force-end the session. No-op if it already ended on its own. */
+  // eslint-disable-next-line typescript/require-await -- kept async/Promise-returning for a consistent await-able API alongside this class's other async methods; the underlying control is synchronous
   async close(): Promise<void> {
     this._controls?.close();
   }
@@ -246,7 +249,9 @@ export class InteractiveExecHandle extends ExecHandle {
     readable: AttachableSource,
     writable: { write(chunk: string): unknown },
   ): Promise<void> {
-    const onData = (chunk: Buffer | string) => this.write(chunk.toString());
+    const onData = (chunk: Buffer | string) => {
+      this.write(chunk.toString());
+    };
     readable.on("data", onData);
     try {
       await this.pipe(writable);

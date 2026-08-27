@@ -69,13 +69,13 @@ class HarnessImpl implements Harness {
 
   render(): string {
     return this.orderedSectionNames()
-      .map((name) => `<${name}>\n${this.sections.get(name)!.join("\n\n")}\n</${name}>`)
+      .map((name) => `<${name}>\n${(this.sections.get(name) ?? []).join("\n\n")}\n</${name}>`)
       .join("\n\n");
   }
 
   private toMarkdown(): string {
     return this.orderedSectionNames()
-      .map((name) => `## ${name}\n\n${this.sections.get(name)!.join("\n\n")}`)
+      .map((name) => `## ${name}\n\n${(this.sections.get(name) ?? []).join("\n\n")}`)
       .join("\n\n");
   }
 
@@ -96,7 +96,7 @@ class HarnessImpl implements Harness {
     // splitting on the header pattern (global) yields [preamble, name, body, name, body, ...].
     const parts = content.split(new RegExp(SECTION_HEADER.source, "gm"));
     for (let i = 1; i < parts.length; i += 2) {
-      const name = parts[i]!.trim();
+      const name = parts[i].trim();
       const body = (parts[i + 1] ?? "").trim();
       if (body) this.section(name, body);
     }

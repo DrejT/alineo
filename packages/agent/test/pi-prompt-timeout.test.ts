@@ -61,12 +61,15 @@ describe("PiAdapter.prompt inactivity timeout", () => {
   it("times out when only heartbeat pings arrive, never a real event", async () => {
     globalThis.fetch = (() =>
       Promise.resolve(
-        sseResponse(Array(50).fill(": ping\n\n"), { intervalMs: 10, keepOpenAfter: true }),
+        sseResponse(Array<string>(50).fill(": ping\n\n"), { intervalMs: 10, keepOpenAfter: true }),
       )) as unknown as typeof fetch;
 
     const adapter = await adapterWithBridge();
     const stream = adapter.prompt("hi", { inactivityTimeoutMs: 80 });
 
+    // bun-types types `.rejects` as Matchers<unknown>, whose assertion methods return void —
+    // the actual async runtime behavior isn't reflected in the type.
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression
     await expect(
       (async () => {
         for await (const _ev of stream) {

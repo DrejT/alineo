@@ -117,11 +117,17 @@ export default function (pi: ExtensionAPI) {
       if (Boolean(params.text) === Boolean(params.envVar)) {
         throw new Error("browser_fill requires exactly one of `text` or `envVar`");
       }
-      const value = params.envVar ? process.env[params.envVar] : params.text!;
-      if (params.envVar && value === undefined) {
-        throw new Error(`"${params.envVar}" is not set in this sandbox's environment`);
+      let value: string;
+      if (params.envVar) {
+        const envValue = process.env[params.envVar];
+        if (envValue === undefined) {
+          throw new Error(`"${params.envVar}" is not set in this sandbox's environment`);
+        }
+        value = envValue;
+      } else {
+        value = params.text ?? "";
       }
-      const res = await pi.exec("agent-browser", ["fill", params.ref, value!, "--json"], {
+      const res = await pi.exec("agent-browser", ["fill", params.ref, value, "--json"], {
         cwd: ctx.cwd,
         signal,
       });

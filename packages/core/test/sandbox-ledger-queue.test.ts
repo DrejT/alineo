@@ -22,7 +22,7 @@ function makeAdapter(): IStorageAdapter {
 }
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
-  return { control: {} as any, adapter };
+  return { control: {} as unknown as SandboxDeps["control"], adapter };
 }
 
 describe("SandboxHandle — ledger write ordering (emit queue)", () => {
@@ -31,7 +31,7 @@ describe("SandboxHandle — ledger write ordering (emit queue)", () => {
     const appendOrder: string[] = [];
     let resolveSlow: (() => void) | undefined;
 
-    (adapter.append as ReturnType<typeof vi.fn>).mockImplementation((entry: LedgerEntry) => {
+    vi.mocked(adapter.append).mockImplementation((entry: LedgerEntry) => {
       const id = (entry.payload as { id: string }).id;
       if (id === "slow") {
         return new Promise<void>((resolve) => {
@@ -47,8 +47,8 @@ describe("SandboxHandle — ledger write ordering (emit queue)", () => {
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
 
-    const p1 = (sb as any).emit(LedgerEvent.ExecEvent, -1, { id: "slow" });
-    const p2 = (sb as any).emit(LedgerEvent.ExecEvent, -1, { id: "fast" });
+    const p1 = sb.emit(LedgerEvent.ExecEvent, -1, { id: "slow" });
+    const p2 = sb.emit(LedgerEvent.ExecEvent, -1, { id: "fast" });
 
     await new Promise((r) => setTimeout(r, 20));
     // The "fast" append must not be invoked before "slow" resolves, even though
@@ -64,31 +64,38 @@ describe("SandboxHandle — ledger write ordering (emit queue)", () => {
 
   it("keeps writing after a failed append — the failure only surfaces to that call's own caller", async () => {
     const adapter = makeAdapter();
-    (adapter.append as ReturnType<typeof vi.fn>)
+    vi.mocked(adapter.append)
       .mockRejectedValueOnce(new Error("write failed"))
       .mockResolvedValue(undefined);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
 
-    await expect((sb as any).emit(LedgerEvent.ExecEvent, -1, {})).rejects.toThrow("write failed");
-    await expect((sb as any).emit(LedgerEvent.ExecEvent, -1, {})).resolves.toBeUndefined();
+    await expect(sb.emit(LedgerEvent.ExecEvent, -1, {})).rejects.toThrow("write failed");
+    await expect(sb.emit(LedgerEvent.ExecEvent, -1, {})).resolves.toBeUndefined();
     expect(adapter.append).toHaveBeenCalledTimes(2);
   });
 
   it("captures ts at call time, not at write time", async () => {
     const adapter = makeAdapter();
     let resolveSlow: (() => void) | undefined;
-    (adapter.append as ReturnType<typeof vi.fn>).mockImplementation(
-      () => new Promise<void>((resolve) => (resolveSlow = resolve)),
+    vi.mocked(adapter.append).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSlow = resolve;
+        }),
     );
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
     const before = Date.now();
-    void (sb as any).emit(LedgerEvent.ExecEvent, -1, {});
+    void sb.emit(LedgerEvent.ExecEvent, -1, {});
 
-    await vi.waitFor(() => expect(adapter.append).toHaveBeenCalledTimes(1));
-    const entryAtCallTime = (adapter.append as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as LedgerEntry;
+    await vi.waitFor(() => {
+      expect(adapter.append).toHaveBeenCalledTimes(1);
+    });
+    // TS's array indexing types this as always-defined; widen it so the guard below
+    // (real if append() is never called) is meaningful instead of dead code to the checker.
+    const entryAtCallTime = vi.mocked(adapter.append).mock.calls[0]?.[0] as LedgerEntry | undefined;
+    if (!entryAtCallTime) throw new Error("expected append() to have been called");
 
     await new Promise((r) => setTimeout(r, 50));
     resolveSlow?.();

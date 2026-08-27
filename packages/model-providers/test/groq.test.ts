@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import type * as GroqModule from "../src/groq";
 
 let originalFetch: typeof fetch;
 let originalKey: string | undefined;
@@ -15,8 +16,8 @@ afterEach(() => {
   mock.restore();
 });
 
-async function freshModule() {
-  return import(`../src/groq?t=${crypto.randomUUID()}`);
+async function freshModule(): Promise<typeof GroqModule> {
+  return import(`../src/groq?t=${crypto.randomUUID()}`) as Promise<typeof GroqModule>;
 }
 
 describe("groqProvider", () => {

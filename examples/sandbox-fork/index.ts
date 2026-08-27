@@ -64,21 +64,27 @@ try {
           .join("; "),
     );
   }
+  // No failures above means both fork() calls fulfilled, so both handles were assigned.
+  if (!forkA || !forkB) {
+    throw new Error("internal error: fork() succeeded but a handle is missing");
+  }
+  const a = forkA;
+  const b = forkB;
 
-  console.log(`fork-a id: ${forkA!.sandboxId}`);
-  console.log(`fork-b id: ${forkB!.sandboxId}`);
+  console.log(`fork-a id: ${a.sandboxId}`);
+  console.log(`fork-b id: ${b.sandboxId}`);
 
   // ── Run different workloads in parallel ────────────────────────────────────
 
   console.log("\n=== Running in parallel ===\n");
 
   await Promise.all([
-    forkA!
+    a
       .writeFile("/tmp/run.py", scriptA)
-      .then(() => forkA!.exec("python3 /tmp/run.py").pipe(process.stdout)),
-    forkB!
+      .then(() => a.exec("python3 /tmp/run.py").pipe(process.stdout)),
+    b
       .writeFile("/tmp/run.py", scriptB)
-      .then(() => forkB!.exec("python3 /tmp/run.py").pipe(process.stdout)),
+      .then(() => b.exec("python3 /tmp/run.py").pipe(process.stdout)),
   ]);
 
   // ── Checkpoints are recorded in the original sandbox's ledger ─────────────

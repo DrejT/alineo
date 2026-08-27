@@ -29,7 +29,7 @@ function buildPiArgs() {
       if (cfg.model) args.push("--model", cfg.model);
       if (cfg.resume) args.push("--continue");
     }
-  } catch (e) {}
+  } catch {}
   return args;
 }
 
@@ -53,7 +53,7 @@ function startHeartbeat(res) {
   return setInterval(function () {
     try {
       res.write(": ping\n\n");
-    } catch (e) {}
+    } catch {}
   }, 3000);
 }
 function stopHeartbeat(iv) {
@@ -82,7 +82,7 @@ function cleanupPendingCmds(reason) {
       try {
         p.res.write("data: " + JSON.stringify({ error: reason }) + "\n\n");
         p.res.end();
-      } catch (e) {}
+      } catch {}
     } else {
       respond(p.res, 500, { ok: false, error: reason });
     }
@@ -103,12 +103,12 @@ function startPi() {
   if (state.rl) {
     try {
       state.rl.close();
-    } catch (e) {}
+    } catch {}
   }
   if (state.proc) {
     try {
       state.proc.kill("SIGTERM");
-    } catch (e) {}
+    } catch {}
   }
   state.proc = null;
   state.rl = null;
@@ -180,7 +180,7 @@ function handleLine(line) {
   var ev;
   try {
     ev = JSON.parse(line);
-  } catch (e) {
+  } catch {
     return;
   }
 
@@ -222,11 +222,11 @@ function handleLine(line) {
       if (output)
         try {
           pending.res.write("data: " + JSON.stringify({ type: "text", text: output }) + "\n\n");
-        } catch (e) {}
+        } catch {}
       try {
         pending.res.write("data: [DONE]\n\n");
         pending.res.end();
-      } catch (e) {}
+      } catch {}
     } else if (ev.success) {
       respond(pending.res, 200, { ok: true, data: ev.data || null });
     } else {
@@ -515,7 +515,7 @@ function respond(res, status, body) {
   try {
     res.writeHead(status, { "Content-Type": "application/json" });
     res.end(JSON.stringify(body));
-  } catch (e) {}
+  } catch {}
 }
 
 // --- HTTP server ---
@@ -565,7 +565,7 @@ http
       var data = {};
       try {
         if (body) data = JSON.parse(body);
-      } catch (e) {
+      } catch {
         res.writeHead(400);
         res.end("bad json");
         return;
@@ -597,7 +597,7 @@ http
               try {
                 res.write("data: " + JSON.stringify({ error: "bash timeout" }) + "\n\n");
                 res.end();
-              } catch (e) {}
+              } catch {}
             }
           }, 30000);
           res.writeHead(200, {

@@ -44,7 +44,11 @@ export async function getSessions(config?: AlineoConfig): Promise<SessionSnapsho
     // rather than showing nothing.
   }
 
-  const tracked = liveIds ? ledgerRunning.filter((s) => liveIds!.has(s.sandboxId)) : ledgerRunning;
+  let tracked = ledgerRunning;
+  if (liveIds) {
+    const ids = liveIds;
+    tracked = ledgerRunning.filter((s) => ids.has(s.sandboxId));
+  }
 
   const trackedIds = new Set(tracked.map((s) => s.sandboxId));
   const untracked = liveIds ? [...liveIds].filter((id) => !trackedIds.has(id)) : [];

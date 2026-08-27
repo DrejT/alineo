@@ -90,7 +90,7 @@ export async function loadAgent(
   const setupHash = computeSetupHash(spec);
 
   const adapter = new PiAdapter();
-  let sb: SandboxHandle;
+  let sb: SandboxHandle | undefined;
   let fromSnapshot = false;
 
   // ── Snapshot fast path ────────────────────────────────────────────────────
@@ -135,20 +135,20 @@ export async function loadAgent(
 
     console.log(`[agent] installing Pi CLI...`);
     const t2 = Date.now();
-    await adapter.install(sb!, spec);
+    await adapter.install(sb, spec);
     console.log(`[agent] Pi CLI ready    ${elapsed(t2)}`);
 
     for (const step of spec.setup ?? []) {
       console.log(`[agent] setup: ${step.name}...`);
       const ts = Date.now();
       const cmd = step.cwd ? `cd ${step.cwd} && ${step.run}` : step.run;
-      await sb!.exec(cmd);
+      await sb.exec(cmd);
       console.log(`[agent] setup done      ${elapsed(ts)} (${step.name})`);
     }
 
     console.log(`[agent] checkpointing...`);
     const t3 = Date.now();
-    const snapshotId = await sb!.checkpoint();
+    const snapshotId = await sb.checkpoint();
     await store.save({
       specName: spec.name,
       setupHash,
@@ -158,24 +158,29 @@ export async function loadAgent(
     console.log(`[agent] checkpoint done ${elapsed(t3)}`);
   }
 
+  // Both paths above (snapshot fast path setting fromSnapshot=true, or the full
+  // install path just above) assign sb before getting here — this only trips if
+  // that invariant is ever broken.
+  if (!sb) throw new Error("internal error: sandbox was neither restored nor created");
+
   // Applied on every load() (fresh or from-snapshot) — the vault is sidecar-runtime-only, so
   // whichever path just created `sb` needs these re-registered against its own sandboxId.
   for (const { name, value, binding, source } of credentialBindings) {
-    await sb!.credentials.set(name, value, binding, source);
+    await sb.credentials.set(name, value, binding, source);
   }
 
   // ── Always: write fresh config + start bridge ─────────────────────────────
-  resolvedEnv.ALINEO_SANDBOX_ID = sb!.sandboxId;
-  await adapter.configure(sb!, spec, resolvedEnv);
+  resolvedEnv.ALINEO_SANDBOX_ID = sb.sandboxId;
+  await adapter.configure(sb, spec, resolvedEnv);
 
   console.log(`[agent] starting bridge...`);
   const t4 = Date.now();
-  await adapter.startBridge(sb!);
+  await adapter.startBridge(sb);
   await adapter.waitReady();
   console.log(`[agent] bridge ready    ${elapsed(t4)}`);
   console.log(`[agent] total           ${elapsed(t0)}${fromSnapshot ? " (from snapshot)" : ""}`);
 
-  return { sandbox: sb!, spec, env: resolvedEnv, adapter, fromSnapshot, runId };
+  return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot, runId };
 }
 
 /**
@@ -292,7 +297,9 @@ export async function attachAgent(
   const env = parseShellExports(envFile);
   // Falls back to a fresh UUID only when attaching to a sandbox created before this
   // field existed — every sandbox created going forward always has ALINEO_RUN_ID baked in.
-  const runId = env.ALINEO_RUN_ID ?? crypto.randomUUID();
+  // parseShellExports()'s Record<string, string> is optimistic about which keys are
+  // actually present; this specific key genuinely may be missing.
+  const runId = (env.ALINEO_RUN_ID as string | undefined) ?? crypto.randomUUID();
   const stubSpec: AgentSpec = { name: opts.name, cli: "pi" };
   return {
     sandbox: sb,

@@ -86,7 +86,23 @@ export function createChatView(renderer: CliRenderer, agent: Alineo, onBack: () 
           case "extension_error":
             appendLine(`[extension error] ${ev.extensionPath}: ${ev.error}`);
             break;
-          default:
+          // Deliberately ignored per this function's doc comment above — listed
+          // explicitly (rather than a bare `default`) so a future new AgentEvent
+          // kind fails exhaustiveness and forces a conscious decision here.
+          case "agent_start":
+          case "agent_end":
+          case "tool_update":
+          case "compaction_start":
+          case "compaction_end":
+          case "auto_retry_start":
+          case "auto_retry_end":
+          case "message_start":
+          case "message_update":
+          case "message_end":
+          case "turn_start":
+          case "turn_end":
+          case "extension_ui":
+          case "queue_update":
             break;
         }
       }

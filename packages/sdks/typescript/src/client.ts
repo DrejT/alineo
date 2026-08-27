@@ -1,14 +1,11 @@
 import {
   SandboxHandle,
   LedgerEvent,
-  SandboxStatus,
   type IStorageAdapter,
   type SandboxDetails,
   type ListSandboxOptions,
   type ExecResult,
-  type SandboxHooks,
   type EnvironmentRecord,
-  type CheckpointInfo,
   type PendingInteractiveExec,
   type CredentialBroker,
   type CredentialResolver,
@@ -203,7 +200,9 @@ export class Sandbox {
         adapter: this._adapter,
         credentialBroker: this._credentialBroker,
         hooks: opts.hooks,
-        onClose: () => this._releaseSlot(),
+        onClose: () => {
+          this._releaseSlot();
+        },
         shell: opts.shell,
         fork: (snapshotId, tag, overrideRunId, forkOpts) =>
           this._forkFromSnapshot(
@@ -398,9 +397,11 @@ export class Sandbox {
           control: this._control,
           adapter: this._adapter,
           credentialBroker: this._credentialBroker,
-          onClose: () => this._releaseSlot(),
+          onClose: () => {
+            this._releaseSlot();
+          },
           fork:
-            resources?.cpu && resources?.memory
+            resources?.cpu && resources.memory
               ? (snapshotId, tag, overrideRunId, forkOpts) =>
                   this._forkFromSnapshot(
                     snapshotId,
@@ -485,7 +486,9 @@ export class Sandbox {
       control: this._control,
       adapter: this._adapter,
       credentialBroker: this._credentialBroker,
-      onClose: () => this._releaseSlot(),
+      onClose: () => {
+        this._releaseSlot();
+      },
       fork: resources
         ? (snapshotId, tag, overrideRunId, forkOpts) =>
             this._forkFromSnapshot(
@@ -493,7 +496,7 @@ export class Sandbox {
               name,
               resources,
               undefined,
-              overrideRunId ?? opts?.runId,
+              overrideRunId ?? opts.runId,
               forkOpts,
             )
         : undefined,
@@ -563,7 +566,9 @@ export class Sandbox {
         control: this._control,
         adapter: this._adapter,
         credentialBroker: this._credentialBroker,
-        onClose: () => this._releaseSlot(),
+        onClose: () => {
+          this._releaseSlot();
+        },
         fork: (snapshotId, tag, overrideRunId, forkOpts) =>
           this._forkFromSnapshot(
             snapshotId,
@@ -771,7 +776,9 @@ export class Sandbox {
         adapter: this._adapter,
         credentialBroker: this._credentialBroker,
         hooks: extra?.hooks,
-        onClose: () => this._releaseSlot(),
+        onClose: () => {
+          this._releaseSlot();
+        },
         shell: extra?.shell ?? envShell,
         fork: (snapshotId, tag, overrideRunId, forkOpts) =>
           this._forkFromSnapshot(
@@ -836,7 +843,9 @@ export class Sandbox {
         control: this._control,
         adapter: this._adapter,
         credentialBroker: this._credentialBroker,
-        onClose: () => this._releaseSlot(),
+        onClose: () => {
+          this._releaseSlot();
+        },
         shell,
         fork: (sid, tag, overrideRunId, nextForkOpts) =>
           this._forkFromSnapshot(

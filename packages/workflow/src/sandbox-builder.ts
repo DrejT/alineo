@@ -1,4 +1,4 @@
-import type { SandboxHandle, ExecOptions, ExecCodeOptions, ExecResult } from "@alineo-labs/sandbox";
+import type { SandboxHandle, ExecOptions, ExecCodeOptions } from "@alineo-labs/sandbox";
 
 /** An operation queued on a SandboxBuilder and executed later. */
 export type SandboxOp =

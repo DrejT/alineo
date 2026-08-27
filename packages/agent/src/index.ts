@@ -4,6 +4,7 @@ export { validateAgentSpec } from "./schema";
 export type {
   AgentEvent,
   AgentStream,
+  // eslint-disable-next-line typescript/no-deprecated -- deliberately still re-exported for backward compat until PromptStream's own removal
   PromptStream,
   PiModel,
   ThinkingLevel,

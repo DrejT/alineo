@@ -59,8 +59,12 @@ export class PtyClient {
     let gotExitFrame = false;
 
     return new Promise((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.onerror = (ev) => reject(new Error(`pty websocket error: ${String(ev)}`));
+      ws.onopen = () => {
+        resolve();
+      };
+      ws.onerror = (ev) => {
+        reject(new Error(`pty websocket error: ${ev.type}`));
+      };
       ws.onclose = () => {
         if (!gotExitFrame) onExit(-1);
       };

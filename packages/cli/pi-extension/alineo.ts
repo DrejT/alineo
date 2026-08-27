@@ -153,12 +153,12 @@ async function ensureAlineoReady(pi: ExtensionAPI, ctx: ExtensionContext): Promi
   bootstrapped = true;
 
   const check = await execOk(pi, "alineo", ["--version"]);
-  if (!check || check.code !== 0) {
+  if (check?.code !== 0) {
     ctx.ui.notify("Installing alineo...", "info");
     const install = await execOk(pi, "npm", ["install", "-g", "alineo-cli"]);
-    if (!install || install.code !== 0) {
+    if (install?.code !== 0) {
       ctx.ui.notify(
-        `Failed to install alineo: ${install?.stderr || "npm not available"}. ` +
+        `Failed to install alineo: ${install?.stderr ?? "npm not available"}. ` +
           `RLM flows won't work until this is resolved — install manually with "npm install -g alineo-cli".`,
         "error",
       );
@@ -168,9 +168,9 @@ async function ensureAlineoReady(pi: ExtensionAPI, ctx: ExtensionContext): Promi
   }
 
   const init = await execOk(pi, "alineo", ["init"]);
-  if (!init || init.code !== 0) {
+  if (init?.code !== 0) {
     ctx.ui.notify(
-      `"alineo init" failed: ${init?.stderr || "unknown error"}. ` +
+      `"alineo init" failed: ${init?.stderr ?? "unknown error"}. ` +
         `RLM flows won't work until OpenSandbox is reachable — see "alineo init" for manual setup.`,
       "warning",
     );

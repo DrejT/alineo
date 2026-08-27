@@ -122,7 +122,7 @@ export class WorkflowBuilder {
           combined.stdout += r.stdout;
           Object.assign(combined.vars, r.vars);
         }
-      } else if (stage.type === "sequence") {
+      } else {
         const result = await this._runSequence(stage.steps, sink);
         combined.stdout += result.stdout;
         Object.assign(combined.vars, result.vars);
@@ -173,7 +173,13 @@ export class WorkflowBuilder {
         timeout: step.timeout,
         name: step.name,
       };
-      const result = await this._runSandbox(opts, (sb) => step.run(sb, prev), sink);
+      const result = await this._runSandbox(
+        opts,
+        (sb) => {
+          step.run(sb, prev);
+        },
+        sink,
+      );
       combined.stdout += result.stdout;
       Object.assign(combined.vars, result.vars);
       prev = result;

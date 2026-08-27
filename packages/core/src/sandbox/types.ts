@@ -1,4 +1,4 @@
-import type { ControlClient, NetworkPolicy } from "@alineo-labs/opensandbox";
+import type { ControlClient, NetworkPolicy, CodeLanguage } from "@alineo-labs/opensandbox";
 import type { IStorageAdapter } from "../ledger";
 import type { ExecResult } from "../exec-handle";
 import type { CredentialBinding, CredentialBroker } from "../credentials";
@@ -45,7 +45,7 @@ export interface PendingInteractiveExec {
 
 export interface ExecCodeOptions {
   /** Execution context (stateful interpreter session). */
-  context?: { id: string; language: import("@alineo-labs/opensandbox").CodeLanguage };
+  context?: { id: string; language: CodeLanguage };
 }
 
 /** Lifecycle hooks for observability. Pass via `SandboxDeps.hooks`. */

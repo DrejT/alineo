@@ -4,9 +4,134 @@
   "env": {
     "node": true
   },
+  "options": {
+    "typeAware": true
+  },
   "rules": {
     "no-unused-vars": "off",
-    "@typescript-eslint/no-unused-vars": "warn"
+    "@typescript-eslint/no-unused-vars": "warn",
+
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unnecessary-type-assertion": "warn",
+    "typescript/restrict-template-expressions": "warn",
+    "typescript/no-explicit-any": "warn",
+    "typescript/consistent-type-imports": "warn",
+    "typescript/no-non-null-assertion": "warn",
+
+    "typescript/unbound-method": "warn",
+    "typescript/no-base-to-string": "warn",
+
+    "typescript/consistent-type-exports": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/return-await": "error",
+    "typescript/no-misused-spread": "error",
+    "typescript/no-mixed-enums": "error",
+    "typescript/no-unnecessary-type-parameters": "error",
+    "typescript/related-getter-setter-pairs": "error",
+    "typescript/no-array-delete": "error",
+
+    "typescript/switch-exhaustiveness-check": "warn",
+    "typescript/no-deprecated": "warn",
+    "typescript/no-unsafe-enum-comparison": "warn",
+
+    "typescript/no-unnecessary-condition": ["warn", { "allowConstantLoopConditions": true }],
+    "typescript/require-await": "warn",
+    "typescript/no-confusing-void-expression": "warn",
+    "typescript/prefer-nullish-coalescing": "warn",
+    "typescript/prefer-optional-chain": "warn"
   },
-  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.d.ts"]
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.d.ts"],
+  "overrides": [
+    {
+      "files": ["**/adapters/sqlite/src/adapter.ts"],
+      "rules": {
+        "typescript/require-await": "off"
+      }
+    },
+    {
+      "files": ["**/workflow/test/sandbox-builder.test.ts"],
+      "rules": {
+        "typescript/require-await": "off"
+      }
+    },
+    {
+      "files": ["**/opensandbox/test/*.test.ts"],
+      "rules": {
+        "typescript/require-await": "off"
+      }
+    },
+    {
+      "files": [
+        "**/sdks/typescript/test/client.test.ts",
+        "**/core/test/sandbox-ledger-queue.test.ts",
+        "**/core/test/exec-handle-interactive.test.ts"
+      ],
+      "rules": {
+        "typescript/unbound-method": "off"
+      }
+    },
+    {
+      "files": ["**/cli/test/docker.test.ts"],
+      "rules": {
+        "typescript/require-await": "off",
+        "typescript/await-thenable": "off",
+        "typescript/no-confusing-void-expression": "off"
+      }
+    },
+    {
+      "files": ["**/pi-bridge.js"],
+      "rules": {
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unnecessary-condition": "off",
+        "typescript/prefer-nullish-coalescing": "off",
+        "typescript/prefer-optional-chain": "off",
+        "typescript/switch-exhaustiveness-check": "off"
+      }
+    },
+    {
+      "files": ["examples/**", "cookbooks/**"],
+      "rules": {
+        "typescript/no-floating-promises": "off",
+        "typescript/no-misused-promises": "off",
+        "typescript/await-thenable": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unnecessary-type-assertion": "off",
+        "typescript/restrict-template-expressions": "off",
+
+        "typescript/unbound-method": "off",
+        "typescript/no-base-to-string": "off",
+        "typescript/consistent-type-exports": "off",
+        "typescript/only-throw-error": "off",
+        "typescript/return-await": "off",
+        "typescript/no-misused-spread": "off",
+        "typescript/no-mixed-enums": "off",
+        "typescript/no-unnecessary-type-parameters": "off",
+        "typescript/related-getter-setter-pairs": "off",
+        "typescript/no-array-delete": "off",
+        "typescript/switch-exhaustiveness-check": "off",
+        "typescript/no-deprecated": "off",
+        "typescript/no-unsafe-enum-comparison": "off",
+        "typescript/no-unnecessary-condition": "off",
+        "typescript/require-await": "off",
+        "typescript/no-confusing-void-expression": "off",
+        "typescript/prefer-nullish-coalescing": "off",
+        "typescript/prefer-optional-chain": "off"
+      }
+    }
+  ]
 }

@@ -9,6 +9,7 @@ import {
   sendTelemetryEvent,
   withTelemetry,
   writeTelemetryConfig,
+  type CliTelemetryEvent,
 } from "../src/telemetry.js";
 
 let originalConfigPath: string | undefined;
@@ -106,6 +107,9 @@ describe("sendTelemetryEvent", () => {
     globalThis.fetch = mock(() =>
       Promise.reject(new Error("network down")),
     ) as unknown as typeof fetch;
+    // bun-types types `.resolves`/`.rejects` as Matchers<unknown>, whose assertion methods
+    // return void — the actual async runtime behavior isn't reflected in the type.
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression
     await expect(
       sendTelemetryEvent(event, "http://example.invalid/v1/events"),
     ).resolves.toBeUndefined();
@@ -119,7 +123,9 @@ describe("sendTelemetryEvent", () => {
     globalThis.fetch = mock(
       (_url: string, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+          init?.signal?.addEventListener("abort", () => {
+            reject(new Error("aborted"));
+          });
         }),
     ) as unknown as typeof fetch;
     const start = performance.now();
@@ -149,6 +155,7 @@ describe("withTelemetry", () => {
     });
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     let ran = false;
+    // eslint-disable-next-line typescript/require-await -- run must return a Promise per withTelemetry's signature; nothing here needs to await
     await withTelemetry("spawn", [], async () => {
       ran = true;
     });
@@ -165,13 +172,15 @@ describe("withTelemetry", () => {
     }) as unknown as typeof fetch;
 
     const boom = new Error("boom");
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- see comment on the earlier .resolves. usage above
     await expect(
+      // eslint-disable-next-line typescript/require-await -- run must return a Promise per withTelemetry's signature; nothing here needs to await
       withTelemetry("spawn", [], async () => {
         throw boom;
       }),
     ).rejects.toBe(boom);
 
-    const sent = JSON.parse(capturedBody ?? "{}");
+    const sent = JSON.parse(capturedBody ?? "{}") as CliTelemetryEvent;
     expect(sent.outcome).toBe("error");
     expect(sent.errorClass).toBe("Error");
   });
@@ -187,7 +196,7 @@ describe("withTelemetry", () => {
     // "agents" only allowlists --json; --not-a-real-flag must never appear in the sent event.
     await withTelemetry("agents", ["--json", "--not-a-real-flag"], async () => {});
 
-    const sent = JSON.parse(capturedBody ?? "{}");
+    const sent = JSON.parse(capturedBody ?? "{}") as CliTelemetryEvent;
     expect(sent.flags).toEqual({ json: true });
   });
 

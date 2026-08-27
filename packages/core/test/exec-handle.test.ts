@@ -4,6 +4,7 @@ import { SSEEventType } from "@alineo-labs/opensandbox";
 import type { SSEEvent } from "@alineo-labs/opensandbox";
 
 function makeStream(events: SSEEvent[]): AsyncGenerator<SSEEvent> {
+  // eslint-disable-next-line typescript/require-await -- must be an async generator to match the return type; nothing here needs to await
   return (async function* () {
     for (const ev of events) yield ev;
   })();
@@ -85,6 +86,7 @@ describe("ExecHandle — streaming mode", () => {
     const handle = new ExecHandle({
       type: "stream",
       gen: makeStream([stdout("out"), error(42)]),
+      // eslint-disable-next-line typescript/require-await -- onDone must match ExecDriver's Promise-returning signature; nothing here needs to await
       onDone: async (r) => {
         capturedResult = r;
       },

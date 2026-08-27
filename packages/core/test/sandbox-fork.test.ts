@@ -3,7 +3,7 @@ import { SandboxHandle } from "../src/sandbox/index.ts";
 import { SandboxError } from "../src/errors.ts";
 import { SnapshotState } from "@alineo-labs/opensandbox";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
-import type { IStorageAdapter } from "../src/ledger.ts";
+import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import { LedgerEvent } from "../src/ledger.ts";
 
 function makeAdapter(): IStorageAdapter {
@@ -31,12 +31,20 @@ function makeControl(snapshotId = "snap-abc") {
   };
 }
 
+function asControl(control: ReturnType<typeof makeControl>): SandboxDeps["control"] {
+  return control as unknown as SandboxDeps["control"];
+}
+
 function makeDeps(adapter: IStorageAdapter, overrides: Partial<SandboxDeps> = {}): SandboxDeps {
   return {
-    control: makeControl() as any,
+    control: asControl(makeControl()),
     adapter,
     ...overrides,
   };
+}
+
+function appendedEntries(adapter: IStorageAdapter): LedgerEntry[] {
+  return (adapter.append as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0] as LedgerEntry);
 }
 
 describe("SandboxHandle.fork()", () => {
@@ -47,7 +55,7 @@ describe("SandboxHandle.fork()", () => {
     const control = makeControl("snap-xyz");
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: control as any,
+      control: asControl(control),
       adapter,
       fork: forkFn,
     });
@@ -56,14 +64,12 @@ describe("SandboxHandle.fork()", () => {
 
     expect(control.createSnapshot).toHaveBeenCalledWith("sb-1");
 
-    const appendCalls = (adapter.append as ReturnType<typeof vi.fn>).mock.calls;
-    const events = appendCalls.map((c: [{ event: string }]) => c[0].event);
+    const entries = appendedEntries(adapter);
+    const events = entries.map((e) => e.event);
     expect(events).toContain(LedgerEvent.CheckpointCreated);
 
-    const cpEntry = appendCalls.find(
-      (c: [{ event: string }]) => c[0].event === LedgerEvent.CheckpointCreated,
-    );
-    expect((cpEntry![0] as any).payload.snapshotId).toBe("snap-xyz");
+    const cpEntry = entries.find((e) => e.event === LedgerEvent.CheckpointCreated);
+    expect((cpEntry?.payload as { snapshotId: string } | undefined)?.snapshotId).toBe("snap-xyz");
 
     expect(forkFn).toHaveBeenCalledWith("snap-xyz", undefined, undefined, {
       networkPolicy: undefined,
@@ -78,7 +84,7 @@ describe("SandboxHandle.fork()", () => {
     const control = makeControl("snap-tagged");
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: control as any,
+      control: asControl(control),
       adapter,
       fork: forkFn,
     });
@@ -90,11 +96,8 @@ describe("SandboxHandle.fork()", () => {
       credentialProxy: false,
     });
 
-    const appendCalls = (adapter.append as ReturnType<typeof vi.fn>).mock.calls;
-    const cpEntry = appendCalls.find(
-      (c: [{ event: string }]) => c[0].event === LedgerEvent.CheckpointCreated,
-    );
-    expect((cpEntry![0] as any).payload.name).toBe("after-install");
+    const cpEntry = appendedEntries(adapter).find((e) => e.event === LedgerEvent.CheckpointCreated);
+    expect((cpEntry?.payload as { name?: string } | undefined)?.name).toBe("after-install");
   });
 
   it("returns the SandboxHandle returned by the fork dep", async () => {
@@ -103,7 +106,7 @@ describe("SandboxHandle.fork()", () => {
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: makeControl() as any,
+      control: asControl(makeControl()),
       adapter,
       fork: forkFn,
     });
@@ -127,7 +130,7 @@ describe("SandboxHandle.fork()", () => {
     const onCheckpoint = vi.fn();
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: makeControl("snap-hook") as any,
+      control: asControl(makeControl("snap-hook")),
       adapter,
       hooks: { onCheckpoint },
       fork: forkFn,
