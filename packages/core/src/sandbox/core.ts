@@ -1,5 +1,5 @@
-import { ExecClient, PtyClient, SnapshotState, SandboxState } from "@alineo-labs/opensandbox";
-import type { SSEEvent, RunInSessionRequest } from "@alineo-labs/opensandbox";
+import { type ExecClient, PtyClient, SnapshotState, SandboxState } from "@alineo-labs/opensandbox";
+import type { SSEEvent, CodeLanguage, CodeContext } from "@alineo-labs/opensandbox";
 import { SandboxError, CommandError } from "../errors";
 import type { LedgerEntry } from "../ledger";
 import { LedgerEvent } from "../ledger";
@@ -95,13 +95,11 @@ export class SandboxCore implements SandboxInternal {
   async getExecClient(): Promise<ExecClient> {
     if (this._paused)
       throw new SandboxError("sandbox is paused — call resume() first", this.sandboxId);
-    if (!this._execClient) {
-      this._execClient = await resolveExecClient(
-        this.deps.control,
-        this.sandboxId,
-        this.deps.useServerProxy,
-      );
-    }
+    this._execClient ??= await resolveExecClient(
+      this.deps.control,
+      this.sandboxId,
+      this.deps.useServerProxy,
+    );
     return this._execClient;
   }
 
@@ -213,10 +211,12 @@ export class SandboxCore implements SandboxInternal {
 
     const seq = ++this._seq;
 
-    if (this.replayCache.has(seq)) {
-      return new ExecHandle({ type: "replay", result: this.replayCache.get(seq)! });
+    const cachedResult = this.replayCache.get(seq);
+    if (cachedResult) {
+      return new ExecHandle({ type: "replay", result: cachedResult });
     }
 
+    // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
     async function* stream(): AsyncGenerator<SSEEvent> {
       const execClient = await self.getExecClient();
@@ -254,11 +254,13 @@ export class SandboxCore implements SandboxInternal {
     const seq = ++this._seq;
 
     // Session had already exited before the last checkpoint — nothing live to attach to.
-    if (this.replayCache.has(seq)) {
-      return new InteractiveExecHandle({ type: "replay", result: this.replayCache.get(seq)! });
+    const cachedResult = this.replayCache.get(seq);
+    if (cachedResult) {
+      return new InteractiveExecHandle({ type: "replay", result: cachedResult });
     }
 
     const pending = this.pendingInteractive.get(seq);
+    // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
     let closer: (() => Promise<void>) | undefined;
 
@@ -297,9 +299,12 @@ export class SandboxCore implements SandboxInternal {
           void self.emit(LedgerEvent.ExecEvent, seq, { seq, type: "stdout", text: chunk });
           push(chunk);
         },
-        (exitCode) => finish(exitCode),
+        (exitCode) => {
+          finish(exitCode);
+        },
       );
 
+      // eslint-disable-next-line typescript/require-await -- closer's declared type is () => Promise<void>; pty.close() is synchronous
       closer = async () => {
         if (closer) self.openSessionClosers.delete(closer);
         pty.close();
@@ -347,16 +352,24 @@ export class SandboxCore implements SandboxInternal {
         void execStartLogged.then(() =>
           self.emit(LedgerEvent.ExecEvent, seq, { seq, type: "stdin", text: data }),
         );
-        void ptyPromise.then((pty) => pty.write(data));
+        void ptyPromise.then((pty) => {
+          pty.write(data);
+        });
       },
       resize: (cols, rows) => {
-        void ptyPromise.then((pty) => pty.resize(cols, rows));
+        void ptyPromise.then((pty) => {
+          pty.resize(cols, rows);
+        });
       },
       signal: (name) => {
-        void ptyPromise.then((pty) => pty.signal(name));
+        void ptyPromise.then((pty) => {
+          pty.signal(name);
+        });
       },
       close: () => {
-        void ptyPromise.then((pty) => pty.close());
+        void ptyPromise.then((pty) => {
+          pty.close();
+        });
       },
     };
 
@@ -378,11 +391,9 @@ export class SandboxCore implements SandboxInternal {
    * await sb.execCode('print(x)', { context: ctx }); // prints 42
    * ```
    */
-  async createCodeContext(
-    language: import("@alineo-labs/opensandbox").CodeLanguage,
-  ): Promise<import("@alineo-labs/opensandbox").CodeContext> {
+  async createCodeContext(language: CodeLanguage): Promise<CodeContext> {
     const ec = await this.getExecClient();
-    return ec.createContext(language as string);
+    return ec.createContext(language);
   }
 
   /**
@@ -395,10 +406,12 @@ export class SandboxCore implements SandboxInternal {
   execCode(code: string, opts: ExecCodeOptions = {}): ExecHandle {
     const seq = ++this._seq;
 
-    if (this.replayCache.has(seq)) {
-      return new ExecHandle({ type: "replay", result: this.replayCache.get(seq)! });
+    const cachedResult = this.replayCache.get(seq);
+    if (cachedResult) {
+      return new ExecHandle({ type: "replay", result: cachedResult });
     }
 
+    // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
     async function* stream(): AsyncGenerator<SSEEvent> {
       const execClient = await self.getExecClient();
@@ -442,6 +455,7 @@ export class SandboxCore implements SandboxInternal {
     const resp = await ec.createSession(opts);
     const sessionId = resp.session_id;
 
+    // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
 
     const execInSession = (
@@ -456,7 +470,7 @@ export class SandboxCore implements SandboxInternal {
           command,
           cwd: cmdOpts?.cwd,
           timeout: cmdOpts?.timeoutMs,
-        } as RunInSessionRequest)) {
+        })) {
           await self.emit(LedgerEvent.ExecEvent, seq, { seq, ...ev });
           yield ev;
         }

@@ -1,20 +1,26 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SandboxHandle } from "../src/sandbox/index.ts";
 import { SSEEventType } from "@alineo-labs/opensandbox";
 import type { SSEEvent } from "@alineo-labs/opensandbox";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
-import type { IStorageAdapter } from "../src/ledger.ts";
-import { ExecResult } from "../src/exec-handle.ts";
+import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
+import { LedgerEvent } from "../src/ledger.ts";
+import type { ExecResult } from "../src/exec-handle.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
     append: vi.fn().mockResolvedValue(undefined),
     readAll: vi.fn().mockResolvedValue([]),
     lastCheckpoint: vi.fn().mockResolvedValue(null),
+    listCheckpoints: vi.fn().mockResolvedValue([]),
     listSandboxDetails: vi.fn().mockResolvedValue([]),
     listAllSandboxDetails: vi.fn().mockResolvedValue([]),
     getSandboxDetails: vi.fn().mockResolvedValue(null),
     deleteSandbox: vi.fn().mockResolvedValue(undefined),
+    getEnvironment: vi.fn().mockResolvedValue(null),
+    saveEnvironment: vi.fn().mockResolvedValue(undefined),
+    deleteEnvironment: vi.fn().mockResolvedValue(undefined),
+    listEnvironments: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -22,6 +28,7 @@ function makeExecClient(events: SSEEvent[] = []) {
   return {
     listContexts: vi.fn().mockResolvedValue([]),
     executeCommand: vi.fn().mockImplementation(() =>
+      // eslint-disable-next-line typescript/require-await -- an async generator needs no top-level await; it yields synchronously-known events
       (async function* () {
         for (const ev of events) yield ev;
       })(),
@@ -29,11 +36,24 @@ function makeExecClient(events: SSEEvent[] = []) {
   };
 }
 
+interface SandboxTestInternals {
+  _execClient: unknown;
+}
+
+/** SandboxCore._execClient is private; this reaches it for tests that need to inject a fake. */
+function setExecClient(sb: SandboxHandle, client: ReturnType<typeof makeExecClient>): void {
+  (sb as unknown as SandboxTestInternals)._execClient = client;
+}
+
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return {
-    control: {} as any,
+    control: {} as unknown as SandboxDeps["control"],
     adapter,
   };
+}
+
+function appendedEntries(adapter: IStorageAdapter): LedgerEntry[] {
+  return (adapter.append as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0] as LedgerEntry);
 }
 
 describe("SandboxHandle replay mode", () => {
@@ -44,7 +64,7 @@ describe("SandboxHandle replay mode", () => {
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
 
     const execClient = makeExecClient();
-    (sb as any)._execClient = execClient;
+    setExecClient(sb, execClient);
 
     const handle = sb.exec("npm ci");
     const result = await handle;
@@ -61,7 +81,7 @@ describe("SandboxHandle replay mode", () => {
       [2, { stdout: "build done\n", stderr: "", exitCode: 0 }],
     ]);
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
-    (sb as any)._execClient = makeExecClient();
+    setExecClient(sb, makeExecClient());
 
     const r1 = await sb.exec("npm ci");
     const r2 = await sb.exec("npm run build");
@@ -83,7 +103,7 @@ describe("SandboxHandle replay mode", () => {
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
-    (sb as any)._execClient = execClient;
+    setExecClient(sb, execClient);
 
     const r1 = await sb.exec("npm ci"); // seq=1, cached
     const r2 = await sb.exec("npm test"); // seq=2, live
@@ -105,7 +125,7 @@ describe("SandboxHandle replay mode", () => {
     ]);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
-    (sb as any)._execClient = execClient;
+    setExecClient(sb, execClient);
 
     const results = await Promise.all([
       sb.exec("cmd1"), // seq=1, cached
@@ -129,15 +149,14 @@ describe("SandboxHandle live mode", () => {
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
-    (sb as any)._execClient = execClient;
+    setExecClient(sb, execClient);
 
     await sb.exec("echo hi");
 
-    const appendCalls = (adapter.append as ReturnType<typeof vi.fn>).mock.calls;
-    const events = appendCalls.map((c: [{ event: string }]) => c[0].event);
-    expect(events).toContain("exec_start");
-    expect(events).toContain("exec_event");
-    expect(events).toContain("exec_complete");
+    const events = appendedEntries(adapter).map((e) => e.event);
+    expect(events).toContain(LedgerEvent.ExecStart);
+    expect(events).toContain(LedgerEvent.ExecEvent);
+    expect(events).toContain(LedgerEvent.ExecComplete);
   });
 
   it("ledger entries use sandboxId, not runId", async () => {
@@ -148,14 +167,13 @@ describe("SandboxHandle live mode", () => {
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("session-abc", "test", makeDeps(adapter));
-    (sb as any)._execClient = execClient;
+    setExecClient(sb, execClient);
 
     await sb.exec("true");
 
-    const appendCalls = (adapter.append as ReturnType<typeof vi.fn>).mock.calls;
-    for (const [entry] of appendCalls) {
+    for (const entry of appendedEntries(adapter)) {
       expect(entry.sandboxId).toBe("session-abc");
-      expect((entry as any).runId).toBeUndefined();
+      expect((entry as unknown as { runId?: unknown }).runId).toBeUndefined();
     }
   });
 
@@ -167,7 +185,7 @@ describe("SandboxHandle live mode", () => {
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
-    (sb as any)._execClient = execClient;
+    setExecClient(sb, execClient);
 
     await expect(sb.exec("exit 1")).rejects.toThrow("Command exited with code 1");
   });
@@ -180,7 +198,7 @@ describe("SandboxHandle live mode", () => {
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
-    (sb as any)._execClient = execClient;
+    setExecClient(sb, execClient);
 
     const result = await sb.exec("exit 1", { strict: false });
     expect(result.exitCode).toBe(1);

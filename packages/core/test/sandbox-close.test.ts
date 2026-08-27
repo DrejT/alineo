@@ -20,11 +20,28 @@ function makeAdapter(): IStorageAdapter {
   };
 }
 
+function makeControl() {
+  return { deleteSandbox: vi.fn().mockResolvedValue(undefined) };
+}
+
+function asControl(control: ReturnType<typeof makeControl>): SandboxDeps["control"] {
+  return control as unknown as SandboxDeps["control"];
+}
+
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return {
-    control: { deleteSandbox: vi.fn().mockResolvedValue(undefined) } as any,
+    control: asControl(makeControl()),
     adapter,
   };
+}
+
+interface SandboxTestInternals {
+  _execClient: unknown;
+}
+
+/** SandboxCore._execClient is private; this reaches it for tests that need to inject a fake. */
+function setExecClient(sb: SandboxHandle, client: unknown): void {
+  (sb as unknown as SandboxTestInternals)._execClient = client;
 }
 
 describe("SandboxHandle.close()", () => {
@@ -34,7 +51,7 @@ describe("SandboxHandle.close()", () => {
     // Simulates a client already resolved by a prior exec() call — exercised directly
     // rather than via a real exec() round-trip, matching how sibling tests in this file
     // poke at private sandbox state (e.g. sandbox-interactive.test.ts's openSessionClosers).
-    (sb as any)._execClient = fakeExecClient;
+    setExecClient(sb, fakeExecClient);
 
     await sb.close();
 
@@ -43,8 +60,8 @@ describe("SandboxHandle.close()", () => {
 
   it("does not resolve a new exec client just to dispose it when none was ever created", async () => {
     const adapter = makeAdapter();
-    const control = { deleteSandbox: vi.fn().mockResolvedValue(undefined) };
-    const sb = new SandboxHandle("sb-1", "test", { control: control as any, adapter });
+    const control = makeControl();
+    const sb = new SandboxHandle("sb-1", "test", { control: asControl(control), adapter });
 
     await expect(sb.close()).resolves.toBeUndefined();
     // No fetch/control call was ever made to resolve an exec client — deleteSandbox is
@@ -55,7 +72,7 @@ describe("SandboxHandle.close()", () => {
   it("is idempotent — a second close() does not dispose the exec client again", async () => {
     const sb = new SandboxHandle("sb-1", "test", makeDeps(makeAdapter()));
     const fakeExecClient = { disposeConnections: vi.fn() };
-    (sb as any)._execClient = fakeExecClient;
+    setExecClient(sb, fakeExecClient);
 
     await sb.close();
     await sb.close();

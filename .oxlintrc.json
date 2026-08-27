@@ -68,7 +68,11 @@
       }
     },
     {
-      "files": ["**/sdks/typescript/test/client.test.ts"],
+      "files": [
+        "**/sdks/typescript/test/client.test.ts",
+        "**/core/test/sandbox-ledger-queue.test.ts",
+        "**/core/test/exec-handle-interactive.test.ts"
+      ],
       "rules": {
         "typescript/unbound-method": "off"
       }

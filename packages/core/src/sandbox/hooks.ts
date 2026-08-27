@@ -48,63 +48,97 @@ export function composeHooks(
 
   return {
     onSandboxCreated(sandboxId, name) {
-      active.forEach(
-        (h, i) =>
-          h.onSandboxCreated &&
-          call("onSandboxCreated", i, () => h.onSandboxCreated!(sandboxId, name)),
-      );
+      active.forEach((h, i) => {
+        // .bind(h) preserves the same `this`-bound-to-h semantics a direct
+        // `h.onSandboxCreated(...)` call would have, while still giving us a
+        // capturable reference the closure below can call after a null check.
+        const fn = h.onSandboxCreated?.bind(h);
+        if (fn) {
+          call("onSandboxCreated", i, () => {
+            fn(sandboxId, name);
+          });
+        }
+      });
     },
     onExecStart(sandboxId, seq, cmd) {
-      active.forEach(
-        (h, i) =>
-          h.onExecStart && call("onExecStart", i, () => h.onExecStart!(sandboxId, seq, cmd)),
-      );
+      active.forEach((h, i) => {
+        const fn = h.onExecStart?.bind(h);
+        if (fn) {
+          call("onExecStart", i, () => {
+            fn(sandboxId, seq, cmd);
+          });
+        }
+      });
     },
     onExecComplete(sandboxId, seq, result) {
-      active.forEach(
-        (h, i) =>
-          h.onExecComplete &&
-          call("onExecComplete", i, () => h.onExecComplete!(sandboxId, seq, result)),
-      );
+      active.forEach((h, i) => {
+        const fn = h.onExecComplete?.bind(h);
+        if (fn) {
+          call("onExecComplete", i, () => {
+            fn(sandboxId, seq, result);
+          });
+        }
+      });
     },
     onCheckpoint(sandboxId, snapshotId, name) {
-      active.forEach(
-        (h, i) =>
-          h.onCheckpoint &&
-          call("onCheckpoint", i, () => h.onCheckpoint!(sandboxId, snapshotId, name)),
-      );
+      active.forEach((h, i) => {
+        const fn = h.onCheckpoint?.bind(h);
+        if (fn) {
+          call("onCheckpoint", i, () => {
+            fn(sandboxId, snapshotId, name);
+          });
+        }
+      });
     },
     onSandboxClosed(sandboxId) {
-      active.forEach(
-        (h, i) =>
-          h.onSandboxClosed && call("onSandboxClosed", i, () => h.onSandboxClosed!(sandboxId)),
-      );
+      active.forEach((h, i) => {
+        const fn = h.onSandboxClosed?.bind(h);
+        if (fn) {
+          call("onSandboxClosed", i, () => {
+            fn(sandboxId);
+          });
+        }
+      });
     },
     onSandboxFailed(sandboxId, error) {
-      active.forEach(
-        (h, i) =>
-          h.onSandboxFailed &&
-          call("onSandboxFailed", i, () => h.onSandboxFailed!(sandboxId, error)),
-      );
+      active.forEach((h, i) => {
+        const fn = h.onSandboxFailed?.bind(h);
+        if (fn) {
+          call("onSandboxFailed", i, () => {
+            fn(sandboxId, error);
+          });
+        }
+      });
     },
     onSandboxPaused(sandboxId) {
-      active.forEach(
-        (h, i) =>
-          h.onSandboxPaused && call("onSandboxPaused", i, () => h.onSandboxPaused!(sandboxId)),
-      );
+      active.forEach((h, i) => {
+        const fn = h.onSandboxPaused?.bind(h);
+        if (fn) {
+          call("onSandboxPaused", i, () => {
+            fn(sandboxId);
+          });
+        }
+      });
     },
     onSandboxResumed(sandboxId) {
-      active.forEach(
-        (h, i) =>
-          h.onSandboxResumed && call("onSandboxResumed", i, () => h.onSandboxResumed!(sandboxId)),
-      );
+      active.forEach((h, i) => {
+        const fn = h.onSandboxResumed?.bind(h);
+        if (fn) {
+          call("onSandboxResumed", i, () => {
+            fn(sandboxId);
+          });
+        }
+      });
     },
     onCredentialInjected(sandboxId, name, binding) {
-      active.forEach(
-        (h, i) =>
-          h.onCredentialInjected &&
-          call("onCredentialInjected", i, () => h.onCredentialInjected!(sandboxId, name, binding)),
-      );
+      active.forEach((h, i) => {
+        const fn = h.onCredentialInjected?.bind(h);
+        if (fn) {
+          call("onCredentialInjected", i, () => {
+            fn(sandboxId, name, binding);
+          });
+        }
+      });
     },
   };
 }
