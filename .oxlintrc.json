@@ -41,7 +41,7 @@
     "typescript/no-deprecated": "warn",
     "typescript/no-unsafe-enum-comparison": "warn",
 
-    "typescript/no-unnecessary-condition": "warn",
+    "typescript/no-unnecessary-condition": ["warn", { "allowConstantLoopConditions": true }],
     "typescript/require-await": "warn",
     "typescript/no-confusing-void-expression": "warn",
     "typescript/prefer-nullish-coalescing": "warn",
@@ -57,6 +57,12 @@
     },
     {
       "files": ["**/workflow/test/sandbox-builder.test.ts"],
+      "rules": {
+        "typescript/require-await": "off"
+      }
+    },
+    {
+      "files": ["**/opensandbox/test/*.test.ts"],
       "rules": {
         "typescript/require-await": "off"
       }

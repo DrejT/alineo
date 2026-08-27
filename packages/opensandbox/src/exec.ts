@@ -65,7 +65,10 @@ async function* parseSSE(
             else if (line.startsWith("data:")) data = line.slice(5).trim();
           }
           if (data !== undefined) {
-            event = { type: (type ?? SSEEventType.Message) as SSEEventType, ...JSON.parse(data) };
+            event = {
+              type: (type ?? SSEEventType.Message) as SSEEventType,
+              ...(JSON.parse(data) as Omit<SSEEvent, "type">),
+            };
           }
         }
         if (!event) continue;
@@ -224,7 +227,7 @@ export class ExecClient {
   }
 
   async getFileInfo(path: string): Promise<FileInfo> {
-    const map = await this.request<Record<string, FileInfo>>(
+    const map = await this.request<Record<string, FileInfo | undefined>>(
       "GET",
       `/files/info?path=${encodeURIComponent(path)}`,
     );
