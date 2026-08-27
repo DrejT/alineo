@@ -469,7 +469,11 @@ async function* sseStream(
 
       const result = await Promise.race([
         reader.read(),
-        new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), remainingMs)),
+        new Promise<"timeout">((resolve) => {
+          setTimeout(() => {
+            resolve("timeout");
+          }, remainingMs);
+        }),
       ]);
       if (result === "timeout") throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
 
@@ -480,7 +484,7 @@ async function* sseStream(
       }
       buf += decoder.decode(value, { stream: true });
       const lines = buf.split("\n");
-      buf = lines.pop()!;
+      buf = lines.pop() ?? ""; // split() on a string always yields at least one element
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const payload = line.slice(6).trim();
@@ -495,7 +499,7 @@ async function* sseStream(
         const raw = JSON.parse(payload) as AgentEvent & { error?: string };
         if (raw.error) throw new Error(`Bridge error: ${raw.error}`);
         lastEventAt = Date.now();
-        yield raw as AgentEvent;
+        yield raw;
       }
     }
   } finally {

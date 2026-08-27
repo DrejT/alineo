@@ -133,6 +133,9 @@ describe("validateAgentSpec", () => {
       expect(err.issues.length).toBe(5);
       const paths = err.issues.map((i) => i.path.join("."));
       expect(paths).toEqual(
+        // bun-types' expect.arrayContaining()'s generic defaults to `any`, which leaks into
+        // toEqual's argument here even though the array literal itself is fully typed.
+        // eslint-disable-next-line typescript/no-unsafe-argument
         expect.arrayContaining(["name", "cli", "spawnDepth", "resources.cpu", "resources.memory"]),
       );
     }

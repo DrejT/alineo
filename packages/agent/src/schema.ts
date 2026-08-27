@@ -1,6 +1,22 @@
 import * as z from "zod";
 import { AgentSpecValidationError } from "./errors";
 
+/** Renders an arbitrary invalid field value for an error message without risking "[object Object]". */
+function describeValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    // JSON.stringify's type says it always returns string, but at runtime it returns
+    // undefined for values it can't represent (function, symbol, undefined itself).
+    const json = JSON.stringify(value) as string | undefined;
+    if (json !== undefined) return json;
+  } catch {
+    // circular reference or similar -- fall through to the primitive-safe rendering below
+  }
+  return typeof value === "object" && value !== null
+    ? Object.prototype.toString.call(value)
+    : String(value);
+}
+
 /**
  * Opt-in alternative to a plain `AgentSpec.env` string value — instead of interpolating
  * straight into the container's environment, `credential` is registered with the sandbox's
@@ -186,7 +202,7 @@ const AgentSpecSchema = z
       error: (issue) =>
         issue.input === undefined
           ? "Agent spec must have a 'cli' field. Supported values: pi"
-          : `Unsupported CLI: '${String(issue.input)}'. Supported values: pi`,
+          : `Unsupported CLI: '${describeValue(issue.input)}'. Supported values: pi`,
     }),
     cliVersion: z.string().optional(),
     provider: z.string().optional(),
@@ -228,5 +244,5 @@ export function validateAgentSpec(data: unknown): AgentSpec {
       })),
     );
   }
-  return result.data as AgentSpec;
+  return result.data;
 }
