@@ -1,0 +1,14 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "support-agent",
+  "title": "Support Agent",
+  "description": "A Pi agent that answers questions grounded in what it remembers about a customer across sessions.",
+  "author": "alineo",
+  "cli": "pi",
+  "provider": "nvidia",
+  "model": "nvidia/nemotron-3-nano-30b-a3b",
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
+  },
+  "resources": { "cpu": "500m", "memory": "1Gi" }
+}

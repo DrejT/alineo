@@ -18,6 +18,7 @@ Every recipe below is also published on the [docs site](https://docs.alineo.tech
 | [`parallel-test-shards`](parallel-test-shards)         | Installing dependencies once, then `fork()`-ing into parallel sandboxes to shard work                         |
 | [`resumable-etl-pipeline`](resumable-etl-pipeline)     | A multi-stage pipeline that checkpoints after each stage and resumes without redoing completed work           |
 | [`ai-agent-bugfix`](ai-agent-bugfix)                   | An `alineo` agent that debugs and fixes a failing test on its own, then gets independently verified           |
+| [`persistent-agent-memory`](persistent-agent-memory)   | An agent that remembers things about a customer across separate sandbox sessions, via `@alineo-labs/memory`   |
 
 ## Setup
 

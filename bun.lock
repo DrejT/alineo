@@ -107,6 +107,18 @@
         "@alineo-labs/sqlite": "workspace:*",
       },
     },
+    "cookbooks/persistent-agent-memory": {
+      "name": "alineo-cookbook-persistent-agent-memory",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/memory": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "@alineo-labs/sqlite-memory": "workspace:*",
+        "alineo": "workspace:*",
+      },
+    },
     "cookbooks/resumable-etl-pipeline": {
       "name": "alineo-cookbook-resumable-etl-pipeline",
       "version": "0.0.3",
@@ -209,6 +221,15 @@
       "version": "0.0.10",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+      },
+    },
+    "examples/memory-basics": {
+      "name": "alineo-example-memory-basics",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/memory": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
       },
     },
@@ -1543,6 +1564,8 @@
 
     "alineo-cookbook-parallel-test-shards": ["alineo-cookbook-parallel-test-shards@workspace:cookbooks/parallel-test-shards"],
 
+    "alineo-cookbook-persistent-agent-memory": ["alineo-cookbook-persistent-agent-memory@workspace:cookbooks/persistent-agent-memory"],
+
     "alineo-cookbook-resumable-etl-pipeline": ["alineo-cookbook-resumable-etl-pipeline@workspace:cookbooks/resumable-etl-pipeline"],
 
     "alineo-cookbook-untrusted-code-execution": ["alineo-cookbook-untrusted-code-execution@workspace:cookbooks/untrusted-code-execution"],
@@ -1568,6 +1591,8 @@
     "alineo-example-hello-world": ["alineo-example-hello-world@workspace:examples/hello-world"],
 
     "alineo-example-interactive-exec": ["alineo-example-interactive-exec@workspace:examples/interactive-exec"],
+
+    "alineo-example-memory-basics": ["alineo-example-memory-basics@workspace:examples/memory-basics"],
 
     "alineo-example-pi-agent": ["alineo-example-pi-agent@workspace:examples/pi-agent"],
 

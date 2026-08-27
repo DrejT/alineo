@@ -389,3 +389,11 @@ seeded from the parent, with no extra call needed.
 - Restoring sandbox filesystem/process state from a checkpoint — `createMemoryLifecycleHooks`
   only records checkpoint _metadata_ into working memory; the actual restore is
   `@alineo-labs/core`'s `resume()`.
+
+## Examples & cookbook
+
+- [`examples/memory-basics`](https://github.com/DrejT/alineo/tree/main/examples/memory-basics)
+  — every capability on this page, demonstrated standalone. No OpenSandbox, no API key.
+- [`cookbooks/persistent-agent-memory`](https://github.com/DrejT/alineo/tree/main/cookbooks/persistent-agent-memory)
+  — the real end-to-end scenario: a Pi agent whose memory survives across separate sandbox
+  sessions entirely, using `@alineo-labs/sqlite-memory`.
