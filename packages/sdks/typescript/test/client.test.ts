@@ -11,6 +11,7 @@ function makeAdapter(overrides: Partial<IStorageAdapter> = {}): IStorageAdapter 
     append: vi.fn().mockResolvedValue(undefined),
     readAll: vi.fn().mockResolvedValue([]),
     lastCheckpoint: vi.fn().mockResolvedValue(null),
+    listCheckpoints: vi.fn().mockResolvedValue([]),
     listSandboxDetails: vi.fn().mockResolvedValue([]),
     listAllSandboxDetails: vi.fn().mockResolvedValue([]),
     getSandboxDetails: vi.fn().mockResolvedValue(null),
@@ -29,6 +30,22 @@ function makeClient(adapter: IStorageAdapter, opts: { maxConcurrency?: number } 
     adapter,
     ...opts,
   });
+}
+
+/**
+ * Reaches Sandbox's private concurrency-semaphore internals for the tests below,
+ * instead of `as any` at every call site. `_control` is typed `unknown` because
+ * tests deliberately swap in a partial fake, not a real ControlClient.
+ */
+interface SandboxInternals {
+  _control: unknown;
+  _activeCount: number;
+  _acquireSlot(): Promise<void>;
+  _releaseSlot(): void;
+}
+
+function internals(client: Sandbox): SandboxInternals {
+  return client as unknown as SandboxInternals;
 }
 
 // ── lazy connect ───────────────────────────────────────────────────────────
@@ -65,6 +82,7 @@ describe("Sandbox.sandboxes", () => {
       {
         name: "ci",
         sandboxId: "s1",
+        runId: "s1",
         status: SandboxStatus.Completed,
         startedAt: 1000,
         execCount: 2,
@@ -99,6 +117,7 @@ describe("Sandbox.sandboxes", () => {
     const details: SandboxDetails = {
       name: "ci",
       sandboxId: "s1",
+      runId: "s1",
       status: SandboxStatus.Completed,
       startedAt: 1000,
       execCount: 1,
@@ -128,34 +147,36 @@ describe("Sandbox concurrency slot", () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter, { maxConcurrency: 2 });
 
-    await (client as any)._acquireSlot();
-    expect((client as any)._activeCount).toBe(1);
+    await internals(client)._acquireSlot();
+    expect(internals(client)._activeCount).toBe(1);
 
-    await (client as any)._acquireSlot();
-    expect((client as any)._activeCount).toBe(2);
+    await internals(client)._acquireSlot();
+    expect(internals(client)._activeCount).toBe(2);
 
-    (client as any)._releaseSlot();
-    expect((client as any)._activeCount).toBe(1);
+    internals(client)._releaseSlot();
+    expect(internals(client)._activeCount).toBe(1);
   });
 
   it("third acquire blocks until a slot is released", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter, { maxConcurrency: 2 });
 
-    await (client as any)._acquireSlot();
-    await (client as any)._acquireSlot();
+    await internals(client)._acquireSlot();
+    await internals(client)._acquireSlot();
 
     let resolved = false;
-    const pending = (client as any)._acquireSlot().then(() => {
-      resolved = true;
-    });
+    const pending = internals(client)
+      ._acquireSlot()
+      .then(() => {
+        resolved = true;
+      });
 
     // Not yet resolved — no free slot
     await Promise.resolve();
     expect(resolved).toBe(false);
 
     // Release one slot — pending acquire should resolve
-    (client as any)._releaseSlot();
+    internals(client)._releaseSlot();
     await pending;
     expect(resolved).toBe(true);
   });
@@ -165,9 +186,9 @@ describe("Sandbox concurrency slot", () => {
     const client = makeClient(adapter); // no maxConcurrency
 
     for (let i = 0; i < 10; i++) {
-      await (client as any)._acquireSlot();
+      await internals(client)._acquireSlot();
     }
-    expect((client as any)._activeCount).toBe(10);
+    expect(internals(client)._activeCount).toBe(10);
   });
 });
 
@@ -254,7 +275,7 @@ describe("Sandbox._getOrBuildEnvironment concurrency guard", () => {
       resolveBuild = r;
     });
     const buildSpy = vi.fn().mockReturnValue(buildPromise);
-    (client as any)._buildEnvironment = buildSpy;
+    client._buildEnvironment = buildSpy;
 
     const opts = {
       image: "debian:slim",
@@ -262,8 +283,8 @@ describe("Sandbox._getOrBuildEnvironment concurrency guard", () => {
       setup: async () => {},
     };
 
-    const p1 = (client as any)._getOrBuildEnvironment("py", opts);
-    const p2 = (client as any)._getOrBuildEnvironment("py", opts);
+    const p1 = client._getOrBuildEnvironment("py", opts);
+    const p2 = client._getOrBuildEnvironment("py", opts);
 
     // Both promises are the same object — build was invoked only once
     expect(buildSpy).toHaveBeenCalledTimes(1);
@@ -278,7 +299,7 @@ describe("Sandbox._getOrBuildEnvironment concurrency guard", () => {
     const client = makeClient(adapter);
 
     const buildSpy = vi.fn().mockResolvedValue("snap-1");
-    (client as any)._buildEnvironment = buildSpy;
+    client._buildEnvironment = buildSpy;
 
     const opts = {
       image: "debian:slim",
@@ -286,8 +307,8 @@ describe("Sandbox._getOrBuildEnvironment concurrency guard", () => {
       setup: async () => {},
     };
 
-    await (client as any)._getOrBuildEnvironment("py", opts);
-    await (client as any)._getOrBuildEnvironment("py", opts);
+    await client._getOrBuildEnvironment("py", opts);
+    await client._getOrBuildEnvironment("py", opts);
 
     expect(buildSpy).toHaveBeenCalledTimes(2);
   });
@@ -314,14 +335,14 @@ describe("Sandbox.restoreSnapshot() fork wiring", () => {
   it("wires a working fork() closure onto the restored SandboxHandle", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    (client as any)._control = makeFakeControl();
+    internals(client)._control = makeFakeControl();
 
     const sb = await client.restoreSnapshot("snap-1", "my-agent", {
       cpu: "500m",
       memory: "256Mi",
     });
 
-    expect(typeof (sb as any).deps.fork).toBe("function");
+    expect(typeof sb.deps.fork).toBe("function");
   });
 });
 
@@ -329,22 +350,22 @@ describe("Sandbox.connect() fork wiring", () => {
   it("does not wire fork() when no resources are given", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    (client as any)._control = makeFakeControl();
+    internals(client)._control = makeFakeControl();
 
     const sb = await client.connect("sandbox-1", "my-agent");
 
-    expect((sb as any).deps.fork).toBeUndefined();
+    expect(sb.deps.fork).toBeUndefined();
   });
 
   it("wires a working fork() closure when resources are given", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    (client as any)._control = makeFakeControl();
+    internals(client)._control = makeFakeControl();
 
     const sb = await client.connect("sandbox-1", "my-agent", {
       resources: { cpu: "500m", memory: "256Mi" },
     });
 
-    expect(typeof (sb as any).deps.fork).toBe("function");
+    expect(typeof sb.deps.fork).toBe("function");
   });
 });

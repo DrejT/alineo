@@ -68,6 +68,12 @@
       }
     },
     {
+      "files": ["**/sdks/typescript/test/client.test.ts"],
+      "rules": {
+        "typescript/unbound-method": "off"
+      }
+    },
+    {
       "files": ["**/pi-bridge.js"],
       "rules": {
         "typescript/no-unsafe-assignment": "off",
