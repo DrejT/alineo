@@ -19,6 +19,9 @@ export type {
 export { episodicRecall } from "./episodic";
 export type { EpisodicRecallOptions, SandboxSessionRef } from "./episodic";
 
+export { episodicTree } from "./episodic-tree";
+export type { EpisodicBranch, EpisodicTreeOptions } from "./episodic-tree";
+
 export { compactSemanticMemory } from "./compaction";
 export type { CompactionOptions, CompactionResult } from "./compaction";
 
@@ -34,5 +37,12 @@ export type { MemoryTool } from "./tools";
 export { buildContextSnippet } from "./pipeline";
 export type { ContextSnippetOptions } from "./pipeline";
 
+export {
+  MemoryAccessDeniedError,
+  withTeamAccessControl,
+  withTeamAccessControlSemantic,
+} from "./access-control";
+export type { TeamAccessChecker } from "./access-control";
+
 export { Memory } from "./memory";
-export type { MemoryOptions, AutoCompactOptions } from "./memory";
+export type { MemoryOptions, AutoCompactOptions, ForkMemoryResult } from "./memory";

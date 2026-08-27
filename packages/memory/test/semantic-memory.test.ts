@@ -68,4 +68,41 @@ describe("InMemorySemanticMemoryProvider", () => {
 
     expect(fact?.sourceRef).toEqual({ sandboxId: "sb-1", entryIndex: 3 });
   });
+
+  describe("verified", () => {
+    it("marks a fact remembered with a sourceRef as verified", async () => {
+      const provider = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+      const ref: ResourceRef = { resourceId: "user-1" };
+      await provider.remember(ref, {
+        content: "cat fact",
+        sourceRef: { sandboxId: "sb-1", entryIndex: 3 },
+      });
+
+      const [fact] = await provider.recall(ref, "cat");
+
+      expect(fact?.verified).toBe(true);
+    });
+
+    it("marks a free-form fact (no sourceRef) as unverified", async () => {
+      const provider = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+      const ref: ResourceRef = { resourceId: "user-1" };
+      await provider.remember(ref, { content: "cat fact" });
+
+      const [fact] = await provider.recall(ref, "cat");
+
+      expect(fact?.verified).toBe(false);
+    });
+
+    it("ignores a caller-supplied verified:true on a free-form fact — it must be computed, not claimed", async () => {
+      const provider = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+      const ref: ResourceRef = { resourceId: "user-1" };
+
+      // Attempting to lie about verification without a real sourceRef.
+      await provider.remember(ref, { content: "cat fact", verified: true } as never);
+
+      const [fact] = await provider.recall(ref, "cat");
+
+      expect(fact?.verified).toBe(false);
+    });
+  });
 });

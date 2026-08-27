@@ -24,6 +24,9 @@ function rowToFact(row: Row): RememberedFact {
       row.source_sandbox_id != null
         ? { sandboxId: row.source_sandbox_id, entryIndex: row.source_entry_index! }
         : undefined,
+    // No stored column — derived from source_sandbox_id, same "computed, not caller-set"
+    // rule @alineo-labs/memory's own providers follow.
+    verified: row.source_sandbox_id != null,
     id: row.id,
     rememberedAt: Number(row.remembered_at),
   };

@@ -15,6 +15,16 @@ export interface AutoCompactOptions {
   checkEvery?: number;
 }
 
+export interface ForkMemoryResult {
+  /** The new child resource's scope — `{resourceId: childResourceId, teamId: parentRef.teamId}`. */
+  ref: ResourceRef;
+  workingKeysCopied: number;
+  /** `0` if there's no semantic provider configured, or it doesn't support the pruning
+   *  capability (`listAll` is what makes copying possible) — semantic memory silently isn't
+   *  copied in that case; working memory still is. */
+  semanticFactsCopied: number;
+}
+
 export interface MemoryOptions {
   /** Required — every deployment needs at least structured working memory. */
   workingMemory: IWorkingMemoryProvider;
@@ -108,5 +118,46 @@ export class Memory {
   ): Promise<CompactionResult> {
     if (!this.semanticProvider) throw new MemoryCapabilityError("semantic");
     return compactSemanticMemory(this.semanticProvider, ref, opts);
+  }
+
+  /**
+   * Copy a resource's current memory into a brand-new resource scope the child can mutate
+   * independently — the memory-layer counterpart to `sb.fork()`'s copy-on-write sandbox
+   * snapshot. Unlike `episodicRecall({branch: "lineage"})`, which reads the *parent's* history
+   * through the child's own lens without duplicating anything, this actually writes a real,
+   * independent copy: mutating the child's memory afterward never touches the parent's.
+   *
+   * Working memory is always copied in full. Semantic memory is copied only if the configured
+   * provider supports the pruning capability (`listAll` is what makes enumerating "everything
+   * to copy" possible) — see `ForkMemoryResult.semanticFactsCopied`. Copied semantic facts
+   * keep their original `content`/`sourceRef` (so `verified` is recomputed identically by
+   * whatever provider stores them) but get a fresh `id`/`rememberedAt` from the provider, same
+   * as any other `remember()` call.
+   *
+   * Does not read or write anything about the *sandbox* itself — call this alongside
+   * `sb.fork()`/`Alineo.spawn()`, not instead of it. `Alineo.spawn()` already calls this
+   * automatically when the parent agent has `.memory` configured.
+   */
+  async fork(parentRef: ResourceRef, childResourceId: string): Promise<ForkMemoryResult> {
+    const childRef: ResourceRef = { resourceId: childResourceId, teamId: parentRef.teamId };
+
+    const working = await this.workingMemory.list(parentRef);
+    for (const [key, value] of Object.entries(working)) {
+      await this.workingMemory.set(childRef, key, value);
+    }
+
+    let semanticFactsCopied = 0;
+    if (this.semanticProvider && isPrunable(this.semanticProvider)) {
+      const facts = await this.semanticProvider.listAll(parentRef);
+      for (const fact of facts) {
+        await this.semanticProvider.remember(childRef, {
+          content: fact.content,
+          sourceRef: fact.sourceRef,
+        });
+        semanticFactsCopied++;
+      }
+    }
+
+    return { ref: childRef, workingKeysCopied: Object.keys(working).length, semanticFactsCopied };
   }
 }

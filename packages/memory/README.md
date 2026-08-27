@@ -84,6 +84,27 @@ const facts = await memory.recall(ref, "UI preferences", { topK: 5 });
 like. `@alineo-labs/model-providers` ships `createNvidiaEmbeddingProvider()`, matching this
 shape structurally with no dependency on this package at all.
 
+#### Verified memory
+
+Every fact returned by `recall()`/`listAll()` carries a computed `verified` flag: `true` when
+`remember()` was called with a `sourceRef` pointing at a real ledger entry, `false` for a
+free-form fact. This is computed, never caller-set — passing `verified: true` on a free-form
+fact's input is silently ignored:
+
+```ts
+await memory.remember(ref, {
+  content: "user confirmed the refund",
+  sourceRef: { sandboxId: sb.sandboxId, entryIndex: 42 }, // ties it to a real ledger entry
+});
+
+const [fact] = await memory.recall(ref, "refund");
+fact.verified; // true — traceable back to that ledger entry
+```
+
+A fact worth trusting more than a hallucinated summary is one you can point at real execution
+history — no other memory framework can do this because it requires an execution ledger to
+point _at_ in the first place.
+
 ### Episodic memory — a function, not a provider
 
 A read-shaped view over the sandbox ledger, reshaped by `resourceId`. No new storage.
@@ -100,6 +121,24 @@ const withHistory = await episodicRecall(adapter, ref, { branch: "lineage" });
 By default, sessions are resolved by matching `SandboxDetails.resourceId` (or, for ledger data
 written before that field existed, by matching the ledger's `name` against `resourceId`).
 Supply `resolveSessions` to use a different convention entirely.
+
+#### Branch-true episodic memory
+
+`episodicRecall({branch: "lineage"})` flattens fork ancestry into one merged stream — good
+enough for "what led up to this session," but it can't tell you "what happened on a _sibling_
+branch forked from the same point." `episodicTree()` returns the actual fork tree instead:
+
+```ts
+import { episodicTree } from "@alineo-labs/memory";
+
+const [root] = await episodicTree(adapter, ref);
+root.entries; // this session's own ledger entries
+root.children; // sessions forked from it — each with its own .entries and .children
+```
+
+Every resolved session's ancestor chain is pulled in automatically (same as `lineage`), so a
+tree with a resolved-but-orphaned node never happens — its ancestors are added as parents even
+if they weren't in the original resolved set.
 
 ## Real backends
 
@@ -143,13 +182,15 @@ Age-based removal runs first; the count cap is then applied to whatever's left. 
 configured provider doesn't support pruning.
 
 Pass `summarize` to consolidate instead of just deleting — it receives the facts about to be
-removed (oldest first) and returns replacement contents, written *before* the originals are
+removed (oldest first) and returns replacement contents, written _before_ the originals are
 dropped:
 
 ```ts
 await memory.compactSemanticMemory(ref, {
   maxFacts: 500,
-  summarize: async (facts) => [await myLlmCall(`Summarize into one fact: ${facts.map(f => f.content).join("; ")}`)],
+  summarize: async (facts) => [
+    await myLlmCall(`Summarize into one fact: ${facts.map((f) => f.content).join("; ")}`),
+  ],
 });
 ```
 
@@ -220,7 +261,7 @@ directly; this package never depends on a concrete schema library.
 
 `createMemoryTools(memory, ref)` returns a set of tool definitions (name, description, JSON
 Schema parameters, executor) in the shape most agent tool-calling conventions expect — so a
-*model*, not just the surrounding application code, can decide to persist or retrieve a fact
+_model_, not just the surrounding application code, can decide to persist or retrieve a fact
 mid-conversation:
 
 ```ts
@@ -234,8 +275,57 @@ const tools = createMemoryTools(memory, ref);
 
 `alineo`'s Pi bridge doesn't yet expose a way to register caller-defined tools into a running
 Pi session, so wiring these into an actual live agent conversation is left to the caller today
-— this ships the tool *definitions*, ready to adapt into whatever surface ends up supporting
+— this ships the tool _definitions_, ready to adapt into whatever surface ends up supporting
 them.
+
+## Forkable memory
+
+Sandboxes already fork copy-on-write via `sb.fork()`; `Memory.fork()` gives memory the same
+property — an independent snapshot copy the child can mutate without ever touching the
+parent's:
+
+```ts
+const {
+  ref: childRef,
+  workingKeysCopied,
+  semanticFactsCopied,
+} = await memory.fork(parentRef, "child-resource-id");
+
+await memory.workingMemory.set(childRef, "note", "only visible to the child now");
+await memory.workingMemory.get(parentRef, "note"); // undefined — the parent is untouched
+```
+
+Working memory is always copied in full. Semantic memory is copied only if the configured
+provider supports the pruning capability (`listAll` is what makes enumerating "everything to
+copy" possible) — `semanticFactsCopied` is `0`, not an error, otherwise.
+
+`Alineo.spawn()` calls this automatically when the parent agent has `.memory` configured — a
+spawned child (a sandbox-level fork under the hood) gets its own independent memory copy with
+no extra wiring.
+
+## Team access control
+
+`ResourceRef.teamId` isolates data _structurally_ in every backend (it's part of the storage
+key), but only `@alineo-labs/postgres-memory` enforces it as an actual access-control boundary
+via row-level security — a caller for the in-memory or SQLite backends who deliberately passes
+the "wrong" `teamId` can still read it. `withTeamAccessControl()` /
+`withTeamAccessControlSemantic()` close that gap for any backend:
+
+```ts
+import { withTeamAccessControl, withTeamAccessControlSemantic } from "@alineo-labs/memory";
+
+const checker = { canAccess: (teamId: string) => currentUser.teamIds.includes(teamId) };
+
+const memory = new Memory({
+  workingMemory: withTeamAccessControl(new SQLiteWorkingMemoryProvider("./mem.db"), checker),
+  semantic: withTeamAccessControlSemantic(mySemanticProvider, checker),
+});
+```
+
+Every call on a `ResourceRef` carrying a `teamId` is checked against `checker.canAccess()`
+first, throwing `MemoryAccessDeniedError` before the wrapped provider is ever touched. A `ref`
+with no `teamId` always passes through untouched. Works alongside Postgres's own RLS for
+defense-in-depth — it isn't an either/or.
 
 ## Sandbox lifecycle binding
 
@@ -271,6 +361,10 @@ await agent.memory?.remember(agent.resourceRef, { content: "user prefers concise
 `episodicRecall()`'s default resolver expects, so no extra wiring is needed to make episodic
 recall work for an agent's own sandbox sessions.
 
+`Alineo.spawn()` also calls `memory.fork()` automatically (see "Forkable memory" above) when
+the parent has `.memory` configured — a spawned child gets its own independent memory copy,
+seeded from the parent, with no extra call needed.
+
 ## What's intentionally out of scope here
 
 - **Postgres ANN indexing** — `@alineo-labs/postgres-memory`'s `vector` column is a plain
@@ -283,11 +377,15 @@ recall work for an agent's own sandbox sessions.
   `alineo`'s Pi bridge that hasn't been made.
 - **Automatic prompt injection** — `buildContextSnippet()` builds the string; nothing calls it
   automatically at session start. That's still an explicit call the surrounding app makes.
-- Team/RLS enforcement beyond what `@alineo-labs/postgres-memory`'s migration defines — a
-  SQLite or in-memory deployment gets structural isolation only, not a security boundary.
-- Full branch/lane episodic memory — `episodicRecall({branch: "lineage"})` walks fork
-  ancestry, but alineo's ledger still has no first-class branch concept the way e.g. Pi's own
-  session storage does.
+- **A ledger-native branch/lane concept** — `episodicTree()` reconstructs the fork tree from
+  `parentSandboxId` at read time; alineo's ledger itself still has no first-class branch
+  concept the way e.g. Pi's own session storage does. If the ledger ever grows one,
+  `episodicTree()` would become a thinner read over it instead of doing the reconstruction
+  itself.
+- **`withTeamAccessControl()` is app-layer, not a security boundary of its own** — it's a
+  correct-by-construction gate in front of whatever backend, but the `TeamAccessChecker` you
+  supply is doing all the real work; a buggy or bypassed checker is still a hole. It doesn't
+  replace real infrastructure-level isolation for a genuinely adversarial multi-tenant setup.
 - Restoring sandbox filesystem/process state from a checkpoint — `createMemoryLifecycleHooks`
   only records checkpoint _metadata_ into working memory; the actual restore is
   `@alineo-labs/core`'s `resume()`.

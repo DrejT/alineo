@@ -82,6 +82,22 @@ describe("SQLiteSemanticMemoryProvider", () => {
     provider.close();
   });
 
+  it("marks a fact with a sourceRef as verified, and a free-form fact as unverified", async () => {
+    const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+    const ref = { resourceId: "user-1" };
+    await provider.remember(ref, {
+      content: "cat fact with source",
+      sourceRef: { sandboxId: "sb-1", entryIndex: 0 },
+    });
+    await provider.remember(ref, { content: "cat fact without source" });
+
+    const all = await provider.listAll(ref);
+
+    expect(all.find((f) => f.content.includes("with source"))?.verified).toBe(true);
+    expect(all.find((f) => f.content.includes("without source"))?.verified).toBe(false);
+    provider.close();
+  });
+
   it("listAll returns every fact with a stable id and rememberedAt", async () => {
     const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
     const ref = { resourceId: "user-1" };

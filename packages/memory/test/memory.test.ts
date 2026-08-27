@@ -124,4 +124,89 @@ describe("Memory", () => {
       expect(await semantic.listAll(ref)).toHaveLength(2);
     });
   });
+
+  describe("fork", () => {
+    it("copies working memory into a new, independent resource scope", async () => {
+      const memory = new Memory({ workingMemory: new InMemoryWorkingMemoryProvider() });
+      const parentRef = { resourceId: "parent" };
+      await memory.workingMemory.set(parentRef, "name", "Ada");
+
+      const result = await memory.fork(parentRef, "child");
+
+      expect(result.ref).toEqual({ resourceId: "child", teamId: undefined });
+      expect(result.workingKeysCopied).toBe(1);
+      expect(await memory.workingMemory.get(result.ref, "name")).toBe("Ada");
+    });
+
+    it("the copy is independent — mutating the child never touches the parent", async () => {
+      const memory = new Memory({ workingMemory: new InMemoryWorkingMemoryProvider() });
+      const parentRef = { resourceId: "parent" };
+      await memory.workingMemory.set(parentRef, "name", "Ada");
+
+      const { ref: childRef } = await memory.fork(parentRef, "child");
+      await memory.workingMemory.set(childRef, "name", "Grace");
+
+      expect(await memory.workingMemory.get(parentRef, "name")).toBe("Ada");
+      expect(await memory.workingMemory.get(childRef, "name")).toBe("Grace");
+    });
+
+    it("preserves teamId on the child scope", async () => {
+      const memory = new Memory({ workingMemory: new InMemoryWorkingMemoryProvider() });
+      const parentRef = { resourceId: "parent", teamId: "team-a" };
+
+      const result = await memory.fork(parentRef, "child");
+
+      expect(result.ref).toEqual({ resourceId: "child", teamId: "team-a" });
+    });
+
+    it("copies semantic memory when the provider supports pruning", async () => {
+      const memory = new Memory({
+        workingMemory: new InMemoryWorkingMemoryProvider(),
+        semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
+      });
+      const parentRef = { resourceId: "parent" };
+      await memory.remember(parentRef, { content: "the sky is blue" });
+
+      const { ref: childRef, semanticFactsCopied } = await memory.fork(parentRef, "child");
+
+      expect(semanticFactsCopied).toBe(1);
+      const facts = await memory.recall(childRef, "sky");
+      expect(facts[0]?.content).toBe("the sky is blue");
+    });
+
+    it("semantic copy is independent of the parent", async () => {
+      const memory = new Memory({
+        workingMemory: new InMemoryWorkingMemoryProvider(),
+        semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
+      });
+      const parentRef = { resourceId: "parent" };
+      await memory.remember(parentRef, { content: "shared fact" });
+
+      const { ref: childRef } = await memory.fork(parentRef, "child");
+      await memory.remember(childRef, { content: "child-only fact" });
+
+      const parentFacts = await memory.recall(parentRef, "fact", { topK: 10 });
+      expect(parentFacts.map((f) => f.content)).toEqual(["shared fact"]);
+    });
+
+    it("skips semantic copying (0, not an error) when no semantic provider is configured", async () => {
+      const memory = new Memory({ workingMemory: new InMemoryWorkingMemoryProvider() });
+
+      const result = await memory.fork({ resourceId: "parent" }, "child");
+
+      expect(result.semanticFactsCopied).toBe(0);
+    });
+
+    it("skips semantic copying when the configured provider doesn't support pruning", async () => {
+      const notPrunable = { remember: async () => {}, recall: async () => [] };
+      const memory = new Memory({
+        workingMemory: new InMemoryWorkingMemoryProvider(),
+        semantic: notPrunable,
+      });
+
+      const result = await memory.fork({ resourceId: "parent" }, "child");
+
+      expect(result.semanticFactsCopied).toBe(0);
+    });
+  });
 });

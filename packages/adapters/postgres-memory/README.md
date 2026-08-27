@@ -14,7 +14,10 @@ For local dev with zero infrastructure, use [`@alineo-labs/sqlite-memory`](https
 
 ```ts
 import { Memory } from "@alineo-labs/memory";
-import { PostgresWorkingMemoryProvider, PostgresSemanticMemoryProvider } from "@alineo-labs/postgres-memory";
+import {
+  PostgresWorkingMemoryProvider,
+  PostgresSemanticMemoryProvider,
+} from "@alineo-labs/postgres-memory";
 
 const memory = new Memory({
   workingMemory: new PostgresWorkingMemoryProvider(connectionString),

@@ -33,7 +33,9 @@ export interface EpisodicRecallOptions {
   branch?: "flat" | "lineage";
 }
 
-async function resolveSessionsByResourceId(
+/** The default session resolver — exported so `episodicTree()` (a separate module) can reuse
+ *  it as its own default without duplicating the resourceId/name-fallback matching logic. */
+export async function resolveSessionsByResourceId(
   adapter: IStorageAdapter,
   ref: ResourceRef,
 ): Promise<SandboxSessionRef[]> {
@@ -47,8 +49,8 @@ async function resolveSessionsByResourceId(
 
 /** Walk `parentSandboxId` upward from each of `sessions`, returning the transitive closure
  * (originals included, no duplicates). Stops at a sandboxId with no known details (deleted,
- * or from before this field existed) rather than throwing. */
-async function withAncestors(
+ * or from before this field existed) rather than throwing. Exported for `episodicTree()`. */
+export async function withAncestors(
   adapter: IStorageAdapter,
   sessions: SandboxSessionRef[],
 ): Promise<SandboxSessionRef[]> {

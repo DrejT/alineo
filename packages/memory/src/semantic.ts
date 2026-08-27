@@ -21,6 +21,14 @@ export interface MemoryFact {
    * pointer the caller supplies, alineo-specific but not provider-specific.
    */
   sourceRef?: { sandboxId: string; entryIndex: number };
+  /**
+   * Whether this fact is traceable to a real ledger entry. Always **computed**, never
+   * caller-set: every conforming provider derives it as `sourceRef != null` at `remember()`
+   * time and ignores any value passed in on the input `MemoryFact` — a caller can't just
+   * claim `verified: true` for a free-form fact. Meaningless (and absent) on `remember()`
+   * input; always present on facts returned by `recall()`/`listAll()`.
+   */
+  verified?: boolean;
 }
 
 /**
@@ -100,7 +108,18 @@ export class InMemorySemanticMemoryProvider implements IPrunableSemanticMemoryPr
     if (!vector) return;
     const key = scopeKey(ref);
     const bucket = this.entries.get(key) ?? [];
-    bucket.push({ fact: { ...fact, id: crypto.randomUUID(), rememberedAt: Date.now() }, vector });
+    // `verified` is computed here, not spread in from `fact` — a caller passing
+    // `verified: true` on a free-form fact must not be able to make it stick.
+    bucket.push({
+      fact: {
+        content: fact.content,
+        sourceRef: fact.sourceRef,
+        verified: fact.sourceRef != null,
+        id: crypto.randomUUID(),
+        rememberedAt: Date.now(),
+      },
+      vector,
+    });
     this.entries.set(key, bucket);
   }
 

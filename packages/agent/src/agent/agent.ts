@@ -291,6 +291,14 @@ export class Alineo {
     // Inherited, not re-derived from the child's own spec — same "force-computed, not
     // read back off the child" precedent spawnDepth/maxAgents already set nearby.
     child.memory = this.memory;
+    if (this.memory) {
+      // A spawned child is a fork at the sandbox level (spawn() forks this agent's sandbox
+      // under the hood) — its memory should be too: an independent snapshot copy it can
+      // mutate on its own, not a live share of the parent's scope. `child.resourceRef`
+      // already names a different resource (the child spec's own `name`), so this seeds that
+      // scope rather than overwriting the parent's.
+      await this.memory.fork(this.resourceRef, child.resourceRef.resourceId);
+    }
     return child;
   }
 
