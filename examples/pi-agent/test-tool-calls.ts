@@ -10,7 +10,7 @@
  *   - A tool_end event for each tool_start
  *   - The final text answer from Pi
  */
-import { Alineo, textOnly, type AgentEvent } from "alineo";
+import { Alineo, type AgentEvent } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
