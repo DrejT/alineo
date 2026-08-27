@@ -50,6 +50,12 @@
   "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.d.ts"],
   "overrides": [
     {
+      "files": ["**/adapters/sqlite/src/adapter.ts"],
+      "rules": {
+        "typescript/require-await": "off"
+      }
+    },
+    {
       "files": ["**/pi-bridge.js"],
       "rules": {
         "typescript/no-unsafe-assignment": "off",

@@ -102,7 +102,8 @@ describe("SQLiteAdapter", () => {
         }),
       );
       const cp = await db.lastCheckpoint("test-session", "session-1");
-      expect((cp!.payload as any).snapshotId).toBe("snap-2");
+      if (!cp) throw new Error("expected a checkpoint");
+      expect((cp.payload as { snapshotId: string }).snapshotId).toBe("snap-2");
     });
 
     it("ignores non-checkpoint events", async () => {
@@ -158,7 +159,7 @@ describe("SQLiteAdapter", () => {
       expect(d?.sandboxId).toBe("abc-123");
       expect(d?.name).toBe("my-sb");
       expect(d?.runId).toBe("abc-123");
-      expect((d as any)?.workflowName).toBeUndefined();
+      expect((d as unknown as { workflowName?: unknown } | null)?.workflowName).toBeUndefined();
     });
   });
 
@@ -266,6 +267,9 @@ describe("SQLiteAdapter", () => {
     });
 
     it("deleteEnvironment is a no-op for unknown name", async () => {
+      // bun-types types `.resolves`/`.rejects` as Matchers<unknown>, whose assertion methods
+      // return void — the actual async runtime behavior isn't reflected in the type.
+      // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression
       await expect(db.deleteEnvironment("no-such")).resolves.toBeUndefined();
     });
 
@@ -327,8 +331,13 @@ describe("SQLiteAdapter", () => {
         await nested.close();
         try {
           rmSync(root, { recursive: true, force: true });
-        } catch (e: any) {
-          if (e.code !== "EBUSY" && e.code !== "EPERM") throw e;
+        } catch (e) {
+          // Don't throw from a finally block — that would silently replace any real
+          // assertion failure from the try block above with this cleanup error instead.
+          const code = (e as NodeJS.ErrnoException).code;
+          if (code !== "EBUSY" && code !== "EPERM") {
+            console.error("temp dir cleanup failed:", e);
+          }
         }
       }
     });
