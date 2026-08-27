@@ -9,14 +9,16 @@ function esc(p: string): string {
 
 function rejectAfter(ms: number): Promise<never> {
   return new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`exec timed out after ${ms}ms`)), ms),
+    setTimeout(() => {
+      reject(new Error(`exec timed out after ${ms}ms`));
+    }, ms),
   );
 }
 
 // Encode Uint8Array → base64 string without using Buffer (portable Web API).
 function uint8ToBase64(buf: Uint8Array): string {
   let binary = "";
-  for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]!);
+  for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
   return btoa(binary);
 }
 
@@ -84,8 +86,8 @@ class AlineoSandboxApi implements SandboxApi {
       isFile: typeStr === "regular file",
       isDirectory: typeStr === "directory",
       isSymbolicLink: typeStr === "symbolic link",
-      size: parseInt(sizeStr!, 10),
-      mtime: new Date(parseInt(mtimeStr!, 10) * 1000),
+      size: parseInt(sizeStr, 10),
+      mtime: new Date(parseInt(mtimeStr, 10) * 1000),
     };
   }
 
@@ -138,8 +140,10 @@ class AlineoSandboxApi implements SandboxApi {
  */
 export function alineo(sandbox: SandboxHandle, opts?: { cwd?: string }): SandboxFactory {
   return {
-    async createSessionEnv(_: { id: string }) {
-      return createSandboxSessionEnv(new AlineoSandboxApi(sandbox), opts?.cwd ?? "/");
+    createSessionEnv(_: { id: string }) {
+      return Promise.resolve(
+        createSandboxSessionEnv(new AlineoSandboxApi(sandbox), opts?.cwd ?? "/"),
+      );
     },
   };
 }

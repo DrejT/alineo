@@ -1,16 +1,26 @@
 import { describe, expect, it, mock } from "bun:test";
 import type { SandboxHandle } from "@alineo-labs/sandbox";
+import type { SandboxApi } from "@flue/runtime";
 
 // ── Module mock ──────────────────────────────────────────────────────────────
 // Must be set up before the import of the module under test so bun can hoist it.
 
-let capturedApi: ReturnType<typeof buildApi> | null = null;
-mock.module("@flue/runtime", () => ({
-  createSandboxSessionEnv: (api: ReturnType<typeof buildApi>, cwd: string) => {
+type MockSessionEnv = { _cwd: string };
+
+let capturedApi: SandboxApi | null = null;
+void mock.module("@flue/runtime", () => ({
+  createSandboxSessionEnv: (api: SandboxApi, cwd: string): MockSessionEnv => {
     capturedApi = api;
     return { _cwd: cwd };
   },
 }));
+
+// Reading `capturedApi` through a function (rather than the bare module-level `let`)
+// gives the type checker a fresh `SandboxApi | null` read instead of the stale
+// "still null" narrowing it can't invalidate across the mocked async call above.
+function readCapturedApi(): SandboxApi | null {
+  return capturedApi;
+}
 
 import { alineo } from "../src/index.ts";
 
@@ -28,11 +38,14 @@ type FileInfoStub = {
   group: string;
 };
 
+type ExecOpts = { cwd?: string; env?: Record<string, string>; strict?: boolean };
+type ListDirectoryOpts = { depth?: number };
+
 type SandboxStub = {
-  exec: (cmd: string, opts?: any) => PromiseLike<ExecResult>;
+  exec: (cmd: string, opts?: ExecOpts) => PromiseLike<ExecResult>;
   readFile: (path: string) => Promise<string>;
   writeFile: (path: string, content: string) => Promise<void>;
-  listDirectory: (path: string, opts?: any) => Promise<FileInfoStub[]>;
+  listDirectory: (path: string, opts?: ListDirectoryOpts) => Promise<FileInfoStub[]>;
 };
 
 function makeStub(overrides: Partial<SandboxStub> = {}): SandboxHandle {
@@ -45,22 +58,20 @@ function makeStub(overrides: Partial<SandboxStub> = {}): SandboxHandle {
   } as unknown as SandboxHandle;
 }
 
-function buildApi(sb: SandboxHandle) {
-  return {} as any; // placeholder type; real shape captured at runtime
-}
-
-async function getApi(sb: SandboxHandle): Promise<any> {
+async function getApi(sb: SandboxHandle): Promise<SandboxApi> {
   capturedApi = null;
   const factory = alineo(sb);
   await factory.createSessionEnv({ id: "test-ctx" });
-  return capturedApi!;
+  const api = readCapturedApi();
+  if (!api) throw new Error("mock createSandboxSessionEnv was not invoked");
+  return api;
 }
 
 // ── exec ─────────────────────────────────────────────────────────────────────
 
 describe("exec", () => {
   it("delegates command, cwd, env and strict:false to sb.exec", async () => {
-    let lastCall: any;
+    let lastCall: { cmd: string; opts?: ExecOpts } | undefined;
     const sb = makeStub({
       exec: (cmd, opts) => {
         lastCall = { cmd, opts };
@@ -69,10 +80,10 @@ describe("exec", () => {
     });
     const api = await getApi(sb);
     const result = await api.exec("echo hi", { cwd: "/tmp", env: { X: "1" } });
-    expect(lastCall.cmd).toBe("echo hi");
-    expect(lastCall.opts.cwd).toBe("/tmp");
-    expect(lastCall.opts.env).toEqual({ X: "1" });
-    expect(lastCall.opts.strict).toBe(false);
+    expect(lastCall?.cmd).toBe("echo hi");
+    expect(lastCall?.opts?.cwd).toBe("/tmp");
+    expect(lastCall?.opts?.env).toEqual({ X: "1" });
+    expect(lastCall?.opts?.strict).toBe(false);
     expect(result).toEqual({ stdout: "hello", stderr: "", exitCode: 0 });
   });
 
@@ -88,6 +99,9 @@ describe("exec", () => {
   it("rejects after timeoutMs with the ceiling applied", async () => {
     const sb = makeStub({ exec: () => new Promise(() => {}) }); // never resolves
     const api = await getApi(sb);
+    // bun-types types `.rejects` as `Matchers<unknown>`, whose `toThrow` returns `void` —
+    // the actual runtime behavior (awaiting the rejection) isn't reflected in the type.
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression
     await expect(api.exec("sleep 999", { timeoutMs: 10 })).rejects.toThrow("timed out after 10ms");
   });
 
@@ -155,7 +169,7 @@ describe("readFileBuffer", () => {
 
 describe("writeFile", () => {
   it("delegates string content to sb.writeFile", async () => {
-    let wrote: any;
+    let wrote: { p: string; c: string } | undefined;
     const sb = makeStub({
       writeFile: (p, c) => {
         wrote = { p, c };
@@ -226,6 +240,7 @@ describe("stat", () => {
       exec: () => Promise.resolve({ stdout: "", stderr: "no such file", exitCode: 1 }),
     });
     const api = await getApi(sb);
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- see comment on the earlier .rejects. usage above
     await expect(api.stat("/nope")).rejects.toThrow("No such file or directory");
   });
 });
@@ -426,14 +441,14 @@ describe("alineo factory", () => {
   it("passes cwd '/' by default to createSandboxSessionEnv", async () => {
     const sb = makeStub();
     const factory = alineo(sb);
-    const env = (await factory.createSessionEnv({ id: "x" })) as any;
+    const env = (await factory.createSessionEnv({ id: "x" })) as unknown as MockSessionEnv;
     expect(env._cwd).toBe("/");
   });
 
   it("forwards custom cwd option", async () => {
     const sb = makeStub();
     const factory = alineo(sb, { cwd: "/workspace" });
-    const env = (await factory.createSessionEnv({ id: "x" })) as any;
+    const env = (await factory.createSessionEnv({ id: "x" })) as unknown as MockSessionEnv;
     expect(env._cwd).toBe("/workspace");
   });
 });
