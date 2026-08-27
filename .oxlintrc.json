@@ -74,6 +74,14 @@
       }
     },
     {
+      "files": ["**/cli/test/docker.test.ts"],
+      "rules": {
+        "typescript/require-await": "off",
+        "typescript/await-thenable": "off",
+        "typescript/no-confusing-void-expression": "off"
+      }
+    },
+    {
       "files": ["**/pi-bridge.js"],
       "rules": {
         "typescript/no-unsafe-assignment": "off",

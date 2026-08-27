@@ -1,7 +1,7 @@
 export type ContainerState = "running" | "stopped" | "missing";
 
 async function spawn(cmd: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
-  let proc: ReturnType<typeof Bun.spawn>;
+  let proc;
   try {
     proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
   } catch {

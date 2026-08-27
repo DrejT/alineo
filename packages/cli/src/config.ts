@@ -34,8 +34,8 @@ function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
     agentsDir: data.agentsDir ?? "./agents",
     defaults: {
       resources: {
-        cpu: data.defaults?.resources?.cpu ?? "1000m",
-        memory: data.defaults?.resources?.memory ?? "1Gi",
+        cpu: data.defaults?.resources.cpu ?? "1000m",
+        memory: data.defaults?.resources.memory ?? "1Gi",
       },
     },
   };

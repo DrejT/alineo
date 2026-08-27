@@ -37,7 +37,13 @@ export async function launchTui(): Promise<void> {
       (session) => void openSession(session),
       quit,
       showNewSession,
-      (session) => mount(createLogsView(renderer, session, () => showDashboard())),
+      (session) => {
+        mount(
+          createLogsView(renderer, session, () => {
+            showDashboard();
+          }),
+        );
+      },
     );
     mount(view);
     if (initialStatus) view.setStatus(initialStatus);
@@ -48,7 +54,9 @@ export async function launchTui(): Promise<void> {
       createNewSessionView(
         renderer,
         (specPath) => void launchNewAgent(specPath),
-        () => showDashboard(),
+        () => {
+          showDashboard();
+        },
       ),
     );
   }
@@ -61,7 +69,11 @@ export async function launchTui(): Promise<void> {
         adapter,
         specPath: `${config.agentsDir}/${session.name}.json`,
       });
-      mount(createChatView(renderer, agent, () => showDashboard()));
+      mount(
+        createChatView(renderer, agent, () => {
+          showDashboard();
+        }),
+      );
     } catch (err) {
       showDashboard(
         `failed to open '${session.name}': ${err instanceof Error ? err.message : String(err)}`,
@@ -74,9 +86,13 @@ export async function launchTui(): Promise<void> {
     const adapter = new SQLiteAdapter(config.adapterPath);
     try {
       // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
-      const spec = await Bun.file(specPath).json();
+      const spec = (await Bun.file(specPath).json()) as Record<string, unknown>;
       const agent = await Alineo.load(spec, { adapter });
-      mount(createChatView(renderer, agent, () => showDashboard()));
+      mount(
+        createChatView(renderer, agent, () => {
+          showDashboard();
+        }),
+      );
     } catch (err) {
       showDashboard(
         `failed to start '${specPath}': ${err instanceof Error ? err.message : String(err)}`,

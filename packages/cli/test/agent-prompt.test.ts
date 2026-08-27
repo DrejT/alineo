@@ -4,6 +4,7 @@ import { collectReply } from "../src/agent-prompt";
 
 function fakeAgent(events: AgentEvent[]): Alineo {
   return {
+    // eslint-disable-next-line typescript/require-await -- must be async to match Alineo.prompt's real signature; nothing here needs to await
     prompt: async function* () {
       for (const ev of events) yield ev;
     },
