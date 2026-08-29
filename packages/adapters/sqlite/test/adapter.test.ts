@@ -117,11 +117,18 @@ describe("SQLiteAdapter", () => {
   async function seedSession(
     name: string,
     sandboxId: string,
-    opts: { close?: boolean; execCount?: number } = {},
+    opts: { close?: boolean; execCount?: number; payload?: Record<string, unknown> } = {},
   ) {
     const ts = Date.now();
     await db.append(
-      entry({ name, sandboxId, ts, stepIndex: -1, event: LedgerEvent.SandboxCreated }),
+      entry({
+        name,
+        sandboxId,
+        ts,
+        stepIndex: -1,
+        event: LedgerEvent.SandboxCreated,
+        payload: opts.payload,
+      }),
     );
     for (let i = 0; i < (opts.execCount ?? 1); i++) {
       await db.append(
@@ -200,6 +207,45 @@ describe("SQLiteAdapter", () => {
       const running = await db.listAllSandboxDetails({ status: SandboxStatus.Running });
       expect(running).toHaveLength(1);
       expect(running[0].name).toBe("sb-b");
+    });
+
+    it("exposes resourceId from the sandbox_created payload", async () => {
+      await seedSession("sb-a", "s1", { payload: { resourceId: "user-1" } });
+      await seedSession("sb-b", "s2", { payload: { resourceId: "user-2" } });
+      const details = await db.listAllSandboxDetails();
+      expect(details.find((d) => d.sandboxId === "s1")?.resourceId).toBe("user-1");
+      expect(details.find((d) => d.sandboxId === "s2")?.resourceId).toBe("user-2");
+    });
+
+    it("filters by resourceId across names", async () => {
+      await seedSession("sb-a", "s1", { payload: { resourceId: "user-1" } });
+      await seedSession("sb-b", "s2", { payload: { resourceId: "user-2" } });
+      const scoped = await db.listAllSandboxDetails({ resourceId: "user-1" });
+      expect(scoped).toHaveLength(1);
+      expect(scoped[0].sandboxId).toBe("s1");
+    });
+
+    it("exposes teamId from the sandbox_created payload, alongside resourceId", async () => {
+      await seedSession("sb-a", "s1", { payload: { resourceId: "support-bot", teamId: "acme" } });
+      const details = await db.listAllSandboxDetails();
+      expect(details[0].resourceId).toBe("support-bot");
+      expect(details[0].teamId).toBe("acme");
+    });
+
+    it("filters by teamId, distinguishing sessions that share a resourceId across teams", async () => {
+      // The exact collision this field exists to prevent: two teams' sessions both named
+      // after the same resourceId, distinguishable only by teamId.
+      await seedSession("sb-a", "s1", { payload: { resourceId: "support-bot", teamId: "acme" } });
+      await seedSession("sb-b", "s2", { payload: { resourceId: "support-bot", teamId: "globex" } });
+      const acme = await db.listAllSandboxDetails({ teamId: "acme" });
+      expect(acme).toHaveLength(1);
+      expect(acme[0].sandboxId).toBe("s1");
+    });
+
+    it("leaves teamId undefined for a session with no teamId in its payload", async () => {
+      await seedSession("sb-a", "s1", { payload: { resourceId: "user-1" } });
+      const details = await db.listAllSandboxDetails();
+      expect(details[0].teamId).toBeUndefined();
     });
   });
 

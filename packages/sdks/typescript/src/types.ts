@@ -114,6 +114,13 @@ export interface SandboxOptions {
    * inherited by `resume()`/`fork()`/`restoreSnapshot()` the same way `runId` is.
    */
   resourceId?: string;
+  /**
+   * Durable team identity this session's memory should be scoped by — see
+   * `@alineo-labs/memory`'s `ResourceRef.teamId`. Unset by default, same as `resourceId`.
+   * Threaded through the ledger's `sandbox_created` payload the same way `resourceId` is, and
+   * inherited by `resume()`/`fork()`/`restoreSnapshot()` the same way.
+   */
+  teamId?: string;
   /** SandboxHandle lifetime in seconds. Defaults to the OpenSandbox server default. */
   timeout?: number;
   /** Observability hooks (e.g. `otelHooks(tracer)` from `@alineo-labs/otel`). */

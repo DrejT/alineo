@@ -86,8 +86,14 @@ export class SQLiteSemanticMemoryProvider
     // top-`k` nearest neighbors — with multiple resources sharing one table, that silently
     // returns fewer than `k` rows (or the wrong ones) whenever another resource's facts are
     // closer to the query than some of this resource's own facts.
+    //
+    // `distance_metric=cosine` is explicit, not sqlite-vec's default (L2/Euclidean) — without
+    // it, this backend would rank recall() differently than `PostgresSemanticMemoryProvider`'s
+    // `vector_cosine_ops` HNSW index and `InMemorySemanticMemoryProvider`'s own
+    // `cosineSimilarity()`, for the exact same facts/query/embeddings. Every provider in this
+    // family must rank the same way for "provider-agnostic" to actually mean something.
     this.db.exec(
-      `CREATE VIRTUAL TABLE IF NOT EXISTS ${VEC_TABLE} USING vec0(scope TEXT partition key, embedding float[${dimensions}])`,
+      `CREATE VIRTUAL TABLE IF NOT EXISTS ${VEC_TABLE} USING vec0(scope TEXT partition key, embedding float[${dimensions}] distance_metric=cosine)`,
     );
     this.vecDimensions = dimensions;
   }

@@ -34,7 +34,18 @@ export interface EpisodicRecallOptions {
 }
 
 /** The default session resolver — exported so `episodicTree()` (a separate module) can reuse
- *  it as its own default without duplicating the resourceId/name-fallback matching logic. */
+ *  it as its own default without duplicating the resourceId/name-fallback matching logic.
+ *
+ * Also enforces `ref.teamId`, not just `ref.resourceId` — the ledger has no team concept of
+ * its own, so without this, two different teams' sessions sharing a `resourceId` (plausible:
+ * `Alineo.resourceRef` defaults `resourceId` to the agent's own name) would have their ledger
+ * histories silently merged, with zero access-control check. Match is strict equality
+ * (`d.teamId === ref.teamId`), including the both-undefined case for an untenanted caller —
+ * deliberately not treating a session with no recorded `teamId` as "visible to any team," the
+ * way row-level security elsewhere in this package treats `team_id IS NULL`. That's a
+ * conservative choice, not an oversight: a session written before `SandboxOptions.teamId`
+ * existed (or by a caller that never set it) becomes invisible to a team-scoped caller rather
+ * than risking it actually belonging to a different team. */
 export async function resolveSessionsByResourceId(
   adapter: IStorageAdapter,
   ref: ResourceRef,
@@ -42,7 +53,9 @@ export async function resolveSessionsByResourceId(
   const details = await adapter.listAllSandboxDetails();
   return details
     .filter(
-      (d) => d.resourceId === ref.resourceId || (d.resourceId == null && d.name === ref.resourceId),
+      (d) =>
+        (d.resourceId === ref.resourceId || (d.resourceId == null && d.name === ref.resourceId)) &&
+        d.teamId === ref.teamId,
     )
     .map((d) => ({ name: d.name, sandboxId: d.sandboxId }));
 }
@@ -76,9 +89,10 @@ export async function withAncestors(
 
 /**
  * Episodic memory, deliberately not a provider at all: it's a read API over the ledger
- * alineo already has (`@alineo-labs/core`'s `IStorageAdapter`), reshaped by `resourceId`. No
- * new storage, no ledger schema change — `resourceId` rides along in the existing
- * `sandbox_created` payload the same way `runId` does.
+ * alineo already has (`@alineo-labs/core`'s `IStorageAdapter`), reshaped by `resourceId` and
+ * `teamId`. No new storage, no ledger schema change — both ride along in the existing
+ * `sandbox_created` payload the same way `runId` does. See `resolveSessionsByResourceId`'s own
+ * doc comment for exactly how `teamId` is enforced (and its one documented trade-off).
  */
 export async function episodicRecall(
   adapter: IStorageAdapter,

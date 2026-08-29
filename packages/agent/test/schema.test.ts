@@ -23,11 +23,18 @@ describe("validateAgentSpec", () => {
       resources: { cpu: "1000m", memory: "2Gi" },
       metadata: { team: "infra" },
       registryDependencies: ["https://example.com/base.json"],
+      teamId: "acme",
     });
     expect(spec.title).toBe("Full Agent");
     expect(spec.packages).toEqual(["nodejs_22", "git", "ripgrep"]);
     expect(spec.registryDependencies).toEqual(["https://example.com/base.json"]);
     expect(spec.env).toEqual({ ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}" });
+    expect(spec.teamId).toBe("acme");
+  });
+
+  it("leaves teamId undefined when omitted", () => {
+    const spec = validateAgentSpec({ name: "my-agent", cli: "pi" });
+    expect(spec.teamId).toBeUndefined();
   });
 
   it("throws when name is missing", () => {

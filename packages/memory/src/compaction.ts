@@ -100,5 +100,12 @@ async function compactPrunable(
   }
 
   const removed = await provider.forget(ref, [...toRemove]);
-  return { removed, remaining: facts.length - removed + summarized, summarized };
+  // Not `facts.length - removed + summarized` — that arithmetic assumes `facts.length` (this
+  // call's own pre-compaction snapshot) is still accurate at the moment `forget()` runs, which
+  // isn't true under concurrent compaction on the same resource: a second call's snapshot can
+  // include facts a first, overlapping call already deleted, so the first call's own `removed`
+  // count (accurate for what it actually deleted) gets combined with a now-stale total. A fresh
+  // `listAll()` after `forget()` reports the true count regardless of what else ran concurrently.
+  const remaining = (await provider.listAll(ref)).length;
+  return { removed, remaining, summarized };
 }

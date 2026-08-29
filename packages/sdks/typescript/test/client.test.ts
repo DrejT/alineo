@@ -369,3 +369,147 @@ describe("Sandbox.connect() fork wiring", () => {
     expect(typeof sb.deps.fork).toBe("function");
   });
 });
+
+// ── resourceId / teamId threading ───────────────────────────────────────────
+//
+// `resourceId` and `teamId` (see `SandboxOptions`) must reach the `sandbox_created` ledger
+// payload on every creation path, and must be inherited (not dropped) by whatever `fork()`
+// closure that path wires up — `@alineo-labs/memory`'s `episodicRecall()` depends on both
+// being there. Every path below was previously untested; the `_createFromSnapshot()` pair
+// specifically regression-tests a real bug where its fork closure hardcoded `resourceId:
+// undefined` (and had no teamId support at all) unlike every other creation path.
+
+function createdPayload(adapter: IStorageAdapter) {
+  const call = (adapter.append as ReturnType<typeof vi.fn>).mock.calls.find(
+    ([entry]) => entry.event === "sandbox_created",
+  );
+  return call?.[0].payload;
+}
+
+describe("Sandbox.sandbox() resourceId/teamId threading", () => {
+  it("includes resourceId/teamId in the ledger payload and the fork closure", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    const sb = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+      resourceId: "user-1",
+      teamId: "acme",
+    });
+    expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
+
+    (adapter.append as ReturnType<typeof vi.fn>).mockClear();
+    await (sb as any).deps.fork("snap-1", undefined, undefined, undefined);
+    expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
+  });
+});
+
+describe("Sandbox.resume() resourceId/teamId threading", () => {
+  it("inherits resourceId/teamId from the original sandbox_created payload", async () => {
+    const adapter = makeAdapter();
+    (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        name: "ci",
+        sandboxId: "orig",
+        status: SandboxStatus.Completed,
+        startedAt: 1000,
+        execCount: 0,
+      },
+    ]);
+    (adapter.readAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        ts: 1000,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox_created",
+        payload: { resourceId: "user-1", teamId: "acme" },
+      },
+      {
+        ts: 1001,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "checkpoint_created",
+        payload: { snapshotId: "snap-1" },
+      },
+    ]);
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    await client.resume("orig");
+    expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
+  });
+});
+
+describe("Sandbox.restoreSnapshot() resourceId/teamId threading", () => {
+  it("includes resourceId/teamId in the ledger payload and the fork closure", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    const sb = await client.restoreSnapshot(
+      "snap-1",
+      "my-agent",
+      { cpu: "500m", memory: "256Mi" },
+      undefined,
+      {
+        resourceId: "user-1",
+        teamId: "acme",
+      },
+    );
+    expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
+
+    (adapter.append as ReturnType<typeof vi.fn>).mockClear();
+    await (sb as any).deps.fork("snap-2", undefined, undefined, undefined);
+    expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
+  });
+});
+
+describe("Sandbox._createFromSnapshot() resourceId/teamId threading (environment path)", () => {
+  it("includes resourceId/teamId in the ledger payload — previously always undefined here", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    await (client as any)._createFromSnapshot(
+      "snap-1",
+      { cpu: "500m", memory: "256Mi" },
+      "py",
+      undefined,
+      { resourceId: "user-1", teamId: "acme" },
+    );
+    expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
+  });
+
+  it("wires resourceId/teamId into the fork closure instead of hardcoding undefined", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    const sb = await (client as any)._createFromSnapshot(
+      "snap-1",
+      { cpu: "500m", memory: "256Mi" },
+      "py",
+      undefined,
+      { resourceId: "user-1", teamId: "acme" },
+    );
+
+    (adapter.append as ReturnType<typeof vi.fn>).mockClear();
+    await (sb as any).deps.fork("snap-2", undefined, undefined, undefined);
+    expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
+  });
+
+  it("leaves resourceId/teamId undefined when extra omits them", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    await (client as any)._createFromSnapshot("snap-1", { cpu: "500m", memory: "256Mi" }, "py");
+    const payload = createdPayload(adapter);
+    expect(payload.resourceId).toBeUndefined();
+    expect(payload.teamId).toBeUndefined();
+  });
+});

@@ -163,4 +163,40 @@ describe("compactSemanticMemory", () => {
       expect(result).toEqual({ removed: 1, remaining: 0, summarized: 0 });
     });
   });
+
+  it("reports the true remaining count even when a concurrent compaction already removed some of the same facts", async () => {
+    // Simulates two overlapping compactSemanticMemory() calls racing on the same resource:
+    // both decide a removal set from an identical stale 4-fact snapshot, a concurrent run
+    // deletes 2 of those facts first, and this run's own forget() then (accurately) finds
+    // those 2 already gone while 2 genuinely different facts remain in the store.
+    const staleSnapshot: RememberedFact[] = [
+      { id: "f1", content: "a", rememberedAt: 1 },
+      { id: "f2", content: "b", rememberedAt: 2 },
+      { id: "f3", content: "c", rememberedAt: 3 },
+      { id: "f4", content: "d", rememberedAt: 4 },
+    ];
+    // What's actually left in the store after the concurrent run already deleted f1/f2.
+    const trueRemaining: RememberedFact[] = staleSnapshot.slice(2);
+
+    let listAllCallCount = 0;
+    const provider: IPrunableSemanticMemoryProvider = {
+      remember: async () => {},
+      recall: async () => [],
+      listAll: async () => {
+        listAllCallCount++;
+        // 1st call: this compaction's own pre-decision snapshot — stale, still shows all 4.
+        // 2nd call: the fix's post-forget() re-query — reflects the real current state.
+        return listAllCallCount === 1 ? staleSnapshot : trueRemaining;
+      },
+      forget: async (_ref, ids) =>
+        ids.filter((id) => trueRemaining.some((f) => f.id === id)).length,
+    };
+
+    const result = await compactSemanticMemory(provider, ref, { maxFacts: 2 });
+
+    expect(result.removed).toBe(0);
+    // The bug this regresses: `facts.length (4) - removed (0) + summarized (0)` reported 4,
+    // not the true 2.
+    expect(result.remaining).toBe(2);
+  });
 });

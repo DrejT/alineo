@@ -68,8 +68,17 @@ export async function episodicTree(
   const roots: EpisodicBranch[] = [];
   for (const branch of branches.values()) {
     const parent = branch.parentSandboxId ? branches.get(branch.parentSandboxId) : undefined;
-    if (parent) parent.children.push(branch);
-    else roots.push(branch);
+    if (parent) {
+      parent.children.push(branch);
+    } else {
+      // The raw ledger value may still name a parent that exists but wasn't resolved into
+      // this tree (deleted, or outside the ancestor chain `withAncestors()` walked) — clear
+      // it here so `parentSandboxId == null` reliably means "root" for any consumer, matching
+      // this interface's own documented contract, rather than leaking a dangling reference to
+      // a node that isn't actually present among `roots`/`children`.
+      branch.parentSandboxId = undefined;
+      roots.push(branch);
+    }
   }
 
   const firstTs = (b: EpisodicBranch) => b.entries[0]?.ts ?? 0;

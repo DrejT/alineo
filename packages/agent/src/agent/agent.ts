@@ -83,15 +83,26 @@ export class Alineo {
   memory?: Memory;
 
   /**
+   * Durable team identity for `.resourceRef` — see `AgentSpec.teamId`. `undefined` unless the
+   * spec this agent was loaded from set it.
+   */
+  readonly teamId: string | undefined;
+
+  /**
    * Convenience `ResourceRef` scoping `.memory` calls to this agent — `resourceId` defaults
    * to this agent's `name`, the same "sandbox session named after its resource" convention
    * `@alineo-labs/memory`'s `episodicRecall()` default resolver expects (this agent's
    * sandbox's ledger session name IS `spec.name`, so the two line up with no extra wiring).
+   * `teamId` comes from `AgentSpec.teamId` — `undefined` unless the spec set one, in which
+   * case `load()`/`resume()` also thread it into the ledger (see `AgentSpec.teamId`'s own doc
+   * comment), so this getter and the agent's own episodic history stay consistent.
+   *
    * Only meaningful once `.memory` is set; pass a different `ResourceRef` explicitly to
-   * `.memory` methods instead if this agent's name isn't the resource identity you want.
+   * `.memory` methods instead if this agent's name/teamId aren't the resource identity you
+   * want.
    */
   get resourceRef(): ResourceRef {
-    return { resourceId: this.name };
+    return { resourceId: this.name, teamId: this.teamId };
   }
 
   private constructor(
@@ -105,6 +116,7 @@ export class Alineo {
     this.sandbox = sandbox;
     this.sandboxId = sandbox.sandboxId;
     this.name = spec.name;
+    this.teamId = spec.teamId;
     this.adapter = adapter;
     this.env = env;
     this.fromSnapshot = fromSnapshot;
@@ -291,23 +303,7 @@ export class Alineo {
     // Inherited, not re-derived from the child's own spec — same "force-computed, not
     // read back off the child" precedent spawnDepth/maxAgents already set nearby.
     child.memory = this.memory;
-    if (this.memory) {
-      // A spawned child is a fork at the sandbox level (spawn() forks this agent's sandbox
-      // under the hood) — its memory should be too: an independent snapshot copy it can
-      // mutate on its own, not a live share of the parent's scope. `child.resourceRef`
-      // already names a different resource (the child spec's own `name`), so this seeds that
-      // scope rather than overwriting the parent's.
-      //
-      // The sandbox fork already succeeded by this point (`r.sandbox` is live) — if the
-      // memory-layer fork throws, close the child sandbox before rethrowing rather than
-      // leaving it orphaned with nothing left to close it.
-      try {
-        await this.memory.fork(this.resourceRef, child.resourceRef.resourceId);
-      } catch (err) {
-        await child.close().catch(() => {});
-        throw err;
-      }
-    }
+    await factory.forkChildMemory(this.memory, this.resourceRef, child);
     return child;
   }
 

@@ -47,6 +47,38 @@ describe("SQLiteSemanticMemoryProvider", () => {
     provider.close();
   });
 
+  it("ranks by cosine distance, not sqlite-vec's L2 default", async () => {
+    // Constructed so L2 and cosine disagree on which fact is "closer" to the query, so this
+    // only passes if the native vec0 index was actually created with distance_metric=cosine:
+    // "off-direction" is nearer to the query in raw Euclidean distance (~0.89) than
+    // "aligned-large-magnitude" (~4), but perfectly aligned in *direction* with the query
+    // (cosine distance 0 vs ~0.4) — the same direction @alineo-labs/postgres-memory's
+    // vector_cosine_ops HNSW index and InMemorySemanticMemoryProvider's cosineSimilarity()
+    // would rank it, since every provider in this family must agree on ranking for
+    // "provider-agnostic" to mean anything.
+    const vectors: Record<string, number[]> = {
+      query: [1, 0],
+      "off-direction": [0.6, 0.8],
+      "aligned-large-magnitude": [5, 0],
+    };
+    const fixedEmbeddings: EmbeddingProvider = {
+      id: "fixed",
+      async embed(texts) {
+        return texts.map((t) => vectors[t] ?? [0, 0]);
+      },
+    };
+    const provider = new SQLiteSemanticMemoryProvider(":memory:", fixedEmbeddings);
+    const ref = { resourceId: "user-1" };
+    await provider.remember(ref, { content: "off-direction" });
+    await provider.remember(ref, { content: "aligned-large-magnitude" });
+
+    expect(provider.hasVectorIndex).toBe(true);
+    const results = await provider.recall(ref, "query", { topK: 1 });
+
+    expect(results[0]?.content).toBe("aligned-large-magnitude");
+    provider.close();
+  });
+
   it("recalls facts ranked by similarity to the query", async () => {
     const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
     const ref = { resourceId: "user-1" };

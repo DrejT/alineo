@@ -16,7 +16,10 @@ export interface AutoCompactOptions {
   maxAgeMs?: number;
   summarize?: CompactionOptions["summarize"];
   /** Only actually run the compaction check every Nth `remember()` call for a given resource,
-   *  to bound overhead when `remember()` is called frequently. Defaults to `1` (every call). */
+   *  to bound overhead when `remember()` is called frequently. Defaults to `1` (every call).
+   *  A value below `1` (including `0`) is treated as `1` — a lower value can't mean "check less
+   *  often," so it's clamped rather than silently disabling the check entirely via `count %
+   *  0` evaluating to `NaN`. */
   checkEvery?: number;
 }
 
@@ -96,7 +99,11 @@ export class Memory {
       const key = scopeKey(ref);
       const count = (this.rememberCounts.get(key) ?? 0) + 1;
       this.rememberCounts.set(key, count);
-      const checkEvery = this.autoCompact.checkEvery ?? 1;
+      // `?? 1` alone doesn't catch an explicit `0` (nullish coalescing only replaces
+      // null/undefined) — `count % 0` is `NaN`, which is never `=== 0`, so `checkEvery: 0`
+      // would otherwise silently disable auto-compaction forever instead of checking every
+      // call. `Math.max(1, ...)` clamps 0 and any negative value the same way.
+      const checkEvery = Math.max(1, this.autoCompact.checkEvery ?? 1);
       if (count % checkEvery === 0) {
         await compactSemanticMemory(this.semanticProvider, ref, this.autoCompact);
       }
@@ -154,7 +161,15 @@ export class Memory {
 
     const working = await this.workingMemory.list(parentRef);
     await Promise.all(
-      Object.entries(working).map(([key, value]) => this.workingMemory.set(childRef, key, value)),
+      Object.entries(working).map(([key, value]) =>
+        // `structuredClone`, not the same `value` reference — an in-memory provider (like
+        // `InMemoryWorkingMemoryProvider`) stores exactly what it's given with no
+        // serialization of its own, so writing the identical object/array reference into both
+        // scopes would let a later mutation via either ref's `.get()` result silently mutate
+        // the other's stored value too, violating this method's own "mutating the child's
+        // memory afterward never touches the parent's" guarantee above.
+        this.workingMemory.set(childRef, key, structuredClone(value)),
+      ),
     );
 
     let semanticFactsCopied = 0;
@@ -170,7 +185,11 @@ export class Memory {
       } else {
         await Promise.all(toCopy.map((f) => semanticProvider.remember(childRef, f)));
       }
-      semanticFactsCopied = facts.length;
+      // Not `facts.length` — a shipped provider silently skips a fact when its embedding call
+      // returns a null/undefined vector (see e.g. `InMemorySemanticMemoryProvider.remember()`),
+      // so the number actually written can be lower than the number read. Re-querying the
+      // child scope gives the true count instead of assuming every copy attempt succeeded.
+      semanticFactsCopied = (await semanticProvider.listAll(childRef)).length;
     }
 
     return { ref: childRef, workingKeysCopied: Object.keys(working).length, semanticFactsCopied };

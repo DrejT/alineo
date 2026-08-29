@@ -113,6 +113,23 @@ describe("Memory", () => {
       ).resolves.toBeUndefined();
     });
 
+    it("treats checkEvery: 0 as 1 instead of silently disabling the check forever", async () => {
+      // `count % 0` is NaN, never `=== 0` — without the fix, this configuration would never
+      // trigger a compaction check at all, for the life of the Memory instance.
+      const semantic = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+      const memory = new Memory({
+        workingMemory: new InMemoryWorkingMemoryProvider(),
+        semantic,
+        autoCompact: { maxFacts: 1, checkEvery: 0 },
+      });
+      const ref = { resourceId: "user-1" };
+
+      await memory.remember(ref, { content: "first" });
+      await memory.remember(ref, { content: "second" });
+
+      expect(await semantic.listAll(ref)).toHaveLength(1);
+    });
+
     it("does not run when autoCompact is not configured", async () => {
       const semantic = new InMemorySemanticMemoryProvider(fakeEmbeddings());
       const memory = new Memory({ workingMemory: new InMemoryWorkingMemoryProvider(), semantic });
@@ -148,6 +165,23 @@ describe("Memory", () => {
 
       expect(await memory.workingMemory.get(parentRef, "name")).toBe("Ada");
       expect(await memory.workingMemory.get(childRef, "name")).toBe("Grace");
+    });
+
+    it("is independent even for object values — mutating the retrieved reference doesn't leak to the parent", async () => {
+      // Re-`set()`-ing a brand-new value (the test above) can't catch a reference-sharing
+      // bug — it needs an object mutated *in place* after retrieval. Without a real copy on
+      // fork(), InMemoryWorkingMemoryProvider stores the identical object reference for both
+      // scopes, so this mutation would leak into the parent's own stored value too.
+      const memory = new Memory({ workingMemory: new InMemoryWorkingMemoryProvider() });
+      const parentRef = { resourceId: "parent" };
+      await memory.workingMemory.set(parentRef, "prefs", { theme: "light" });
+
+      const { ref: childRef } = await memory.fork(parentRef, "child");
+      const childPrefs = (await memory.workingMemory.get(childRef, "prefs")) as { theme: string };
+      childPrefs.theme = "dark";
+
+      expect(await memory.workingMemory.get(parentRef, "prefs")).toEqual({ theme: "light" });
+      expect(await memory.workingMemory.get(childRef, "prefs")).toEqual({ theme: "dark" });
     });
 
     it("preserves teamId on the child scope", async () => {
@@ -187,6 +221,38 @@ describe("Memory", () => {
 
       const parentFacts = await memory.recall(parentRef, "fact", { topK: 10 });
       expect(parentFacts.map((f) => f.content)).toEqual(["shared fact"]);
+    });
+
+    it("semanticFactsCopied reflects facts actually written, not the pre-copy count", async () => {
+      // A shipped semantic provider silently skips a fact when embed() returns a null vector
+      // for it (see e.g. InMemorySemanticMemoryProvider.rememberMany()) — semanticFactsCopied
+      // must report what actually landed in the child's scope, not facts.length from before
+      // the copy, or a caller trusting this count to verify the fork gets a false positive.
+      //
+      // "shaky" only fails to embed when it's part of a *batched* call (texts.length > 1) —
+      // both original remember() calls below embed one text at a time and succeed normally;
+      // fork()'s rememberMany() batches both facts' content into one embed() call, which is
+      // where "shaky" specifically fails this time.
+      const flaky: EmbeddingProvider = {
+        id: "flaky",
+        async embed(texts) {
+          return texts.map((t) =>
+            t === "shaky" && texts.length > 1 ? undefined : [1, 0],
+          ) as number[][];
+        },
+      };
+      const memory = new Memory({
+        workingMemory: new InMemoryWorkingMemoryProvider(),
+        semantic: new InMemorySemanticMemoryProvider(flaky),
+      });
+      const parentRef = { resourceId: "parent" };
+      await memory.remember(parentRef, { content: "fine" });
+      await memory.remember(parentRef, { content: "shaky" });
+      expect(await memory.recall(parentRef, "fine", { topK: 10 })).toHaveLength(2);
+
+      const { semanticFactsCopied } = await memory.fork(parentRef, "child");
+
+      expect(semanticFactsCopied).toBe(1);
     });
 
     it("skips semantic copying (0, not an error) when no semantic provider is configured", async () => {

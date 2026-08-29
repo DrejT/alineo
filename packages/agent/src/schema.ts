@@ -145,6 +145,27 @@ export interface AgentSpec {
    * coordinate this budget with each other.
    */
   maxAgents?: number;
+  /**
+   * Durable team identity for this agent's `.resourceRef` — see `@alineo-labs/memory`'s
+   * `ResourceRef.teamId`. Unset by default (unlike `resourceId`, which always gets
+   * `spec.name` as its own default) — most agents aren't tied to a team-scoped memory.
+   * `Alineo.load()`/`.resume()` also thread this into `SandboxOptions.teamId`/
+   * `RestoreSnapshotOptions.teamId` so it stays consistent with the ledger, not just
+   * `.resourceRef` — otherwise a team-scoped agent's own episodic history would be
+   * unreachable through its own `resourceRef`, since `episodicRecall()` enforces `teamId`
+   * strictly.
+   *
+   * **Known gap for `Alineo.spawn()` specifically**: a spawned child's ledger session is
+   * created via `sb.fork()`, which always inherits the *parent's* `resourceId`/`teamId`
+   * unconditionally (there's no override parameter anywhere in `SandboxHandle.fork()`'s own
+   * chain) — so a child spec declaring a different `teamId` than its parent gets a
+   * `.resourceRef` that doesn't match what's actually recorded for its own sandbox in the
+   * ledger, and its own `episodicRecall()` would come up empty. Fine for the common case (a
+   * spawned child sharing its parent's team), a real gap otherwise; closing it needs an
+   * override parameter threaded through `SandboxHandle.fork()`/`_forkFromSnapshot()`, not
+   * something this field alone can fix.
+   */
+  teamId?: string;
 }
 
 /**
@@ -221,6 +242,7 @@ const AgentSpecSchema = z
     setup: z.array(SetupStepSchema).optional(),
     spawnDepth: nonNegativeIntSpecField("spawnDepth"),
     maxAgents: nonNegativeIntSpecField("maxAgents"),
+    teamId: z.string().optional(),
   })
   // Unknown keys pass through untouched rather than being stripped or rejected — matches the
   // old hand-rolled validator's behavior (it only ever checked a few fields and cast the rest

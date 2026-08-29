@@ -1,6 +1,7 @@
 import { Sandbox } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
 import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
+import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { readProjectConfig } from "../config";
 import { validateAgentSpec, type AgentSpec } from "../schema";
 import {
@@ -103,6 +104,10 @@ export async function loadAgent(
         sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources, runId, {
           networkPolicy,
           credentialProxy: needsCredentialProxy,
+          // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment
+          // for why this matters (episodicRecall() enforces teamId strictly).
+          resourceId: spec.name,
+          teamId: spec.teamId,
         });
         console.log(`[agent] snapshot ready  ${elapsed(t1)} (${sb.sandboxId})`);
         fromSnapshot = true;
@@ -130,6 +135,10 @@ export async function loadAgent(
       runId,
       networkPolicy,
       credentialProxy: needsCredentialProxy,
+      // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment for
+      // why this matters (episodicRecall() enforces teamId strictly).
+      resourceId: spec.name,
+      teamId: spec.teamId,
     });
     console.log(`[agent] sandbox ready   ${elapsed(t1)} (${sb.sandboxId})`);
 
@@ -242,7 +251,16 @@ export async function resumeAgent(
 
   console.log(`[agent] reconnecting to ${sandboxId}...`);
   const t1 = Date.now();
-  const sb = await client.connect(sandboxId, spec.name, { runId });
+  const sb = await client.connect(sandboxId, spec.name, {
+    runId,
+    // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment for
+    // why this matters (episodicRecall() enforces teamId strictly). Unlike `sandbox()`/
+    // `restoreSnapshot()`, `connect()` can't discover a running sandbox's *original*
+    // resourceId/teamId from the ledger on its own — but resume() already has `spec` in hand
+    // here, so it can still supply the right values for any later `.fork()` off this handle.
+    resourceId: spec.name,
+    teamId: spec.teamId,
+  });
   console.log(`[agent] connected       ${elapsed(t1)}`);
 
   // Kill any stale bridge process before starting a fresh one.
@@ -377,4 +395,33 @@ export async function spawnChild(
     fromSnapshot: false,
     runId,
   };
+}
+
+/**
+ * Seed a just-constructed spawn child's memory from its parent — the memory-layer
+ * counterpart to `spawnChild()`'s sandbox-level fork above. Called from `Alineo.spawn()`
+ * after the child is constructed (not from `spawnChild()` itself, which runs before the
+ * child exists and so has no `child.resourceRef` to fork into yet).
+ *
+ * A no-op when `parentMemory` is `undefined` — most agents don't have `.memory` configured.
+ * Otherwise forks an independent snapshot copy the child can mutate on its own, not a live
+ * share of the parent's scope (`child.resourceRef` already names a different resource — the
+ * child spec's own name — so this seeds that scope rather than overwriting the parent's).
+ *
+ * The sandbox fork has already succeeded by the time this runs (`child.sandbox` is live) —
+ * if the memory-layer fork throws, close the child sandbox before rethrowing rather than
+ * leaving it orphaned with nothing left to close it.
+ */
+export async function forkChildMemory(
+  parentMemory: Memory | undefined,
+  parentRef: ResourceRef,
+  child: { resourceRef: ResourceRef; close: () => Promise<void> },
+): Promise<void> {
+  if (!parentMemory) return;
+  try {
+    await parentMemory.fork(parentRef, child.resourceRef.resourceId);
+  } catch (err) {
+    await child.close().catch(() => {});
+    throw err;
+  }
 }

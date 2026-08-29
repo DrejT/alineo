@@ -31,6 +31,7 @@ type AggRow = {
   exec_count: string;
   run_id: string | null;
   resource_id: string | null;
+  team_id: string | null;
   parent_sandbox_id: string | null;
 };
 
@@ -47,6 +48,7 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
     // stable, unique identity rather than an empty string.
     runId: row.run_id ?? row.sandbox_id,
     resourceId: row.resource_id ?? undefined,
+    teamId: row.team_id ?? undefined,
     parentSandboxId: row.parent_sandbox_id ?? undefined,
   };
 }
@@ -60,6 +62,7 @@ function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): Sandbo
   if (opts?.status != null) result = result.filter((d) => d.status === opts.status);
   if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
   if (opts?.resourceId != null) result = result.filter((d) => d.resourceId === opts.resourceId);
+  if (opts?.teamId != null) result = result.filter((d) => d.teamId === opts.teamId);
   if (opts?.limit != null) result = result.slice(0, opts.limit);
   return result;
 }
@@ -141,6 +144,7 @@ export class PostgresAdapter implements IStorageAdapter {
           COUNT(CASE WHEN event = 'exec_complete' THEN 1 END)::int AS exec_count,
           MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'runId' END) AS run_id,
           MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'resourceId' END) AS resource_id,
+          MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'teamId' END) AS team_id,
           MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'parentSandboxId' END) AS parent_sandbox_id
         FROM alineo_events
         ${whereClause}

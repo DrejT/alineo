@@ -158,6 +158,7 @@ export class Sandbox {
     const image = typeof opts.image === "string" ? { uri: opts.image } : opts.image;
     const runId = opts.runId ?? crypto.randomUUID();
     const resourceId = opts.resourceId;
+    const teamId = opts.teamId;
 
     let sandboxId: string;
     try {
@@ -192,6 +193,7 @@ export class Sandbox {
           resources: opts.resources,
           runId,
           resourceId,
+          teamId,
           networkPolicy: opts.networkPolicy,
           credentialProxy: opts.credentialProxy,
         },
@@ -215,6 +217,7 @@ export class Sandbox {
             overrideRunId ?? runId,
             sandboxId,
             resourceId,
+            teamId,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -293,6 +296,7 @@ export class Sandbox {
           resources?: { cpu?: string; memory?: string; gpu?: string };
           runId?: string;
           resourceId?: string;
+          teamId?: string;
           networkPolicy?: NetworkPolicy;
           credentialProxy?: boolean;
         }
@@ -305,6 +309,7 @@ export class Sandbox {
     // Same inheritance as runId — a resumed sandbox keeps scoping to the same memory
     // resource as its origin. Unlike runId, no fallback: absence just means "not scoped."
     const resourceId = createdPayload?.resourceId;
+    const teamId = createdPayload?.teamId;
     // Same reasoning applies to network policy / credential proxy — a resumed sandbox gets
     // the same egress posture as its origin, recovered from ledger data since the OpenSandbox
     // control plane doesn't echo `networkPolicy` back on GET /v1/sandboxes.
@@ -394,6 +399,7 @@ export class Sandbox {
           snapshotId,
           runId,
           resourceId,
+          teamId,
           networkPolicy,
           credentialProxy,
         },
@@ -420,6 +426,7 @@ export class Sandbox {
                     overrideRunId ?? runId,
                     newSessionId,
                     resourceId,
+                    teamId,
                     forkOpts,
                   )
               : undefined,
@@ -488,6 +495,9 @@ export class Sandbox {
        *  Same rationale as `opts.runId`: `connect()` does no ledger lookup, so it can't
        *  discover the sandbox's original `resourceId` on its own. */
       resourceId?: string;
+      /** Default team scope for any later `.fork()` call — see `SandboxOptions.teamId`. Same
+       *  rationale as `opts.resourceId`. */
+      teamId?: string;
     },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
@@ -517,6 +527,7 @@ export class Sandbox {
               overrideRunId ?? opts?.runId,
               sandboxId,
               opts?.resourceId,
+              opts?.teamId,
               forkOpts,
             )
         : undefined,
@@ -560,6 +571,9 @@ export class Sandbox {
        *  `resume()`, `restoreSnapshot()` has no prior ledger session of its own to inherit
        *  from (the snapshot may have come from anywhere), so this must be passed explicitly. */
       resourceId?: string;
+      /** Team scope for the restored sandbox — see `SandboxOptions.teamId`. Same rationale as
+       *  `resourceId` above. */
+      teamId?: string;
     },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
@@ -586,6 +600,7 @@ export class Sandbox {
           fromSnapshot: snapshotId,
           runId: finalRunId,
           resourceId: opts?.resourceId,
+          teamId: opts?.teamId,
           networkPolicy: opts?.networkPolicy,
           credentialProxy: opts?.credentialProxy,
         },
@@ -606,6 +621,7 @@ export class Sandbox {
             overrideRunId ?? finalRunId,
             newId,
             opts?.resourceId,
+            opts?.teamId,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -792,13 +808,25 @@ export class Sandbox {
       await this._waitForRunning(newId);
 
       const sessionName = `env-${envName}-${newId.slice(0, 8)}`;
+      // Unlike sandbox()/resume()/restoreSnapshot(), a sandbox spawned from an environment has
+      // no prior ledger session to inherit resourceId/teamId from — read from `extra` (see
+      // `EnvironmentSandboxOptions`) the same way `restoreSnapshot()` reads from its own opts.
+      const resourceId = extra?.resourceId;
+      const teamId = extra?.teamId;
       await this._adapter.append({
         ts: Date.now(),
         name: sessionName,
         sandboxId: newId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newId, fromEnvironment: envName, snapshotId, runId },
+        payload: {
+          sandboxId: newId,
+          fromEnvironment: envName,
+          snapshotId,
+          runId,
+          resourceId,
+          teamId,
+        },
       });
 
       const sb = new SandboxHandle(newId, sessionName, {
@@ -818,7 +846,8 @@ export class Sandbox {
             extra?.shell ?? envShell,
             overrideRunId ?? runId,
             newId,
-            undefined,
+            resourceId,
+            teamId,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -839,6 +868,7 @@ export class Sandbox {
     runId?: string,
     parentSandboxId?: string,
     resourceId?: string,
+    teamId?: string,
     forkOpts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
   ): Promise<SandboxHandle> {
     await this._acquireSlot();
@@ -869,10 +899,12 @@ export class Sandbox {
           forkedFrom: snapshotId,
           runId: finalRunId,
           // Inherited unchanged from the parent — a fork is a continuation of the same
-          // resource's memory, not a new resource. parentSandboxId, unlike resourceId, is
-          // never inherited further down: it always names the *immediate* parent, so a
-          // lineage can be walked one hop at a time (see episodicRecall's lineage option).
+          // resource's (and team's) memory, not a new resource. parentSandboxId, unlike
+          // resourceId/teamId, is never inherited further down: it always names the
+          // *immediate* parent, so a lineage can be walked one hop at a time (see
+          // episodicRecall's lineage option).
           resourceId,
+          teamId,
           parentSandboxId,
           networkPolicy: forkOpts?.networkPolicy,
           credentialProxy: forkOpts?.credentialProxy,
@@ -896,6 +928,7 @@ export class Sandbox {
             overrideRunId ?? finalRunId,
             newId,
             resourceId,
+            teamId,
             nextForkOpts,
           ),
         useServerProxy: this._useServerProxy,

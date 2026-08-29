@@ -35,6 +35,17 @@ export interface SandboxDetails {
    */
   resourceId?: string;
   /**
+   * Durable team identity this session's memory should be scoped by — see
+   * `@alineo-labs/memory`'s `ResourceRef.teamId`. Threaded through the ledger the same way
+   * `resourceId` is (recorded in the `sandbox_created` event's payload, not a dedicated
+   * column), and inherited by `resume()`/`fork()`/`restoreSnapshot()` the same way. Exists so
+   * `episodicRecall()`/`episodicTree()` can be team-scoped — without this, two different
+   * teams' sessions sharing a `resourceId` (plausible: `Alineo.resourceRef` defaults
+   * `resourceId` to the agent's own name) would have their ledger histories silently merged,
+   * since the ledger otherwise has no team concept at all to filter on.
+   */
+  teamId?: string;
+  /**
    * `sandboxId` of the session this one was created from via `sb.fork()`, if any — absent
    * for a top-level `client.sandbox()` session. Lets episodic memory (`@alineo-labs/memory`'s
    * `episodicRecall`) walk a fork lineage rather than only seeing one flat session.
@@ -53,6 +64,8 @@ export interface ListSandboxOptions {
   runId?: string;
   /** Return only sessions scoped to this resource — see `SandboxDetails.resourceId`. */
   resourceId?: string;
+  /** Return only sessions scoped to this team — see `SandboxDetails.teamId`. */
+  teamId?: string;
 }
 
 /** Events emitted during execution and stored in the ledger. */

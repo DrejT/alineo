@@ -37,6 +37,15 @@ export interface EnvironmentSandboxOptions {
    * Falls back to `EnvironmentOptions.shell`, then `"/bin/sh"`.
    */
   shell?: string;
+  /**
+   * Resource scope for this spawned sandbox — see `SandboxOptions.resourceId`. Unlike
+   * `sandbox()`/`resume()`/`restoreSnapshot()`, a sandbox spawned from an environment has no
+   * prior ledger session of its own to inherit from, so this must be passed explicitly here.
+   */
+  resourceId?: string;
+  /** Team scope for this spawned sandbox — see `SandboxOptions.teamId`. Same rationale as
+   *  `resourceId` above. */
+  teamId?: string;
 }
 
 /**

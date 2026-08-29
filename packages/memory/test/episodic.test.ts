@@ -89,6 +89,66 @@ describe("episodicRecall", () => {
     expect(await episodicRecall(adapter, { resourceId: "nobody" })).toEqual([]);
   });
 
+  it("does not merge two teams' sessions that happen to share a resourceId", async () => {
+    // The exact collision this exists to prevent — e.g. two teams both naming an agent
+    // "support-bot", the default `Alineo.resourceRef` convention.
+    const adapter = makeAdapter({
+      details: [
+        detail({
+          sandboxId: "sb-acme",
+          name: "support-bot",
+          resourceId: "support-bot",
+          teamId: "acme",
+        }),
+        detail({
+          sandboxId: "sb-globex",
+          name: "support-bot",
+          resourceId: "support-bot",
+          teamId: "globex",
+        }),
+      ],
+      entriesBySandboxId: {
+        "sb-acme": [entry({ ts: 100, sandboxId: "sb-acme", name: "support-bot" })],
+        "sb-globex": [entry({ ts: 200, sandboxId: "sb-globex", name: "support-bot" })],
+      },
+    });
+
+    const result = await episodicRecall(adapter, { resourceId: "support-bot", teamId: "acme" });
+
+    expect(result.map((e) => e.sandboxId)).toEqual(["sb-acme"]);
+  });
+
+  it("matches an untenanted ref (no teamId) only against untenanted sessions", async () => {
+    const adapter = makeAdapter({
+      details: [
+        detail({ sandboxId: "sb-plain", name: "user-1", resourceId: "user-1" }),
+        detail({ sandboxId: "sb-tenanted", name: "user-1", resourceId: "user-1", teamId: "acme" }),
+      ],
+      entriesBySandboxId: {
+        "sb-plain": [entry({ ts: 100, sandboxId: "sb-plain" })],
+        "sb-tenanted": [entry({ ts: 200, sandboxId: "sb-tenanted" })],
+      },
+    });
+
+    const result = await episodicRecall(adapter, { resourceId: "user-1" });
+
+    expect(result.map((e) => e.sandboxId)).toEqual(["sb-plain"]);
+  });
+
+  it("does not match a legacy (pre-teamId) session for a team-scoped caller", async () => {
+    // Conservative by design, not an oversight — see resolveSessionsByResourceId's own doc
+    // comment: a session with no recorded teamId isn't assumed to belong to any particular
+    // team, so it becomes invisible to a team-scoped caller rather than risking a leak.
+    const adapter = makeAdapter({
+      details: [detail({ sandboxId: "sb-1", name: "user-1", resourceId: "user-1" })],
+      entriesBySandboxId: { "sb-1": [entry({ ts: 100, sandboxId: "sb-1" })] },
+    });
+
+    const result = await episodicRecall(adapter, { resourceId: "user-1", teamId: "acme" });
+
+    expect(result).toEqual([]);
+  });
+
   it("respects limit by keeping only the most recent N entries", async () => {
     const adapter = makeAdapter({
       details: [detail({ sandboxId: "sb-1", name: "user-1", resourceId: "user-1" })],

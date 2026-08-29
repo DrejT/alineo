@@ -148,4 +148,58 @@ describe("episodicTree", () => {
 
     expect(await episodicTree(adapter, { resourceId: "nobody" })).toEqual([]);
   });
+
+  it("clears parentSandboxId for a root whose recorded parent wasn't resolved into the tree", async () => {
+    const adapter = makeAdapter({
+      details: [
+        detail({
+          sandboxId: "sb-fork",
+          name: "fork-root",
+          resourceId: "user-1",
+          // The parent's own ledger record no longer exists (deleted) — not just "not
+          // walked to" by withAncestors, genuinely absent from listAllSandboxDetails().
+          parentSandboxId: "sb-deleted",
+        }),
+      ],
+      entriesBySandboxId: {
+        "sb-fork": [entry({ ts: 1, sandboxId: "sb-fork", name: "fork-root" })],
+      },
+    });
+
+    const tree = await episodicTree(adapter, { resourceId: "user-1" });
+
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.sandboxId).toBe("sb-fork");
+    // Before the fix, this stayed "sb-deleted" even though the branch landed in `roots` —
+    // contradicting parentSandboxId's own documented "absent for a root" contract.
+    expect(tree[0]?.parentSandboxId).toBeUndefined();
+  });
+
+  it("does not merge two teams' sessions that happen to share a resourceId", async () => {
+    const adapter = makeAdapter({
+      details: [
+        detail({
+          sandboxId: "sb-acme",
+          name: "support-bot",
+          resourceId: "support-bot",
+          teamId: "acme",
+        }),
+        detail({
+          sandboxId: "sb-globex",
+          name: "support-bot",
+          resourceId: "support-bot",
+          teamId: "globex",
+        }),
+      ],
+      entriesBySandboxId: {
+        "sb-acme": [entry({ ts: 1, sandboxId: "sb-acme", name: "support-bot" })],
+        "sb-globex": [entry({ ts: 2, sandboxId: "sb-globex", name: "support-bot" })],
+      },
+    });
+
+    const tree = await episodicTree(adapter, { resourceId: "support-bot", teamId: "acme" });
+
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.sandboxId).toBe("sb-acme");
+  });
 });
