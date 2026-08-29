@@ -1,0 +1,38 @@
+{
+  "name": "@alineo-labs/postgres-memory",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrejT/alineo.git",
+    "directory": "packages/adapters/postgres-memory"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown"
+  },
+  "dependencies": {
+    "@alineo-labs/memory": "workspace:*",
+    "postgres": "3.4.9"
+  },
+  "devDependencies": {
+    "bun-types": "1.3.14",
+    "tsdown": "0.22.3",
+    "typescript": "6.0.3"
+  }
+}

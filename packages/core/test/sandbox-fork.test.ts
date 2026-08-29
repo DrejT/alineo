@@ -123,6 +123,48 @@ describe("SandboxHandle.fork()", () => {
     await expect(sb.fork()).rejects.toThrow("fork() is not supported on this sandbox");
   });
 
+  it("passes resourceId/teamId overrides through to the fork dep", async () => {
+    // Without these reaching the dep, a forked child would always silently inherit
+    // whatever this sandbox's own creation closed over instead of getting its own identity —
+    // the bug `Alineo.spawn()` needs this override to avoid.
+    const adapter = makeAdapter();
+    const forkedSandbox = new SandboxHandle("forked-id", "fork-sb-abc12345", makeDeps(adapter));
+    const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
+
+    const sb = new SandboxHandle("sb-1", "test", {
+      control: asControl(makeControl()),
+      adapter,
+      fork: forkFn,
+    });
+
+    await sb.fork(undefined, undefined, { resourceId: "child-resource", teamId: "acme" });
+
+    expect(forkFn).toHaveBeenCalledWith("snap-abc", undefined, undefined, {
+      networkPolicy: undefined,
+      credentialProxy: false,
+      resourceId: "child-resource",
+      teamId: "acme",
+    });
+  });
+
+  it("omits resourceId/teamId (undefined) when no override is given, letting the dep inherit", async () => {
+    const adapter = makeAdapter();
+    const forkedSandbox = new SandboxHandle("forked-id", "fork-sb-abc12345", makeDeps(adapter));
+    const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
+
+    const sb = new SandboxHandle("sb-1", "test", {
+      control: asControl(makeControl()),
+      adapter,
+      fork: forkFn,
+    });
+
+    await sb.fork();
+
+    const [, , , opts] = forkFn.mock.calls[0] as Parameters<NonNullable<SandboxDeps["fork"]>>;
+    expect(opts?.resourceId).toBeUndefined();
+    expect(opts?.teamId).toBeUndefined();
+  });
+
   it("fires the onCheckpoint hook with the snapshot ID and tag", async () => {
     const adapter = makeAdapter();
     const forkedSandbox = new SandboxHandle("forked-id", "fork-sb-abc12345", makeDeps(adapter));

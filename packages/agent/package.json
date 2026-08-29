@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@alineo-labs/core": "workspace:*",
+    "@alineo-labs/memory": "workspace:*",
     "@alineo-labs/sandbox": "workspace:*",
     "zod": "^4.4.3"
   },

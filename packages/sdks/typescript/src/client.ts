@@ -157,6 +157,8 @@ export class Sandbox {
 
     const image = typeof opts.image === "string" ? { uri: opts.image } : opts.image;
     const runId = opts.runId ?? crypto.randomUUID();
+    const resourceId = opts.resourceId;
+    const teamId = opts.teamId;
 
     let sandboxId: string;
     try {
@@ -190,6 +192,8 @@ export class Sandbox {
           sandboxId,
           resources: opts.resources,
           runId,
+          resourceId,
+          teamId,
           networkPolicy: opts.networkPolicy,
           credentialProxy: opts.credentialProxy,
         },
@@ -211,6 +215,9 @@ export class Sandbox {
             opts.resources,
             opts.shell,
             overrideRunId ?? runId,
+            sandboxId,
+            resourceId,
+            teamId,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -288,6 +295,8 @@ export class Sandbox {
       | {
           resources?: { cpu?: string; memory?: string; gpu?: string };
           runId?: string;
+          resourceId?: string;
+          teamId?: string;
           networkPolicy?: NetworkPolicy;
           credentialProxy?: boolean;
         }
@@ -297,6 +306,10 @@ export class Sandbox {
     // same run, not a new one. Falls back to a fresh UUID only for ledger data written
     // before this field existed.
     const runId = createdPayload?.runId ?? crypto.randomUUID();
+    // Same inheritance as runId — a resumed sandbox keeps scoping to the same memory
+    // resource as its origin. Unlike runId, no fallback: absence just means "not scoped."
+    const resourceId = createdPayload?.resourceId;
+    const teamId = createdPayload?.teamId;
     // Same reasoning applies to network policy / credential proxy — a resumed sandbox gets
     // the same egress posture as its origin, recovered from ledger data since the OpenSandbox
     // control plane doesn't echo `networkPolicy` back on GET /v1/sandboxes.
@@ -385,6 +398,8 @@ export class Sandbox {
           resumedFrom: sandboxId,
           snapshotId,
           runId,
+          resourceId,
+          teamId,
           networkPolicy,
           credentialProxy,
         },
@@ -409,6 +424,9 @@ export class Sandbox {
                     resources as { cpu: string; memory: string; gpu?: string },
                     undefined,
                     overrideRunId ?? runId,
+                    newSessionId,
+                    resourceId,
+                    teamId,
                     forkOpts,
                   )
               : undefined,
@@ -470,7 +488,17 @@ export class Sandbox {
   async connect(
     sandboxId: string,
     name: string,
-    opts?: { resources?: { cpu: string; memory: string; gpu?: string }; runId?: string },
+    opts?: {
+      resources?: { cpu: string; memory: string; gpu?: string };
+      runId?: string;
+      /** Default resource scope for any later `.fork()` call — see `SandboxOptions.resourceId`.
+       *  Same rationale as `opts.runId`: `connect()` does no ledger lookup, so it can't
+       *  discover the sandbox's original `resourceId` on its own. */
+      resourceId?: string;
+      /** Default team scope for any later `.fork()` call — see `SandboxOptions.teamId`. Same
+       *  rationale as `opts.resourceId`. */
+      teamId?: string;
+    },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
     const info = await this._control.getSandbox(sandboxId);
@@ -496,7 +524,10 @@ export class Sandbox {
               name,
               resources,
               undefined,
-              overrideRunId ?? opts.runId,
+              overrideRunId ?? opts?.runId,
+              sandboxId,
+              opts?.resourceId,
+              opts?.teamId,
               forkOpts,
             )
         : undefined,
@@ -533,7 +564,17 @@ export class Sandbox {
     name: string,
     resources: { cpu: string; memory: string; gpu?: string },
     runId?: string,
-    opts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
+    opts?: {
+      networkPolicy?: NetworkPolicy;
+      credentialProxy?: boolean;
+      /** Resource scope for the restored sandbox — see `SandboxOptions.resourceId`. Unlike
+       *  `resume()`, `restoreSnapshot()` has no prior ledger session of its own to inherit
+       *  from (the snapshot may have come from anywhere), so this must be passed explicitly. */
+      resourceId?: string;
+      /** Team scope for the restored sandbox — see `SandboxOptions.teamId`. Same rationale as
+       *  `resourceId` above. */
+      teamId?: string;
+    },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
     await this._acquireSlot();
@@ -558,6 +599,8 @@ export class Sandbox {
           sandboxId: newId,
           fromSnapshot: snapshotId,
           runId: finalRunId,
+          resourceId: opts?.resourceId,
+          teamId: opts?.teamId,
           networkPolicy: opts?.networkPolicy,
           credentialProxy: opts?.credentialProxy,
         },
@@ -576,6 +619,9 @@ export class Sandbox {
             resources,
             undefined,
             overrideRunId ?? finalRunId,
+            newId,
+            opts?.resourceId,
+            opts?.teamId,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -762,13 +808,25 @@ export class Sandbox {
       await this._waitForRunning(newId);
 
       const sessionName = `env-${envName}-${newId.slice(0, 8)}`;
+      // Unlike sandbox()/resume()/restoreSnapshot(), a sandbox spawned from an environment has
+      // no prior ledger session to inherit resourceId/teamId from — read from `extra` (see
+      // `EnvironmentSandboxOptions`) the same way `restoreSnapshot()` reads from its own opts.
+      const resourceId = extra?.resourceId;
+      const teamId = extra?.teamId;
       await this._adapter.append({
         ts: Date.now(),
         name: sessionName,
         sandboxId: newId,
         stepIndex: -1,
         event: LedgerEvent.SandboxCreated,
-        payload: { sandboxId: newId, fromEnvironment: envName, snapshotId, runId },
+        payload: {
+          sandboxId: newId,
+          fromEnvironment: envName,
+          snapshotId,
+          runId,
+          resourceId,
+          teamId,
+        },
       });
 
       const sb = new SandboxHandle(newId, sessionName, {
@@ -787,6 +845,9 @@ export class Sandbox {
             resources,
             extra?.shell ?? envShell,
             overrideRunId ?? runId,
+            newId,
+            resourceId,
+            teamId,
             forkOpts,
           ),
         useServerProxy: this._useServerProxy,
@@ -805,7 +866,15 @@ export class Sandbox {
     resources: { cpu: string; memory: string; gpu?: string },
     shell?: string,
     runId?: string,
-    forkOpts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
+    parentSandboxId?: string,
+    resourceId?: string,
+    teamId?: string,
+    forkOpts?: {
+      networkPolicy?: NetworkPolicy;
+      credentialProxy?: boolean;
+      resourceId?: string;
+      teamId?: string;
+    },
   ): Promise<SandboxHandle> {
     await this._acquireSlot();
     try {
@@ -813,6 +882,13 @@ export class Sandbox {
       // the child's own fork closure to each fall back independently — they'd otherwise
       // generate different UUIDs for what should be a single sandbox's one identity.
       const finalRunId = runId ?? crypto.randomUUID();
+      // `forkOpts.resourceId`/`forkOpts.teamId`, when given, override the values this
+      // closure would otherwise inherit from whatever sandbox `.fork()` was called on — see
+      // `SandboxDeps.fork`'s own doc comment. Resolved once here for the same reason
+      // `finalRunId` is: so the ledger write below and the child's own recursive fork
+      // closure agree on one value, not two independently-defaulted ones.
+      const finalResourceId = forkOpts?.resourceId ?? resourceId;
+      const finalTeamId = forkOpts?.teamId ?? teamId;
       const rawSb = await this._control.createSandbox({
         snapshotId,
         resourceLimits: resources,
@@ -834,6 +910,16 @@ export class Sandbox {
           sandboxId: newId,
           forkedFrom: snapshotId,
           runId: finalRunId,
+          // Inherited from the parent by default — a fork is normally a continuation of the
+          // same resource's (and team's) memory, not a new resource — but overridable per-call
+          // via forkOpts (see finalResourceId/finalTeamId above), for a fork that's a
+          // *different* resource (e.g. Alineo.spawn()). parentSandboxId, unlike
+          // resourceId/teamId, is never inherited further down: it always names the
+          // *immediate* parent, so a lineage can be walked one hop at a time (see
+          // episodicRecall's lineage option).
+          resourceId: finalResourceId,
+          teamId: finalTeamId,
+          parentSandboxId,
           networkPolicy: forkOpts?.networkPolicy,
           credentialProxy: forkOpts?.credentialProxy,
         },
@@ -854,6 +940,9 @@ export class Sandbox {
             resources,
             shell,
             overrideRunId ?? finalRunId,
+            newId,
+            finalResourceId,
+            finalTeamId,
             nextForkOpts,
           ),
         useServerProxy: this._useServerProxy,

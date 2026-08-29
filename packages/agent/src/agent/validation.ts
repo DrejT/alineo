@@ -1,3 +1,19 @@
+import type { AgentSpec } from "../schema";
+
+/**
+ * The durable resource identity for a spawned child, frozen from the child spec BEFORE
+ * `Alineo.spawn()` overwrites its `.name` to the forked sandbox's auto-generated ledger name
+ * (`fork-<parent>-<id>`) — see `AgentSpec.resourceId`'s own doc comment for why `child.name`
+ * can't be read for this after the fork completes. Extracted as its own function (mirroring
+ * `resolveParentSpawnDepth`/`resolveParentMaxAgents` below) so this one line of resolution
+ * logic — easy to get backwards, hard to notice if so, since both `spawnChild()`'s
+ * `self.sandbox.fork()` call and its returned `AgentConstructorArgs.spec.resourceId` must
+ * agree on the exact same value — is independently unit-testable.
+ */
+export function resolveChildResourceId(childSpec: Pick<AgentSpec, "name" | "resourceId">): string {
+  return childSpec.resourceId ?? childSpec.name;
+}
+
 export function assertValidSpawnDepth(value: number, context: string): void {
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(`${context}: spawnDepth must be a non-negative integer (got ${value})`);

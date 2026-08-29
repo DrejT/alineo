@@ -77,13 +77,23 @@ export interface SandboxDeps {
    * Called by `fork()` to create a new SandboxHandle from a snapshot — injected by `Sandbox`.
    * `runId`, if passed, overrides whatever run-correlation ID this closure would otherwise
    * default to (see `fork()`'s own docs in `lifecycle.ts` for why an explicit override is
-   * needed across a process boundary).
+   * needed across a process boundary). `opts.resourceId`/`opts.teamId` work the same way —
+   * absent, the closure falls back to whatever this sandbox's own creation captured (a
+   * continuation of the same resource's memory); passed explicitly, the forked child gets a
+   * *different* resource/team identity instead of inheriting this sandbox's one. Needed for
+   * `Alineo.spawn()`, where the child is a semantically different agent, not a branch of the
+   * same one.
    */
   fork?: (
     snapshotId: string,
     tag?: string,
     runId?: string,
-    opts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
+    opts?: {
+      networkPolicy?: NetworkPolicy;
+      credentialProxy?: boolean;
+      resourceId?: string;
+      teamId?: string;
+    },
   ) => Promise<SandboxHandle>;
   /** Route execd and proxy calls through the OpenSandbox server. Required when the server runs in Docker. */
   useServerProxy?: boolean;

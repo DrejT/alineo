@@ -107,6 +107,18 @@
         "@alineo-labs/sqlite": "workspace:*",
       },
     },
+    "cookbooks/persistent-agent-memory": {
+      "name": "alineo-cookbook-persistent-agent-memory",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/memory": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+        "@alineo-labs/sqlite-memory": "workspace:*",
+        "alineo": "workspace:*",
+      },
+    },
     "cookbooks/resumable-etl-pipeline": {
       "name": "alineo-cookbook-resumable-etl-pipeline",
       "version": "0.0.3",
@@ -209,6 +221,15 @@
       "version": "0.0.10",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+      },
+    },
+    "examples/memory-basics": {
+      "name": "alineo-example-memory-basics",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/memory": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
       },
     },
@@ -324,11 +345,37 @@
         "typescript": "6.0.3",
       },
     },
+    "packages/adapters/postgres-memory": {
+      "name": "@alineo-labs/postgres-memory",
+      "version": "0.1.0",
+      "dependencies": {
+        "@alineo-labs/memory": "workspace:*",
+        "postgres": "3.4.9",
+      },
+      "devDependencies": {
+        "bun-types": "1.3.14",
+        "tsdown": "0.22.3",
+        "typescript": "6.0.3",
+      },
+    },
     "packages/adapters/sqlite": {
       "name": "@alineo-labs/sqlite",
       "version": "0.1.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "1.3.14",
+        "tsdown": "0.22.3",
+        "typescript": "6.0.3",
+      },
+    },
+    "packages/adapters/sqlite-memory": {
+      "name": "@alineo-labs/sqlite-memory",
+      "version": "0.1.0",
+      "dependencies": {
+        "@alineo-labs/memory": "workspace:*",
+        "sqlite-vec": "^0.1.9",
       },
       "devDependencies": {
         "bun-types": "1.3.14",
@@ -354,6 +401,7 @@
       "version": "0.2.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/memory": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
         "zod": "^4.4.3",
       },
@@ -415,6 +463,19 @@
       "devDependencies": {
         "bun-types": "1.3.14",
         "typescript": "6.0.3",
+      },
+    },
+    "packages/memory": {
+      "name": "@alineo-labs/memory",
+      "version": "0.1.0",
+      "dependencies": {
+        "@alineo-labs/core": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "1.3.14",
+        "tsdown": "0.22.3",
+        "typescript": "6.0.3",
+        "vitest": "4.1.9",
       },
     },
     "packages/model-providers": {
@@ -511,6 +572,8 @@
 
     "@alineo-labs/integration-tests": ["@alineo-labs/integration-tests@workspace:tests/integration"],
 
+    "@alineo-labs/memory": ["@alineo-labs/memory@workspace:packages/memory"],
+
     "@alineo-labs/model-providers": ["@alineo-labs/model-providers@workspace:packages/model-providers"],
 
     "@alineo-labs/opensandbox": ["@alineo-labs/opensandbox@workspace:packages/opensandbox"],
@@ -519,6 +582,8 @@
 
     "@alineo-labs/postgres": ["@alineo-labs/postgres@workspace:packages/adapters/postgres"],
 
+    "@alineo-labs/postgres-memory": ["@alineo-labs/postgres-memory@workspace:packages/adapters/postgres-memory"],
+
     "@alineo-labs/registry": ["@alineo-labs/registry@workspace:apps/registry"],
 
     "@alineo-labs/sandbox": ["@alineo-labs/sandbox@workspace:packages/sdks/typescript"],
@@ -526,6 +591,8 @@
     "@alineo-labs/sandbox-app": ["@alineo-labs/sandbox-app@workspace:apps/sandbox"],
 
     "@alineo-labs/sqlite": ["@alineo-labs/sqlite@workspace:packages/adapters/sqlite"],
+
+    "@alineo-labs/sqlite-memory": ["@alineo-labs/sqlite-memory@workspace:packages/adapters/sqlite-memory"],
 
     "@alineo-labs/telemetry": ["@alineo-labs/telemetry@workspace:apps/telemetry"],
 
@@ -1497,6 +1564,8 @@
 
     "alineo-cookbook-parallel-test-shards": ["alineo-cookbook-parallel-test-shards@workspace:cookbooks/parallel-test-shards"],
 
+    "alineo-cookbook-persistent-agent-memory": ["alineo-cookbook-persistent-agent-memory@workspace:cookbooks/persistent-agent-memory"],
+
     "alineo-cookbook-resumable-etl-pipeline": ["alineo-cookbook-resumable-etl-pipeline@workspace:cookbooks/resumable-etl-pipeline"],
 
     "alineo-cookbook-untrusted-code-execution": ["alineo-cookbook-untrusted-code-execution@workspace:cookbooks/untrusted-code-execution"],
@@ -1522,6 +1591,8 @@
     "alineo-example-hello-world": ["alineo-example-hello-world@workspace:examples/hello-world"],
 
     "alineo-example-interactive-exec": ["alineo-example-interactive-exec@workspace:examples/interactive-exec"],
+
+    "alineo-example-memory-basics": ["alineo-example-memory-basics@workspace:examples/memory-basics"],
 
     "alineo-example-pi-agent": ["alineo-example-pi-agent@workspace:examples/pi-agent"],
 
@@ -2806,6 +2877,18 @@
     "sprintf-js": ["sprintf-js@1.1.3", "", {}, "sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA=="],
 
     "sql.js": ["sql.js@1.14.1", "", {}, "sha512-gcj8zBWU5cFsi9WUP+4bFNXAyF1iRpA3LLyS/DP5xlrNzGmPIizUeBggKa8DbDwdqaKwUcTEnChtd2grWo/x/A=="],
+
+    "sqlite-vec": ["sqlite-vec@0.1.9", "", { "optionalDependencies": { "sqlite-vec-darwin-arm64": "0.1.9", "sqlite-vec-darwin-x64": "0.1.9", "sqlite-vec-linux-arm64": "0.1.9", "sqlite-vec-linux-x64": "0.1.9", "sqlite-vec-windows-x64": "0.1.9" } }, "sha512-L7XJWRIBNvR9O5+vh1FQ+IGkh/3D2AzVksW5gdtk28m78Hy8skFD0pqReKH1Yp0/BUKRGcffgKvyO/EON5JXpA=="],
+
+    "sqlite-vec-darwin-arm64": ["sqlite-vec-darwin-arm64@0.1.9", "", { "os": "darwin", "cpu": "arm64" }, "sha512-jSsZpE42OfBkGL/ItyJTVCUwl6o6Ka3U5rc4j+UBDIQzC1ulSSKMEhQLthsOnF/MdAf1MuAkYhkdKmmcjaIZQg=="],
+
+    "sqlite-vec-darwin-x64": ["sqlite-vec-darwin-x64@0.1.9", "", { "os": "darwin", "cpu": "x64" }, "sha512-KDlVyqQT7pnOhU1ymB9gs7dMbSoVmKHitT+k1/xkjarcX8bBqPxWrGlK/R+C5WmWkfvWwyq5FfXfiBYCBs6PlA=="],
+
+    "sqlite-vec-linux-arm64": ["sqlite-vec-linux-arm64@0.1.9", "", { "os": "linux", "cpu": "arm64" }, "sha512-5wXVJ9c9kR4CHm/wVqXb/R+XUHTdpZ4nWbPHlS+gc9qQFVHs92Km4bPnCKX4rtcPMzvNis+SIzMJR1SCEwpuUw=="],
+
+    "sqlite-vec-linux-x64": ["sqlite-vec-linux-x64@0.1.9", "", { "os": "linux", "cpu": "x64" }, "sha512-w3tCH8xK2finW8fQJ/m8uqKodXUZ9KAuAar2UIhz4BHILfpE0WM/MTGCRfa7RjYbrYim5Luk3guvMOGI7T7JQA=="],
+
+    "sqlite-vec-windows-x64": ["sqlite-vec-windows-x64@0.1.9", "", { "os": "win32", "cpu": "x64" }, "sha512-y3gEIyy/17bq2QFPQOWLE68TYWcRZkBQVA2XLrTPHNTOp55xJi/BBBmOm40tVMDMjtP+Elpk6UBUXdaq+46b0Q=="],
 
     "stable-hash": ["stable-hash@0.0.5", "", {}, "sha512-+L3ccpzibovGXFK+Ap/f8LOS0ahMrHTf3xu7mMLSpEGU0EO9ucaysSylKo9eRDFNhWve/y275iPmIZ4z39a9iA=="],
 
