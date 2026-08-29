@@ -10,6 +10,7 @@ import { MIGRATION_SQL } from "./migrations";
 export class PostgresMemoryConnection {
   readonly sql: ReturnType<typeof postgres>;
   private migratePromise: Promise<void> | null = null;
+  private pgvectorPromise: Promise<boolean> | null = null;
 
   constructor(connectionString: string) {
     this.sql = postgres(connectionString);
@@ -28,6 +29,35 @@ export class PostgresMemoryConnection {
       },
     );
     return this.migratePromise;
+  }
+
+  /**
+   * Best-effort `CREATE EXTENSION IF NOT EXISTS vector`, memoized. Deliberately kept separate
+   * from `ensureMigrated()` above: the base schema (working memory, semantic memory, RLS) must
+   * succeed on any Postgres instance, including managed ones where the connecting role isn't
+   * allowed to create extensions at all or where `pgvector` isn't installed — this call is
+   * allowed to fail without taking the rest of the package down with it.
+   *
+   * Unlike `ensureMigrated()`, this never rejects and is memoized permanently once resolved —
+   * a `false` result (extension missing, or no privilege) means "use the in-JS cosine-scan
+   * fallback for the rest of this process," which is a correctness-preserving, merely-slower
+   * degradation, not a broken instance. That also means a *transient* failure here (e.g. a
+   * connection blip on the very first call) is indistinguishable from a permanent one and
+   * pins this connection to the fallback path for its whole lifetime — an accepted trade-off,
+   * not an oversight: retrying this on every call would mean every `remember()`/`recall()`
+   * pays for a fresh `CREATE EXTENSION` attempt against a Postgres instance that may never
+   * grant it, which is worse than staying on the always-correct fallback.
+   */
+  async ensurePgvectorExtension(): Promise<boolean> {
+    if (!this.pgvectorPromise) {
+      this.pgvectorPromise = this.ensureMigrated()
+        .then(() => this.sql.unsafe("CREATE EXTENSION IF NOT EXISTS vector"))
+        .then(
+          () => true,
+          () => false,
+        );
+    }
+    return this.pgvectorPromise;
   }
 
   /**

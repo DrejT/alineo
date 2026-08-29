@@ -146,7 +146,7 @@ if they weren't in the original resolved set.
 | ------------------------------------ | ------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `@alineo-labs/memory` (this package) | `InMemoryWorkingMemoryProvider` | `InMemorySemanticMemoryProvider` | Process-local, non-durable — reference implementations only.                                                                                                                                                                                           |
 | `@alineo-labs/sqlite-memory`         | `SQLiteWorkingMemoryProvider`   | `SQLiteSemanticMemoryProvider`   | File-based via `bun:sqlite`, zero external services, survives restarts. Ranks recall with `sqlite-vec`'s native `vec0` index when the extension loads (verified on win32/x64); falls back to an in-JS cosine scan otherwise — check `.hasVectorIndex`. |
-| `@alineo-labs/postgres-memory`       | `PostgresWorkingMemoryProvider` | `PostgresSemanticMemoryProvider` | Shared, multi-process backend. Row-level security isolates `teamId`-scoped rows. Cosine-similarity scan in JS by default — see the package's own doc comment for the `pgvector` upgrade path.                                                          |
+| `@alineo-labs/postgres-memory`       | `PostgresWorkingMemoryProvider` | `PostgresSemanticMemoryProvider` | Shared, multi-process backend. Row-level security isolates `teamId`-scoped rows. Ranks recall with a `pgvector` HNSW index when the extension can be installed; falls back to an in-JS cosine scan otherwise — check `.hasVectorIndex`.                |
 
 ```ts
 import { Memory } from "@alineo-labs/memory";
@@ -367,11 +367,6 @@ seeded from the parent, with no extra call needed.
 
 ## What's intentionally out of scope here
 
-- **Postgres ANN indexing** — `@alineo-labs/postgres-memory`'s `vector` column is a plain
-  array with an in-JS cosine scan today; `@alineo-labs/sqlite-memory` has a real native index
-  (`sqlite-vec`'s `vec0`), Postgres doesn't yet (see that package's own doc comment for the
-  `pgvector` upgrade path — not built here because there's no live Postgres instance available
-  in this repo to verify it against).
 - **Pi tool-call integration** — `createMemoryTools()` produces framework-agnostic tool
   definitions; actually registering them into a running Pi session needs a change to
   `alineo`'s Pi bridge that hasn't been made.

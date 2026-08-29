@@ -37,16 +37,22 @@ for the exact policy.
 
 ## Vector search
 
-The `vector` column is a plain `double precision[]` array, not a `pgvector` column — this
-works against any Postgres instance with zero extensions, ranked by an in-JS cosine-similarity
-scan over every row for the resource. For indexed ANN search at real scale, add the `pgvector`
-extension, change the column to `vector(N)`, and replace the scan in `recall()` with an
-`ORDER BY vector <=> query_vector LIMIT k` query — everything else (scoping, RLS, pruning)
-stays the same.
+`recall()` uses a real `pgvector` HNSW index whenever the connected Postgres instance allows
+`CREATE EXTENSION IF NOT EXISTS vector` (on by default on Supabase/Neon, allowlisted on RDS,
+unavailable on a bare Postgres with no superuser access) — falling back to an in-JS
+cosine-similarity scan over every row for the resource otherwise. Check
+`PostgresSemanticMemoryProvider.hasVectorIndex` to see which path is active; the plain `vector`
+(`double precision[]`) column on `alineo_semantic_memory` is always populated regardless, so the
+fallback is never a degraded schema, only a slower code path over the same data. The indexed
+path's own table (`alineo_semantic_vec`, created lazily once the embedding dimension is known)
+gets identical row-level-security policies to the primary table, so scoping doesn't depend on
+which path a given call takes.
 
 This package has not been run against a live Postgres instance in this repo's own test suite
 (none is available here) — it ships type-checked, matching `@alineo-labs/postgres`'s own
-testing posture, not integration-tested against a real server.
+testing posture, not integration-tested against a real server. That applies to this HNSW path
+too: it's implemented against `pgvector`'s documented SQL surface, not verified against a live
+instance with the extension installed.
 
 ---
 
