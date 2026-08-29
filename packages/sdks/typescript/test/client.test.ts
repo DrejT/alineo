@@ -468,6 +468,78 @@ describe("Sandbox.restoreSnapshot() resourceId/teamId threading", () => {
   });
 });
 
+describe("fork closure resourceId/teamId override", () => {
+  // Every fork closure inherits its parent's resourceId/teamId by default (a fork is normally
+  // a continuation of the same resource's memory) — but Alineo.spawn() needs a *different*
+  // resource/team identity for the child, not the parent's. This is what makes that possible:
+  // forkOpts.resourceId/teamId, when given, override the inherited default instead of being
+  // silently ignored.
+  it("overrides the inherited resourceId/teamId when forkOpts supplies them", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    const sb = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+      resourceId: "parent-resource",
+      teamId: "parent-team",
+    });
+
+    (adapter.append as ReturnType<typeof vi.fn>).mockClear();
+    await (sb as any).deps.fork("snap-child", undefined, undefined, {
+      resourceId: "child-resource",
+      teamId: "child-team",
+    });
+
+    expect(createdPayload(adapter)).toMatchObject({
+      resourceId: "child-resource",
+      teamId: "child-team",
+    });
+  });
+
+  it("still inherits from the parent when forkOpts omits resourceId/teamId", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    const sb = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+      resourceId: "parent-resource",
+      teamId: "parent-team",
+    });
+
+    (adapter.append as ReturnType<typeof vi.fn>).mockClear();
+    await (sb as any).deps.fork("snap-child", undefined, undefined, undefined);
+
+    expect(createdPayload(adapter)).toMatchObject({
+      resourceId: "parent-resource",
+      teamId: "parent-team",
+    });
+  });
+
+  it("a second-level fork with no override inherits the first fork's identity, not the grandparent's", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    (client as any)._control = makeFakeControl();
+
+    const parent = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+      resourceId: "grandparent-resource",
+    });
+    const child = await (parent as any).deps.fork("snap-child", undefined, undefined, {
+      resourceId: "child-resource",
+    });
+
+    (adapter.append as ReturnType<typeof vi.fn>).mockClear();
+    await (child as any).deps.fork("snap-grandchild", undefined, undefined, undefined);
+
+    expect(createdPayload(adapter)).toMatchObject({ resourceId: "child-resource" });
+  });
+});
+
 describe("Sandbox._createFromSnapshot() resourceId/teamId threading (environment path)", () => {
   it("includes resourceId/teamId in the ledger payload — previously always undefined here", async () => {
     const adapter = makeAdapter();

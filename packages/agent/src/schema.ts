@@ -153,19 +153,26 @@ export interface AgentSpec {
    * `RestoreSnapshotOptions.teamId` so it stays consistent with the ledger, not just
    * `.resourceRef` — otherwise a team-scoped agent's own episodic history would be
    * unreachable through its own `resourceRef`, since `episodicRecall()` enforces `teamId`
-   * strictly.
-   *
-   * **Known gap for `Alineo.spawn()` specifically**: a spawned child's ledger session is
-   * created via `sb.fork()`, which always inherits the *parent's* `resourceId`/`teamId`
-   * unconditionally (there's no override parameter anywhere in `SandboxHandle.fork()`'s own
-   * chain) — so a child spec declaring a different `teamId` than its parent gets a
-   * `.resourceRef` that doesn't match what's actually recorded for its own sandbox in the
-   * ledger, and its own `episodicRecall()` would come up empty. Fine for the common case (a
-   * spawned child sharing its parent's team), a real gap otherwise; closing it needs an
-   * override parameter threaded through `SandboxHandle.fork()`/`_forkFromSnapshot()`, not
-   * something this field alone can fix.
+   * strictly. `Alineo.spawn()` passes `SandboxHandle.fork()`'s `resourceId`/`teamId` override
+   * (see its own doc comment) so a spawned child's ledger record matches its
+   * `.resourceRef` too, rather than silently inheriting the parent's.
    */
   teamId?: string;
+  /**
+   * Durable resource identity for this agent's `.resourceRef` — see `@alineo-labs/memory`'s
+   * `ResourceRef.resourceId`. Defaults to `spec.name` when unset, same as the implicit
+   * behavior before this field existed.
+   *
+   * Exists as its own field, separate from `name`, specifically for `Alineo.spawn()`: a
+   * spawned child's `.name` is overwritten to the forked sandbox's auto-generated ledger name
+   * (`fork-<parent>-<id>`, used for `alineo agents` display and future fork labeling) — not
+   * `childSpec.name`. Without a separate `resourceId` field, a spawned child's memory scope
+   * would silently become that auto-generated name instead of the identity the spec author
+   * actually declared. `Alineo.spawn()` freezes this to `childSpec.resourceId ?? childSpec.name`
+   * before the rename happens, so a spawned child's memory scope is stable and predictable
+   * regardless of what the ledger ends up calling the forked sandbox.
+   */
+  resourceId?: string;
 }
 
 /**
@@ -243,6 +250,7 @@ const AgentSpecSchema = z
     spawnDepth: nonNegativeIntSpecField("spawnDepth"),
     maxAgents: nonNegativeIntSpecField("maxAgents"),
     teamId: z.string().optional(),
+    resourceId: z.string().optional(),
   })
   // Unknown keys pass through untouched rather than being stripped or rejected — matches the
   // old hand-rolled validator's behavior (it only ever checked a few fields and cast the rest

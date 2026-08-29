@@ -86,12 +86,23 @@ export async function checkpoint(sb: SandboxInternal, name?: string): Promise<st
  *   has no bound credentials of its own to carry over — for a caller that plans to register
  *   brand-new credentials on the child right after `fork()` returns (this sandbox's own bound
  *   credentials, if any, always enable it regardless of this flag).
+ * @param opts.resourceId  Override the forked sandbox's resource scope (see
+ *   `SandboxOptions.resourceId`) instead of inheriting this sandbox's own default — for a fork
+ *   that's a *different* resource, not a continuation of this one's memory (e.g.
+ *   `alineo`'s `Alineo.spawn()`, where the child is a semantically different agent).
+ * @param opts.teamId  Same override, for team scope (see `SandboxOptions.teamId`). Independent
+ *   of `opts.resourceId` — pass either, both, or neither.
  */
 export async function fork(
   sb: SandboxInternal,
   tag?: string,
   runId?: string,
-  opts?: { resolveCredential?: CredentialResolver; credentialProxy?: boolean },
+  opts?: {
+    resolveCredential?: CredentialResolver;
+    credentialProxy?: boolean;
+    resourceId?: string;
+    teamId?: string;
+  },
 ): Promise<SandboxHandle> {
   if (!sb.deps.fork)
     throw new SandboxError("fork() is not supported on this sandbox", sb.sandboxId);
@@ -116,6 +127,8 @@ export async function fork(
   const child = await sb.deps.fork(snap.id, tag, runId, {
     networkPolicy,
     credentialProxy: needsCredentialProxy,
+    resourceId: opts?.resourceId,
+    teamId: opts?.teamId,
   });
 
   for (const [name, { binding, source }] of boundCredentials) {

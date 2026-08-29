@@ -235,11 +235,20 @@ export class SandboxHandle extends SandboxCore {
    * @param opts.credentialProxy  Force-enables the child's credential proxy even if this
    *   sandbox has nothing bound to carry over — for registering brand-new credentials on the
    *   child right after `fork()` returns.
+   * @param opts.resourceId  Override the forked sandbox's resource scope instead of inheriting
+   *   this sandbox's own — for a fork that's a *different* resource, not a continuation of
+   *   this one's memory (see `SandboxOptions.resourceId`).
+   * @param opts.teamId  Same override, for team scope (see `SandboxOptions.teamId`).
    */
   async fork(
     tag?: string,
     runId?: string,
-    opts?: { resolveCredential?: CredentialResolver; credentialProxy?: boolean },
+    opts?: {
+      resolveCredential?: CredentialResolver;
+      credentialProxy?: boolean;
+      resourceId?: string;
+      teamId?: string;
+    },
   ): Promise<SandboxHandle> {
     return lifecycle.fork(this, tag, runId, opts);
   }

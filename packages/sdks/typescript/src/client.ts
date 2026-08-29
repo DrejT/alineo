@@ -869,7 +869,12 @@ export class Sandbox {
     parentSandboxId?: string,
     resourceId?: string,
     teamId?: string,
-    forkOpts?: { networkPolicy?: NetworkPolicy; credentialProxy?: boolean },
+    forkOpts?: {
+      networkPolicy?: NetworkPolicy;
+      credentialProxy?: boolean;
+      resourceId?: string;
+      teamId?: string;
+    },
   ): Promise<SandboxHandle> {
     await this._acquireSlot();
     try {
@@ -877,6 +882,13 @@ export class Sandbox {
       // the child's own fork closure to each fall back independently — they'd otherwise
       // generate different UUIDs for what should be a single sandbox's one identity.
       const finalRunId = runId ?? crypto.randomUUID();
+      // `forkOpts.resourceId`/`forkOpts.teamId`, when given, override the values this
+      // closure would otherwise inherit from whatever sandbox `.fork()` was called on — see
+      // `SandboxDeps.fork`'s own doc comment. Resolved once here for the same reason
+      // `finalRunId` is: so the ledger write below and the child's own recursive fork
+      // closure agree on one value, not two independently-defaulted ones.
+      const finalResourceId = forkOpts?.resourceId ?? resourceId;
+      const finalTeamId = forkOpts?.teamId ?? teamId;
       const rawSb = await this._control.createSandbox({
         snapshotId,
         resourceLimits: resources,
@@ -898,13 +910,15 @@ export class Sandbox {
           sandboxId: newId,
           forkedFrom: snapshotId,
           runId: finalRunId,
-          // Inherited unchanged from the parent — a fork is a continuation of the same
-          // resource's (and team's) memory, not a new resource. parentSandboxId, unlike
+          // Inherited from the parent by default — a fork is normally a continuation of the
+          // same resource's (and team's) memory, not a new resource — but overridable per-call
+          // via forkOpts (see finalResourceId/finalTeamId above), for a fork that's a
+          // *different* resource (e.g. Alineo.spawn()). parentSandboxId, unlike
           // resourceId/teamId, is never inherited further down: it always names the
           // *immediate* parent, so a lineage can be walked one hop at a time (see
           // episodicRecall's lineage option).
-          resourceId,
-          teamId,
+          resourceId: finalResourceId,
+          teamId: finalTeamId,
           parentSandboxId,
           networkPolicy: forkOpts?.networkPolicy,
           credentialProxy: forkOpts?.credentialProxy,
@@ -927,8 +941,8 @@ export class Sandbox {
             shell,
             overrideRunId ?? finalRunId,
             newId,
-            resourceId,
-            teamId,
+            finalResourceId,
+            finalTeamId,
             nextForkOpts,
           ),
         useServerProxy: this._useServerProxy,

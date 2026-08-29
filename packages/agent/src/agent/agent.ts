@@ -89,20 +89,26 @@ export class Alineo {
   readonly teamId: string | undefined;
 
   /**
-   * Convenience `ResourceRef` scoping `.memory` calls to this agent — `resourceId` defaults
-   * to this agent's `name`, the same "sandbox session named after its resource" convention
-   * `@alineo-labs/memory`'s `episodicRecall()` default resolver expects (this agent's
-   * sandbox's ledger session name IS `spec.name`, so the two line up with no extra wiring).
-   * `teamId` comes from `AgentSpec.teamId` — `undefined` unless the spec set one, in which
-   * case `load()`/`resume()` also thread it into the ledger (see `AgentSpec.teamId`'s own doc
-   * comment), so this getter and the agent's own episodic history stay consistent.
+   * Durable resource identity for `.resourceRef` — see `AgentSpec.resourceId`. Deliberately
+   * separate from `.name`: for a spawned child specifically, `.name` gets overwritten to the
+   * forked sandbox's auto-generated ledger name (`fork-<parent>-<id>`), which is NOT what
+   * memory should be scoped by — see `AgentSpec.resourceId`'s own doc comment for why.
+   */
+  readonly resourceId: string;
+
+  /**
+   * Convenience `ResourceRef` scoping `.memory` calls to this agent. `resourceId`/`teamId`
+   * come from `AgentSpec.resourceId`/`AgentSpec.teamId` (`resourceId` defaulting to this
+   * agent's `name` when unset) — `load()`/`resume()`/`spawn()` also thread both into the
+   * ledger (see each field's own doc comment) so this getter and the agent's own episodic
+   * history stay consistent, including across a spawned child whose `.name` differs from its
+   * memory identity.
    *
    * Only meaningful once `.memory` is set; pass a different `ResourceRef` explicitly to
-   * `.memory` methods instead if this agent's name/teamId aren't the resource identity you
-   * want.
+   * `.memory` methods instead if this agent's resourceId/teamId aren't the identity you want.
    */
   get resourceRef(): ResourceRef {
-    return { resourceId: this.name, teamId: this.teamId };
+    return { resourceId: this.resourceId, teamId: this.teamId };
   }
 
   private constructor(
@@ -117,6 +123,7 @@ export class Alineo {
     this.sandboxId = sandbox.sandboxId;
     this.name = spec.name;
     this.teamId = spec.teamId;
+    this.resourceId = spec.resourceId ?? spec.name;
     this.adapter = adapter;
     this.env = env;
     this.fromSnapshot = fromSnapshot;
