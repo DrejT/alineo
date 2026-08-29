@@ -3,6 +3,7 @@ import { compactSemanticMemory } from "../src/compaction.ts";
 import { InMemorySemanticMemoryProvider } from "../src/semantic.ts";
 import type {
   EmbeddingProvider,
+  IPrunableSemanticMemoryProvider,
   ISemanticMemoryProvider,
   RememberedFact,
 } from "../src/semantic.ts";

@@ -56,8 +56,8 @@ export class SQLiteSemanticMemoryProvider
   ) {
     try {
       mkdirSync(dirname(path), { recursive: true });
-    } catch (e: any) {
-      if (e.code !== "EEXIST") throw e;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
     this.db = new Database(path, { create: true });
     this.db.exec(SEMANTIC_MEMORY_MIGRATION_SQL);
@@ -208,7 +208,10 @@ export class SQLiteSemanticMemoryProvider
       .all(scopeKey(ref));
     if (rows.length === 0) return [];
     return rows
-      .map((row) => ({ row, score: cosineSimilarity(queryVector, JSON.parse(row.vector)) }))
+      .map((row) => ({
+        row,
+        score: cosineSimilarity(queryVector, JSON.parse(row.vector) as number[]),
+      }))
       .sort((a, b) => b.score - a.score)
       .slice(0, topK)
       .map(({ row }) => factFromRow(row));

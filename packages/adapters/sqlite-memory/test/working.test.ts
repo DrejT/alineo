@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { SQLiteWorkingMemoryProvider } from "../src/working.ts";
 
 describe("SQLiteWorkingMemoryProvider", () => {

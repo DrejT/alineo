@@ -73,7 +73,7 @@ describe("withTeamAccessControl (working memory)", () => {
 
     const error: unknown = await provider
       .get({ resourceId: "user-1", teamId: "secret-team" }, "key")
-      .catch((e) => e);
+      .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(MemoryAccessDeniedError);
     expect((error as MemoryAccessDeniedError).teamId).toBe("secret-team");

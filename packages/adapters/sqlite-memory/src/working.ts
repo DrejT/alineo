@@ -18,8 +18,8 @@ export class SQLiteWorkingMemoryProvider implements IWorkingMemoryProvider {
   constructor(path: string) {
     try {
       mkdirSync(dirname(path), { recursive: true });
-    } catch (e: any) {
-      if (e.code !== "EEXIST") throw e;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
     this.db = new Database(path, { create: true });
     this.db.exec(WORKING_MEMORY_MIGRATION_SQL);

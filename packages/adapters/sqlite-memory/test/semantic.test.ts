@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import type { EmbeddingProvider } from "@alineo-labs/memory";
 import { SQLiteSemanticMemoryProvider } from "../src/semantic.ts";
 

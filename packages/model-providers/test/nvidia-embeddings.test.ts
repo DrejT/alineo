@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import type * as NvidiaEmbeddingsModule from "../src/nvidia-embeddings";
 
 let originalFetch: typeof fetch;
 let originalKey: string | undefined;
@@ -15,8 +16,10 @@ afterEach(() => {
   mock.restore();
 });
 
-async function freshModule() {
-  return import(`../src/nvidia-embeddings?t=${crypto.randomUUID()}`);
+async function freshModule(): Promise<typeof NvidiaEmbeddingsModule> {
+  return import(`../src/nvidia-embeddings?t=${crypto.randomUUID()}`) as Promise<
+    typeof NvidiaEmbeddingsModule
+  >;
 }
 
 describe("createNvidiaEmbeddingProvider", () => {
@@ -47,6 +50,9 @@ describe("createNvidiaEmbeddingProvider", () => {
     delete process.env.NVIDIA_API_KEY;
     const { createNvidiaEmbeddingProvider } = await freshModule();
 
+    // bun-types types `.rejects` as `Matchers<unknown>`, whose `toThrow` returns `void` —
+    // the actual runtime behavior (awaiting the rejection) isn't reflected in the type.
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression
     await expect(createNvidiaEmbeddingProvider().embed(["hello"])).rejects.toThrow(
       "NVIDIA_API_KEY is not set on the dashboard server",
     );
@@ -59,14 +65,19 @@ describe("createNvidiaEmbeddingProvider", () => {
     ) as unknown as typeof fetch;
     const { createNvidiaEmbeddingProvider } = await freshModule();
 
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- see comment on the earlier .rejects. usage above
     await expect(createNvidiaEmbeddingProvider().embed(["hello"])).rejects.toThrow(/400/);
   });
 
   it("returns embeddings re-sorted by the response's index field", async () => {
     process.env.NVIDIA_API_KEY = "test-key";
-    let capturedBody: any;
+    let capturedBody: { input: string[]; model: string; input_type: string } | undefined;
     globalThis.fetch = mock((_url: string, init: RequestInit) => {
-      capturedBody = JSON.parse(init.body as string);
+      capturedBody = JSON.parse(init.body as string) as {
+        input: string[];
+        model: string;
+        input_type: string;
+      };
       return Promise.resolve(
         new Response(
           JSON.stringify({
@@ -101,7 +112,9 @@ describe("createNvidiaEmbeddingProvider", () => {
     process.env.NVIDIA_API_KEY = "test-key";
     const capturedInputTypes: string[] = [];
     globalThis.fetch = mock((_url: string, init: RequestInit) => {
-      capturedInputTypes.push(JSON.parse(init.body as string).input_type);
+      capturedInputTypes.push(
+        (JSON.parse(init.body as string) as { input_type: string }).input_type,
+      );
       return Promise.resolve(
         new Response(JSON.stringify({ data: [{ index: 0, embedding: [1, 0] }] }), {
           status: 200,

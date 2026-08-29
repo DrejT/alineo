@@ -132,7 +132,7 @@ describe("SandboxHandle.fork()", () => {
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: makeControl() as any,
+      control: asControl(makeControl()),
       adapter,
       fork: forkFn,
     });
@@ -153,16 +153,16 @@ describe("SandboxHandle.fork()", () => {
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: makeControl() as any,
+      control: asControl(makeControl()),
       adapter,
       fork: forkFn,
     });
 
     await sb.fork();
 
-    const [, , , opts] = forkFn.mock.calls[0]!;
-    expect(opts.resourceId).toBeUndefined();
-    expect(opts.teamId).toBeUndefined();
+    const [, , , opts] = forkFn.mock.calls[0] as Parameters<NonNullable<SandboxDeps["fork"]>>;
+    expect(opts?.resourceId).toBeUndefined();
+    expect(opts?.teamId).toBeUndefined();
   });
 
   it("fires the onCheckpoint hook with the snapshot ID and tag", async () => {
