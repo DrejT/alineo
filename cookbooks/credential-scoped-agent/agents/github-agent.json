@@ -1,0 +1,20 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "github-agent",
+  "title": "GitHub Agent",
+  "description": "A Pi agent that does real work against the GitHub API using a token it can never read — injected at the egress layer, never in its environment.",
+  "author": "alineo",
+  "cli": "pi",
+  "provider": "nvidia",
+  "model": "nvidia/nemotron-3-nano-30b-a3b",
+  "packages": ["curl", "jq", "ca-certificates"],
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
+    "GITHUB_TOKEN": {
+      "credential": "Bearer ${GH_TOKEN}",
+      "host": "api.github.com",
+      "injection": { "type": "header", "name": "Authorization" }
+    }
+  },
+  "resources": { "cpu": "1000m", "memory": "2Gi" }
+}

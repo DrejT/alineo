@@ -45,7 +45,7 @@ function nvidiaEmbeddings(): EmbeddingProvider {
         },
         body: JSON.stringify({
           input: texts,
-          model: "nvidia/nv-embedqa-e5-v5",
+          model: "nvidia/nemotron-3-embed-1b",
           input_type: opts?.type ?? "query",
         }),
       });
@@ -85,7 +85,15 @@ await agent.memory!.remember(agent.resourceRef, {
   sourceRef: { sandboxId: agent.sandboxId, entryIndex: entries.length - 1 },
 });
 
-for await (const chunk of textOnly(agent.prompt("What plan is this customer on?"))) {
+// Session 1 has no memory context wired into the prompt — so the agent genuinely can't know
+// this yet. The "if you don't know, say so" nudge just keeps a small model from going off to
+// grep the filesystem for an answer that isn't there. Session 2 asks with the context attached.
+for await (const chunk of textOnly(
+  agent.prompt(
+    "What plan is this customer on? If you don't have that information, say so in one sentence " +
+      "— don't go looking for it.",
+  ),
+)) {
   process.stdout.write(chunk);
 }
 console.log("\n");
