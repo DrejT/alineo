@@ -5,6 +5,8 @@
     "ci-test-runner",
     "parallel-test-shards",
     "resumable-etl-pipeline",
-    "ai-agent-bugfix"
+    "ai-agent-bugfix",
+    "persistent-agent-memory",
+    "credential-scoped-agent"
   ]
 }
