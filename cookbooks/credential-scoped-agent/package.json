@@ -1,0 +1,13 @@
+{
+  "name": "alineo-cookbook-credential-scoped-agent",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "@alineo-labs/sandbox": "workspace:*",
+    "@alineo-labs/sqlite": "workspace:*",
+    "alineo": "workspace:*"
+  }
+}
