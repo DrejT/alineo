@@ -44,15 +44,16 @@ bun start
    is present, `load()` creates the sandbox with `credentialProxy: true` and registers the
    token with the egress sidecar's Credential Vault — it never becomes a container env var.
    `env.NVIDIA_API_KEY`, an ordinary string, is exported the normal way.
-2. **The agent does authenticated GitHub work** — prompted to identify the token's account and
-   list its recently pushed repos, it writes and runs its own `curl … | jq …` against
-   `api.github.com`. The requests come back authenticated.
+2. **The agent does authenticated GitHub work** — told to `curl https://api.github.com/user`
+   and report the login, it does — with no token and no `Authorization` header of its own, and
+   the call comes back authenticated as you. The recipe echoes the agent's `bash` command and
+   its output, so you see the real request and the real response.
 3. **Audit** — `env | grep` inside the sandbox turns up nothing, and a bare
    `curl https://api.github.com/user` with no `Authorization` header of its own still returns
    `HTTP 200`: the credential reached the request at the sidecar, not through anything the
    agent could see.
 4. **Revoke** — `agent.sandbox.credentials.remove("GITHUB_TOKEN")`, and the same bare request
-   now returns `HTTP 401`. The agent, asked to retry, reports the 401 itself.
+   now returns `HTTP 401`. The agent's own next call to `api.github.com` would fail the same way.
 
 ## The point
 

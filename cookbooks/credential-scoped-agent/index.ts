@@ -17,15 +17,34 @@
  *                   plenty for this recipe. Just the token — the agent spec adds the
  *                   `Bearer` scheme. This value never enters the container's environment.
  */
-import { Alineo, textOnly } from "alineo";
+import { Alineo } from "alineo";
+import type { AgentStream } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 function section(label: string) {
   console.log(`\n── ${label} ${"─".repeat(Math.max(0, 58 - label.length))}\n`);
 }
 
-async function say(stream: AsyncIterable<string>) {
-  for await (const chunk of stream) process.stdout.write(chunk);
+/**
+ * Run one agent turn, narrating the full event stream — not just `textOnly()`. The point of
+ * this recipe is watching the agent issue its *own* authenticated requests, so we echo each
+ * `bash` command it runs and the output that came back. The tool activity is the evidence
+ * that matters here, whether or not the model bothers with a prose summary afterward.
+ */
+async function runAgentTurn(stream: AgentStream) {
+  for await (const ev of stream) {
+    if (ev.type === "text") {
+      process.stdout.write(ev.text);
+    } else if (ev.type === "tool_start" && ev.toolName === "bash") {
+      const cmd = (ev.args as { command?: string }).command ?? "";
+      process.stdout.write(`\n  $ ${cmd}\n`);
+    } else if (ev.type === "tool_end") {
+      const out = (ev.result as { content?: { text?: string }[] }).content?.[0]?.text?.trim();
+      process.stdout.write(
+        out ? `${out.replace(/^/gm, "  ")}\n` : `  ${ev.isError ? "(failed)" : "(ok)"}\n`,
+      );
+    }
+  }
   console.log();
 }
 
@@ -53,14 +72,14 @@ try {
   // ── 1. Delegate real work ───────────────────────────────────────────────────
   section("1. the agent does authenticated GitHub work");
 
-  await say(
-    textOnly(
-      agent.prompt(
-        "Use the GitHub API at api.github.com, with curl and jq, to find out which account " +
-          "the ambient credentials belong to, then list that account's 3 most recently " +
-          "pushed repositories. Don't look for a token or an Authorization header — just " +
-          "make the requests, they're already authenticated. Keep your reply short.",
-      ),
+  // A directive prompt, not an open-ended one: the recipe is about the credential mechanism,
+  // not the model's planning. The agent runs the curl itself — no token, no Authorization
+  // header of its own — and it comes back authenticated as you.
+  await runAgentTurn(
+    agent.prompt(
+      "Run this command and report the value it prints. It's already authenticated — you " +
+        "don't need a token or an Authorization header:\n" +
+        "  curl -sS https://api.github.com/user | jq -r .login",
     ),
   );
 
@@ -95,16 +114,7 @@ try {
     { strict: false },
   );
   console.log(`same request, after revoke:                   HTTP ${afterRevoke.stdout.trim()}`);
-
-  // And the agent notices it too, next time it tries.
-  await say(
-    textOnly(
-      agent.prompt(
-        "Try GET https://api.github.com/user again with curl and report just the HTTP " +
-          "status code you get back now.",
-      ),
-    ),
-  );
+  console.log("\nThe agent's own next call to api.github.com would fail the same way.");
 } finally {
   await agent.close();
   console.log("\nAgent closed.");
