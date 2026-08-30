@@ -1,5 +1,112 @@
 # drej
 
+## 0.3.0
+
+### Minor Changes
+
+- f987d00: Credential injection: sandboxes can now register credentials that get injected into outbound
+  requests via OpenSandbox's Credential Vault, without the sandbox process ever holding the real
+  value.
+
+  - New `@alineo-labs/vault` package — `OpenSandboxCredentialBroker`, the default `CredentialBroker`
+    implementation, wired up automatically by `@alineo-labs/sandbox` unless overridden.
+  - `@alineo-labs/core`: new `CredentialBroker`/`CredentialBinding`/`CredentialSource` interfaces
+    (mirrors `IStorageAdapter`'s shape), `sb.credentials.set()/patch()/remove()/listBindings()` on
+    `SandboxHandle`, `SandboxHooks.onCredentialInjected`, and two new `LedgerEvent`s
+    (`CredentialBound`/`CredentialRevoked`, binding metadata only — never the credential value).
+    `CredentialSource` (`{ type: "env", varName }` vs. `{ type: "external" }`) lets `resume()` and
+    `sb.fork()` resolve env-backed credentials automatically; anything else requires an explicit
+    `resolveCredential` callback, and both now **throw** rather than silently drop a bound
+    credential if one isn't resolvable.
+  - `@alineo-labs/opensandbox`: `NetworkPolicy`/`NetworkRule`/`CredentialProxyConfig` types, and
+    `networkPolicy`/`credentialProxy` on `CreateSandboxOptions`.
+  - `@alineo-labs/sandbox`: `SandboxOptions.networkPolicy`/`credentialProxy`,
+    `SandboxClientOptions.credentialBroker`, and `ResumeOptions.resolveCredential`. `sb.fork()`
+    now also carries over the parent's own bound credentials to the child automatically (previously
+    silently dropped), and takes an optional `{ resolveCredential, credentialProxy }`.
+  - `alineo` (agent package): `AgentSpec.env` values can now be a `CredentialEnvBinding`
+    (`{ credential, host, injection }`) instead of a plain string — that key never becomes a
+    container env var at all; `Alineo.load()`/`.resume()`/`.spawn()` register it with the broker
+    instead (including for a spawned child's own newly-declared bindings, previously dropped).
+  - `alineo-cli`: `alineo init` now configures `[egress]` (`opensandbox/egress:v1.1.7`,
+    `mode = "dns+nft"`) in the generated local server config by default — inert for any sandbox
+    that doesn't request `networkPolicy`, but required before `credentialProxy: true` works at all
+    against a fresh `alineo init` server.
+
+  See `plans/credential-injection.md` for the full design (issue #203). Verified end-to-end against
+  a live `opensandbox/server:latest` + `opensandbox/egress:v1.1.7`: registration, transparent
+  injection, revocation, and `fork()` credential carrying. Two known limitations, both from the
+  real Credential Vault API rather than this package: only `{ type: "header" }` credential bindings
+  are supported for now (`query`/`path` injection has no direct equivalent in the sidecar's `Auth`
+  model), and `OpenSandboxCredentialBroker.patch()` requires both `value` and `binding` together
+  (the vault never echoes a credential's value back, so a partial update can't preserve the
+  unspecified half).
+
+- 223390e: Fill out the `@alineo-labs/memory` provider-agnostic layer introduced in a prior release:
+
+  **Ledger scoping (`@alineo-labs/core`, `@alineo-labs/sandbox`, `@alineo-labs/sqlite`,
+  `@alineo-labs/postgres`)** — `SandboxOptions.resourceId` threads a durable resource identity
+  through the ledger's existing `sandbox_created` payload, the same additive mechanism `runId`
+  already used (no schema migration). `resume()`, `restoreSnapshot()`, and `sb.fork()` inherit it
+  automatically. `sb.fork()` also now records `parentSandboxId`, letting episodic memory walk a
+  fork's ancestry. Both fields are optional and exposed on `SandboxDetails`/`ListSandboxOptions`.
+
+  **Real persistence backends** — two new packages, `@alineo-labs/sqlite-memory` (file-based, via
+  `bun:sqlite`, zero infrastructure) and `@alineo-labs/postgres-memory` (shared, multi-process,
+  with row-level-security team isolation), each implementing `IWorkingMemoryProvider` and the
+  new `IPrunableSemanticMemoryProvider` capability. Both rank semantic recall with an in-JS
+  cosine scan (no vector index); the Postgres package's `vector` column is a plain array today,
+  documented with the `pgvector` upgrade path.
+
+  **Compaction** — `compactSemanticMemory()` (and `Memory.compactSemanticMemory()`) prunes old or
+  excess facts via the new optional `IPrunableSemanticMemoryProvider` capability
+  (`listAll`/`forget`, keyed by a stable per-fact `id`), supported by all three semantic
+  providers now shipping (in-memory, SQLite, Postgres).
+
+  **Lifecycle binding** — `createMemoryLifecycleHooks(memory, ref)` returns a composable
+  `SandboxHooks` object that records the most recent checkpoint and active session into working
+  memory, using `@alineo-labs/core`'s existing hooks extension point rather than any change to
+  sandbox lifecycle internals.
+
+  **Episodic memory** — `episodicRecall()`'s default session resolver now matches on
+  `resourceId` directly (falling back to the old name-matching convention for pre-existing
+  ledger data), and gains a `branch: "lineage"` option that walks `parentSandboxId` ancestry.
+
+  **Agent wiring (`alineo`)** — `Alineo.load()`/`.resume()`/`.attach()` accept an optional
+  `memory: Memory`; `.spawn()` carries it over to the child automatically. `agent.resourceRef`
+  defaults to `{ resourceId: agent.name }`, matching `episodicRecall()`'s own naming convention.
+
+  **Embeddings (`@alineo-labs/model-providers`, unpublished/private)** — `createNvidiaEmbeddingProvider()`
+  wraps NVIDIA NIM's embeddings endpoint, duck-typed to `EmbeddingProvider`'s shape with no
+  dependency on `@alineo-labs/memory`.
+
+### Patch Changes
+
+- 84b7862: Internal: enabled Oxlint's type-aware linting repo-wide and fixed every finding it surfaced
+  (681 → 0). Almost entirely non-behavioral (removing unnecessary type assertions, replacing
+  non-null assertions with real invariant checks, fixing tsconfig gaps that were masking latent
+  type errors) — flagged the couple of exceptions below since they do change observable behavior.
+
+  - `alineo-cli`'s Pi bootstrap extension (`pi-extension/alineo.ts`) no longer replaces an
+    empty-but-present `stderr` string with a generic fallback message in its install/init failure
+    notifications — only a genuinely missing `stderr` falls back now.
+  - `@alineo-labs/core`'s `SandboxCore` gained a couple of small correctness fixes surfaced along the
+    way: `bun:sqlite`'s deprecated `exec()` alias replaced with `run()`, and a `finally`-block cleanup
+    path in a test that could previously mask a real assertion failure with an unrelated error now
+    logs instead of throwing.
+  - `packages/cli/src/tui/chat.ts`'s `AgentEvent` switch now lists all 14 previously-implicit
+    "ignored" event kinds explicitly instead of a bare `default`, so a future new event kind fails
+    exhaustiveness and forces a conscious decision, rather than silently landing in "ignored".
+
+  No public API changes. Full `typecheck`/`test`/`build` suite passes for every package.
+
+- Updated dependencies [f987d00]
+- Updated dependencies [223390e]
+- Updated dependencies [84b7862]
+  - @alineo-labs/vault@0.2.0
+  - @alineo-labs/core@0.3.0
+  - @alineo-labs/opensandbox@0.2.0
+
 ## 0.2.0
 
 ### Minor Changes

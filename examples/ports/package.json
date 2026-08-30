@@ -1,6 +1,6 @@
 {
   "name": "alineo-example-ports",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "private": true,
   "scripts": {
     "start": "bun index.ts"
