@@ -45,7 +45,7 @@ function nvidiaEmbeddings(): EmbeddingProvider {
         },
         body: JSON.stringify({
           input: texts,
-          model: "nvidia/nv-embedqa-e5-v5",
+          model: "nvidia/nemotron-3-embed-1b",
           input_type: opts?.type ?? "query",
         }),
       });
