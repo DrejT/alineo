@@ -1,6 +1,6 @@
-# @alineo-labs/agent-browser
+# @alineo-labs/model-providers
 
-## 0.1.3
+## 0.1.1
 
 ### Patch Changes
 
@@ -21,28 +21,3 @@
     exhaustiveness and forces a conscious decision, rather than silently landing in "ignored".
 
   No public API changes. Full `typecheck`/`test`/`build` suite passes for every package.
-
-- Updated dependencies [f987d00]
-- Updated dependencies [223390e]
-- Updated dependencies [84b7862]
-  - @alineo-labs/core@0.3.0
-
-## 0.1.2
-
-### Patch Changes
-
-- Updated dependencies [d628de4]
-  - @alineo-labs/core@0.2.0
-
-## 0.1.1
-
-### Patch Changes
-
-- Updated dependencies [a9564e1]
-- Updated dependencies [b03ae19]
-- Updated dependencies [7acdf32]
-- Updated dependencies [bd95393]
-- Updated dependencies [2a61e0c]
-- Updated dependencies [637b678]
-- Updated dependencies [acc51e3]
-  - @alineo-labs/core@1.0.0
