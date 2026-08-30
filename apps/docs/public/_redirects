@@ -24,10 +24,14 @@
 /docs/core/0.1/*      /docs/core/0.1/:splat        200
 /docs/core/0.2          /docs/core/0.2               200
 /docs/core/0.2/*      /docs/core/0.2/:splat        200
+/docs/core/0.3          /docs/core/0.3               200
+/docs/core/0.3/*      /docs/core/0.3/:splat        200
 /docs/alineo/0.1          /docs/alineo/0.1               200
 /docs/alineo/0.1/*      /docs/alineo/0.1/:splat        200
 /docs/alineo/0.2          /docs/alineo/0.2               200
 /docs/alineo/0.2/*      /docs/alineo/0.2/:splat        200
+/docs/alineo/0.3          /docs/alineo/0.3               200
+/docs/alineo/0.3/*      /docs/alineo/0.3/:splat        200
 
 # Legacy "vX.Y"-prefixed URLs — every version folder was named e.g. "v0.1" and the
 # URL matched it exactly (/docs/core/v0.1/...) until the "v" was dropped from the
@@ -43,10 +47,10 @@
 /docs/alineo/v0.1              /docs/alineo/0.1               301
 /docs/alineo/v0.1/*             /docs/alineo/0.1/:splat        301
 
-/docs/core             /docs/core/0.2               301
-/docs/core/*            /docs/core/0.2/:splat        301
-/docs/alineo             /docs/alineo/0.2               301
-/docs/alineo/*            /docs/alineo/0.2/:splat        301
+/docs/core             /docs/core/0.3               301
+/docs/core/*            /docs/core/0.3/:splat        301
+/docs/alineo             /docs/alineo/0.3               301
+/docs/alineo/*            /docs/alineo/0.3/:splat        301
 
 # Handled here rather than left to src/app/page.tsx's redirect() call: static export
 # can't perform a real server redirect for "/", so Next instead bakes the page as an
@@ -55,4 +59,4 @@
 # or crawler sees the 404 shell as the actual response) and, before this rule existed,
 # actively broken (that client-side nav re-entered the rules above and got
 # double-prefixed into /docs/core/0.1/0.1). An edge-level 301 sidesteps all of it.
-/                      /docs/core/0.2               301
+/                      /docs/core/0.3               301

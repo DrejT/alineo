@@ -1,8 +1,10 @@
 import {
   coreV01Docs,
   coreV02Docs,
+  coreV03Docs,
   alineoV01Docs,
   alineoV02Docs,
+  alineoV03Docs,
   workflowDocs,
   agentDocs,
   examplesDocs,
@@ -20,15 +22,17 @@ import { loader } from "fumadocs-core/source";
 export const coreVersions = {
   "0.1": loader({ baseUrl: "/docs/core/0.1", source: coreV01Docs.toFumadocsSource() }),
   "0.2": loader({ baseUrl: "/docs/core/0.2", source: coreV02Docs.toFumadocsSource() }),
+  "0.3": loader({ baseUrl: "/docs/core/0.3", source: coreV03Docs.toFumadocsSource() }),
 } as const;
-export const coreLatestVersion: keyof typeof coreVersions = "0.2";
+export const coreLatestVersion: keyof typeof coreVersions = "0.3";
 export const coreSource = coreVersions[coreLatestVersion];
 
 export const alineoVersions = {
   "0.1": loader({ baseUrl: "/docs/alineo/0.1", source: alineoV01Docs.toFumadocsSource() }),
   "0.2": loader({ baseUrl: "/docs/alineo/0.2", source: alineoV02Docs.toFumadocsSource() }),
+  "0.3": loader({ baseUrl: "/docs/alineo/0.3", source: alineoV03Docs.toFumadocsSource() }),
 } as const;
-export const alineoLatestVersion: keyof typeof alineoVersions = "0.2";
+export const alineoLatestVersion: keyof typeof alineoVersions = "0.3";
 export const alineoSource = alineoVersions[alineoLatestVersion];
 // AUTO-GENERATED-VERSIONED-DOCS:END
 

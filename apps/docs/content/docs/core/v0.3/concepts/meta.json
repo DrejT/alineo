@@ -1,0 +1,13 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "workflows",
+    "sandboxes",
+    "environments",
+    "steps",
+    "refs-and-state",
+    "event-stream",
+    "storage-adapters",
+    "credentials"
+  ]
+}

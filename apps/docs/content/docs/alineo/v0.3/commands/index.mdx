@@ -1,0 +1,93 @@
+---
+title: Commands
+description: All alineo commands and their options.
+---
+
+## SDK — OpenSandbox config and the local spec cache
+
+<Cards>
+  <Card
+    href="/docs/alineo/0.3/commands/init"
+    title="init"
+    description="Start a local OpenSandbox server via Docker."
+  />
+  <Card
+    href="/docs/alineo/0.3/commands/add"
+    title="add"
+    description="Fetch an agent spec from a URL or file and save it locally."
+  />
+  <Card
+    href="/docs/alineo/0.3/commands/list"
+    title="list"
+    description="List the agent specs saved in this project."
+  />
+  <Card
+    href="/docs/alineo/0.3/commands/remove"
+    title="remove"
+    description="Delete a saved agent spec file."
+  />
+  <Card
+    href="/docs/alineo/0.3/commands/telemetry"
+    title="telemetry"
+    description="Show, enable, or disable anonymous CLI usage telemetry."
+  />
+</Cards>
+
+## Alineo — session lifecycle
+
+These wrap `alineo`'s `Alineo.load()`/`Alineo.resume()`/`Alineo.attach()`/`Alineo.spawn()` directly. Sessions are usually addressed by **sandbox ID** — `prompt` and `kill` require it (see [alineo prompt](/docs/alineo/0.3/commands/prompt#why-sandbox-id-not-name) for why). `fork` and `logs` are addressed by session **name** instead — see their own pages for why. `spawn` starts a fresh session and takes a spec path, not an identifier.
+
+<Cards>
+  <Card
+    href="/docs/alineo/0.3/commands/spawn"
+    title="spawn"
+    description="Start a fresh, independent agent sandbox from a spec's own snapshot."
+  />
+  <Card
+    href="/docs/alineo/0.3/commands/prompt"
+    title="prompt"
+    description="Send one prompt to a running sandbox and print the reply."
+  />
+  <Card
+    href="/docs/alineo/0.3/commands/fork"
+    title="fork"
+    description="Fork a running session's own live sandbox into a new child agent."
+  />
+  <Card
+    href="/docs/alineo/0.3/commands/agents"
+    title="agents"
+    description="List running agent sessions, cross-checked against the live control plane."
+  />
+  <Card href="/docs/alineo/0.3/commands/kill" title="kill" description="Stop a sandbox by ID." />
+  <Card
+    href="/docs/alineo/0.3/commands/logs"
+    title="logs"
+    description="Print ledger events for a session."
+  />
+</Cards>
+
+## Recursive spawning (`alineo fork`)
+
+A spec's `spawnDepth` is a nesting-depth budget — required for `alineo fork` to be allowed from inside a session at all. Each fork force-decrements it (`current - 1`) into the child's env; `0` means no budget left, `undefined` means forking was never enabled for that spec.
+
+`maxAgents` is a separate, optional ceiling on total descendants for one lineage, independent of nesting depth. Unset means uncapped. **Not** coordinated across sibling branches spawned in parallel — it's a per-lineage counter, not a global one.
+
+```json
+{
+  "name": "orchestrator",
+  "cli": "pi",
+  "spawnDepth": 2,
+  "maxAgents": 10
+}
+```
+
+See [alineo fork](/docs/alineo/0.3/commands/fork) for the full mechanics.
+
+## Pi extension
+
+`pi install npm:alineo-cli` installs the alineo extension into [Pi](https://pi.ai) at user scope. Once installed, any Pi session:
+
+- Bootstraps `alineo` automatically on first use (installs it, runs `alineo init`) — no manual setup.
+- Gets `alineo spawn`/`alineo fork` CLI syntax injected into its own guidance, dynamically chosen based on whether the current session is itself running inside a alineo-managed sandbox.
+
+The extension source lives at `pi-extension/alineo.ts` in the `alineo` npm package.

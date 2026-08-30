@@ -15,8 +15,10 @@ const docs = { postprocess: { includeProcessedMarkdown: true } };
 // AUTO-GENERATED-VERSIONED-DOCS:START
 export const coreV01Docs = defineDocs({ dir: "content/docs/core/v0.1", docs });
 export const coreV02Docs = defineDocs({ dir: "content/docs/core/v0.2", docs });
+export const coreV03Docs = defineDocs({ dir: "content/docs/core/v0.3", docs });
 export const alineoV01Docs = defineDocs({ dir: "content/docs/alineo/v0.1", docs });
 export const alineoV02Docs = defineDocs({ dir: "content/docs/alineo/v0.2", docs });
+export const alineoV03Docs = defineDocs({ dir: "content/docs/alineo/v0.3", docs });
 // AUTO-GENERATED-VERSIONED-DOCS:END
 
 export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });

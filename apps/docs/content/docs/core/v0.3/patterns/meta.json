@@ -1,0 +1,12 @@
+{
+  "title": "Patterns",
+  "pages": [
+    "timeouts-and-cancellation",
+    "error-handling",
+    "run-management",
+    "named-checkpoints",
+    "fork",
+    "observability",
+    "flue"
+  ]
+}

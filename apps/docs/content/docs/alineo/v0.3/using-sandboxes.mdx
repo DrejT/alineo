@@ -1,0 +1,87 @@
+---
+title: Running an agent spec
+description: Load an agent spec saved by alineo add with Alineo.load() — alineo add itself never creates a sandbox.
+---
+
+`alineo add` only fetches and saves an `AgentSpec` JSON file — it never creates a sandbox, runs setup, or checkpoints anything. To actually run the agent programmatically, load the spec with [`alineo`](/docs/agent)'s `Alineo.load()`, as shown below. If you just want to run it from the shell without writing TypeScript, use [`alineo spawn`](/docs/alineo/0.3/commands/spawn) instead — it wraps the same `Alineo.load()` call.
+
+## Setup
+
+```bash
+bun add alineo @alineo-labs/sqlite
+```
+
+## Loading and prompting
+
+```ts
+import { Alineo, textOnly } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+const agent = await Alineo.load("agents/node-toolchain.json", { adapter });
+
+for await (const chunk of textOnly(agent.prompt("What Node version is installed?"))) {
+  process.stdout.write(chunk);
+}
+
+await agent.close();
+```
+
+`Alineo.load()` reads `alineo.config.json` itself — the same file `alineo init` writes — for the OpenSandbox server URL, `useServerProxy`, and default resource limits. You don't construct a `Sandbox` client or pass connection details by hand — the one thing you still construct yourself is the storage adapter (`opts.adapter`), since `alineo` doesn't depend on any specific one (`SQLiteAdapter` for local dev, `PostgresAdapter` for production).
+
+## What happens on load
+
+- **First load for a spec**: spins up a `node:22` sandbox, installs the Pi CLI and any `setup` steps from the spec, then checkpoints the sandbox. This is the slow path.
+- **Subsequent loads**: restore from that checkpoint, skipping the install entirely — much faster. The snapshot is keyed on a hash of `cli`, `cliVersion`, `packages`, and `setup`, so changing any of those forces a fresh install on the next load.
+- Pass `{ rebuild: true }` to force a full reinstall regardless of the cache: `Alineo.load(specPath, { adapter, rebuild: true })`.
+
+See [Snapshotting](/docs/agent/getting-started/snapshotting) for the full details.
+
+## Accessing the underlying sandbox
+
+`agent.sandbox` is the live `SandboxHandle` from `@alineo-labs/core` — use it for anything not covered by the `Alineo` API, like reading files or exposing a port:
+
+```ts
+const agent = await Alineo.load("agents/web-service.json", { adapter });
+
+await agent.sandbox.exec("node server.js &");
+const { url, headers } = await agent.sandbox.proxy(3000);
+const res = await fetch(`${url}/health`, { headers });
+console.log(await res.text());
+
+await agent.close();
+```
+
+## Multiple agents
+
+Each `Alineo.load()` call for the same spec restores an independent sandbox from the same checkpoint — running one doesn't affect another:
+
+```ts
+const [a1, a2] = await Promise.all([
+  Alineo.load("agents/reviewer.json", { adapter }),
+  Alineo.load("agents/reviewer.json", { adapter }),
+]);
+
+await Promise.all([
+  (async () => {
+    for await (const chunk of textOnly(a1.prompt("Review src/a.ts"))) process.stdout.write(chunk);
+  })(),
+  (async () => {
+    for await (const chunk of textOnly(a2.prompt("Review src/b.ts"))) process.stdout.write(chunk);
+  })(),
+]);
+
+await Promise.all([a1.close(), a2.close()]);
+```
+
+## Lifecycle
+
+- `Alineo.load()` creates a sandbox (or resumes one). It costs resources until `agent.close()` is called.
+- Always call `agent.close()` when done — use `try/finally` to ensure it runs on error.
+- The checkpoint from the first load is preserved. You can `Alineo.load()` the same spec as many times as needed without repeating setup.
+
+## See also
+
+- [alineo overview](/docs/agent) — the full `Alineo` API: prompting, streaming, sessions, snapshotting
+- [alineo core SDK — exec](/docs/core/building/exec)
+- [alineo core SDK — file operations](/docs/core/building/file-ops)
