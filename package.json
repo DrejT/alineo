@@ -37,6 +37,7 @@
     "lint:fix": "oxlint --fix packages examples cookbooks",
     "format": "oxfmt packages examples cookbooks apps \"!**/CHANGELOG.md\"",
     "format:check": "oxfmt --check packages examples cookbooks apps \"!**/CHANGELOG.md\"",
+    "release:version": "bun changeset version && bun apps/docs/scripts/cut-doc-version.ts",
     "release:publish": "bun scripts/resolve-workspace-protocol.ts && bun changeset publish"
   },
   "devDependencies": {
