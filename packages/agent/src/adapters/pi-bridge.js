@@ -19,7 +19,12 @@ function loadEnv() {
 }
 
 // Build the pi CLI args from /etc/alineo-pi.json (model/provider config, written by the host).
-// Supports: provider, model, resume (--continue to resume the most recent session).
+// Supports: provider, model, resume (--continue to resume the most recent session),
+// permissions (loads the alineo permission-gate extension by explicit path).
+// `POLICY_ACTIVE` gates the permission-request routing below and is set here, before Pi
+// is ever spawned, so there is no window where Pi could emit a gate dialog first.
+var POLICY_ACTIVE = false;
+var PERMISSION_GATE_PATH = "/alineo-permission-gate.js";
 function buildPiArgs() {
   var args = ["--mode", "rpc", "--approve"];
   try {
@@ -28,6 +33,10 @@ function buildPiArgs() {
       if (cfg.provider) args.push("--provider", cfg.provider);
       if (cfg.model) args.push("--model", cfg.model);
       if (cfg.resume) args.push("--continue");
+      if (cfg.permissions && fs.existsSync(PERMISSION_GATE_PATH)) {
+        POLICY_ACTIVE = true;
+        args.push("-e", PERMISSION_GATE_PATH);
+      }
     }
   } catch {}
   return args;
@@ -70,7 +79,68 @@ var state = {
   queue: [], // pending items: { message, streamingBehavior?, res, text, t0 }
   gen: 0, // incremented on every (re)start; guards against stale async callbacks
   pendingCmds: {}, // id → { res, timer, bash? } — commands waiting for Pi's response ack
+  pendingPermissions: {}, // pi extension_ui_request id → { tool, target, title, timer }
+  permissionChannel: null, // { res } — long-lived SSE sink for permission_request when no prompt is active
 };
+
+// Permission-gate dialogs whose title starts with this marker are held + routed to the host
+// instead of auto-cancelled. Must match adapters/pi-permission-gate.js's MARKER.
+var PERM_MARKER = "ALINEO_PERM ";
+var PERMISSION_TIMEOUT_MS = 300000; // 5 min, matches Cline's desktop auto-deny
+
+// Push a permission event onto whichever SSE sink is live (the active prompt, else the
+// dedicated /permission-stream channel).
+function permissionSink() {
+  return state.active || state.permissionChannel;
+}
+function emitPermission(obj) {
+  var chan = permissionSink();
+  if (chan) {
+    try {
+      chan.res.write("data: " + JSON.stringify(obj) + "\n\n");
+    } catch {}
+  }
+}
+
+// Answer a held Pi extension_ui_request. `value` is a JSON string the gate parses;
+// omit it (pass null) to send { cancelled: true } instead.
+function answerPermission(id, value) {
+  if (value === null) rpc({ type: "extension_ui_response", id: id, cancelled: true });
+  else rpc({ type: "extension_ui_response", id: id, value: value });
+}
+
+// Auto-resolve every OTHER pending permission for the same tool — opencode's "one decision
+// clears the batch" for an "always" (allow) or "reject" (deny) verdict.
+function resolveMatchingPending(exceptId, tool, verdict) {
+  Object.keys(state.pendingPermissions).forEach(function (pid) {
+    if (pid === exceptId) return;
+    var p = state.pendingPermissions[pid];
+    if (p.tool !== tool) return;
+    clearTimeout(p.timer);
+    delete state.pendingPermissions[pid];
+    answerPermission(
+      pid,
+      verdict === "allow"
+        ? JSON.stringify({ verdict: "allow", scope: "once" })
+        : JSON.stringify({ verdict: "reject" }),
+    );
+    emitPermission({
+      type: "permission_resolved",
+      requestId: pid,
+      decision: verdict === "allow" ? { kind: "once" } : { kind: "reject" },
+    });
+  });
+}
+
+// Fail every held permission request (pi restart, abort, exit).
+function cancelPendingPermissions() {
+  Object.keys(state.pendingPermissions).forEach(function (pid) {
+    var p = state.pendingPermissions[pid];
+    clearTimeout(p.timer);
+    answerPermission(pid, null);
+  });
+  state.pendingPermissions = {};
+}
 
 // Fail all in-flight pendingCmds cleanly, handling bash (SSE) vs regular (JSON) responses.
 function cleanupPendingCmds(reason) {
@@ -99,6 +169,7 @@ function startPi() {
     state.active = null;
   }
   cleanupPendingCmds("pi restarted");
+  cancelPendingPermissions();
 
   if (state.rl) {
     try {
@@ -141,6 +212,7 @@ function startPi() {
     state.proc = null;
     state.ready = false;
     cleanupPendingCmds("pi exited");
+    cancelPendingPermissions();
     if (state.active) {
       stopHeartbeat(state.active.heartbeat);
       state.active.res.write("data: " + JSON.stringify({ error: "pi exited" }) + "\n\n");
@@ -285,6 +357,46 @@ function handleLine(line) {
   // We auto-cancel them immediately so Pi never stalls — even when there is no active prompt.
   // Fire-and-forget methods need no response; we just forward them.
   if (ev.type === "extension_ui_request") {
+    // alineo permission-gate dialog: title is `ALINEO_PERM {json}`. Hold it open, route it
+    // to the host as a permission_request, and wait for POST /permission-response.
+    if (
+      POLICY_ACTIVE &&
+      ev.method === "select" &&
+      ev.id &&
+      typeof ev.title === "string" &&
+      ev.title.indexOf(PERM_MARKER) === 0
+    ) {
+      var meta = {};
+      try {
+        meta = JSON.parse(ev.title.slice(PERM_MARKER.length));
+      } catch {}
+      var entry = {
+        tool: meta.tool || "unknown",
+        target: meta.target || "",
+        title: meta.title || "Approve tool call",
+      };
+      entry.timer = setTimeout(function () {
+        if (state.pendingPermissions[ev.id]) {
+          delete state.pendingPermissions[ev.id];
+          answerPermission(ev.id, null);
+          emitPermission({
+            type: "permission_resolved",
+            requestId: ev.id,
+            decision: { kind: "reject" },
+          });
+        }
+      }, PERMISSION_TIMEOUT_MS);
+      state.pendingPermissions[ev.id] = entry;
+      emitPermission({
+        type: "permission_request",
+        requestId: ev.id,
+        tool: entry.tool,
+        target: entry.target,
+        title: entry.title,
+      });
+      return;
+    }
+
     var DIALOG_METHODS = ["select", "confirm", "input", "editor"];
     var isDialog = DIALOG_METHODS.indexOf(ev.method) !== -1;
     var uiParams = {};
@@ -534,6 +646,29 @@ http
         res.end(logBuf.join("\n"));
         return;
       }
+      if (req.url === "/permission-stream") {
+        // Long-lived SSE sink so permission_request events surface even when no prompt()
+        // stream is open. One at a time — a new subscriber replaces the old.
+        if (state.permissionChannel) {
+          try {
+            state.permissionChannel.res.end();
+          } catch {}
+        }
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        });
+        var pHeartbeat = startHeartbeat(res);
+        state.permissionChannel = { res: res };
+        req.on("close", function () {
+          stopHeartbeat(pHeartbeat);
+          if (state.permissionChannel && state.permissionChannel.res === res) {
+            state.permissionChannel = null;
+          }
+        });
+        return;
+      }
       if (req.url === "/messages") {
         rpcWithAck({ id: "gm" + Date.now(), type: "get_messages" }, res);
         return;
@@ -617,6 +752,9 @@ http
 
         case "/abort":
           // End the active SSE stream immediately, drain the queue, then wait for Pi's ack.
+          // A held permission request would leave Pi's tool_call hook awaiting forever —
+          // reject each so the abort can actually unwind.
+          cancelPendingPermissions();
           state.queue.length = 0;
           if (state.active) {
             stopHeartbeat(state.active.heartbeat);
@@ -630,6 +768,36 @@ http
         case "/steer":
           rpcWithAck({ id: "s" + Date.now(), type: "steer", message: data.message || "" }, res);
           return;
+
+        case "/permission-response": {
+          var pp = state.pendingPermissions[data.requestId];
+          if (!pp) {
+            respond(res, 404, { ok: false, error: "no such pending permission" });
+            return;
+          }
+          clearTimeout(pp.timer);
+          delete state.pendingPermissions[data.requestId];
+          var decision = data.decision || {};
+          if (decision.kind === "once") {
+            answerPermission(data.requestId, JSON.stringify({ verdict: "allow", scope: "once" }));
+          } else if (decision.kind === "always") {
+            answerPermission(data.requestId, JSON.stringify({ verdict: "allow", scope: "always" }));
+            resolveMatchingPending(data.requestId, pp.tool, "allow");
+          } else {
+            answerPermission(
+              data.requestId,
+              JSON.stringify({ verdict: "reject", feedback: decision.feedback || "" }),
+            );
+            resolveMatchingPending(data.requestId, pp.tool, "reject");
+          }
+          emitPermission({
+            type: "permission_resolved",
+            requestId: data.requestId,
+            decision: decision,
+          });
+          respond(res, 200, { ok: true });
+          return;
+        }
 
         case "/follow-up":
           rpcWithAck(

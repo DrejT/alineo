@@ -8,6 +8,11 @@
  * - `extension_ui` — a Pi extension requested UI interaction; dialog requests are
  *   auto-cancelled by the bridge so Pi never stalls, but the event is forwarded so
  *   callers can observe what was requested
+ * - `permission_request` — the permission gate paused a tool call for human approval
+ *   (only when `AgentSpec.permissions` is set to something other than `"auto"`); resolve
+ *   it with `agent.resolvePermission(requestId, decision)`
+ * - `permission_resolved` — a `permission_request` was answered (by a caller, a batched
+ *   "always"/"reject" decision, or the timeout)
  * - `auto_retry_start` — Pi is about to retry after a transient error (429, 5xx)
  * - `auto_retry_end` — Pi's retry sequence completed (success or exhausted)
  * - `agent_start` — Pi began processing the prompt
@@ -34,6 +39,22 @@ export type AgentEvent =
       params: unknown;
       isDialog: boolean;
       requestId?: string;
+    }
+  | {
+      type: "permission_request";
+      /** Pass to `agent.resolvePermission()`. */
+      requestId: string;
+      /** The tool Pi is about to run, e.g. `"bash"`. */
+      tool: string;
+      /** Tool-specific target: the command for `bash`, the path for file tools. */
+      target: string;
+      /** Human-readable one-line summary for a prompt. */
+      title: string;
+    }
+  | {
+      type: "permission_resolved";
+      requestId: string;
+      decision: PermissionDecision;
     }
   | {
       type: "auto_retry_start";
@@ -66,6 +87,19 @@ export type AgentEvent =
       willRetry: boolean;
     }
   | { type: "extension_error"; extensionPath: string; event: string; error: string };
+
+/**
+ * A human's answer to a `permission_request`, passed to `agent.resolvePermission()`.
+ * - `once` — allow this one call
+ * - `always` — allow this call and auto-allow every other still-pending request for the
+ *   same tool (opencode's batch-clear); does not persist past the session
+ * - `reject` — block the call; `feedback` (if given) becomes the reason the model reads,
+ *   and every other still-pending request for the same tool is rejected too
+ */
+export type PermissionDecision =
+  | { kind: "once" }
+  | { kind: "always" }
+  | { kind: "reject"; feedback?: string };
 
 /**
  * Async iterable of structured agent events. Returned by `Alineo.prompt()` and `Alineo.bash()`.

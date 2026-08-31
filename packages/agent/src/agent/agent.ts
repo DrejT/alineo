@@ -6,6 +6,7 @@ import type { AgentSnapshotRecord } from "../snapshots";
 import type {
   AgentStream,
   CompactResult,
+  PermissionDecision,
   PiMessage,
   PiModel,
   PiSessionState,
@@ -343,6 +344,23 @@ export class Alineo {
   /** Abort Pi's current operation. */
   async abort(): Promise<void> {
     return sessionControl.abort(this);
+  }
+
+  /**
+   * Resolve a pending `permission_request` from the agent stream — emitted for each gated
+   * tool call when `AgentSpec.permissions` is set to something other than `"auto"`.
+   *
+   * @example
+   * ```ts
+   * for await (const ev of agent.prompt("Refactor auth")) {
+   *   if (ev.type === "permission_request") {
+   *     await agent.resolvePermission(ev.requestId, { kind: "once" });
+   *   }
+   * }
+   * ```
+   */
+  async resolvePermission(requestId: string, decision: PermissionDecision): Promise<void> {
+    return sessionControl.resolvePermission(this, requestId, decision);
   }
 
   /** Queue a message to be sent to Pi after it finishes its current task. */

@@ -1,4 +1,4 @@
-import type { AgentStream } from "../types";
+import type { AgentStream, PermissionDecision } from "../types";
 import type { AgentInternal } from "./internal";
 
 /** Send a prompt to Pi and stream the response. Pi manages its own session context. */
@@ -27,6 +27,18 @@ export async function steer(a: AgentInternal, message: string): Promise<void> {
 /** Abort Pi's current operation. */
 export async function abort(a: AgentInternal): Promise<void> {
   return a.adapter.abort();
+}
+
+/**
+ * Resolve a pending `permission_request` emitted by the permission gate. `decision` is
+ * `{ kind: "once" }`, `{ kind: "always" }`, or `{ kind: "reject", feedback? }`.
+ */
+export async function resolvePermission(
+  a: AgentInternal,
+  requestId: string,
+  decision: PermissionDecision,
+): Promise<void> {
+  return a.adapter.resolvePermission(requestId, decision);
 }
 
 /** Queue a message to be sent to Pi after it finishes its current task. */

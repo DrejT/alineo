@@ -167,6 +167,47 @@ describe("validateAgentSpec", () => {
     expect(() => validateAgentSpec({ name: "x", cli: "pi", env: { PORT: 3000 } })).toThrow(/env/);
   });
 
+  it("accepts a permissions mode shorthand", () => {
+    expect(validateAgentSpec({ name: "x", cli: "pi", permissions: "readonly" }).permissions).toBe(
+      "readonly",
+    );
+    expect(validateAgentSpec({ name: "x", cli: "pi", permissions: "ask" }).permissions).toBe("ask");
+  });
+
+  it("accepts a full permissions policy", () => {
+    const spec = validateAgentSpec({
+      name: "x",
+      cli: "pi",
+      permissions: {
+        default: "deny",
+        rules: [
+          { tool: "read", action: "allow" },
+          { tool: "bash", pattern: "git *", action: "ask" },
+          { tool: "bash", action: "rate_limit", limit: { count: 5, windowMs: 60000 } },
+        ],
+        disabledTools: ["powershell"],
+      },
+    });
+    expect(spec.permissions).toMatchObject({ default: "deny", disabledTools: ["powershell"] });
+  });
+
+  it("rejects an unknown permissions mode / action", () => {
+    expect(() => validateAgentSpec({ name: "x", cli: "pi", permissions: "yolo" })).toThrow(
+      /permissions/,
+    );
+    expect(() =>
+      validateAgentSpec({
+        name: "x",
+        cli: "pi",
+        permissions: { rules: [{ tool: "bash", action: "maybe" }] },
+      }),
+    ).toThrow(/permissions/);
+  });
+
+  it("leaves permissions undefined when omitted", () => {
+    expect(validateAgentSpec({ name: "x", cli: "pi" }).permissions).toBeUndefined();
+  });
+
   it("passes unknown top-level fields through untouched (forward-compat)", () => {
     const spec = validateAgentSpec({
       name: "x",

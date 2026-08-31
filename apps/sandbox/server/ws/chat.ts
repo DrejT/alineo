@@ -1,4 +1,4 @@
-import type { Alineo, AgentStream, ThinkingLevel } from "alineo";
+import type { Alineo, AgentStream, PermissionDecision, ThinkingLevel } from "alineo";
 import type { Server, ServerWebSocket } from "bun";
 import * as registry from "../registry";
 import type { WSData } from "./types";
@@ -8,6 +8,7 @@ type ChatCommand =
   | { type: "steer"; text: string }
   | { type: "followUp"; text: string }
   | { type: "abort" }
+  | { type: "resolvePermission"; requestId: string; decision: PermissionDecision }
   | { type: "newSession" }
   | { type: "setSessionName"; name: string }
   | { type: "clone" }
@@ -23,7 +24,10 @@ type ChatCommand =
   | { type: "setAutoRetry"; enabled: boolean }
   | { type: "abortRetry" };
 
-type DataCommand = Exclude<ChatCommand, { type: "prompt" | "steer" | "followUp" | "abort" }>;
+type DataCommand = Exclude<
+  ChatCommand,
+  { type: "prompt" | "steer" | "followUp" | "abort" | "resolvePermission" }
+>;
 
 /**
  * Dispatch a one-shot agent command that isn't part of the prompt stream. Commands whose
@@ -145,6 +149,8 @@ export function onMessage(
     void agent.followUp(cmd.text);
   } else if (cmd.type === "abort") {
     void agent.abort();
+  } else if (cmd.type === "resolvePermission") {
+    void agent.resolvePermission(cmd.requestId, cmd.decision);
   } else {
     void runCommand(ws, agent, cmd);
   }

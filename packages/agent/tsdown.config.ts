@@ -12,5 +12,5 @@ export default defineConfig({
   // adapters/pi.ts) rather than bundled as a string — copy it alongside index.mjs
   // so that resolution works identically in dev (src/adapters/) and in the
   // published package (dist/).
-  copy: ["src/adapters/pi-bridge.js"],
+  copy: ["src/adapters/pi-bridge.js", "src/adapters/pi-permission-gate.js"],
 });
