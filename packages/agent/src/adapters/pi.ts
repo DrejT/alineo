@@ -4,7 +4,7 @@ import type { SandboxHandle, CredentialBinding, CredentialSource } from "@alineo
 import { PromptTimeoutError } from "../errors";
 import { normalizePermissions } from "../permissions";
 import type { AgentSpec, CredentialEnvBinding } from "../schema";
-import type { PermissionDecision } from "../types";
+import type { PendingPermission, PermissionDecision } from "../types";
 import type {
   AgentEvent,
   AgentStream,
@@ -273,6 +273,15 @@ export class PiAdapter {
   /** Resolve a pending `permission_request` (see `AgentEvent`'s `permission_request`). */
   async resolvePermission(requestId: string, decision: PermissionDecision): Promise<void> {
     await rpcPost(this.bridgeUrl, "/permission-response", { requestId, decision });
+  }
+
+  /** Tool calls currently paused awaiting a human decision. */
+  async listPendingPermissions(): Promise<PendingPermission[]> {
+    const r = await rpcGet<{ pending: PendingPermission[] }>(
+      this.bridgeUrl,
+      "/pending-permissions",
+    );
+    return r.pending;
   }
 
   async followUp(message: string): Promise<void> {

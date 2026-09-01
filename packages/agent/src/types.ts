@@ -101,6 +101,24 @@ export type PermissionDecision =
   | { kind: "always" }
   | { kind: "reject"; feedback?: string };
 
+/** The payload of a `permission_request`, as handed to a `prompt()` `onPermission` handler. */
+export interface PermissionRequest {
+  requestId: string;
+  tool: string;
+  target: string;
+  title: string;
+}
+
+/** One entry from `agent.listPendingPermissions()` — a tool call paused awaiting a decision. */
+export interface PendingPermission {
+  requestId: string;
+  tool: string;
+  target: string;
+  title: string;
+  /** Unix ms when the gate raised this request. */
+  since: number;
+}
+
 /**
  * Async iterable of structured agent events. Returned by `Alineo.prompt()` and `Alineo.bash()`.
  *

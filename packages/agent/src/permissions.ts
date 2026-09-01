@@ -25,8 +25,13 @@ export type PermissionMode = "auto" | "ask" | "readonly";
  * - `ask` — pause, surface a `permission_request`, wait for a human decision
  * - `deny` — refuse, with a reason the model reads and can adjust to
  * - `rate_limit` — allow up to `limit.count` matching calls per `limit.windowMs`, then deny
+ * - `classify` — best-effort read-vs-write triage of the call (today: `bash`/`powershell`
+ *   only, splitting on `&&`/`||`/`;`/`|`/newline and checking each sub-command against a
+ *   built-in safe-reader list). All sub-commands look read-only → `allow`; anything
+ *   unrecognised or a redirect/`sudo`/`rm` → falls through to `ask`. For any other tool,
+ *   `classify` is treated as `ask`.
  */
-export type PermissionAction = "allow" | "ask" | "deny" | "rate_limit";
+export type PermissionAction = "allow" | "ask" | "deny" | "rate_limit" | "classify";
 
 export interface PermissionRule {
   /** Tool name or glob (`*` = any run of chars, `?` = one), e.g. `"bash"`, `"write"`, `"*"`. */
@@ -49,10 +54,18 @@ export interface PermissionPolicy {
   /** Evaluated in order; the **last** matching rule wins (opencode semantics). */
   rules?: PermissionRule[];
   /**
-   * Tools the agent may never call. Enforced today as an unconditional `deny` with a clear
-   * reason (a stricter "hidden from the model entirely" mode is a later refinement).
+   * Tools the agent may never call. The gate strips these from the model's tool list at
+   * session start (via Pi's `setActiveTools`) so the model never attempts them, and also
+   * keeps an unconditional `deny` as a backstop for any tool registered after startup
+   * (SDK / MCP tools).
    */
   disabledTools?: string[];
+  /**
+   * If set, the ONLY tools the model may see — the gate calls Pi's `setActiveTools` with
+   * this list at session start. `"readonly"` mode expands to this (the read-only tools).
+   * Distinct from `disabledTools` (a denylist); this is an allowlist for the toolset.
+   */
+  restrictToTools?: string[];
 }
 
 /** The fully-defaulted shape written to `/etc/alineo-pi.json` and read by the gate. */
@@ -60,22 +73,113 @@ export interface NormalizedPermissionPolicy {
   default: PermissionAction;
   rules: PermissionRule[];
   disabledTools: string[];
+  /** Empty = no restriction. Non-empty = the exact set of tools the model may see. */
+  restrictToTools: string[];
 }
 
-/** Read-only built-in tools — auto-allowed under `"readonly"`. */
+/** Read-only built-in tools — auto-allowed (and the entire toolset) under `"readonly"`. */
 export const READ_ONLY_TOOLS = ["read", "grep", "find", "ls"] as const;
+
+/**
+ * First tokens that make a shell command a pure reader — used by the `"classify"` action
+ * and by the `bash` rule `"readonly"` installs. Deliberately conservative: an unrecognised
+ * command falls through to `ask`, never to `allow`.
+ */
+export const SAFE_BASH_COMMANDS = [
+  "ls",
+  "cat",
+  "head",
+  "tail",
+  "grep",
+  "rg",
+  "egrep",
+  "fgrep",
+  "zgrep",
+  "find",
+  "pwd",
+  "whoami",
+  "id",
+  "env",
+  "printenv",
+  "echo",
+  "printf",
+  "which",
+  "type",
+  "file",
+  "stat",
+  "wc",
+  "date",
+  "uname",
+  "hostname",
+  "df",
+  "du",
+  "tree",
+  "basename",
+  "dirname",
+  "realpath",
+  "readlink",
+  "true",
+  "false",
+  "cmp",
+  "diff",
+  "column",
+  "nl",
+  "less",
+  "more",
+  "tac",
+  "hexdump",
+  "xxd",
+  "od",
+  "strings",
+  "sha1sum",
+  "sha256sum",
+  "md5sum",
+  "cksum",
+] as const;
+
+/** `git <sub>` combinations that only read. */
+export const SAFE_GIT_SUBCOMMANDS = [
+  "status",
+  "log",
+  "diff",
+  "show",
+  "branch",
+  "remote",
+  "rev-parse",
+  "describe",
+  "blame",
+  "tag",
+  "config",
+  "ls-files",
+  "ls-tree",
+  "shortlog",
+  "reflog",
+  "cat-file",
+  "for-each-ref",
+  "whatchanged",
+  "rev-list",
+  "name-rev",
+  "symbolic-ref",
+  "count-objects",
+] as const;
 
 function expandMode(mode: PermissionMode): NormalizedPermissionPolicy | undefined {
   switch (mode) {
     case "auto":
       return undefined; // no gate loaded at all
     case "ask":
-      return { default: "ask", rules: [], disabledTools: [] };
+      return { default: "ask", rules: [], disabledTools: [], restrictToTools: [] };
     case "readonly":
       return {
         default: "ask",
-        rules: READ_ONLY_TOOLS.map((tool) => ({ tool, action: "allow" as const })),
+        rules: [
+          ...READ_ONLY_TOOLS.map((tool) => ({ tool, action: "allow" as const })),
+          // If a caller widens restrictToTools to re-admit bash, still triage each call
+          // rather than gating every one.
+          { tool: "bash", action: "classify" as const },
+        ],
         disabledTools: [],
+        restrictToTools: [...READ_ONLY_TOOLS],
       };
   }
 }
@@ -93,7 +197,47 @@ export function normalizePermissions(
     default: input.default ?? "ask",
     rules: input.rules ?? [],
     disabledTools: input.disabledTools ?? [],
+    restrictToTools: input.restrictToTools ?? [],
   };
+}
+
+/**
+ * Best-effort read-vs-write triage of a shell command. `true` = every sub-command is a
+ * recognised pure reader with no output redirection; `false` = something needs a human.
+ * Mirrored verbatim in `adapters/pi-permission-gate.js`.
+ */
+export function isReadOnlyBashCommand(command: string): boolean {
+  const segments = command
+    .split(/&&|\|\||[;\n|]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (segments.length === 0) return false;
+  return segments.every((seg) => {
+    // Any output redirection (but not `2>&1` / `>&2`) makes it a writer.
+    if (/(?<![0-9&])>>?/.test(seg.replace(/\d*>&\d*/g, ""))) return false;
+    // Strip leading `VAR=val` assignments and benign wrappers.
+    let tokens = seg.split(/\s+/).filter(Boolean);
+    while (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]))
+      tokens = tokens.slice(1);
+    while (
+      tokens.length > 1 &&
+      (tokens[0] === "env" ||
+        tokens[0] === "command" ||
+        tokens[0] === "nice" ||
+        tokens[0] === "stdbuf" ||
+        tokens[0] === "time")
+    ) {
+      tokens = tokens.slice(1);
+    }
+    if (tokens[0] === "timeout" && tokens.length > 2) tokens = tokens.slice(2);
+    const cmd = (tokens[0] ?? "").replace(/^.*\//, ""); // basename
+    if (!cmd) return false;
+    if ((SAFE_BASH_COMMANDS as readonly string[]).includes(cmd)) return true;
+    if (cmd === "git" && (SAFE_GIT_SUBCOMMANDS as readonly string[]).includes(tokens[1] ?? "")) {
+      return true;
+    }
+    return false;
+  });
 }
 
 /** Compile a rule glob to an anchored RegExp. `*` → `.*`, `?` → `.`, everything else literal. */
@@ -113,7 +257,8 @@ function ruleMatches(rule: PermissionRule, tool: string, target: string): boolea
 
 /**
  * Resolve a tool call to an action: the last matching rule's, or the policy default.
- * `disabledTools` short-circuits to `"deny"`.
+ * `disabledTools` short-circuits to `"deny"`. `"classify"` is resolved here to `"allow"`
+ * or `"ask"` (bash reader-triage; any other tool → `"ask"`).
  */
 export function evaluatePolicy(
   policy: NormalizedPermissionPolicy,
@@ -124,6 +269,11 @@ export function evaluatePolicy(
   let match: PermissionRule | undefined;
   for (const rule of policy.rules) {
     if (ruleMatches(rule, tool, target)) match = rule;
+  }
+  const action = match ? match.action : policy.default;
+  if (action === "classify") {
+    const resolved = tool === "bash" && isReadOnlyBashCommand(target) ? "allow" : "ask";
+    return { action: resolved, rule: match };
   }
   return match ? { action: match.action, rule: match } : { action: policy.default };
 }

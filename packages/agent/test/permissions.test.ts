@@ -1,5 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { normalizePermissions, evaluatePolicy, READ_ONLY_TOOLS } from "../src/permissions";
+import {
+  normalizePermissions,
+  evaluatePolicy,
+  isReadOnlyBashCommand,
+  READ_ONLY_TOOLS,
+} from "../src/permissions";
 
 describe("normalizePermissions", () => {
   it("returns undefined for unset or 'auto' (no gate)", () => {
@@ -8,14 +13,25 @@ describe("normalizePermissions", () => {
   });
 
   it("'ask' → default ask, no rules", () => {
-    expect(normalizePermissions("ask")).toEqual({ default: "ask", rules: [], disabledTools: [] });
+    expect(normalizePermissions("ask")).toEqual({
+      default: "ask",
+      rules: [],
+      disabledTools: [],
+      restrictToTools: [],
+    });
   });
 
-  it("'readonly' → ask by default, allow the read tools", () => {
+  it("'readonly' → ask by default, allow the read tools, classify bash, restrict the toolset", () => {
     const p = normalizePermissions("readonly");
     expect(p?.default).toBe("ask");
-    expect(p?.rules.map((r) => r.tool).sort()).toEqual([...READ_ONLY_TOOLS].sort());
-    expect(p?.rules.every((r) => r.action === "allow")).toBe(true);
+    expect(p?.restrictToTools.slice().sort()).toEqual([...READ_ONLY_TOOLS].sort());
+    expect(
+      p?.rules
+        .filter((r) => r.action === "allow")
+        .map((r) => r.tool)
+        .sort(),
+    ).toEqual([...READ_ONLY_TOOLS].sort());
+    expect(p?.rules.some((r) => r.tool === "bash" && r.action === "classify")).toBe(true);
   });
 
   it("fills defaults on a partial policy object", () => {
@@ -23,12 +39,22 @@ describe("normalizePermissions", () => {
       default: "ask",
       rules: [{ tool: "bash", action: "deny" }],
       disabledTools: [],
+      restrictToTools: [],
     });
   });
 
-  it("keeps an explicit default and disabledTools", () => {
-    const p = normalizePermissions({ default: "allow", disabledTools: ["bash"] });
-    expect(p).toEqual({ default: "allow", rules: [], disabledTools: ["bash"] });
+  it("keeps an explicit default, disabledTools, and restrictToTools", () => {
+    const p = normalizePermissions({
+      default: "allow",
+      disabledTools: ["bash"],
+      restrictToTools: ["read", "grep"],
+    });
+    expect(p).toEqual({
+      default: "allow",
+      rules: [],
+      disabledTools: ["bash"],
+      restrictToTools: ["read", "grep"],
+    });
   });
 });
 
@@ -37,6 +63,7 @@ describe("evaluatePolicy", () => {
     default: "ask" as const,
     rules: [],
     disabledTools: [],
+    restrictToTools: [],
     ...over,
   });
 
@@ -90,5 +117,42 @@ describe("evaluatePolicy", () => {
       limit: { count: 3, windowMs: 1000 },
     };
     expect(evaluatePolicy(P({ rules: [rule] }), "bash", "x").rule).toEqual(rule);
+  });
+
+  it("'classify' resolves to allow for a read-only bash command, ask otherwise", () => {
+    const p = P({ rules: [{ tool: "bash", action: "classify" }] });
+    expect(evaluatePolicy(p, "bash", "ls -la && cat README.md").action).toBe("allow");
+    expect(evaluatePolicy(p, "bash", "git status").action).toBe("allow");
+    expect(evaluatePolicy(p, "bash", "rm -rf build").action).toBe("ask");
+    expect(evaluatePolicy(p, "bash", "echo hi > out.txt").action).toBe("ask");
+  });
+
+  it("'classify' on a non-bash tool just asks", () => {
+    const p = P({ rules: [{ tool: "write", action: "classify" }] });
+    expect(evaluatePolicy(p, "write", "/tmp/x").action).toBe("ask");
+  });
+});
+
+describe("isReadOnlyBashCommand", () => {
+  it("recognises pure readers and pipelines of them", () => {
+    expect(isReadOnlyBashCommand("ls")).toBe(true);
+    expect(isReadOnlyBashCommand("cat a.txt | grep foo | wc -l")).toBe(true);
+    expect(isReadOnlyBashCommand("git log --oneline -5 && git diff")).toBe(true);
+    expect(isReadOnlyBashCommand("FOO=bar env")).toBe(true);
+    expect(isReadOnlyBashCommand("timeout 5 grep -r foo .")).toBe(true);
+  });
+
+  it("flags writers, redirects, unknowns", () => {
+    expect(isReadOnlyBashCommand("rm file")).toBe(false);
+    expect(isReadOnlyBashCommand("echo hi > f")).toBe(false);
+    expect(isReadOnlyBashCommand("cat a && npm install")).toBe(false);
+    expect(isReadOnlyBashCommand("git push")).toBe(false);
+    expect(isReadOnlyBashCommand("curl https://x.test")).toBe(false);
+    expect(isReadOnlyBashCommand("")).toBe(false);
+  });
+
+  it("allows benign stderr redirects", () => {
+    expect(isReadOnlyBashCommand("grep foo bar 2>/dev/null")).toBe(true);
+    expect(isReadOnlyBashCommand("ls 2>&1")).toBe(true);
   });
 });

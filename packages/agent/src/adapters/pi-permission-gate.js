@@ -3,22 +3,103 @@
  * `AgentSpec.permissions` is set to anything other than "auto".
  *
  * It reads the normalized policy from /etc/alineo-pi.json (written by
- * `packages/agent/src/adapters/pi.ts`'s `configure()`), and on every `tool_call` decides
- * allow / deny / rate-limit / ask. An "ask" call blocks on `ctx.ui.select()` with a
- * marker-prefixed title that `pi-bridge.js` recognizes, holds open, and forwards to the
- * host as a `permission_request` — resolved by a matching POST to `/permission-response`.
+ * `packages/agent/src/adapters/pi.ts`'s `configure()`), and:
+ *   - on `session_start`, applies `restrictToTools` / `disabledTools` via Pi's
+ *     `setActiveTools` so the model never sees a tool it may not use;
+ *   - on every `tool_call`, decides allow / deny / rate-limit / classify / ask. An "ask"
+ *     call blocks on `ctx.ui.select()` with a marker-prefixed title that `pi-bridge.js`
+ *     recognizes, holds open, and forwards to the host as a `permission_request` — resolved
+ *     by a matching POST to `/permission-response`.
  *
  * The matcher here mirrors `packages/agent/src/permissions.ts` (kept in sync by hand — a
  * jiti-loaded extension can't import from the published `alineo` package it sits beside;
- * same tradeoff pi-bridge.js already makes). `test/permissions.test.ts` covers the TS copy.
+ * same tradeoff pi-bridge.js already makes). `test/permissions.test.ts` covers the TS copy;
+ * `test/pi-permission-gate.test.ts` covers this one.
  */
 import { readFileSync } from "node:fs";
 
-const CONFIG_FILE = "/etc/alineo-pi.json";
+const CONFIG_FILE = process.env.ALINEO_PI_CONFIG || "/etc/alineo-pi.json";
 /** Title prefix pi-bridge.js keys on to route a select() dialog to the host instead of auto-cancelling. */
 const MARKER = "ALINEO_PERM ";
 
-/** @returns {{default: string, rules: Array, disabledTools: string[]} | null} */
+/** Mirror of `permissions.ts` SAFE_BASH_COMMANDS. */
+const SAFE_BASH_COMMANDS = new Set([
+  "ls",
+  "cat",
+  "head",
+  "tail",
+  "grep",
+  "rg",
+  "egrep",
+  "fgrep",
+  "zgrep",
+  "find",
+  "pwd",
+  "whoami",
+  "id",
+  "env",
+  "printenv",
+  "echo",
+  "printf",
+  "which",
+  "type",
+  "file",
+  "stat",
+  "wc",
+  "date",
+  "uname",
+  "hostname",
+  "df",
+  "du",
+  "tree",
+  "basename",
+  "dirname",
+  "realpath",
+  "readlink",
+  "true",
+  "false",
+  "cmp",
+  "diff",
+  "column",
+  "nl",
+  "less",
+  "more",
+  "tac",
+  "hexdump",
+  "xxd",
+  "od",
+  "strings",
+  "sha1sum",
+  "sha256sum",
+  "md5sum",
+  "cksum",
+]);
+const SAFE_GIT_SUBCOMMANDS = new Set([
+  "status",
+  "log",
+  "diff",
+  "show",
+  "branch",
+  "remote",
+  "rev-parse",
+  "describe",
+  "blame",
+  "tag",
+  "config",
+  "ls-files",
+  "ls-tree",
+  "shortlog",
+  "reflog",
+  "cat-file",
+  "for-each-ref",
+  "whatchanged",
+  "rev-list",
+  "name-rev",
+  "symbolic-ref",
+  "count-objects",
+]);
+
+/** @returns {{default: string, rules: Array, disabledTools: string[], restrictToTools: string[]} | null} */
 function loadPolicy() {
   try {
     const cfg = JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
@@ -28,10 +109,42 @@ function loadPolicy() {
       default: p.default || "ask",
       rules: Array.isArray(p.rules) ? p.rules : [],
       disabledTools: Array.isArray(p.disabledTools) ? p.disabledTools : [],
+      restrictToTools: Array.isArray(p.restrictToTools) ? p.restrictToTools : [],
     };
   } catch {
     return null;
   }
+}
+
+/** Mirror of `permissions.ts` isReadOnlyBashCommand. */
+function isReadOnlyBashCommand(command) {
+  const segments = String(command)
+    .split(/&&|\|\||[;\n|]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (segments.length === 0) return false;
+  return segments.every((seg) => {
+    if (/(?<![0-9&])>>?/.test(seg.replace(/\d*>&\d*/g, ""))) return false;
+    let tokens = seg.split(/\s+/).filter(Boolean);
+    while (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]))
+      tokens = tokens.slice(1);
+    while (
+      tokens.length > 1 &&
+      (tokens[0] === "env" ||
+        tokens[0] === "command" ||
+        tokens[0] === "nice" ||
+        tokens[0] === "stdbuf" ||
+        tokens[0] === "time")
+    ) {
+      tokens = tokens.slice(1);
+    }
+    if (tokens[0] === "timeout" && tokens.length > 2) tokens = tokens.slice(2);
+    const cmd = (tokens[0] || "").replace(/^.*\//, "");
+    if (!cmd) return false;
+    if (SAFE_BASH_COMMANDS.has(cmd)) return true;
+    if (cmd === "git" && SAFE_GIT_SUBCOMMANDS.has(tokens[1] || "")) return true;
+    return false;
+  });
 }
 
 /** Tool-specific target string, pulled from Pi's typed `event.input`. */
@@ -85,7 +198,11 @@ function evaluate(policy, toolName, target) {
   for (const rule of policy.rules) {
     if (ruleMatches(rule, toolName, target)) match = rule;
   }
-  return match ? { action: match.action, rule: match } : { action: policy.default };
+  let action = match ? match.action : policy.default;
+  if (action === "classify") {
+    action = toolName === "bash" && isReadOnlyBashCommand(target) ? "allow" : "ask";
+  }
+  return { action, rule: match };
 }
 
 /** Rolling-window rate limiter, keyed per rule. */
@@ -104,9 +221,41 @@ function underLimit(rule, key) {
   return true;
 }
 
+/**
+ * Apply `restrictToTools` (allowlist) then `disabledTools` (denylist) to the model's
+ * visible toolset. Best-effort: `setActiveTools` may not exist on older Pi — the
+ * `tool_call` deny backstop still covers `disabledTools` in that case.
+ */
+function applyToolset(pi, policy) {
+  if (typeof pi.setActiveTools !== "function" || typeof pi.getActiveTools !== "function") {
+    return;
+  }
+  let active = pi.getActiveTools();
+  if (!Array.isArray(active)) return;
+  if (policy.restrictToTools.length > 0) {
+    active = active.filter((t) => policy.restrictToTools.indexOf(t) !== -1);
+  }
+  if (policy.disabledTools.length > 0) {
+    active = active.filter((t) => policy.disabledTools.indexOf(t) === -1);
+  }
+  try {
+    pi.setActiveTools(active);
+  } catch {}
+}
+
 export default function (pi) {
   const policy = loadPolicy();
   if (!policy) return; // shouldn't happen — the extension is only loaded when a policy exists
+
+  if (policy.restrictToTools.length > 0 || policy.disabledTools.length > 0) {
+    if (typeof pi.on === "function") {
+      pi.on("session_start", () => {
+        applyToolset(pi, policy);
+      });
+    }
+    // Also try immediately, in case session_start already fired before this ran.
+    applyToolset(pi, policy);
+  }
 
   /** Session-scoped "always allow" memory, keyed tool + target. */
   const alwaysAllow = new Set();

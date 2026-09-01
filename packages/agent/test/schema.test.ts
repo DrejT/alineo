@@ -183,12 +183,18 @@ describe("validateAgentSpec", () => {
         rules: [
           { tool: "read", action: "allow" },
           { tool: "bash", pattern: "git *", action: "ask" },
+          { tool: "bash", action: "classify" },
           { tool: "bash", action: "rate_limit", limit: { count: 5, windowMs: 60000 } },
         ],
         disabledTools: ["powershell"],
+        restrictToTools: ["read", "grep", "bash"],
       },
     });
-    expect(spec.permissions).toMatchObject({ default: "deny", disabledTools: ["powershell"] });
+    expect(spec.permissions).toMatchObject({
+      default: "deny",
+      disabledTools: ["powershell"],
+      restrictToTools: ["read", "grep", "bash"],
+    });
   });
 
   it("rejects an unknown permissions mode / action", () => {

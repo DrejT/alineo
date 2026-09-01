@@ -4,9 +4,12 @@ var createInterface = require("readline").createInterface;
 var http = require("http");
 var fs = require("fs");
 
-var PORT = 3001;
-var ENV_FILE = "/etc/alineo-env";
-var PI_CONFIG_FILE = "/etc/alineo-pi.json";
+// Paths/port are fixed in the sandbox; the env overrides exist only so the bridge can be
+// driven against a stub `pi` in unit tests (test/pi-bridge.test.ts).
+var PORT = Number(process.env.ALINEO_BRIDGE_PORT) || 3001;
+var ENV_FILE = process.env.ALINEO_ENV_FILE || "/etc/alineo-env";
+var PI_CONFIG_FILE = process.env.ALINEO_PI_CONFIG || "/etc/alineo-pi.json";
+var PI_BIN = process.env.ALINEO_PI_BIN || "pi";
 
 // Re-read /etc/alineo-env into process.env on each Pi (re)start so setEnv() changes take effect.
 function loadEnv() {
@@ -24,7 +27,7 @@ function loadEnv() {
 // `POLICY_ACTIVE` gates the permission-request routing below and is set here, before Pi
 // is ever spawned, so there is no window where Pi could emit a gate dialog first.
 var POLICY_ACTIVE = false;
-var PERMISSION_GATE_PATH = "/alineo-permission-gate.js";
+var PERMISSION_GATE_PATH = process.env.ALINEO_PERMISSION_GATE_PATH || "/alineo-permission-gate.js";
 function buildPiArgs() {
   var args = ["--mode", "rpc", "--approve"];
   try {
@@ -88,17 +91,18 @@ var state = {
 var PERM_MARKER = "ALINEO_PERM ";
 var PERMISSION_TIMEOUT_MS = 300000; // 5 min, matches Cline's desktop auto-deny
 
-// Push a permission event onto whichever SSE sink is live (the active prompt, else the
-// dedicated /permission-stream channel).
-function permissionSink() {
-  return state.active || state.permissionChannel;
-}
+// Push a permission event to every live SSE sink: the active prompt stream (so a caller
+// iterating prompt() sees it inline) AND the dedicated /permission-stream channel (so an
+// attached operator sees it even between / across prompts). Both may be present.
 function emitPermission(obj) {
-  var chan = permissionSink();
-  if (chan) {
-    try {
-      chan.res.write("data: " + JSON.stringify(obj) + "\n\n");
-    } catch {}
+  var line = "data: " + JSON.stringify(obj) + "\n\n";
+  var sinks = [state.active, state.permissionChannel];
+  for (var i = 0; i < sinks.length; i++) {
+    if (sinks[i] && sinks[i].res) {
+      try {
+        sinks[i].res.write(line);
+      } catch {}
+    }
   }
 }
 
@@ -129,6 +133,36 @@ function resolveMatchingPending(exceptId, tool, verdict) {
       requestId: pid,
       decision: verdict === "allow" ? { kind: "once" } : { kind: "reject" },
     });
+  });
+}
+
+// Time a held permission request out: answer the gate as cancelled + tell the host.
+function expirePermission(pid) {
+  if (!state.pendingPermissions[pid]) return;
+  delete state.pendingPermissions[pid];
+  answerPermission(pid, null);
+  emitPermission({ type: "permission_resolved", requestId: pid, decision: { kind: "reject" } });
+}
+
+// While a caller is attached to /permission-stream a human is present, so the auto-deny
+// timeout is suspended; it's re-armed (fresh full window) when they disconnect.
+function suspendPermissionTimers() {
+  Object.keys(state.pendingPermissions).forEach(function (pid) {
+    var p = state.pendingPermissions[pid];
+    if (p.timer) {
+      clearTimeout(p.timer);
+      p.timer = null;
+    }
+  });
+}
+function resumePermissionTimers() {
+  Object.keys(state.pendingPermissions).forEach(function (pid) {
+    var p = state.pendingPermissions[pid];
+    if (!p.timer) {
+      p.timer = setTimeout(function () {
+        expirePermission(pid);
+      }, PERMISSION_TIMEOUT_MS);
+    }
   });
 }
 
@@ -191,7 +225,7 @@ function startPi() {
   var gen = ++state.gen;
   log("pi start gen=" + gen + ": " + args.join(" "));
 
-  var proc = spawn("pi", args, {
+  var proc = spawn(PI_BIN, args, {
     stdio: ["pipe", "pipe", "pipe"],
     env: Object.assign({}, process.env),
   });
@@ -374,18 +408,15 @@ function handleLine(line) {
         tool: meta.tool || "unknown",
         target: meta.target || "",
         title: meta.title || "Approve tool call",
+        since: Date.now(),
+        timer: null,
       };
-      entry.timer = setTimeout(function () {
-        if (state.pendingPermissions[ev.id]) {
-          delete state.pendingPermissions[ev.id];
-          answerPermission(ev.id, null);
-          emitPermission({
-            type: "permission_resolved",
-            requestId: ev.id,
-            decision: { kind: "reject" },
-          });
-        }
-      }, PERMISSION_TIMEOUT_MS);
+      // No auto-deny clock while a human is watching the permission stream.
+      if (!state.permissionChannel) {
+        entry.timer = setTimeout(function () {
+          expirePermission(ev.id);
+        }, PERMISSION_TIMEOUT_MS);
+      }
       state.pendingPermissions[ev.id] = entry;
       emitPermission({
         type: "permission_request",
@@ -661,12 +692,46 @@ http
         });
         var pHeartbeat = startHeartbeat(res);
         state.permissionChannel = { res: res };
+        // A reconnecting operator needs to see what's still outstanding, and the auto-deny
+        // clock pauses while they're attached.
+        suspendPermissionTimers();
+        Object.keys(state.pendingPermissions).forEach(function (pid) {
+          var p = state.pendingPermissions[pid];
+          try {
+            res.write(
+              "data: " +
+                JSON.stringify({
+                  type: "permission_request",
+                  requestId: pid,
+                  tool: p.tool,
+                  target: p.target,
+                  title: p.title,
+                }) +
+                "\n\n",
+            );
+          } catch {}
+        });
         req.on("close", function () {
           stopHeartbeat(pHeartbeat);
           if (state.permissionChannel && state.permissionChannel.res === res) {
             state.permissionChannel = null;
+            resumePermissionTimers();
           }
         });
+        return;
+      }
+      if (req.url === "/pending-permissions") {
+        var pending = Object.keys(state.pendingPermissions).map(function (pid) {
+          var p = state.pendingPermissions[pid];
+          return {
+            requestId: pid,
+            tool: p.tool,
+            target: p.target,
+            title: p.title,
+            since: p.since || 0,
+          };
+        });
+        respond(res, 200, { ok: true, data: { pending: pending } });
         return;
       }
       if (req.url === "/messages") {

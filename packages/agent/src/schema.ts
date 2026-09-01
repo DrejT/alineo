@@ -215,7 +215,7 @@ const SetupStepSchema = z
   })
   .loose();
 
-const PermissionActionSchema = z.enum(["allow", "ask", "deny", "rate_limit"]);
+const PermissionActionSchema = z.enum(["allow", "ask", "deny", "rate_limit", "classify"]);
 
 const PermissionRuleSchema = z
   .object({
@@ -233,6 +233,7 @@ const PermissionPolicySchema = z
     default: PermissionActionSchema.optional(),
     rules: z.array(PermissionRuleSchema).optional(),
     disabledTools: z.array(z.string()).optional(),
+    restrictToTools: z.array(z.string()).optional(),
   })
   .loose();
 

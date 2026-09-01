@@ -1,13 +1,71 @@
-import type { AgentStream, PermissionDecision } from "../types";
+import { LedgerEvent } from "@alineo-labs/core";
+import type {
+  AgentStream,
+  PendingPermission,
+  PermissionDecision,
+  PermissionRequest,
+} from "../types";
 import type { AgentInternal } from "./internal";
+
+/**
+ * Called for each `permission_request` on a `prompt()`/`bash()` stream when passed as
+ * `opts.onPermission`. Return the decision; the SDK resolves the request for you. The
+ * `permission_request` / `permission_resolved` events still flow through the stream.
+ */
+export type PermissionHandler = (
+  req: PermissionRequest,
+) => PermissionDecision | Promise<PermissionDecision>;
+
+/**
+ * Wrap a raw adapter stream so that every permission event is mirrored to the ledger
+ * (`PermissionRequested` / `PermissionResolved`) and, when `onPermission` is given, each
+ * request is auto-resolved with the handler's decision.
+ */
+async function* instrument(
+  a: AgentInternal,
+  stream: AgentStream,
+  onPermission?: PermissionHandler,
+): AgentStream {
+  for await (const ev of stream) {
+    if (ev.type === "permission_request") {
+      void a.sandbox.emit(LedgerEvent.PermissionRequested, -1, {
+        requestId: ev.requestId,
+        tool: ev.tool,
+        target: ev.target,
+      });
+      if (onPermission) {
+        const req: PermissionRequest = {
+          requestId: ev.requestId,
+          tool: ev.tool,
+          target: ev.target,
+          title: ev.title,
+        };
+        void Promise.resolve(onPermission(req))
+          .then((decision) => a.adapter.resolvePermission(ev.requestId, decision))
+          .catch(() => {});
+      }
+    } else if (ev.type === "permission_resolved") {
+      void a.sandbox.emit(LedgerEvent.PermissionResolved, -1, {
+        requestId: ev.requestId,
+        decision: ev.decision,
+      });
+    }
+    yield ev;
+  }
+}
 
 /** Send a prompt to Pi and stream the response. Pi manages its own session context. */
 export function prompt(
   a: AgentInternal,
   message: string,
-  opts?: { streamingBehavior?: "steer" | "followUp"; inactivityTimeoutMs?: number },
+  opts?: {
+    streamingBehavior?: "steer" | "followUp";
+    inactivityTimeoutMs?: number;
+    /** Auto-resolve each `permission_request` with this handler's decision. */
+    onPermission?: PermissionHandler;
+  },
 ): AgentStream {
-  return a.adapter.prompt(message, opts);
+  return instrument(a, a.adapter.prompt(message, opts), opts?.onPermission);
 }
 
 /**
@@ -16,7 +74,12 @@ export function prompt(
  * arrives as a single `text` event once the command completes.
  */
 export function bash(a: AgentInternal, command: string): AgentStream {
-  return a.adapter.bash(command);
+  return instrument(a, a.adapter.bash(command));
+}
+
+/** Snapshot of tool calls currently paused awaiting a human decision. */
+export async function listPendingPermissions(a: AgentInternal): Promise<PendingPermission[]> {
+  return a.adapter.listPendingPermissions();
 }
 
 /** Steer Pi's current response mid-flight. Waits for Pi's RPC acknowledgment. */

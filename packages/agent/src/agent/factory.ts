@@ -1,6 +1,6 @@
 import { Sandbox } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
-import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
+import { LedgerEvent, type IStorageAdapter, type SandboxHandle } from "@alineo-labs/core";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { readProjectConfig } from "../config";
 import { validateAgentSpec, type AgentSpec } from "../schema";
@@ -278,9 +278,46 @@ export async function resumeAgent(
   await adapter.startBridge(sb);
   await adapter.waitReady();
   console.log(`[agent] bridge ready    ${elapsed(t2)}`);
+
+  // Resuming starts a fresh Pi process — any tool call that was parked awaiting a human
+  // decision in the old process is gone (OpenSandbox restore is rootfs-only). Close out
+  // those ledger entries so `alineo logs` doesn't show them dangling forever.
+  await reconcileDroppedPermissions(opts.adapter, sb, spec.name, sandboxId);
+
   console.log(`[agent] total           ${elapsed(t0)}`);
 
   return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false, runId };
+}
+
+async function reconcileDroppedPermissions(
+  adapter: IStorageAdapter,
+  sb: SandboxHandle,
+  name: string,
+  sandboxId: string,
+): Promise<void> {
+  try {
+    const events = await adapter.readAll(name, sandboxId);
+    const resolved = new Set<string>();
+    for (const e of events) {
+      if (e.event === LedgerEvent.PermissionResolved) {
+        const rid = (e.payload as { requestId?: string } | undefined)?.requestId;
+        if (rid) resolved.add(rid);
+      }
+    }
+    for (const e of events) {
+      if (e.event !== LedgerEvent.PermissionRequested) continue;
+      const rid = (e.payload as { requestId?: string } | undefined)?.requestId;
+      if (rid && !resolved.has(rid)) {
+        await sb.emit(LedgerEvent.PermissionResolved, -1, {
+          requestId: rid,
+          decision: { kind: "reject" },
+          note: "session resumed — pending approval dropped",
+        });
+      }
+    }
+  } catch {
+    // Best-effort audit hygiene; never block a resume on it.
+  }
 }
 
 /**
