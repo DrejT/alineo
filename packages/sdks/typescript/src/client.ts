@@ -340,16 +340,32 @@ export class Sandbox {
     // Same reasoning applies to network policy / credential proxy — a resumed sandbox gets
     // the same egress posture as its origin, recovered from ledger data since the OpenSandbox
     // control plane doesn't echo `networkPolicy` back on GET /v1/sandboxes.
-    const networkPolicy = createdPayload?.networkPolicy;
+    //
+    // Runtime `sb.egress.patch()` changes are sidecar-local and don't survive the snapshot
+    // either, so fold whatever is still live per the ledger straight into the policy the
+    // resumed sandbox boots with — a replayed rule replaces any same-`target` rule from the
+    // original policy (the sidecar's own PATCH merge semantics). Applying them at boot rather
+    // than via a post-start `sb.egress.patch()` avoids a race with the sidecar still wiring
+    // up its nft/DNS layer.
+    const originalNetworkPolicy = createdPayload?.networkPolicy;
     const credentialProxy = createdPayload?.credentialProxy;
+    const replayedEgress = originalNetworkPolicy ? reconstructEgressRules(entries) : [];
+    const networkPolicy = originalNetworkPolicy
+      ? {
+          ...originalNetworkPolicy,
+          egress: [
+            ...replayedEgress,
+            ...(originalNetworkPolicy.egress ?? []).filter(
+              (r) => !replayedEgress.some((rr) => rr.target === r.target),
+            ),
+          ],
+        }
+      : undefined;
 
     // Latest bound/revoked state per credential name, scanned across the whole session
     // history (not just the pre-checkpoint slice below, which is exec-replay-specific) —
     // the vault itself doesn't survive the resume, so this is how we know what to re-`set()`.
     const boundCredentials = reconstructBoundCredentials(entries);
-    // Same story for runtime egress-policy changes (`sb.egress.patch()`): sidecar-local, not
-    // restored by the snapshot, so re-apply whatever is still live per the ledger.
-    const egressRulesToReplay = networkPolicy ? reconstructEgressRules(entries) : [];
 
     const replayCache = new Map<number, ExecResult>();
     const pendingStdout = new Map<number, string[]>();
@@ -480,10 +496,18 @@ export class Sandbox {
         await sb.credentials.set(credName, value, binding, source);
       }
 
-      // Re-apply runtime egress-policy changes. Safe when non-empty: `egressRulesToReplay`
-      // is only populated when the resumed sandbox has a `networkPolicy` (hence a sidecar).
-      if (egressRulesToReplay.length > 0) {
-        await sb.egress.patch(egressRulesToReplay);
+      // Record the replayed rules against the *new* session too, so a later resume of this
+      // resumed sandbox reconstructs them (they were baked into the boot policy above, not
+      // applied via `sb.egress.*`, so nothing else writes them here).
+      if (replayedEgress.length > 0) {
+        await this._adapter.append({
+          ts: Date.now(),
+          name,
+          sandboxId: newSessionId,
+          stepIndex: -1,
+          event: LedgerEvent.EgressRuleAdded,
+          payload: { rules: replayedEgress },
+        });
       }
 
       return sb;

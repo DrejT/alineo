@@ -155,6 +155,7 @@ test("substitution injection swaps a placeholder in the query string (Part B)", 
       host: "httpbin.org",
       injection: { type: "substitution", placeholder: "__DEMO__", in: ["query"] },
     });
+    await new Promise((r) => setTimeout(r, 1500)); // let the mitm addon reload the vault (~0.5s cache)
 
     const body = (await httpGetJson(sb, "https://httpbin.org/get?token=__DEMO__")) as {
       args: Record<string, string>;
@@ -271,6 +272,7 @@ test("header injection still works after the injection-type change (Part B)", as
       host: "httpbin.org",
       injection: { type: "header", name: "X-Demo-Credential" },
     });
+    await new Promise((r) => setTimeout(r, 1500)); // let the mitm addon reload the vault (~0.5s cache)
 
     const body = (await httpGetJson(sb, "https://httpbin.org/headers")) as {
       headers: Record<string, string>;
