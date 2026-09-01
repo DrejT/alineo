@@ -86,7 +86,7 @@
       }
     },
     {
-      "files": ["**/pi-bridge.js"],
+      "files": ["**/pi-bridge.js", "**/pi-permission-gate.js"],
       "rules": {
         "typescript/no-unsafe-assignment": "off",
         "typescript/no-unsafe-call": "off",

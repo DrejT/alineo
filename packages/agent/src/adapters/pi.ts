@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { SandboxHandle, CredentialBinding, CredentialSource } from "@alineo-labs/core";
 import { PromptTimeoutError } from "../errors";
+import { normalizePermissions } from "../permissions";
 import type { AgentSpec, CredentialEnvBinding } from "../schema";
+import type { PendingPermission, PermissionDecision } from "../types";
 import type {
   AgentEvent,
   AgentStream,
@@ -27,6 +29,14 @@ import type {
 // rolldown, the bundler tsdown uses for this package's actual publish build.
 const BRIDGE_SCRIPT = readFileSync(
   fileURLToPath(new URL("./pi-bridge.js", import.meta.url)),
+  "utf8",
+);
+
+// The permission-gate Pi extension — same copy-alongside-dist mechanism as BRIDGE_SCRIPT
+// (see tsdown.config.ts). Written into the sandbox at /alineo-permission-gate.js and loaded
+// by Pi via `-e` only when the spec sets `permissions` (see pi-bridge.js's buildPiArgs).
+const PERMISSION_GATE_SCRIPT = readFileSync(
+  fileURLToPath(new URL("./pi-permission-gate.js", import.meta.url)),
   "utf8",
 );
 
@@ -180,9 +190,12 @@ export class PiAdapter {
     if (spec.provider) piConfig.provider = spec.provider;
     if (spec.model) piConfig.model = spec.model;
     if (opts?.resume) piConfig.resume = true;
+    const permissions = normalizePermissions(spec.permissions);
+    if (permissions) piConfig.permissions = permissions;
     await sb.writeFile("/etc/alineo-pi.json", JSON.stringify(piConfig));
     await sb.writeFile("/etc/alineo-env", toShellExports(resolvedEnv));
     await sb.writeFile("/alineo-bridge.js", BRIDGE_SCRIPT);
+    if (permissions) await sb.writeFile("/alineo-permission-gate.js", PERMISSION_GATE_SCRIPT);
   }
 
   /**
@@ -255,6 +268,20 @@ export class PiAdapter {
 
   async abort(): Promise<void> {
     await rpcPost(this.bridgeUrl, "/abort");
+  }
+
+  /** Resolve a pending `permission_request` (see `AgentEvent`'s `permission_request`). */
+  async resolvePermission(requestId: string, decision: PermissionDecision): Promise<void> {
+    await rpcPost(this.bridgeUrl, "/permission-response", { requestId, decision });
+  }
+
+  /** Tool calls currently paused awaiting a human decision. */
+  async listPendingPermissions(): Promise<PendingPermission[]> {
+    const r = await rpcGet<{ pending: PendingPermission[] }>(
+      this.bridgeUrl,
+      "/pending-permissions",
+    );
+    return r.pending;
   }
 
   async followUp(message: string): Promise<void> {
@@ -457,6 +484,10 @@ async function* sseStream(
   const decoder = new TextDecoder();
   let buf = "";
   let lastEventAt = Date.now();
+  // A `permission_request` can sit unanswered for as long as a human takes to decide, with
+  // no events flowing meanwhile. While any are outstanding, the inactivity timeout is
+  // suspended — the bridge's own PERMISSION_TIMEOUT_MS is the backstop there.
+  const pendingPermissions = new Set<string>();
   // Only a genuine server-signalled EOF (`done: true`) counts as reaching the natural end --
   // both the `[DONE]` early-return below and any thrown error (timeout, malformed payload,
   // bridge-reported error) leave the connection mid-stream, same as a natural EOF's opposite.
@@ -464,18 +495,30 @@ async function* sseStream(
 
   try {
     while (true) {
+      const awaitingHuman = pendingPermissions.size > 0;
       const remainingMs = inactivityTimeoutMs - (Date.now() - lastEventAt);
-      if (remainingMs <= 0) throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
+      if (!awaitingHuman && remainingMs <= 0) {
+        throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
+      }
 
       const result = await Promise.race([
         reader.read(),
         new Promise<"timeout">((resolve) => {
-          setTimeout(() => {
-            resolve("timeout");
-          }, remainingMs);
+          setTimeout(
+            () => {
+              resolve("timeout");
+            },
+            awaitingHuman ? inactivityTimeoutMs : Math.max(remainingMs, 1),
+          );
         }),
       ]);
-      if (result === "timeout") throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
+      if (result === "timeout") {
+        if (pendingPermissions.size > 0) {
+          lastEventAt = Date.now(); // reset the clock; a human is still deciding
+          continue;
+        }
+        throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
+      }
 
       const { done, value } = result;
       if (done) {
@@ -498,6 +541,8 @@ async function* sseStream(
         }
         const raw = JSON.parse(payload) as AgentEvent & { error?: string };
         if (raw.error) throw new Error(`Bridge error: ${raw.error}`);
+        if (raw.type === "permission_request") pendingPermissions.add(raw.requestId);
+        else if (raw.type === "permission_resolved") pendingPermissions.delete(raw.requestId);
         lastEventAt = Date.now();
         yield raw;
       }

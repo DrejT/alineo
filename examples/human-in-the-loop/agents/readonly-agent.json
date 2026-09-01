@@ -1,0 +1,16 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "readonly-agent",
+  "title": "Read-only Agent",
+  "description": "permissions: \"readonly\" — the gate strips write/edit/bash from the model's toolset entirely (via Pi setActiveTools), so it can inspect a repo but cannot change it.",
+  "author": "alineo",
+  "cli": "pi",
+  "provider": "nvidia",
+  "model": "nvidia/nemotron-3-nano-30b-a3b",
+  "packages": ["git"],
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
+  },
+  "permissions": "readonly",
+  "resources": { "cpu": "1000m", "memory": "2Gi" }
+}

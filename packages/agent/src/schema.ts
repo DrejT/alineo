@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { AgentSpecValidationError } from "./errors";
+import type { PermissionMode, PermissionPolicy } from "./permissions";
 
 /** Renders an arbitrary invalid field value for an error message without risking "[object Object]". */
 function describeValue(value: unknown): string {
@@ -173,6 +174,16 @@ export interface AgentSpec {
    * regardless of what the ledger ends up calling the forked sandbox.
    */
   resourceId?: string;
+  /**
+   * Human-in-the-loop tool-call policy, enforced by a bundled Pi extension that runs on
+   * every tool call before it executes. Either a mode shorthand (`"auto"` — the default,
+   * never ask; `"ask"` — ask before every call; `"readonly"` — auto-allow reads, ask before
+   * writes/exec) or a full `PermissionPolicy` with ordered per-tool / per-pattern rules
+   * (last match wins). When set to anything other than `"auto"`, a `permission_request`
+   * event is emitted on the agent stream for each gated call; resolve it with
+   * `agent.resolvePermission(requestId, decision)`.
+   */
+  permissions?: PermissionMode | PermissionPolicy;
 }
 
 /**
@@ -203,6 +214,30 @@ const SetupStepSchema = z
     cwd: z.string().optional(),
   })
   .loose();
+
+const PermissionActionSchema = z.enum(["allow", "ask", "deny", "rate_limit", "classify"]);
+
+const PermissionRuleSchema = z
+  .object({
+    tool: z.string({ error: "Each permission rule must have a 'tool' string" }),
+    pattern: z.string().optional(),
+    action: PermissionActionSchema,
+    limit: z
+      .object({ count: z.number().int().positive(), windowMs: z.number().int().positive() })
+      .optional(),
+  })
+  .loose();
+
+const PermissionPolicySchema = z
+  .object({
+    default: PermissionActionSchema.optional(),
+    rules: z.array(PermissionRuleSchema).optional(),
+    disabledTools: z.array(z.string()).optional(),
+    restrictToTools: z.array(z.string()).optional(),
+  })
+  .loose();
+
+const PermissionsSchema = z.union([z.enum(["auto", "ask", "readonly"]), PermissionPolicySchema]);
 
 const nonNegativeIntSpecField = (fieldName: string) =>
   z
@@ -251,6 +286,7 @@ const AgentSpecSchema = z
     maxAgents: nonNegativeIntSpecField("maxAgents"),
     teamId: z.string().optional(),
     resourceId: z.string().optional(),
+    permissions: PermissionsSchema.optional(),
   })
   // Unknown keys pass through untouched rather than being stripped or rejected — matches the
   // old hand-rolled validator's behavior (it only ever checked a few fields and cast the rest

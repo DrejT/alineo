@@ -1,0 +1,26 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "hitl-agent",
+  "title": "Human-in-the-loop Agent",
+  "description": "A Pi agent whose write/exec tool calls pause for operator approval. Demonstrates AgentSpec.permissions, the classify action, prompt({ onPermission }), listPendingPermissions(), and the ledger audit trail.",
+  "author": "alineo",
+  "cli": "pi",
+  "provider": "nvidia",
+  "model": "nvidia/nemotron-3-nano-30b-a3b",
+  "packages": ["git", "python3"],
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
+  },
+  "permissions": {
+    "default": "ask",
+    "rules": [
+      { "tool": "read", "action": "allow" },
+      { "tool": "grep", "action": "allow" },
+      { "tool": "find", "action": "allow" },
+      { "tool": "ls", "action": "allow" },
+      { "tool": "bash", "action": "classify" },
+      { "tool": "bash", "pattern": "*rm -rf*", "action": "deny" }
+    ]
+  },
+  "resources": { "cpu": "1000m", "memory": "2Gi" }
+}

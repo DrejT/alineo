@@ -95,6 +95,20 @@ export enum LedgerEvent {
   /** Emitted by `sb.credentials.remove()`. */
   CredentialRevoked = "credential_revoked",
 
+  // ── Agent human-in-the-loop events (used by the `alineo` agent SDK) ──────────────
+  /**
+   * Emitted when the permission gate pauses a tool call for human approval. Payload is
+   * `{ requestId, tool, target }` — metadata only; the raw tool arguments (which can carry
+   * secrets in a bash command or a file write) are never written to the ledger.
+   */
+  PermissionRequested = "permission_requested",
+  /**
+   * Emitted when a `PermissionRequested` is answered — by a caller, a batched
+   * always/reject decision, a timeout, or a session resume dropping it. Payload is
+   * `{ requestId, decision }`.
+   */
+  PermissionResolved = "permission_resolved",
+
   // ── Workflow layer events (used by @alineo-labs/workflow) ────────────────────────
   /** Emitted once when a workflow run starts, before any steps execute. */
   RunStarted = "run_started",

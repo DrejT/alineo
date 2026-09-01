@@ -74,6 +74,7 @@ export function mountAgentChat(agentId: string): { dispose(): void } {
   let assistantRawText = "";
   let renderScheduled = false;
   const toolCalls = new Map<string, ToolCallEntry>();
+  const permissionCards = new Map<string, HTMLElement>();
 
   function send(cmd: Record<string, unknown> & { type: string }) {
     ws.send(JSON.stringify(cmd));
@@ -198,6 +199,62 @@ export function mountAgentChat(agentId: string): { dispose(): void } {
     entry = { details, summary, argsEl, resultEl, toolName };
     toolCalls.set(toolCallId, entry);
     return entry;
+  }
+
+  function renderPermissionCard(requestId: string, tool: string, target: string, title: string) {
+    if (permissionCards.has(requestId)) return;
+    const wasNearBottom = isNearBottom(messages);
+
+    const card = document.createElement("div");
+    card.className =
+      "rounded-lg border border-[var(--color-accent)] bg-[var(--color-bg)] px-3 py-2 text-xs";
+
+    const heading = document.createElement("p");
+    heading.className = "mb-1 font-semibold text-[var(--color-fg)]";
+    heading.textContent = `Approval needed — ${tool}`;
+
+    const cmd = document.createElement("pre");
+    cmd.className =
+      "mono mt-1 mb-2 max-h-40 overflow-auto whitespace-pre-wrap break-all text-[var(--color-muted)]";
+    cmd.textContent = target || title;
+
+    const actions = document.createElement("div");
+    actions.className = "flex flex-wrap gap-1";
+
+    const resolve = (decision: Record<string, unknown>) => {
+      send({ type: "resolvePermission", requestId, decision });
+    };
+    const mkBtn = (label: string, onClick: () => void, primary = false) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = primary ? "btn btn-primary" : "btn";
+      b.textContent = label;
+      b.addEventListener("click", onClick);
+      return b;
+    };
+
+    actions.append(
+      mkBtn("Allow once", () => resolve({ kind: "once" }), true),
+      mkBtn("Always allow", () => resolve({ kind: "always" })),
+      mkBtn("Deny", () => resolve({ kind: "reject" })),
+      mkBtn("Deny with feedback…", () => {
+        const feedback = window.prompt("Tell the agent what to do instead:") ?? "";
+        resolve({ kind: "reject", feedback });
+      }),
+    );
+
+    card.append(heading, cmd, actions);
+    messages.appendChild(card);
+    permissionCards.set(requestId, card);
+    scrollToBottomIfNear(wasNearBottom);
+  }
+
+  function settlePermissionCard(requestId: string, label: string) {
+    const card = permissionCards.get(requestId);
+    if (!card) return;
+    permissionCards.delete(requestId);
+    card.className = "mono pl-1 text-xs text-[var(--color-muted)] italic";
+    card.textContent = label;
   }
 
   function setQueueBadge(steering: number, followUp: number) {
@@ -417,6 +474,18 @@ export function mountAgentChat(agentId: string): { dispose(): void } {
         if (event.isDialog) {
           addBubble("system", `Alineo requested UI (${event.method}), auto-dismissed`);
         }
+        break;
+      }
+      case "permission_request": {
+        renderPermissionCard(event.requestId, event.tool, event.target, event.title);
+        break;
+      }
+      case "permission_resolved": {
+        const kind = event.decision.kind;
+        settlePermissionCard(
+          event.requestId,
+          kind === "reject" ? "Tool call denied" : "Tool call approved",
+        );
         break;
       }
       case "queue_update": {

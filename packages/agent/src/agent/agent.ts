@@ -6,6 +6,8 @@ import type { AgentSnapshotRecord } from "../snapshots";
 import type {
   AgentStream,
   CompactResult,
+  PendingPermission,
+  PermissionDecision,
   PiMessage,
   PiModel,
   PiSessionState,
@@ -319,7 +321,16 @@ export class Alineo {
   /** Send a prompt to Pi and stream the response. Pi manages its own session context. */
   prompt(
     message: string,
-    opts?: { streamingBehavior?: "steer" | "followUp"; inactivityTimeoutMs?: number },
+    opts?: {
+      streamingBehavior?: "steer" | "followUp";
+      inactivityTimeoutMs?: number;
+      /**
+       * Auto-resolve each `permission_request` on this stream with the handler's decision,
+       * instead of the caller wiring `resolvePermission()` by hand. The
+       * `permission_request` / `permission_resolved` events still flow through the stream.
+       */
+      onPermission?: sessionControl.PermissionHandler;
+    },
   ): AgentStream {
     return sessionControl.prompt(this, message, opts);
   }
@@ -343,6 +354,32 @@ export class Alineo {
   /** Abort Pi's current operation. */
   async abort(): Promise<void> {
     return sessionControl.abort(this);
+  }
+
+  /**
+   * Resolve a pending `permission_request` from the agent stream — emitted for each gated
+   * tool call when `AgentSpec.permissions` is set to something other than `"auto"`.
+   *
+   * @example
+   * ```ts
+   * for await (const ev of agent.prompt("Refactor auth")) {
+   *   if (ev.type === "permission_request") {
+   *     await agent.resolvePermission(ev.requestId, { kind: "once" });
+   *   }
+   * }
+   * ```
+   */
+  async resolvePermission(requestId: string, decision: PermissionDecision): Promise<void> {
+    return sessionControl.resolvePermission(this, requestId, decision);
+  }
+
+  /**
+   * Tool calls currently paused awaiting a human decision — useful after reconnecting to a
+   * session to discover approvals still outstanding. Each entry is resolvable with
+   * `resolvePermission(entry.requestId, …)`.
+   */
+  async listPendingPermissions(): Promise<PendingPermission[]> {
+    return sessionControl.listPendingPermissions(this);
   }
 
   /** Queue a message to be sent to Pi after it finishes its current task. */
