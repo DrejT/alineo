@@ -10,8 +10,17 @@ import {
   type CredentialBroker,
   type CredentialResolver,
 } from "@alineo-labs/core";
-import { reconstructBoundCredentials, resolveBoundCredential } from "@alineo-labs/core";
-import { ControlClient, SandboxState, SnapshotState } from "@alineo-labs/opensandbox";
+import {
+  reconstructBoundCredentials,
+  reconstructEgressRules,
+  resolveBoundCredential,
+} from "@alineo-labs/core";
+import {
+  ControlClient,
+  SandboxState,
+  SnapshotState,
+  isValidEgressTarget,
+} from "@alineo-labs/opensandbox";
 import type { NetworkPolicy } from "@alineo-labs/opensandbox";
 import { OpenSandboxCredentialBroker } from "@alineo-labs/vault";
 
@@ -71,6 +80,23 @@ export {
   type EnvironmentOptions,
   type EnvironmentSandboxOptions,
 } from "./environment";
+
+/**
+ * Reject a `networkPolicy` with a malformed `target` before it reaches the server — a fast
+ * local error instead of a round-trip. `undefined` policies pass through untouched.
+ */
+function assertValidNetworkPolicy(policy: NetworkPolicy | undefined): void {
+  if (!policy) return;
+  for (const rule of policy.egress ?? []) {
+    if (!isValidEgressTarget(rule.target)) {
+      throw new SandboxClientError(
+        `Invalid networkPolicy egress target ${JSON.stringify(rule.target)} — expected an ` +
+          `FQDN, a "*."-prefixed wildcard domain, a bare IP address, or a CIDR block.`,
+        400,
+      );
+    }
+  }
+}
 
 /**
  * Main entry point for the sandbox client. Manages sandbox lifecycle and session history.
@@ -152,6 +178,7 @@ export class Sandbox {
    * ```
    */
   async sandbox(opts: SandboxOptions): Promise<SandboxHandle> {
+    assertValidNetworkPolicy(opts.networkPolicy);
     await this._ensureConnected();
     await this._acquireSlot();
 
@@ -320,6 +347,9 @@ export class Sandbox {
     // history (not just the pre-checkpoint slice below, which is exec-replay-specific) —
     // the vault itself doesn't survive the resume, so this is how we know what to re-`set()`.
     const boundCredentials = reconstructBoundCredentials(entries);
+    // Same story for runtime egress-policy changes (`sb.egress.patch()`): sidecar-local, not
+    // restored by the snapshot, so re-apply whatever is still live per the ledger.
+    const egressRulesToReplay = networkPolicy ? reconstructEgressRules(entries) : [];
 
     const replayCache = new Map<number, ExecResult>();
     const pendingStdout = new Map<number, string[]>();
@@ -450,6 +480,12 @@ export class Sandbox {
         await sb.credentials.set(credName, value, binding, source);
       }
 
+      // Re-apply runtime egress-policy changes. Safe when non-empty: `egressRulesToReplay`
+      // is only populated when the resumed sandbox has a `networkPolicy` (hence a sidecar).
+      if (egressRulesToReplay.length > 0) {
+        await sb.egress.patch(egressRulesToReplay);
+      }
+
       return sb;
     } catch (err) {
       this._releaseSlot();
@@ -576,6 +612,7 @@ export class Sandbox {
       teamId?: string;
     },
   ): Promise<SandboxHandle> {
+    assertValidNetworkPolicy(opts?.networkPolicy);
     await this._ensureConnected();
     await this._acquireSlot();
     try {

@@ -3,6 +3,26 @@ import { LedgerEvent } from "./ledger";
 import type { LedgerEntry } from "./ledger";
 
 /**
+ * How a credential reaches an outbound request.
+ *
+ * - `header` — the sidecar adds the header `name: <value>` (value unprefixed; use it for
+ *   `Authorization`, `X-API-Key`, etc.). The common case.
+ * - `substitution` — the sidecar replaces every literal occurrence of `placeholder` in the
+ *   listed request surfaces with the value. **The request must already contain `placeholder`
+ *   verbatim** — the agent or its config puts it there (e.g. a base URL of
+ *   `https://api.example.com/v1?key=__API_KEY__`). This is the escape hatch for APIs that
+ *   only take a key in the URL; `path`/`query` values are URL-encoded, `body` is encoded per
+ *   content-type.
+ */
+export type CredentialInjection =
+  | { type: "header"; name: string }
+  | {
+      type: "substitution";
+      placeholder: string;
+      in: Array<"path" | "query" | "header" | "body">;
+    };
+
+/**
  * Where and how a credential is injected into outbound requests. Matched by `host` (an FQDN
  * or wildcard domain, e.g. `"api.github.com"` or `"*.openai.com"`) and, optionally, a
  * `pathPrefix` to further scope the binding within that host.
@@ -13,10 +33,7 @@ export interface CredentialBinding {
   /** Narrows the binding to requests whose path starts with this prefix. */
   pathPrefix?: string;
   /** How the credential reaches the request. */
-  injection:
-    | { type: "header"; name: string }
-    | { type: "query"; param: string }
-    | { type: "path"; segment: string };
+  injection: CredentialInjection;
 }
 
 /**

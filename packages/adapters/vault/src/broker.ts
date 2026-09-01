@@ -9,31 +9,34 @@ import {
 } from "./vault-client";
 
 /**
- * Thrown when a `CredentialBinding.injection` has no equivalent in the sidecar's real `Auth`
- * model. Only header injection (`{ type: "header" }`) maps onto it today — it supports
- * `bearer`/`basic`/`apiKey`/`customHeaders` header injection and placeholder `substitutions`
- * (for path/query/body), but not an arbitrary named query param or path segment the way this
- * package's `{ type: "query" }`/`{ type: "path" }` binding shapes imply. Wire those up to
- * `substitutions` (which needs a literal placeholder string in the request, a different model
- * from "inject a named param") before lifting this restriction.
+ * Thrown when a wire `auth.type` read back from the vault has no `CredentialInjection` this
+ * package understands. Both injection shapes it *writes* — `{ type: "header" }` → `apiKey`,
+ * `{ type: "substitution" }` → `passthrough` — round-trip; anything else is a binding some
+ * other client created.
  */
 export class UnsupportedInjectionError extends Error {
   constructor(injectionType: string) {
     super(
-      `Credential injection type "${injectionType}" is not yet supported by ` +
-        `@alineo-labs/vault — only { type: "header" } maps onto the egress sidecar's real ` +
-        `Credential Vault API today.`,
+      `Credential vault auth type "${injectionType}" has no @alineo-labs/vault ` +
+        `CredentialInjection equivalent — it was likely created by another client.`,
     );
     this.name = "UnsupportedInjectionError";
   }
 }
 
-function toWireAuth(name: string, injection: CredentialBinding["injection"]): WireAuth {
-  if (injection.type !== "header") throw new UnsupportedInjectionError(injection.type);
-  return { type: "apiKey", name: injection.name, credential: name };
+export function toWireAuth(name: string, injection: CredentialBinding["injection"]): WireAuth {
+  if (injection.type === "header") {
+    return { type: "apiKey", name: injection.name, credential: name };
+  }
+  // `substitution` → passthrough (no injected auth header) + one substitution entry. The
+  // sidecar replaces every literal `placeholder` in the listed surfaces with the value.
+  return {
+    type: "passthrough",
+    substitutions: [{ credential: name, placeholder: injection.placeholder, in: injection.in }],
+  };
 }
 
-function toWireBinding(name: string, binding: CredentialBinding): WireBinding {
+export function toWireBinding(name: string, binding: CredentialBinding): WireBinding {
   return {
     name,
     match: {
@@ -44,20 +47,26 @@ function toWireBinding(name: string, binding: CredentialBinding): WireBinding {
   };
 }
 
-function fromWireBindingMetadata(meta: {
+export function fromWireBindingMetadata(meta: {
   match: { hosts: string[]; paths?: string[] };
   auth: { type: string; name?: string };
 }): CredentialBinding {
-  if (meta.auth.type !== "apiKey" || !meta.auth.name) {
-    // Only bindings this package itself created (always `apiKey`) round-trip cleanly.
-    throw new UnsupportedInjectionError(meta.auth.type);
-  }
   const path = meta.match.paths?.[0];
-  return {
+  const base = {
     host: meta.match.hosts[0] ?? "",
     ...(path && path !== "/*" ? { pathPrefix: path.replace(/\*$/, "") } : {}),
-    injection: { type: "header", name: meta.auth.name },
   };
+  if (meta.auth.type === "apiKey" && meta.auth.name) {
+    return { ...base, injection: { type: "header", name: meta.auth.name } };
+  }
+  if (meta.auth.type === "passthrough") {
+    // `GET /credential-vault` returns only `auth.type` for a passthrough binding — the
+    // sidecar never echoes `substitutions` (placeholder / surfaces). `listBindings()` is
+    // therefore lossy here; `Sandbox.resume()`/`sb.fork()` recover the full injection shape
+    // from the ledger `CredentialBound` payload instead.
+    return { ...base, injection: { type: "substitution", placeholder: "", in: [] } };
+  }
+  throw new UnsupportedInjectionError(meta.auth.type);
 }
 
 /**

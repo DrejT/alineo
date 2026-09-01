@@ -24,7 +24,8 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsdown"
+    "build": "tsdown",
+    "test": "bun test"
   },
   "dependencies": {
     "@alineo-labs/core": "workspace:*",

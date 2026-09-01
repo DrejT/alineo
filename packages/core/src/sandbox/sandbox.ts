@@ -1,4 +1,11 @@
-import type { Metrics, DiagnosticLog, DiagnosticEvent, FileInfo } from "@alineo-labs/opensandbox";
+import type {
+  Metrics,
+  DiagnosticLog,
+  DiagnosticEvent,
+  FileInfo,
+  NetworkRule,
+  EgressPolicyStatus,
+} from "@alineo-labs/opensandbox";
 import type { CheckpointInfo } from "../ledger";
 import type { CredentialBinding, CredentialSource, CredentialResolver } from "../credentials";
 import { SandboxCore } from "./core";
@@ -6,6 +13,7 @@ import * as files from "./files";
 import * as lifecycle from "./lifecycle";
 import * as observability from "./observability";
 import * as creds from "./credentials";
+import * as egressRules from "./egress";
 
 /**
  * A live sandbox container. Returned by `Sandbox.sandbox()` and `Sandbox.resume()`.
@@ -151,6 +159,28 @@ export class SandboxHandle extends SandboxCore {
     remove: (name: string): Promise<void> => creds.remove(this, name),
     listBindings: (): Promise<Array<{ name: string; binding: CredentialBinding }>> =>
       creds.listBindings(this),
+  };
+
+  /**
+   * Adjust this sandbox's outbound network policy at runtime, via its egress sidecar. Only
+   * meaningful when the sandbox was created with a `networkPolicy` (otherwise no sidecar is
+   * attached and these calls error).
+   *
+   * `patch` merges rules in (an incoming rule replaces any rule with the same `target`);
+   * `delete` removes rules by `target`. Both take effect on the running sidecar immediately
+   * and are recorded to the ledger so `resume()`/`fork()` can re-apply a still-wanted change.
+   *
+   * @example
+   * ```ts
+   * await sb.egress.patch([{ action: "allow", target: "api.github.com" }]);
+   * // …later
+   * await sb.egress.delete(["api.github.com"]);
+   * ```
+   */
+  readonly egress = {
+    patch: (rules: NetworkRule[]): Promise<void> => egressRules.patch(this, rules),
+    delete: (targets: string[]): Promise<void> => egressRules.remove(this, targets),
+    get: (): Promise<EgressPolicyStatus> => egressRules.get(this),
   };
 
   /**

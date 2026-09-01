@@ -94,6 +94,14 @@ export enum LedgerEvent {
   CredentialBound = "credential_bound",
   /** Emitted by `sb.credentials.remove()`. */
   CredentialRevoked = "credential_revoked",
+  /**
+   * Emitted by `sb.egress.patch()`. Payload is `{ rules: NetworkRule[] }` — the exact rules
+   * passed to the sidecar, so `Sandbox.resume()`/`sb.fork()` can re-apply a still-wanted
+   * allowance (egress policy is sidecar-local and does not survive either).
+   */
+  EgressRuleAdded = "egress_rule_added",
+  /** Emitted by `sb.egress.delete()`. Payload is `{ targets: string[] }`. */
+  EgressRuleRemoved = "egress_rule_removed",
 
   // ── Agent human-in-the-loop events (used by the `alineo` agent SDK) ──────────────
   /**

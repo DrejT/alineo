@@ -1,4 +1,7 @@
 export { ControlClient, OpenSandboxError } from "./control";
+export { EgressClient, EgressClientError } from "./egress";
+export type { EgressPolicyStatus } from "./egress";
+export { isValidEgressTarget } from "./egress-target";
 export { ExecClient } from "./exec";
 export { PtyClient } from "./pty";
 export type { PtyOutputListener, PtyExitListener } from "./pty";
