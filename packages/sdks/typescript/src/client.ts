@@ -603,6 +603,14 @@ export class Sandbox {
     opts?: {
       networkPolicy?: NetworkPolicy;
       credentialProxy?: boolean;
+      /**
+       * Environment for the restored sandbox — normally omitted (a snapshot already carries
+       * its container env). Use it only for `OPENSANDBOX_EGRESS_*` sidecar vars, which are
+       * process-scoped and must be re-supplied on every restore (the sidecar is not
+       * snapshotted): the server routes those to the sidecar and drops them from the
+       * container.
+       */
+      env?: Record<string, string>;
       /** Resource scope for the restored sandbox — see `SandboxOptions.resourceId`. Unlike
        *  `resume()`, `restoreSnapshot()` has no prior ledger session of its own to inherit
        *  from (the snapshot may have come from anywhere), so this must be passed explicitly. */
@@ -619,6 +627,7 @@ export class Sandbox {
       const finalRunId = runId ?? crypto.randomUUID();
       const rawSb = await this._control.createSandbox({
         snapshotId,
+        env: opts?.env,
         resourceLimits: resources,
         metadata: { runId: finalRunId },
         networkPolicy: opts?.networkPolicy,

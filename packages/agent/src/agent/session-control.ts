@@ -52,6 +52,8 @@ async function* instrument(
     }
     yield ev;
   }
+  // Turn done — revert any `allow-once` egress grant made during it.
+  await a.egressGate?.endTurn().catch(() => {});
 }
 
 /** Send a prompt to Pi and stream the response. Pi manages its own session context. */

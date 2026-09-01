@@ -43,6 +43,14 @@ export interface CredentialEnvBinding {
   injection:
     | { type: "header"; name: string }
     | { type: "substitution"; placeholder: string; in: Array<"path" | "query" | "header" | "body"> };
+  /**
+   * `"hold"` gates outbound egress to `host` behind a human decision: the agent's sandbox
+   * starts with `host` denied at the egress sidecar, the first request to it pauses and
+   * raises an approval request, and the host is allowed only once someone approves. Requires
+   * an `onEgressRequest` handler on `Alineo.load()`. Omit for the default (the host is
+   * reachable as soon as the credential is bound).
+   */
+  approval?: "hold";
 }
 
 /**
@@ -212,6 +220,7 @@ const CredentialEnvBindingSchema = z
         in: z.array(z.enum(["path", "query", "header", "body"])).min(1),
       }),
     ]),
+    approval: z.literal("hold").optional(),
   })
   .loose();
 

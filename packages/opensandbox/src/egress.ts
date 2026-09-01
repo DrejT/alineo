@@ -54,20 +54,29 @@ export class EgressClient {
   private async request<T>(sandboxId: string, method: string, body?: unknown): Promise<T> {
     const ep = await this.control.getEndpoint(sandboxId, EgressClient.PORT, this.useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
-    const res = await fetch(`${baseUrl}/policy`, {
-      method,
-      headers: {
-        ...ep.headers,
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
-    if (!res.ok) {
+    const headers = {
+      ...ep.headers,
+      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+    };
+    const init = { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) };
+
+    // Right after a sandbox (or fork/resume) is created, the egress sidecar can accept a
+    // connection a beat before its request handling is wired up — surfacing as a proxy 500/502
+    // or the sidecar's own 412 "not ready". Same retry `VaultClient` uses on `:18080`.
+    const delaysMs = [0, 300, 600, 1200, 2400];
+    let lastErr: EgressClientError | undefined;
+    for (const delay of delaysMs) {
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+      const res = await fetch(`${baseUrl}/policy`, init);
+      if (res.ok) {
+        if (res.status === 204) return undefined as T;
+        return (await res.json()) as T;
+      }
       const text = await res.text().catch(() => "");
-      throw new EgressClientError(text || "egress policy API error", res.status);
+      lastErr = new EgressClientError(text || "egress policy API error", res.status);
+      if (res.status !== 500 && res.status !== 502 && res.status !== 412) throw lastErr;
     }
-    if (res.status === 204) return undefined as T;
-    return res.json() as Promise<T>;
+    throw lastErr ?? new EgressClientError("egress policy API error", 500);
   }
 
   /** Merge `rules` into the live policy — an incoming rule replaces any rule with the same `target`. */
