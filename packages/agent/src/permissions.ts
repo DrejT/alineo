@@ -201,6 +201,24 @@ export function normalizePermissions(
   };
 }
 
+const WRAPPER_COMMANDS = new Set(["env", "command", "nice", "stdbuf", "time"]);
+
+/**
+ * True if `seg` contains a file output redirection (`> file`, `>> file`). A `>` immediately
+ * followed by `&` (`2>&1`, `>&2`), preceded by a digit (`2>`, stderr), or preceded by `&`
+ * is a file-descriptor op, not a file write. Linear scan — no regex (ReDoS-safe).
+ */
+function hasOutputRedirect(seg: string): boolean {
+  for (let i = 0; i < seg.length; i++) {
+    if (seg[i] !== ">") continue;
+    const next = seg[i + 1];
+    const prev = seg[i - 1];
+    if (next === "&" || prev === "&" || (prev >= "0" && prev <= "9")) continue;
+    return true;
+  }
+  return false;
+}
+
 /**
  * Best-effort read-vs-write triage of a shell command. `true` = every sub-command is a
  * recognised pure reader with no output redirection; `false` = something needs a human.
@@ -213,24 +231,17 @@ export function isReadOnlyBashCommand(command: string): boolean {
     .filter(Boolean);
   if (segments.length === 0) return false;
   return segments.every((seg) => {
-    // Any output redirection (but not `2>&1` / `>&2`) makes it a writer.
-    if (/(?<![0-9&])>>?/.test(seg.replace(/\d*>&\d*/g, ""))) return false;
+    if (hasOutputRedirect(seg)) return false;
     // Strip leading `VAR=val` assignments and benign wrappers.
     let tokens = seg.split(/\s+/).filter(Boolean);
-    while (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]))
-      tokens = tokens.slice(1);
-    while (
-      tokens.length > 1 &&
-      (tokens[0] === "env" ||
-        tokens[0] === "command" ||
-        tokens[0] === "nice" ||
-        tokens[0] === "stdbuf" ||
-        tokens[0] === "time")
-    ) {
+    while (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) {
       tokens = tokens.slice(1);
     }
+    while (tokens.length > 1 && WRAPPER_COMMANDS.has(tokens[0])) tokens = tokens.slice(1);
     if (tokens[0] === "timeout" && tokens.length > 2) tokens = tokens.slice(2);
-    const cmd = (tokens[0] ?? "").replace(/^.*\//, ""); // basename
+    const first = tokens[0] ?? "";
+    const slash = first.lastIndexOf("/");
+    const cmd = slash === -1 ? first : first.slice(slash + 1);
     if (!cmd) return false;
     if ((SAFE_BASH_COMMANDS as readonly string[]).includes(cmd)) return true;
     if (cmd === "git" && (SAFE_GIT_SUBCOMMANDS as readonly string[]).includes(tokens[1] ?? "")) {

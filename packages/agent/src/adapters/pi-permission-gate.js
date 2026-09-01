@@ -116,6 +116,21 @@ function loadPolicy() {
   }
 }
 
+const WRAPPER_COMMANDS = new Set(["env", "command", "nice", "stdbuf", "time"]);
+
+// Linear scan for a file output redirection — no regex (ReDoS-safe). A `>` next to `&`
+// (`2>&1`, `>&2`), preceded by a digit (`2>`), or preceded by `&` is an fd op, not a write.
+function hasOutputRedirect(seg) {
+  for (let i = 0; i < seg.length; i++) {
+    if (seg[i] !== ">") continue;
+    const next = seg[i + 1];
+    const prev = seg[i - 1];
+    if (next === "&" || prev === "&" || (prev >= "0" && prev <= "9")) continue;
+    return true;
+  }
+  return false;
+}
+
 /** Mirror of `permissions.ts` isReadOnlyBashCommand. */
 function isReadOnlyBashCommand(command) {
   const segments = String(command)
@@ -124,22 +139,16 @@ function isReadOnlyBashCommand(command) {
     .filter(Boolean);
   if (segments.length === 0) return false;
   return segments.every((seg) => {
-    if (/(?<![0-9&])>>?/.test(seg.replace(/\d*>&\d*/g, ""))) return false;
+    if (hasOutputRedirect(seg)) return false;
     let tokens = seg.split(/\s+/).filter(Boolean);
-    while (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]))
-      tokens = tokens.slice(1);
-    while (
-      tokens.length > 1 &&
-      (tokens[0] === "env" ||
-        tokens[0] === "command" ||
-        tokens[0] === "nice" ||
-        tokens[0] === "stdbuf" ||
-        tokens[0] === "time")
-    ) {
+    while (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) {
       tokens = tokens.slice(1);
     }
+    while (tokens.length > 1 && WRAPPER_COMMANDS.has(tokens[0])) tokens = tokens.slice(1);
     if (tokens[0] === "timeout" && tokens.length > 2) tokens = tokens.slice(2);
-    const cmd = (tokens[0] || "").replace(/^.*\//, "");
+    const first = tokens[0] || "";
+    const slash = first.lastIndexOf("/");
+    const cmd = slash === -1 ? first : first.slice(slash + 1);
     if (!cmd) return false;
     if (SAFE_BASH_COMMANDS.has(cmd)) return true;
     if (cmd === "git" && SAFE_GIT_SUBCOMMANDS.has(tokens[1] || "")) return true;
