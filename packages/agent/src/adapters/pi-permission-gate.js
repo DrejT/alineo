@@ -256,14 +256,16 @@ export default function (pi) {
   const policy = loadPolicy();
   if (!policy) return; // shouldn't happen — the extension is only loaded when a policy exists
 
+  // Action methods (setActiveTools) can't be called during extension load — only from a
+  // lifecycle hook once the runtime is up. Re-applying is idempotent (getActiveTools()
+  // returns the already-filtered set), so run it on session start and before every turn
+  // in case Pi re-registers tools.
   if (policy.restrictToTools.length > 0 || policy.disabledTools.length > 0) {
-    if (typeof pi.on === "function") {
-      pi.on("session_start", () => {
-        applyToolset(pi, policy);
-      });
-    }
-    // Also try immediately, in case session_start already fired before this ran.
-    applyToolset(pi, policy);
+    const apply = () => {
+      applyToolset(pi, policy);
+    };
+    pi.on("session_start", apply);
+    pi.on("before_agent_start", apply);
   }
 
   /** Session-scoped "always allow" memory, keyed tool + target. */

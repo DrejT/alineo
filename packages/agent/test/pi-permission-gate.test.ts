@@ -75,30 +75,47 @@ async function call(
   return { result, selectCalls };
 }
 
+/** Fire the lifecycle hooks the gate registers to apply the toolset (it can't at load time). */
+function boot(pi: ReturnType<typeof makePi>) {
+  for (const fn of pi.handlers.session_start ?? []) fn();
+  for (const fn of pi.handlers.before_agent_start ?? []) fn();
+}
+
 describe("pi-permission-gate — toolset", () => {
-  it("restrictToTools intersects the visible toolset", () => {
+  it("does not touch the toolset during extension load", () => {
     setPolicy({ default: "ask", rules: [], restrictToTools: ["read", "grep"] });
     const pi = makePi();
     gate(pi);
+    expect(pi.active).toContain("bash"); // untouched until a lifecycle hook fires
+  });
+
+  it("restrictToTools intersects the visible toolset on session_start", () => {
+    setPolicy({ default: "ask", rules: [], restrictToTools: ["read", "grep"] });
+    const pi = makePi();
+    gate(pi);
+    boot(pi);
     expect(pi.active.sort()).toEqual(["grep", "read"]);
   });
 
-  it("disabledTools is removed from the visible toolset and denied at call time", async () => {
+  it("disabledTools is removed from the toolset and denied at call time", async () => {
     setPolicy({ default: "allow", rules: [], disabledTools: ["bash"] });
     const pi = makePi();
     gate(pi);
+    boot(pi);
     expect(pi.active).not.toContain("bash");
     const { result } = await call(pi, "bash", { command: "ls" });
     expect(result).toMatchObject({ block: true });
   });
 
-  it("re-applies the toolset on session_start", () => {
+  it("re-applies each turn (idempotent) if Pi re-registers tools", () => {
     setPolicy({ default: "ask", rules: [], restrictToTools: ["read"] });
     const pi = makePi();
     gate(pi);
-    pi.active = ["read", "write", "bash"]; // simulate Pi re-registering tools
-    for (const fn of pi.handlers.session_start) fn();
+    boot(pi);
     expect(pi.active).toEqual(["read"]);
+    pi.active = ["read", "write", "bash"]; // Pi re-registers tools mid-session
+    for (const fn of pi.handlers.before_agent_start ?? []) fn();
+    expect(pi.active).toEqual(["read"]); // re-filtered
   });
 });
 
