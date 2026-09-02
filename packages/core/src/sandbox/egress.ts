@@ -11,8 +11,10 @@ function client(sb: SandboxInternal): EgressClient {
  * any existing rule with the same `target`; every other rule and the `defaultAction` are
  * untouched. The change is applied to the running sidecar immediately.
  *
- * Recorded to the ledger (the rules only, no secrets) so `Sandbox.resume()` / `sb.fork()`
- * can re-apply a still-wanted allowance — egress policy does not survive either.
+ * Recorded to the ledger (the rules only, no secrets) so `Sandbox.resume()` can fold a
+ * still-wanted change back into the resumed sandbox's boot policy — egress policy is
+ * sidecar-local and does not survive a resume. (`sb.fork()` does not carry runtime egress
+ * rules: a fork is a fresh branch and gets a wide-open `defaultAction: "allow"` policy.)
  */
 export async function patch(sb: SandboxInternal, rules: NetworkRule[]): Promise<void> {
   await client(sb).patchRules(sb.sandboxId, rules);

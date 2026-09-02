@@ -74,6 +74,17 @@ describe("EgressClient", () => {
     expect((err as EgressClientError).status).toBe(400);
   });
 
+  it("tolerates an empty 200 body instead of throwing a SyntaxError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "" }),
+    );
+
+    await expect(
+      new EgressClient(fakeControl()).patchRules("sb-1", [{ action: "allow", target: "x" }]),
+    ).resolves.toBeUndefined();
+  });
+
   it("prefixes a bare host:port endpoint with http://", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ status: "ok" }));
     vi.stubGlobal("fetch", fetchMock);

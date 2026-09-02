@@ -31,6 +31,9 @@ describe("isValidEgressTarget", () => {
       "2001:db8::1",
       "fe80::1/64",
       "2001:db8::/32",
+      "::ffff:192.168.1.1", // IPv4-mapped IPv6 — the server accepts it
+      "::ffff:192.168.1.0/120",
+      "fe80::",
     ]) {
       expect(isValidEgressTarget(t), t).toBe(true);
     }
@@ -54,6 +57,7 @@ describe("isValidEgressTarget", () => {
       "10.0.0.0/999",
       "-leadinghyphen.com",
       "trailinghyphen-.com",
+      "foo:bar", // single colon, not an IPv6
     ]) {
       expect(isValidEgressTarget(t), t).toBe(false);
     }

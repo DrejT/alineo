@@ -183,6 +183,9 @@ export class EgressApprovalGate {
             .catch(() => {});
       }
       await this.sb().egress.patch([{ action: "deny", target: host }]);
+      // Clear the dedup timestamp so the next turn's request re-prompts instead of being
+      // swallowed for the rest of DEDUP_TTL_MS.
+      this.seen.delete(host);
     }
   }
 

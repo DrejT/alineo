@@ -166,6 +166,32 @@ describe("EgressApprovalGate", () => {
     }
   });
 
+  it("re-prompts on the next turn after an allow-once is reverted (dedup is cleared)", async () => {
+    const sb = fakeSandbox();
+    let calls = 0;
+    const gate = new EgressApprovalGate({
+      heldCredentials: [cred("gh", "held.example.com")],
+      handler: () => {
+        calls++;
+        return "allow-once";
+      },
+    });
+    await gate.start();
+    gate.bind(sb.handle);
+    try {
+      await fireWebhook(gate, "held.example.com");
+      expect(calls).toBe(1);
+
+      await gate.endTurn();
+      // Same host, immediately — within DEDUP_TTL_MS. Without clearing `seen` this would be
+      // swallowed and the operator never re-asked.
+      await fireWebhook(gate, "held.example.com");
+      expect(calls).toBe(2);
+    } finally {
+      await gate.stop();
+    }
+  });
+
   it("endTurn() leaves an allow-always grant in place", async () => {
     const sb = fakeSandbox();
     const gate = new EgressApprovalGate({

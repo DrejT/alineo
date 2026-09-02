@@ -35,6 +35,17 @@ async function resolves(sb: SandboxHandle, host: string): Promise<boolean> {
   return exitCode === 0;
 }
 
+/** Poll `resolves()` until it equals `want` or ~7.5s elapse — a freshly-booted sidecar's nft
+ *  layer can lag its `/policy` HTTP layer by a beat, so `deny` isn't instant on the first
+ *  request after `resume()`. */
+async function resolvesSettled(sb: SandboxHandle, host: string, want: boolean): Promise<boolean> {
+  for (let i = 0; i < 5; i++) {
+    if ((await resolves(sb, host)) === want) return want;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return resolves(sb, host);
+}
+
 /** GET a URL from inside the sandbox and return the parsed JSON body. */
 async function httpGetJson(sb: SandboxHandle, url: string): Promise<unknown> {
   const { stdout } = await sb.exec(
@@ -134,6 +145,34 @@ test("a runtime egress allow survives resume() (C1)", async () => {
   const resumed = await client.resume(sandboxId);
   try {
     expect(await resolves(resumed, "example.com")).toBe(true);
+  } finally {
+    await resumed.close();
+  }
+}, 120_000);
+
+test("a runtime egress delete of a boot-policy rule survives resume() (C1)", async () => {
+  const client = newClient();
+  const sb = await client.sandbox({
+    image: IMAGE,
+    resources: RESOURCES,
+    name: "egress-resume-delete",
+    // example.com is allowed by the *boot* policy, not a runtime patch.
+    networkPolicy: { defaultAction: "deny", egress: [{ action: "allow", target: "example.com" }] },
+  });
+  const sandboxId = sb.sandboxId;
+  try {
+    expect(await resolves(sb, "example.com")).toBe(true);
+    await sb.egress.delete(["example.com"]); // operator deliberately closes it
+    expect(await resolves(sb, "example.com")).toBe(false);
+    await sb.checkpoint();
+  } finally {
+    await sb.close();
+  }
+
+  const resumed = await client.resume(sandboxId);
+  try {
+    // Must stay closed — the delete is not silently undone by re-applying the boot policy.
+    expect(await resolvesSettled(resumed, "example.com", false)).toBe(false);
   } finally {
     await resumed.close();
   }

@@ -85,7 +85,11 @@ export async function loadAgent(
   // denied at the sidecar and the credential is NOT registered — the gate does both on
   // approval (the vault refuses a binding whose host isn't allowed).
   const heldCredentials = credentialBindings.filter((b) => b.approval === "hold");
-  const heldHosts = [...new Set(heldCredentials.map((b) => b.binding.host))];
+  // Normalize the same way `EgressApprovalGate` does, so the `deny` rule created here and the
+  // `allow` rule the gate patches on approval name the exact same target.
+  const heldHosts = [
+    ...new Set(heldCredentials.map((b) => b.binding.host.trim().replace(/\.$/, "").toLowerCase())),
+  ];
   if (heldCredentials.length > 0 && !opts.onEgressRequest) {
     throw new Error(
       `AgentSpec.env has ${heldCredentials.length} credential binding(s) with approval: "hold" ` +

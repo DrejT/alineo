@@ -96,8 +96,9 @@ export enum LedgerEvent {
   CredentialRevoked = "credential_revoked",
   /**
    * Emitted by `sb.egress.patch()`. Payload is `{ rules: NetworkRule[] }` — the exact rules
-   * passed to the sidecar, so `Sandbox.resume()`/`sb.fork()` can re-apply a still-wanted
-   * allowance (egress policy is sidecar-local and does not survive either).
+   * passed to the sidecar, so `Sandbox.resume()` can fold a still-wanted allowance back into
+   * the resumed sandbox's boot policy (egress policy is sidecar-local and does not survive a
+   * resume). `sb.fork()` does not carry these.
    */
   EgressRuleAdded = "egress_rule_added",
   /** Emitted by `sb.egress.delete()`. Payload is `{ targets: string[] }`. */

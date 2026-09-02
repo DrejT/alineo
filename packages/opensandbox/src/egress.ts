@@ -39,9 +39,9 @@ export interface EgressPolicyStatus {
  * - `GET /policy` — returns `{ status, mode, enforcementMode, policy }`.
  *
  * Egress policy is sidecar-local runtime state: it does not survive the sidecar restarting
- * and is not restored by OpenSandbox's snapshot/checkpoint — callers that need a change to
- * outlive a `resume()`/`fork()` must re-apply it (`@alineo-labs/core` replays from the
- * ledger).
+ * and is not restored by OpenSandbox's snapshot/checkpoint — `@alineo-labs/core` folds a
+ * `resume()`d sandbox's still-live changes back into its boot policy from the ledger. (A
+ * `fork()` does not carry them.)
  */
 export class EgressClient {
   private static readonly PORT = 18080;
@@ -70,7 +70,11 @@ export class EgressClient {
       const res = await fetch(`${baseUrl}/policy`, init);
       if (res.ok) {
         if (res.status === 204) return undefined as T;
-        return (await res.json()) as T;
+        // The `/policy` server always writes a JSON status envelope, but tolerate an empty
+        // body rather than surfacing a bare `SyntaxError` from `res.json()` on a mutation
+        // that otherwise succeeded.
+        const text = await res.text();
+        return (text ? JSON.parse(text) : undefined) as T;
       }
       const text = await res.text().catch(() => "");
       lastErr = new EgressClientError(text || "egress policy API error", res.status);

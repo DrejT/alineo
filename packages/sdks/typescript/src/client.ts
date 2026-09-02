@@ -341,22 +341,26 @@ export class Sandbox {
     // the same egress posture as its origin, recovered from ledger data since the OpenSandbox
     // control plane doesn't echo `networkPolicy` back on GET /v1/sandboxes.
     //
-    // Runtime `sb.egress.patch()` changes are sidecar-local and don't survive the snapshot
-    // either, so fold whatever is still live per the ledger straight into the policy the
-    // resumed sandbox boots with — a replayed rule replaces any same-`target` rule from the
-    // original policy (the sidecar's own PATCH merge semantics). Applying them at boot rather
-    // than via a post-start `sb.egress.patch()` avoids a race with the sidecar still wiring
-    // up its nft/DNS layer.
+    // Runtime `sb.egress.patch()` / `.delete()` changes are sidecar-local and don't survive
+    // the snapshot either, so fold whatever they still amount to per the ledger straight into
+    // the policy the resumed sandbox boots with — a replayed rule replaces any same-`target`
+    // rule from the original policy, and a runtime `delete()` also drops a matching original
+    // rule (the sidecar's own PATCH merge semantics). Applying at boot rather than via a
+    // post-start `sb.egress.patch()` avoids a race with the sidecar still wiring up nft/DNS.
     const originalNetworkPolicy = createdPayload?.networkPolicy;
     const credentialProxy = createdPayload?.credentialProxy;
-    const replayedEgress = originalNetworkPolicy ? reconstructEgressRules(entries) : [];
+    const replayedEgress = originalNetworkPolicy
+      ? reconstructEgressRules(entries)
+      : { apply: [], remove: [] };
     const networkPolicy = originalNetworkPolicy
       ? {
           ...originalNetworkPolicy,
           egress: [
-            ...replayedEgress,
+            ...replayedEgress.apply,
             ...(originalNetworkPolicy.egress ?? []).filter(
-              (r) => !replayedEgress.some((rr) => rr.target === r.target),
+              (r) =>
+                !replayedEgress.apply.some((rr) => rr.target === r.target) &&
+                !replayedEgress.remove.includes(r.target),
             ),
           ],
         }
@@ -496,20 +500,11 @@ export class Sandbox {
         await sb.credentials.set(credName, value, binding, source);
       }
 
-      // Record the replayed rules against the *new* session too, so a later resume of this
-      // resumed sandbox reconstructs them (they were baked into the boot policy above, not
-      // applied via `sb.egress.*`, so nothing else writes them here).
-      if (replayedEgress.length > 0) {
-        await this._adapter.append({
-          ts: Date.now(),
-          name,
-          sandboxId: newSessionId,
-          stepIndex: -1,
-          event: LedgerEvent.EgressRuleAdded,
-          payload: { rules: replayedEgress },
-        });
-      }
-
+      // No need to re-record the replayed rules against the new session: they (and any
+      // runtime deletes) are already folded into `networkPolicy` above, which is what the
+      // new `SandboxCreated` payload carries — a later resume of *this* sandbox reconstructs
+      // from that boot policy plus whatever `sb.egress.*` calls the resumed session itself
+      // makes.
       return sb;
     } catch (err) {
       this._releaseSlot();
