@@ -8,7 +8,8 @@ an operator approves it — `AgentSpec.env` `approval: "hold"` + `Alineo.load({ 
 ```bash
 bunx alineo-cli init   # starts OpenSandbox in Docker (one-time), with egress.mode = "dns+nft"
 export NVIDIA_API_KEY=...
-export GITHUB_TOKEN=...   # optional — the demo works without one (the request just 401s)
+export GITHUB_TOKEN=...   # optional — without it, approval still opens the host but no
+                         # credential is injected, so the request goes out unauthenticated (401)
 ```
 
 ## Run

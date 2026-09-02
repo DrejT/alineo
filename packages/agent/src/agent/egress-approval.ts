@@ -1,16 +1,28 @@
 import { createServer, type Server } from "node:http";
-import { LedgerEvent, type SandboxHandle } from "@alineo-labs/core";
+import {
+  LedgerEvent,
+  type CredentialBinding,
+  type CredentialSource,
+  type SandboxHandle,
+} from "@alineo-labs/core";
 
 /**
  * Human-in-the-loop gate for a sandboxed agent's outbound network access.
  *
- * Hosts marked `approval: "hold"` in `AgentSpec.env` start *denied* at the egress sidecar
- * (the sandbox is `defaultAction: "allow"` with an explicit `deny` rule per held host, so
- * everything else — including the agent's own model/tooling traffic — keeps working). The
- * sidecar POSTs a fire-and-forget webhook when the agent's sandbox is denied a DNS query;
- * this gate listens for that, calls the caller's handler, and — on approval — flips the rule
- * to `allow` on the running sidecar via `sb.egress.patch()`. Enforcement is entirely
- * out-of-process: a compromised in-sandbox agent cannot skip it.
+ * Credential env bindings marked `approval: "hold"` in `AgentSpec.env` start with their host
+ * *denied* at the egress sidecar (the sandbox is `defaultAction: "allow"` with an explicit
+ * `deny` rule per held host, so everything else — including the agent's own model traffic —
+ * keeps working) and their credential **not registered in the vault at all** (the vault
+ * refuses a binding whose host isn't allowed).
+ *
+ * The sidecar POSTs a fire-and-forget webhook when the sandbox is denied a DNS query. This
+ * gate listens for that, calls the caller's handler, and on approval:
+ *   1. flips the sidecar rule to `allow` for that host (`sb.egress.patch`), then
+ *   2. registers the held credential(s) for it (`sb.credentials.set`) — so the credential
+ *      literally does not exist inside the sandbox until a human approves.
+ *
+ * `allow-once` reverses both at the end of the turn; `allow-always` leaves them in place.
+ * Enforcement is entirely out-of-process — a compromised in-sandbox agent cannot skip it.
  *
  * The listener binds `0.0.0.0` on an ephemeral port and is torn down with the agent.
  */
@@ -29,6 +41,14 @@ export type EgressRequestHandler = (
   req: EgressRequest,
 ) => EgressDecision | Promise<EgressDecision>;
 
+/** A credential whose registration is gated behind egress approval for its host. */
+export interface HeldCredential {
+  name: string;
+  value: string;
+  binding: CredentialBinding;
+  source?: CredentialSource;
+}
+
 /** The sidecar's deny-webhook body (`components/egress/pkg/events/webhook.go`). */
 interface DenyWebhookBody {
   hostname?: string;
@@ -38,8 +58,12 @@ interface DenyWebhookBody {
 const DEDUP_TTL_MS = 30_000;
 
 export interface EgressApprovalGateOptions {
-  /** Hosts that start denied — the gate flips these to `allow` on approval. */
-  heldHosts: string[];
+  /**
+   * Credentials whose host starts denied. The gate allows the host and registers these on
+   * approval. (Non-credential held hosts can be passed as `{ name, value: "", binding }` with
+   * an empty value — the gate then only manages the egress rule.)
+   */
+  heldCredentials: HeldCredential[];
   handler: EgressRequestHandler;
   /**
    * Address the sandbox's egress sidecar can reach this host process at. Defaults to the
@@ -55,20 +79,28 @@ export class EgressApprovalGate {
   private sandbox: SandboxHandle | undefined;
   private readonly handler: EgressRequestHandler;
   private readonly webhookHost: string;
-  /** Hosts still denied — dropped from here once permanently opened by `allow-always`. */
-  private readonly held: Set<string>;
+  /** host → the held credentials bound to it. */
+  private readonly byHost = new Map<string, HeldCredential[]>();
+  /** Hosts still gated — dropped once permanently opened by `allow-always`. */
+  private readonly held = new Set<string>();
   /** host → last time we raised a request for it (dedup; the webhook fires per DNS query). */
   private readonly seen = new Map<string, number>();
   /** Hosts with a decision currently in flight. */
   private readonly inFlight = new Set<string>();
-  /** Hosts approved `allow-once` — reverted to `deny` on `endTurn()`. */
+  /** Hosts approved `allow-once` — reversed on `endTurn()`. */
   private readonly onceApproved = new Set<string>();
 
   constructor(opts: EgressApprovalGateOptions) {
     this.handler = opts.handler;
     this.webhookHost =
       opts.webhookHost ?? process.env.ALINEO_EGRESS_APPROVAL_HOST ?? "172.17.0.1";
-    this.held = new Set(opts.heldHosts.map(normalizeHost));
+    for (const held of opts.heldCredentials) {
+      const host = normalizeHost(held.binding.host);
+      this.held.add(host);
+      const list = this.byHost.get(host);
+      if (list) list.push(held);
+      else this.byHost.set(host, [held]);
+    }
   }
 
   /** Attach the sandbox whose egress this gate manages. Called once its handle exists. */
@@ -139,14 +171,18 @@ export class EgressApprovalGate {
   }
 
   /**
-   * Revert every `allow-once` approval to `deny`. Call when an agent turn ends so a
-   * one-shot grant does not silently persist.
+   * Reverse every `allow-once` approval — remove its credential(s) and re-deny the host.
+   * Call when an agent turn ends so a one-shot grant does not silently persist.
    */
   async endTurn(): Promise<void> {
     const toRevert = [...this.onceApproved].filter((h) => this.held.has(h));
     this.onceApproved.clear();
-    if (toRevert.length > 0) {
-      await this.sb().egress.patch(toRevert.map((target) => ({ action: "deny", target })));
+    for (const host of toRevert) {
+      // Credential first (while the host is still allowed), then re-deny.
+      for (const held of this.byHost.get(host) ?? []) {
+        if (held.value !== "") await this.sb().credentials.remove(held.name).catch(() => {});
+      }
+      await this.sb().egress.patch([{ action: "deny", target: host }]);
     }
   }
 
@@ -174,7 +210,14 @@ export class EgressApprovalGate {
 
     try {
       if (decision === "allow-once" || decision === "allow-always") {
+        // Order matters: the vault refuses a binding whose host isn't allowed, so open the
+        // egress rule first, then register the credential(s).
         await this.sb().egress.patch([{ action: "allow", target: host }]);
+        for (const held of this.byHost.get(host) ?? []) {
+          if (held.value !== "") {
+            await this.sb().credentials.set(held.name, held.value, held.binding, held.source);
+          }
+        }
         if (decision === "allow-once") this.onceApproved.add(host);
         else this.held.delete(host);
       }

@@ -171,37 +171,50 @@ test("substitution injection swaps a placeholder in the query string (Part B)", 
 
 // ── C2 — approve-on-egress hold (EgressApprovalGate) ─────────────────────────
 
-const HELD = "example.org"; // a real, resolvable host we gate
+const HELD = "httpbin.org"; // real + resolvable + echoes headers back, so we can see injection
 
-async function heldSandbox() {
+const heldCred = (value = "held-secret-not-a-real-token") => [
+  {
+    name: "held",
+    value,
+    binding: {
+      host: HELD,
+      injection: { type: "header" as const, name: "X-Held-Credential" },
+    },
+  },
+];
+
+/** A sandbox in the exact posture the agent factory builds for a `approval: "hold"` binding. */
+async function heldSandbox(webhookUrl?: string) {
   return newClient().sandbox({
     image: IMAGE,
     resources: RESOURCES,
     name: "egress-hold",
     networkPolicy: { defaultAction: "allow", egress: [{ action: "deny", target: HELD }] },
+    credentialProxy: true,
+    ...(webhookUrl ? { env: { OPENSANDBOX_EGRESS_DENY_WEBHOOK: webhookUrl } } : {}),
   });
 }
 
-test("EgressApprovalGate: a held host stays denied when the handler says deny (C2)", async () => {
+async function headerSeenBy(sb: SandboxHandle): Promise<string | undefined> {
+  const body = (await httpGetJson(sb, "https://httpbin.org/headers")) as {
+    headers: Record<string, string>;
+  };
+  return body.headers["X-Held-Credential"];
+}
+
+test("EgressApprovalGate: a held host stays denied — and the credential is never registered — when the handler says deny (C2)", async () => {
   const decisions: string[] = [];
   const gate = new EgressApprovalGate({
-    heldHosts: [HELD],
+    heldCredentials: heldCred(),
     handler: (req): EgressDecision => {
       decisions.push(req.host);
       return "deny";
     },
   });
   await gate.start();
-
-  const sb = await newClient().sandbox({
-    image: IMAGE,
-    resources: RESOURCES,
-    name: "egress-hold-deny",
-    networkPolicy: { defaultAction: "allow", egress: [{ action: "deny", target: HELD }] },
-    env: { OPENSANDBOX_EGRESS_DENY_WEBHOOK: gate.webhookUrl },
-  });
+  const sb = await heldSandbox(gate.webhookUrl);
   gate.bind(sb);
-
   try {
     expect(await resolves(sb, HELD)).toBe(false);
     await new Promise((r) => setTimeout(r, 800));
@@ -213,50 +226,47 @@ test("EgressApprovalGate: a held host stays denied when the handler says deny (C
   }
 }, 90_000);
 
-test("EgressApprovalGate: allow-once is reverted by endTurn() (C2)", async () => {
-  const gate = new EgressApprovalGate({ heldHosts: [HELD], handler: () => "allow-once" });
+test("EgressApprovalGate: allow-once opens the host + injects, then endTurn() reverses both (C2)", async () => {
+  const gate = new EgressApprovalGate({ heldCredentials: heldCred("SECRET-ONCE"), handler: () => "allow-once" });
   await gate.start();
   const sb = await heldSandbox();
   gate.bind(sb);
   try {
-    await fetch(gate.webhookUrl, {
+    // Probe first — the `exec` naturally waits out the sidecar's cold start before we drive
+    // the gate (which calls `sb.egress.patch` + `sb.credentials.set` against it).
+    expect(await resolves(sb, HELD)).toBe(false);
+    await fetch(gate.webhookUrl.replace("172.17.0.1", "127.0.0.1"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ hostname: HELD }),
     });
-    await new Promise((r) => setTimeout(r, 300));
-    expect(await resolves(sb, HELD)).toBe(true);
+    await new Promise((r) => setTimeout(r, 2000)); // rule flip + vault register + mitm reload
+    expect(await headerSeenBy(sb)).toBe("SECRET-ONCE");
 
     await gate.endTurn();
-    expect(await resolves(sb, HELD)).toBe(false);
+    expect(await resolves(sb, HELD)).toBe(false); // host re-denied
   } finally {
     await gate.stop();
     await sb.close();
   }
-}, 90_000);
+}, 120_000);
 
-test("the real deny webhook reaches the gate and drives an approval (C2, end-to-end)", async () => {
-  const gate = new EgressApprovalGate({ heldHosts: [HELD], handler: () => "allow-always" });
+test("the real deny webhook drives an allow-always approval end-to-end: host reachable + credential injected (C2)", async () => {
+  const gate = new EgressApprovalGate({ heldCredentials: heldCred("SECRET-ALWAYS"), handler: () => "allow-always" });
   await gate.start();
-  const sb = await newClient().sandbox({
-    image: IMAGE,
-    resources: RESOURCES,
-    name: "egress-hold-e2e",
-    networkPolicy: { defaultAction: "allow", egress: [{ action: "deny", target: HELD }] },
-    env: { OPENSANDBOX_EGRESS_DENY_WEBHOOK: gate.webhookUrl },
-  });
+  const sb = await heldSandbox(gate.webhookUrl);
   gate.bind(sb);
   try {
-    // First real attempt is denied; the sidecar POSTs the webhook; the gate approves;
-    // a retry succeeds.
+    // First real attempt is denied; the sidecar POSTs the webhook; the gate approves,
+    // opens the rule, and registers the credential; a retry succeeds and carries it.
     expect(await resolves(sb, HELD)).toBe(false);
-    await new Promise((r) => setTimeout(r, 800));
-    expect(await resolves(sb, HELD)).toBe(true);
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(await headerSeenBy(sb)).toBe("SECRET-ALWAYS");
   } finally {
     await gate.stop();
     await sb.close();
   }
-}, 90_000);
+}, 120_000);
 
 test("header injection still works after the injection-type change (Part B)", async () => {
   const DEMO_SECRET = "hdr-secret-not-a-real-token";

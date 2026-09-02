@@ -6,6 +6,7 @@ export type {
   EgressRequest,
   EgressRequestHandler,
   EgressApprovalGateOptions,
+  HeldCredential,
 } from "./agent";
 export type { AgentSpec, SetupStep } from "./schema";
 export { validateAgentSpec } from "./schema";

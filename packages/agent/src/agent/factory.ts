@@ -81,14 +81,14 @@ export async function loadAgent(
   const credentialBindings = extractCredentialBindings(spec.env ?? {});
   const needsCredentialProxy = credentialBindings.length > 0;
 
-  // Hosts the spec gated behind human approval (`approval: "hold"`). They start denied at
-  // the sidecar; the gate flips each to `allow` when its handler approves.
-  const heldHosts = [
-    ...new Set(credentialBindings.filter((b) => b.approval === "hold").map((b) => b.binding.host)),
-  ];
-  if (heldHosts.length > 0 && !opts.onEgressRequest) {
+  // Credential bindings gated behind human approval (`approval: "hold"`). Their host starts
+  // denied at the sidecar and the credential is NOT registered — the gate does both on
+  // approval (the vault refuses a binding whose host isn't allowed).
+  const heldCredentials = credentialBindings.filter((b) => b.approval === "hold");
+  const heldHosts = [...new Set(heldCredentials.map((b) => b.binding.host))];
+  if (heldCredentials.length > 0 && !opts.onEgressRequest) {
     throw new Error(
-      `AgentSpec.env has ${heldHosts.length} credential binding(s) with approval: "hold" ` +
+      `AgentSpec.env has ${heldCredentials.length} credential binding(s) with approval: "hold" ` +
         `(${heldHosts.join(", ")}) but Alineo.load() was called without an onEgressRequest handler.`,
     );
   }
@@ -108,8 +108,16 @@ export async function loadAgent(
   // Start the listener before creating the sandbox — its URL goes into the sidecar env.
   // `gate.bind(sb)` attaches the handle once it exists.
   const egressGate =
-    heldHosts.length > 0 && opts.onEgressRequest
-      ? new EgressApprovalGate({ heldHosts, handler: opts.onEgressRequest })
+    heldCredentials.length > 0 && opts.onEgressRequest
+      ? new EgressApprovalGate({
+          heldCredentials: heldCredentials.map((b) => ({
+            name: b.name,
+            value: b.value,
+            binding: b.binding,
+            source: b.source,
+          })),
+          handler: opts.onEgressRequest,
+        })
       : undefined;
   const egressEnv: Record<string, string> = {};
   if (egressGate) {
@@ -215,8 +223,11 @@ export async function loadAgent(
 
   // Applied on every load() (fresh or from-snapshot) — the vault is sidecar-runtime-only, so
   // whichever path just created `sb` needs these re-registered against its own sandboxId.
-  for (const { name, value, binding, source } of credentialBindings) {
-    await sb.credentials.set(name, value, binding, source);
+  // `approval: "hold"` bindings are skipped here — their host is denied, so the vault would
+  // reject them; the gate registers them on approval instead.
+  for (const cb of credentialBindings) {
+    if (cb.approval === "hold") continue;
+    await sb.credentials.set(cb.name, cb.value, cb.binding, cb.source);
   }
 
   // ── Always: write fresh config + start bridge ─────────────────────────────

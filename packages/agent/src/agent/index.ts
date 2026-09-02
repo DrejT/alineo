@@ -7,4 +7,5 @@ export type {
   EgressRequest,
   EgressRequestHandler,
   EgressApprovalGateOptions,
+  HeldCredential,
 } from "./egress-approval";
