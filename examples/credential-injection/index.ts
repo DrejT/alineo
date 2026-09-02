@@ -85,7 +85,7 @@ try {
   // just less visible there).
   await new Promise((r) => setTimeout(r, 1500));
   await sb
-    .exec("curl -s 'https://httpbin.org/get?api_key=__TOKEN__' | grep -o '\"api_key\": \"[^\"]*\"'")
+    .exec('curl -s \'https://httpbin.org/get?api_key=__TOKEN__\' | grep -o \'"api_key": "[^"]*"\'')
     .pipe(process.stdout);
 
   // ── Part 3: fork() carries bound credentials to the child automatically ────

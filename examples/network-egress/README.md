@@ -34,7 +34,7 @@ bun start
    already-running sandbox; the change hits the sidecar immediately.
 3. Shows a CIDR target being accepted. IP/CIDR rules are enforced at the nftables layer (so
    they need `dns+nft` mode) and gate raw-IP egress — they do **not** authorize resolving a
-   *domain* into that range, so for reach-by-name you still want a domain rule.
+   _domain_ into that range, so for reach-by-name you still want a domain rule.
 4. `sb.egress.delete(["example.com"])` — revokes it; the host is blocked again.
 5. `sb.egress.get()` — reads back the live policy from the sidecar.
 

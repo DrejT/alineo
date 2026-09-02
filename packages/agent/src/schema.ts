@@ -42,7 +42,11 @@ export interface CredentialEnvBinding {
    */
   injection:
     | { type: "header"; name: string }
-    | { type: "substitution"; placeholder: string; in: Array<"path" | "query" | "header" | "body"> };
+    | {
+        type: "substitution";
+        placeholder: string;
+        in: Array<"path" | "query" | "header" | "body">;
+      };
   /**
    * `"hold"` gates outbound egress to `host` behind a human decision: the agent's sandbox
    * starts with `host` denied at the egress sidecar, the first request to it pauses and

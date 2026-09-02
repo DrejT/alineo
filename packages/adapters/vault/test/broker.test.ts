@@ -42,13 +42,19 @@ describe("fromWireBindingMetadata", () => {
       host: "api.github.com",
       injection: { type: "header", name: "Authorization" },
     };
-    const meta = { match: toWireBinding("gh", binding).match, auth: { type: "apiKey", name: "Authorization" } };
+    const meta = {
+      match: toWireBinding("gh", binding).match,
+      auth: { type: "apiKey", name: "Authorization" },
+    };
     expect(fromWireBindingMetadata(meta)).toEqual(binding);
   });
 
   it("recovers host + a substitution shape for a passthrough binding (placeholder/in are lossy)", () => {
     expect(
-      fromWireBindingMetadata({ match: { hosts: ["api.example.com"] }, auth: { type: "passthrough" } }),
+      fromWireBindingMetadata({
+        match: { hosts: ["api.example.com"] },
+        auth: { type: "passthrough" },
+      }),
     ).toEqual({
       host: "api.example.com",
       injection: { type: "substitution", placeholder: "", in: [] },

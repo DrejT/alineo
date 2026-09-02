@@ -2,8 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EgressClient, EgressClientError } from "../src/egress.ts";
 import type { ControlClient } from "../src/control.ts";
 
-function fakeControl(endpoint = "http://10.1.2.3:18080", headers: Record<string, string> = { "X-EXECD-ACCESS-TOKEN": "t" }): ControlClient {
-  return { getEndpoint: vi.fn().mockResolvedValue({ endpoint, headers }) } as unknown as ControlClient;
+function fakeControl(
+  endpoint = "http://10.1.2.3:18080",
+  headers: Record<string, string> = { "X-EXECD-ACCESS-TOKEN": "t" },
+): ControlClient {
+  return {
+    getEndpoint: vi.fn().mockResolvedValue({ endpoint, headers }),
+  } as unknown as ControlClient;
 }
 
 function jsonResponse(body: unknown, ok = true, status = 200) {

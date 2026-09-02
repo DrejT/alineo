@@ -39,7 +39,7 @@ const agent = await Alineo.load(await Bun.file("./agents/egress-agent.json").jso
 
 try {
   rule("2 · ask it to call the GitHub API — the request pauses for approval, then succeeds");
-  console.log('prompt: "curl -s -o /dev/null -w \'%{http_code}\' https://api.github.com/user"\n');
+  console.log("prompt: \"curl -s -o /dev/null -w '%{http_code}' https://api.github.com/user\"\n");
   process.stdout.write("> ");
   for await (const ev of agent.prompt(
     "Run exactly this shell command and report only its output: " +

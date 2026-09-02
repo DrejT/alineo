@@ -37,9 +37,7 @@ export interface EgressRequest {
   since: number;
 }
 
-export type EgressRequestHandler = (
-  req: EgressRequest,
-) => EgressDecision | Promise<EgressDecision>;
+export type EgressRequestHandler = (req: EgressRequest) => EgressDecision | Promise<EgressDecision>;
 
 /** A credential whose registration is gated behind egress approval for its host. */
 export interface HeldCredential {
@@ -92,8 +90,7 @@ export class EgressApprovalGate {
 
   constructor(opts: EgressApprovalGateOptions) {
     this.handler = opts.handler;
-    this.webhookHost =
-      opts.webhookHost ?? process.env.ALINEO_EGRESS_APPROVAL_HOST ?? "172.17.0.1";
+    this.webhookHost = opts.webhookHost ?? process.env.ALINEO_EGRESS_APPROVAL_HOST ?? "172.17.0.1";
     for (const held of opts.heldCredentials) {
       const host = normalizeHost(held.binding.host);
       this.held.add(host);
@@ -180,7 +177,10 @@ export class EgressApprovalGate {
     for (const host of toRevert) {
       // Credential first (while the host is still allowed), then re-deny.
       for (const held of this.byHost.get(host) ?? []) {
-        if (held.value !== "") await this.sb().credentials.remove(held.name).catch(() => {});
+        if (held.value !== "")
+          await this.sb()
+            .credentials.remove(held.name)
+            .catch(() => {});
       }
       await this.sb().egress.patch([{ action: "deny", target: host }]);
     }
