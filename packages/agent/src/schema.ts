@@ -33,11 +33,28 @@ export interface CredentialEnvBinding {
   host: string;
   /** Narrows the binding to requests whose path starts with this prefix. */
   pathPrefix?: string;
-  /** How the credential reaches the request. */
+  /**
+   * How the credential reaches the request. `header` adds `name: <value>`. `substitution`
+   * replaces every literal `placeholder` in the listed request surfaces with the value — the
+   * request must already contain `placeholder` verbatim (put it in a base URL, say). Mirrors
+   * `@alineo-labs/core`'s `CredentialInjection`; `packages/agent/test/schema.test.ts` is the
+   * drift check.
+   */
   injection:
     | { type: "header"; name: string }
-    | { type: "query"; param: string }
-    | { type: "path"; segment: string };
+    | {
+        type: "substitution";
+        placeholder: string;
+        in: Array<"path" | "query" | "header" | "body">;
+      };
+  /**
+   * `"hold"` gates outbound egress to `host` behind a human decision: the agent's sandbox
+   * starts with `host` denied at the egress sidecar, the first request to it pauses and
+   * raises an approval request, and the host is allowed only once someone approves. Requires
+   * an `onEgressRequest` handler on `Alineo.load()`. Omit for the default (the host is
+   * reachable as soon as the credential is bound).
+   */
+  approval?: "hold";
 }
 
 /**
@@ -201,9 +218,13 @@ const CredentialEnvBindingSchema = z
     pathPrefix: z.string().optional(),
     injection: z.union([
       z.object({ type: z.literal("header"), name: z.string() }),
-      z.object({ type: z.literal("query"), param: z.string() }),
-      z.object({ type: z.literal("path"), segment: z.string() }),
+      z.object({
+        type: z.literal("substitution"),
+        placeholder: z.string(),
+        in: z.array(z.enum(["path", "query", "header", "body"])).min(1),
+      }),
     ]),
+    approval: z.literal("hold").optional(),
   })
   .loose();
 

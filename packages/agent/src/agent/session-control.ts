@@ -26,31 +26,37 @@ async function* instrument(
   stream: AgentStream,
   onPermission?: PermissionHandler,
 ): AgentStream {
-  for await (const ev of stream) {
-    if (ev.type === "permission_request") {
-      void a.sandbox.emit(LedgerEvent.PermissionRequested, -1, {
-        requestId: ev.requestId,
-        tool: ev.tool,
-        target: ev.target,
-      });
-      if (onPermission) {
-        const req: PermissionRequest = {
+  try {
+    for await (const ev of stream) {
+      if (ev.type === "permission_request") {
+        void a.sandbox.emit(LedgerEvent.PermissionRequested, -1, {
           requestId: ev.requestId,
           tool: ev.tool,
           target: ev.target,
-          title: ev.title,
-        };
-        void Promise.resolve(onPermission(req))
-          .then((decision) => a.adapter.resolvePermission(ev.requestId, decision))
-          .catch(() => {});
+        });
+        if (onPermission) {
+          const req: PermissionRequest = {
+            requestId: ev.requestId,
+            tool: ev.tool,
+            target: ev.target,
+            title: ev.title,
+          };
+          void Promise.resolve(onPermission(req))
+            .then((decision) => a.adapter.resolvePermission(ev.requestId, decision))
+            .catch(() => {});
+        }
+      } else if (ev.type === "permission_resolved") {
+        void a.sandbox.emit(LedgerEvent.PermissionResolved, -1, {
+          requestId: ev.requestId,
+          decision: ev.decision,
+        });
       }
-    } else if (ev.type === "permission_resolved") {
-      void a.sandbox.emit(LedgerEvent.PermissionResolved, -1, {
-        requestId: ev.requestId,
-        decision: ev.decision,
-      });
+      yield ev;
     }
-    yield ev;
+  } finally {
+    // Turn done (or the consumer broke out / threw) — revert any `allow-once` egress grant
+    // made during it, so a one-shot grant never silently becomes permanent.
+    await a.egressGate?.endTurn().catch(() => {});
   }
 }
 

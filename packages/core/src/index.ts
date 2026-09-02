@@ -13,12 +13,15 @@ export type { ILogger } from "./logger";
 
 export type {
   CredentialBinding,
+  CredentialInjection,
   CredentialBroker,
   CredentialSource,
   CredentialResolver,
   BoundCredential,
 } from "./credentials";
 export { resolveBoundCredential, reconstructBoundCredentials } from "./credentials";
+export { reconstructEgressRules } from "./egress";
+export type { ReconstructedEgress } from "./egress";
 
 export { SandboxHandle, BashSession, resolveExecClient, composeHooks } from "./sandbox/index";
 export type {

@@ -59,5 +59,8 @@ export async function close(a: AgentInternal): Promise<void> {
   // `[DONE]` (see PiAdapter.disposeConnections()) -- otherwise those connections can keep
   // the process alive indefinitely even after the sandbox itself is gone.
   a.adapter.disposeConnections();
+  // Stop the egress-approval listener (if any) before the sandbox goes away — its port must
+  // not outlive the agent.
+  await a.egressGate?.stop().catch(() => {});
   await a.sandbox.close();
 }

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "egress-approval-agent",
+  "title": "Egress-approval Agent",
+  "description": "A Pi agent whose outbound access to api.github.com is held at the egress sidecar until an operator approves it. Demonstrates AgentSpec.env approval: \"hold\", Alineo.load({ onEgressRequest }), and pendingEgressRequests().",
+  "author": "alineo",
+  "cli": "pi",
+  "provider": "nvidia",
+  "model": "nvidia/nemotron-3-nano-30b-a3b",
+  "packages": ["curl"],
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
+    "GITHUB_TOKEN": {
+      "credential": "${GITHUB_TOKEN}",
+      "host": "api.github.com",
+      "injection": { "type": "header", "name": "Authorization" },
+      "approval": "hold"
+    }
+  },
+  "resources": { "cpu": "1000m", "memory": "2Gi" }
+}

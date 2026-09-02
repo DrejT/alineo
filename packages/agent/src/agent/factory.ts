@@ -19,6 +19,7 @@ import {
   resolveChildResourceId,
 } from "./validation";
 import type { AgentInternal } from "./internal";
+import { EgressApprovalGate, type EgressRequestHandler } from "./egress-approval";
 
 function elapsed(t: number) {
   return `${Date.now() - t}ms`;
@@ -35,6 +36,8 @@ export interface AgentConstructorArgs {
   fromSnapshot: boolean;
   /** Run-correlation ID for this agent's sandbox — see `SandboxDetails.runId`. */
   runId: string;
+  /** Started when the spec has `approval: "hold"` bindings; stopped by `agent.close()`. */
+  egressGate?: EgressApprovalGate;
 }
 
 /**
@@ -49,6 +52,9 @@ export async function loadAgent(
     spawnDepth?: number;
     maxAgents?: number;
     runId?: string;
+    /** Required when the spec has `approval: "hold"` credential bindings — decides each
+     *  first outbound request to a held host. See `EgressApprovalGate`. */
+    onEgressRequest?: EgressRequestHandler;
   },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
@@ -74,12 +80,54 @@ export async function loadAgent(
 
   const credentialBindings = extractCredentialBindings(spec.env ?? {});
   const needsCredentialProxy = credentialBindings.length > 0;
-  // `credentialProxy` requires `networkPolicy` to also be set (see SandboxOptions docs). There's
-  // no spec-level network-restriction feature yet, so this stays wide open by default — the
-  // point here is purely "make injection available for the bound host(s)", not lockdown.
-  const networkPolicy = needsCredentialProxy
-    ? { defaultAction: "allow" as const, egress: [] }
-    : undefined;
+
+  // Credential bindings gated behind human approval (`approval: "hold"`). Their host starts
+  // denied at the sidecar and the credential is NOT registered — the gate does both on
+  // approval (the vault refuses a binding whose host isn't allowed).
+  const heldCredentials = credentialBindings.filter((b) => b.approval === "hold");
+  // Normalize the same way `EgressApprovalGate` does, so the `deny` rule created here and the
+  // `allow` rule the gate patches on approval name the exact same target.
+  const heldHosts = [
+    ...new Set(heldCredentials.map((b) => b.binding.host.trim().replace(/\.$/, "").toLowerCase())),
+  ];
+  if (heldCredentials.length > 0 && !opts.onEgressRequest) {
+    throw new Error(
+      `AgentSpec.env has ${heldCredentials.length} credential binding(s) with approval: "hold" ` +
+        `(${heldHosts.join(", ")}) but Alineo.load() was called without an onEgressRequest handler.`,
+    );
+  }
+
+  // `credentialProxy` requires `networkPolicy` to also be set (see SandboxOptions docs).
+  // `defaultAction: "allow"` — the point is to make injection available, not lockdown; held
+  // hosts get an explicit `deny` rule (and `defaultAction: "allow"` is also what keeps the
+  // sidecar's own deny-webhook POST able to leave the network).
+  const networkPolicy =
+    needsCredentialProxy || heldHosts.length > 0
+      ? {
+          defaultAction: "allow" as const,
+          egress: heldHosts.map((target) => ({ action: "deny" as const, target })),
+        }
+      : undefined;
+
+  // Start the listener before creating the sandbox — its URL goes into the sidecar env.
+  // `gate.bind(sb)` attaches the handle once it exists.
+  const egressGate =
+    heldCredentials.length > 0 && opts.onEgressRequest
+      ? new EgressApprovalGate({
+          heldCredentials: heldCredentials.map((b) => ({
+            name: b.name,
+            value: b.value,
+            binding: b.binding,
+            source: b.source,
+          })),
+          handler: opts.onEgressRequest,
+        })
+      : undefined;
+  const egressEnv: Record<string, string> = {};
+  if (egressGate) {
+    await egressGate.start();
+    egressEnv.OPENSANDBOX_EGRESS_DENY_WEBHOOK = egressGate.webhookUrl;
+  }
 
   const client = new Sandbox({
     baseUrl: config.serverUrl,
@@ -104,6 +152,9 @@ export async function loadAgent(
         const t1 = Date.now();
         sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources, runId, {
           networkPolicy,
+          // Sidecar-scoped, process-specific — the sidecar is fresh on every restore, so the
+          // deny-webhook URL must be re-supplied (never stored in the container).
+          ...(egressEnv.OPENSANDBOX_EGRESS_DENY_WEBHOOK ? { env: egressEnv } : {}),
           credentialProxy: needsCredentialProxy,
           // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment
           // for why this matters (episodicRecall() enforces teamId strictly).
@@ -132,7 +183,7 @@ export async function loadAgent(
       image: "node:22",
       resources,
       name: spec.name,
-      env: resolvedEnv,
+      env: { ...resolvedEnv, ...egressEnv },
       runId,
       networkPolicy,
       credentialProxy: needsCredentialProxy,
@@ -172,11 +223,15 @@ export async function loadAgent(
   // install path just above) assign sb before getting here — this only trips if
   // that invariant is ever broken.
   if (!sb) throw new Error("internal error: sandbox was neither restored nor created");
+  egressGate?.bind(sb);
 
   // Applied on every load() (fresh or from-snapshot) — the vault is sidecar-runtime-only, so
   // whichever path just created `sb` needs these re-registered against its own sandboxId.
-  for (const { name, value, binding, source } of credentialBindings) {
-    await sb.credentials.set(name, value, binding, source);
+  // `approval: "hold"` bindings are skipped here — their host is denied, so the vault would
+  // reject them; the gate registers them on approval instead.
+  for (const cb of credentialBindings) {
+    if (cb.approval === "hold") continue;
+    await sb.credentials.set(cb.name, cb.value, cb.binding, cb.source);
   }
 
   // ── Always: write fresh config + start bridge ─────────────────────────────
@@ -190,7 +245,7 @@ export async function loadAgent(
   console.log(`[agent] bridge ready    ${elapsed(t4)}`);
   console.log(`[agent] total           ${elapsed(t0)}${fromSnapshot ? " (from snapshot)" : ""}`);
 
-  return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot, runId };
+  return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot, runId, egressGate };
 }
 
 /**
@@ -398,6 +453,13 @@ export async function spawnChild(
   // parent's own bound credentials over on its own; this is for bindings that only exist in
   // the *child's* spec, which `fork()` has no way to know about on its own.
   const childCredentialBindings = extractCredentialBindings(childSpec.env ?? {});
+  if (childCredentialBindings.some((b) => b.approval === "hold")) {
+    throw new Error(
+      `Spawned agent "${childSpec.name}" has a credential binding with approval: "hold" — ` +
+        `egress approval gating is not supported for spawned agents yet (no handler is wired ` +
+        `on the spawn path). Remove approval: "hold" from the child spec.`,
+    );
+  }
 
   const childResourceId = resolveChildResourceId(childSpec);
 

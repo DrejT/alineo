@@ -83,5 +83,7 @@ That only matters for `resume()` / `fork()` (which would then need an explicit
 comes up. Use a bare `${GH_TOKEN}` (and a token that already includes its scheme) if you want
 env-based auto-resolution.
 
-Header injection is currently the only supported `injection` type — `query` and `path` bindings
-are defined in the types but not yet wired to the sidecar's auth model.
+Two `injection` types are supported: `{ type: "header", name }` (the common case, shown above)
+and `{ type: "substitution", placeholder, in }`, which replaces a literal placeholder string
+in the request's path/query/header/body with the value — use it for APIs that take the key in
+the URL. The request must already contain the placeholder verbatim (e.g. put it in a base URL).

@@ -45,7 +45,15 @@ export interface Sandbox {
   platform?: unknown;
 }
 
-/** A single ordered rule in a `NetworkPolicy`. `target` is an FQDN or wildcard domain — no CIDR/IP targets yet. */
+/**
+ * A single ordered rule in a `NetworkPolicy`. `target` is one of:
+ * - an FQDN (`"api.github.com"`) or wildcard domain (`"*.openai.com"`) — matched against the
+ *   DNS query name;
+ * - a bare IPv4/IPv6 address (`"10.0.0.5"`) or CIDR block (`"10.0.0.0/8"`) — enforced at the
+ *   nftables layer, so it only takes effect when the server runs `egress.mode = "dns+nft"`,
+ *   and it gates raw-IP egress only. It does **not** authorize resolving a *domain* that
+ *   happens to resolve into that range — use a domain rule for reach-by-name.
+ */
 export interface NetworkRule {
   action: "allow" | "deny";
   target: string;

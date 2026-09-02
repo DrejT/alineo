@@ -20,6 +20,7 @@ import * as sessionControl from "./session-control";
 import * as model from "./model";
 import * as introspection from "./introspection";
 import * as lifecycle from "./lifecycle";
+import type { EgressApprovalGate, EgressRequest, EgressRequestHandler } from "./egress-approval";
 
 export { resolveParentSpawnDepth, resolveParentMaxAgents } from "./validation";
 
@@ -113,6 +114,13 @@ export class Alineo {
     return { resourceId: this.resourceId, teamId: this.teamId };
   }
 
+  /**
+   * Present when the spec has `approval: "hold"` credential bindings — the out-of-process
+   * gate that holds the sandbox's egress to those hosts until `onEgressRequest` approves.
+   * Stopped by `close()`.
+   */
+  readonly egressGate?: EgressApprovalGate;
+
   private constructor(
     sandbox: SandboxHandle,
     spec: AgentSpec,
@@ -120,6 +128,7 @@ export class Alineo {
     adapter: PiAdapter,
     fromSnapshot: boolean,
     runId: string,
+    egressGate?: EgressApprovalGate,
   ) {
     this.sandbox = sandbox;
     this.sandboxId = sandbox.sandboxId;
@@ -130,6 +139,12 @@ export class Alineo {
     this.env = env;
     this.fromSnapshot = fromSnapshot;
     this.runId = runId;
+    this.egressGate = egressGate;
+  }
+
+  /** Egress requests currently awaiting a decision (see `AgentSpec.env` `approval: "hold"`). */
+  pendingEgressRequests(): EgressRequest[] {
+    return this.egressGate?.pending() ?? [];
   }
 
   /**
@@ -167,10 +182,25 @@ export class Alineo {
       runId?: string;
       /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
       memory?: Memory;
+      /**
+       * Required when the spec has `approval: "hold"` credential bindings — decides each
+       * first outbound request to a held host: return `"allow-once"` (reverts at turn end),
+       * `"allow-always"` (permanent for this agent's life), or `"deny"`. Enforcement is
+       * out-of-process at the egress sidecar; a compromised agent cannot skip it.
+       */
+      onEgressRequest?: EgressRequestHandler;
     },
   ): Promise<Alineo> {
     const r = await factory.loadAgent(spec, opts);
-    const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    const agent = new Alineo(
+      r.sandbox,
+      r.spec,
+      r.env,
+      r.adapter,
+      r.fromSnapshot,
+      r.runId,
+      r.egressGate,
+    );
     agent.memory = opts.memory;
     return agent;
   }

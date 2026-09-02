@@ -48,6 +48,9 @@ GH_TOKEN=ghp_xxx bun start
 4. Forks the sandbox and repeats the same request from the child — the bound credential carries
    over automatically, no re-registration needed.
 5. Calls `sb.credentials.remove()` and repeats the request once more, now unauthenticated.
+6. Registers a second credential with `injection: { type: "substitution", placeholder, in }` and
+   shows a placeholder in the request URL (`?api_key=__TOKEN__`) get swapped for the real value
+   at the sidecar — for APIs that take a key in the query string rather than a header.
 
 ## Notes
 
@@ -61,8 +64,13 @@ carrying all work as described above. `@alineo-labs/vault`'s wire protocol was c
 OpenSandbox's actual Go source (`components/egress/pkg/credentialvault`) during that
 verification — see plans/credential-injection.md's addendum for what changed and why.
 
-Two known limitations, both from the real Credential Vault API rather than this package:
-only `{ type: "header" }` credential bindings are supported (`query`/`path` injection has no
-direct equivalent in the sidecar's `Auth` model — see `UnsupportedInjectionError`), and
-`OpenSandboxCredentialBroker.patch()` requires both `value` and `binding` together (the vault
-never echoes a credential's value back, so a partial update can't preserve the unspecified half).
+Two `injection` types are supported: `{ type: "header", name }` and
+`{ type: "substitution", placeholder, in }` (the sidecar swaps a literal placeholder the
+request already contains — in the path, query, a header, or the body — for the value; use it
+for APIs that take a key in the URL). `sb.credentials.listBindings()` is lossy for substitution
+bindings (the vault doesn't echo the placeholder back) — `resume()`/`fork()` recover the full
+shape from the ledger.
+
+One known limitation from the real Credential Vault API: `OpenSandboxCredentialBroker.patch()`
+requires both `value` and `binding` together — the vault never echoes a credential's value
+back, so a partial update can't preserve the unspecified half.

@@ -81,12 +81,20 @@ const SOLE_ENV_REF = /^\$\{([^}]+)\}$/;
  */
 export function extractCredentialBindings(
   env: Record<string, string | CredentialEnvBinding>,
-): Array<{ name: string; value: string; binding: CredentialBinding; source: CredentialSource }> {
+): Array<{
+  name: string;
+  value: string;
+  binding: CredentialBinding;
+  source: CredentialSource;
+  /** `"hold"` when the spec gated egress to this binding's host behind human approval. */
+  approval?: "hold";
+}> {
   const out: Array<{
     name: string;
     value: string;
     binding: CredentialBinding;
     source: CredentialSource;
+    approval?: "hold";
   }> = [];
   for (const [key, value] of Object.entries(env)) {
     if (typeof value === "string") continue;
@@ -99,6 +107,7 @@ export function extractCredentialBindings(
       ),
       binding: { host: value.host, pathPrefix: value.pathPrefix, injection: value.injection },
       source: soleRef ? { type: "env", varName: soleRef[1] } : { type: "external" },
+      ...(value.approval ? { approval: value.approval } : {}),
     });
   }
   return out;

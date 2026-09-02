@@ -10,8 +10,17 @@ import {
   type CredentialBroker,
   type CredentialResolver,
 } from "@alineo-labs/core";
-import { reconstructBoundCredentials, resolveBoundCredential } from "@alineo-labs/core";
-import { ControlClient, SandboxState, SnapshotState } from "@alineo-labs/opensandbox";
+import {
+  reconstructBoundCredentials,
+  reconstructEgressRules,
+  resolveBoundCredential,
+} from "@alineo-labs/core";
+import {
+  ControlClient,
+  SandboxState,
+  SnapshotState,
+  isValidEgressTarget,
+} from "@alineo-labs/opensandbox";
 import type { NetworkPolicy } from "@alineo-labs/opensandbox";
 import { OpenSandboxCredentialBroker } from "@alineo-labs/vault";
 
@@ -71,6 +80,23 @@ export {
   type EnvironmentOptions,
   type EnvironmentSandboxOptions,
 } from "./environment";
+
+/**
+ * Reject a `networkPolicy` with a malformed `target` before it reaches the server — a fast
+ * local error instead of a round-trip. `undefined` policies pass through untouched.
+ */
+function assertValidNetworkPolicy(policy: NetworkPolicy | undefined): void {
+  if (!policy) return;
+  for (const rule of policy.egress ?? []) {
+    if (!isValidEgressTarget(rule.target)) {
+      throw new SandboxClientError(
+        `Invalid networkPolicy egress target ${JSON.stringify(rule.target)} — expected an ` +
+          `FQDN, a "*."-prefixed wildcard domain, a bare IP address, or a CIDR block.`,
+        400,
+      );
+    }
+  }
+}
 
 /**
  * Main entry point for the sandbox client. Manages sandbox lifecycle and session history.
@@ -152,6 +178,7 @@ export class Sandbox {
    * ```
    */
   async sandbox(opts: SandboxOptions): Promise<SandboxHandle> {
+    assertValidNetworkPolicy(opts.networkPolicy);
     await this._ensureConnected();
     await this._acquireSlot();
 
@@ -313,8 +340,31 @@ export class Sandbox {
     // Same reasoning applies to network policy / credential proxy — a resumed sandbox gets
     // the same egress posture as its origin, recovered from ledger data since the OpenSandbox
     // control plane doesn't echo `networkPolicy` back on GET /v1/sandboxes.
-    const networkPolicy = createdPayload?.networkPolicy;
+    //
+    // Runtime `sb.egress.patch()` / `.delete()` changes are sidecar-local and don't survive
+    // the snapshot either, so fold whatever they still amount to per the ledger straight into
+    // the policy the resumed sandbox boots with — a replayed rule replaces any same-`target`
+    // rule from the original policy, and a runtime `delete()` also drops a matching original
+    // rule (the sidecar's own PATCH merge semantics). Applying at boot rather than via a
+    // post-start `sb.egress.patch()` avoids a race with the sidecar still wiring up nft/DNS.
+    const originalNetworkPolicy = createdPayload?.networkPolicy;
     const credentialProxy = createdPayload?.credentialProxy;
+    const replayedEgress = originalNetworkPolicy
+      ? reconstructEgressRules(entries)
+      : { apply: [], remove: [] };
+    const networkPolicy = originalNetworkPolicy
+      ? {
+          ...originalNetworkPolicy,
+          egress: [
+            ...replayedEgress.apply,
+            ...(originalNetworkPolicy.egress ?? []).filter(
+              (r) =>
+                !replayedEgress.apply.some((rr) => rr.target === r.target) &&
+                !replayedEgress.remove.includes(r.target),
+            ),
+          ],
+        }
+      : undefined;
 
     // Latest bound/revoked state per credential name, scanned across the whole session
     // history (not just the pre-checkpoint slice below, which is exec-replay-specific) —
@@ -450,6 +500,11 @@ export class Sandbox {
         await sb.credentials.set(credName, value, binding, source);
       }
 
+      // No need to re-record the replayed rules against the new session: they (and any
+      // runtime deletes) are already folded into `networkPolicy` above, which is what the
+      // new `SandboxCreated` payload carries — a later resume of *this* sandbox reconstructs
+      // from that boot policy plus whatever `sb.egress.*` calls the resumed session itself
+      // makes.
       return sb;
     } catch (err) {
       this._releaseSlot();
@@ -567,6 +622,14 @@ export class Sandbox {
     opts?: {
       networkPolicy?: NetworkPolicy;
       credentialProxy?: boolean;
+      /**
+       * Environment for the restored sandbox — normally omitted (a snapshot already carries
+       * its container env). Use it only for `OPENSANDBOX_EGRESS_*` sidecar vars, which are
+       * process-scoped and must be re-supplied on every restore (the sidecar is not
+       * snapshotted): the server routes those to the sidecar and drops them from the
+       * container.
+       */
+      env?: Record<string, string>;
       /** Resource scope for the restored sandbox — see `SandboxOptions.resourceId`. Unlike
        *  `resume()`, `restoreSnapshot()` has no prior ledger session of its own to inherit
        *  from (the snapshot may have come from anywhere), so this must be passed explicitly. */
@@ -576,12 +639,14 @@ export class Sandbox {
       teamId?: string;
     },
   ): Promise<SandboxHandle> {
+    assertValidNetworkPolicy(opts?.networkPolicy);
     await this._ensureConnected();
     await this._acquireSlot();
     try {
       const finalRunId = runId ?? crypto.randomUUID();
       const rawSb = await this._control.createSandbox({
         snapshotId,
+        env: opts?.env,
         resourceLimits: resources,
         metadata: { runId: finalRunId },
         networkPolicy: opts?.networkPolicy,

@@ -1,5 +1,13 @@
 export { Alineo } from "./agent";
 export type { PermissionHandler } from "./agent";
+export { EgressApprovalGate } from "./agent";
+export type {
+  EgressDecision,
+  EgressRequest,
+  EgressRequestHandler,
+  EgressApprovalGateOptions,
+  HeldCredential,
+} from "./agent";
 export type { AgentSpec, SetupStep } from "./schema";
 export { validateAgentSpec } from "./schema";
 export type {

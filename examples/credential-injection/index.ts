@@ -69,9 +69,38 @@ try {
     .exec('curl -s -o /dev/null -w "HTTP %{http_code}\\n" https://api.github.com/user')
     .pipe(process.stdout);
 
-  // ── Part 2: fork() carries bound credentials to the child automatically ────
+  // ── Part 2: substitution injection (a key in the URL, not a header) ───────
+  //
+  // Some APIs only take a key in the query string. `{ type: "substitution" }` replaces a
+  // literal placeholder — which the request must already contain — with the real value at
+  // the sidecar. Here the placeholder rides in the URL; httpbin.org/get echoes the args back,
+  // so `"api_key": "s3cr3t-substituted-value"` proves the swap happened on the wire.
+  console.log("\n--- substitution injection: __TOKEN__ in the URL is swapped for the value ---");
+  await sb.credentials.set("echo-key", "s3cr3t-substituted-value", {
+    host: "httpbin.org",
+    injection: { type: "substitution", placeholder: "__TOKEN__", in: ["query"] },
+  });
+  // The sidecar's mitm addon caches the credential vault for ~0.5s — give a just-registered
+  // binding a beat to go live before relying on it (applies to header injection too; it's
+  // just less visible there).
+  await new Promise((r) => setTimeout(r, 1500));
+  await sb
+    .exec('curl -s \'https://httpbin.org/get?api_key=__TOKEN__\' | grep -o \'"api_key": "[^"]*"\'')
+    .pipe(process.stdout);
+
+  // ── Part 3: fork() carries bound credentials to the child automatically ────
   console.log("\n--- forking: the child inherits the 'github' credential too ---");
-  const child = await sb.fork("before-fork");
+  // `resolveCredential` re-supplies each bound credential's value on the child. A real
+  // GH_TOKEN in the environment makes the `github` binding's `{ type: "env" }` source
+  // auto-resolve; the `echo-key` binding has no source, so the callback is what carries it.
+  const child = await sb.fork("before-fork", undefined, {
+    resolveCredential: (name) =>
+      name === "github"
+        ? githubToken
+        : name === "echo-key"
+          ? "s3cr3t-substituted-value"
+          : undefined,
+  });
   try {
     await child
       .exec('curl -s -o /dev/null -w "HTTP %{http_code}\\n" https://api.github.com/user')
@@ -80,7 +109,7 @@ try {
     await child.close();
   }
 
-  // ── Part 3: revoke ───────────────────────────────────────────────────────
+  // ── Part 4: revoke ───────────────────────────────────────────────────────
   console.log("\n--- revoking, then repeating the same request ---");
   await sb.credentials.remove("github");
   await sb
