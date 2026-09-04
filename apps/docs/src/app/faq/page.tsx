@@ -17,8 +17,7 @@ export default function FaqPage() {
           <code>bunx alineo-cli init</code>, which starts OpenSandbox in Docker and configures
           alineo to talk to it automatically. If you'd rather not use Docker, you can run{" "}
           <code>uvx opensandbox-server</code> directly on your host instead — see the{" "}
-          <a href="/docs/alineo/getting-started">alineo CLI docs</a> for
-          both paths.
+          <a href="/docs/alineo/getting-started">alineo CLI docs</a> for both paths.
         </Accordion>
         <Accordion title="SQLite or Postgres — which storage adapter should I use?">
           SQLite (<code>@alineo-labs/sqlite</code>) is the right default for local development and

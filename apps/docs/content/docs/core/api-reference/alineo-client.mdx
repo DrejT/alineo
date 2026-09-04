@@ -15,13 +15,13 @@ new Sandbox(options: SandboxClientOptions)
 
 ### SandboxClientOptions
 
-| Option             | Type               | Required | Description                                                                                                                                                |
-| ------------------ | ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `baseUrl`          | `string`           | Yes      | OpenSandbox server URL, e.g. `"http://localhost:8080"`                                                                                                     |
-| `apiKey`           | `string`           | No       | OpenSandbox API key. Empty string for local dev with no auth.                                                                                              |
-| `adapter`          | `IStorageAdapter`  | Yes      | Storage adapter for the run ledger                                                                                                                         |
-| `maxConcurrency`   | `number`           | No       | Max simultaneous active sandboxes. Omit for no limit.                                                                                                      |
-| `useServerProxy`   | `boolean`          | No       | Route execd and proxy traffic through the server. Required when the server runs in Docker via `alineo init`. Defaults to `false`.                          |
+| Option             | Type               | Required | Description                                                                                                                                            |
+| ------------------ | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `baseUrl`          | `string`           | Yes      | OpenSandbox server URL, e.g. `"http://localhost:8080"`                                                                                                 |
+| `apiKey`           | `string`           | No       | OpenSandbox API key. Empty string for local dev with no auth.                                                                                          |
+| `adapter`          | `IStorageAdapter`  | Yes      | Storage adapter for the run ledger                                                                                                                     |
+| `maxConcurrency`   | `number`           | No       | Max simultaneous active sandboxes. Omit for no limit.                                                                                                  |
+| `useServerProxy`   | `boolean`          | No       | Route execd and proxy traffic through the server. Required when the server runs in Docker via `alineo init`. Defaults to `false`.                      |
 | `credentialBroker` | `CredentialBroker` | No       | Backend for `sb.credentials.*`. Defaults to `OpenSandboxCredentialBroker` (`@alineo-labs/vault`) — see [Credentials](/docs/core/concepts/credentials). |
 
 ```ts
