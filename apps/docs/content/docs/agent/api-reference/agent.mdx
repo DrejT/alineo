@@ -515,7 +515,7 @@ try {
 readonly sandbox: SandboxHandle
 ```
 
-Direct access to the underlying `SandboxHandle` — the full [Core SDK Sandbox API](/docs/core/v0.1/concepts/sandboxes), bypassing Pi. Use this to read or write files, run shell commands, or inspect the container independently of Pi.
+Direct access to the underlying `SandboxHandle` — the full [Core SDK Sandbox API](/docs/core/concepts/sandboxes), bypassing Pi. Use this to read or write files, run shell commands, or inspect the container independently of Pi.
 
 ```ts
 await agent.sandbox.writeFile("/workspace/input.csv", data);

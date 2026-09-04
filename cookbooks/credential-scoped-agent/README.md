@@ -70,7 +70,7 @@ inside the container.
   — the same mechanism at the raw `Sandbox` level (no agent), plus `fork()` carrying a bound
   credential to the child automatically and the `source` / `resolveCredential` contract for
   `resume()`.
-- [Credentials](https://docs.alineo.tech/docs/core/0.2/concepts/credentials) in the docs for
+- [Credentials](https://docs.alineo.tech/docs/core/concepts/credentials) in the docs for
   the full `sb.credentials.*` API, `pathPrefix` scoping, and how bindings behave across
   `resume()` / `fork()` / spawned children.
 

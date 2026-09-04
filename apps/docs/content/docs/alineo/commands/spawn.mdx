@@ -1,0 +1,57 @@
+---
+title: alineo spawn
+description: Start a brand-new, independent agent sandbox from a spec's own snapshot.
+---
+
+```bash
+bunx alineo-cli spawn <spec> [--prompt <msg>] [--rebuild] [--depth <n>] [--max <n>] [--json]
+```
+
+## Arguments
+
+| Argument | Description                                |
+| -------- | ------------------------------------------ |
+| `spec`   | Path to an agent spec JSON file. Required. |
+
+## Flags
+
+| Flag             | Description                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `--prompt <msg>` | Send one prompt immediately after the sandbox is ready, and print the reply before exiting.                                         |
+| `--rebuild`      | Force a full reinstall instead of restoring from the cached snapshot. See [Snapshotting](/docs/agent/getting-started/snapshotting). |
+| `--depth <n>`    | Override the spec's own `spawnDepth` field.                                                                                         |
+| `--max <n>`      | Override the spec's own `maxAgents` field.                                                                                          |
+| `--json`         | Print `{ name, sandboxId, reply }` as JSON instead of the default text output.                                                      |
+
+## What it does
+
+1. Reads `alineo.config.json` and calls [`Alineo.load(spec, { adapter, rebuild, spawnDepth, maxAgents })`](/docs/agent/api-reference/agent#agentload) — see that page for the full snapshot/install behavior. This always starts from the spec's own snapshot (or builds one on first use); it never inspects the calling process's own sandbox state.
+2. If `--prompt` is given, sends that message and waits for the full reply before printing anything and exiting.
+3. Without `--prompt`, prints the sandbox name and ID and exits immediately — the sandbox keeps running.
+
+## Example
+
+```bash
+bunx alineo-cli spawn ./agents/my-agent.json
+```
+
+```
+[alineo] session: my-agent  sandbox: 4af65c3b-24a2-4fd1-999d-918faa9b97fd
+```
+
+```bash
+bunx alineo-cli spawn ./agents/my-agent.json --prompt "Explain this repo" --json
+```
+
+```json
+{ "name": "my-agent", "sandboxId": "4af65c3b-...", "reply": "..." }
+```
+
+## spawn vs. fork
+
+`alineo spawn` is the entry point for a **fresh** session — e.g. a host-level Pi session starting the master of a recursive-agent run. [`alineo fork`](/docs/alineo/commands/fork) instead branches an **already-running** session's own live sandbox state. Use `spawn` when nothing exists yet; use `fork` when you're running _inside_ a session and want to delegate part of the current work to a child.
+
+## Notes
+
+- The sandbox ID printed here is what `alineo prompt`, `alineo kill`, and `alineo logs` need — it is not saved anywhere else automatically.
+- `--depth`/`--max` only matter if the spec itself (via `agent.spawn()`) or a later `alineo fork` call from inside that sandbox will go on to fork children.

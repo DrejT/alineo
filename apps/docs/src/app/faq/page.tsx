@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
-import { coreLatestVersion, alineoLatestVersion } from "@/lib/source";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -18,7 +17,7 @@ export default function FaqPage() {
           <code>bunx alineo-cli init</code>, which starts OpenSandbox in Docker and configures
           alineo to talk to it automatically. If you'd rather not use Docker, you can run{" "}
           <code>uvx opensandbox-server</code> directly on your host instead — see the{" "}
-          <a href={`/docs/alineo/${alineoLatestVersion}/getting-started`}>alineo CLI docs</a> for
+          <a href="/docs/alineo/getting-started">alineo CLI docs</a> for
           both paths.
         </Accordion>
         <Accordion title="SQLite or Postgres — which storage adapter should I use?">
@@ -27,7 +26,7 @@ export default function FaqPage() {
           <code>@alineo-labs/postgres</code>) is for production, multi-process deployments that need
           a shared ledger across instances. Both implement the same <code>IStorageAdapter</code>{" "}
           interface, so switching later is a one-line change — see{" "}
-          <a href={`/docs/core/${coreLatestVersion}/adapters`}>Storage Adapters</a>.
+          <a href="/docs/core/adapters">Storage Adapters</a>.
         </Accordion>
         <Accordion title="What's the difference between alineo, @alineo-labs/workflow, and @alineo-labs/agent?">
           <code>alineo</code> is the core SDK — the <code>Alineo</code> client and the{" "}

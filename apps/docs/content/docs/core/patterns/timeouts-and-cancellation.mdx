@@ -1,0 +1,109 @@
+---
+title: Timeouts & cancellation
+description: Sandbox lifetime limits, bash-level command timeouts, and cleanup with try/finally.
+---
+
+## Sandbox lifetime
+
+Set a maximum lifetime for the entire sandbox container via `SandboxOptions.timeout` (in seconds). The OpenSandbox server terminates the container after this duration:
+
+```ts
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "256Mi" },
+  timeout: 300, // terminate after 5 minutes
+});
+```
+
+This is a hard limit on the container — not on individual commands.
+
+## Per-command timeout via bash
+
+Use the bash `timeout` command to limit how long a single command can run. The `timeout` utility exits with code `124` if the limit is reached:
+
+```ts
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "256Mi" },
+});
+try {
+  // Times out after 1 second, exits with 124
+  const { exitCode } = await sb.exec("timeout 1 sleep 30 || echo 'timed out'", { strict: false });
+  console.log(`exit code: ${exitCode}`); // 0 (the || echo masked it)
+} finally {
+  await sb.close();
+}
+```
+
+To get the actual timeout exit code:
+
+```ts
+const { exitCode } = await sb.exec("timeout 10 long-running-command", { strict: false });
+if (exitCode === 124) {
+  console.log("command timed out");
+} else if (exitCode !== 0) {
+  console.log(`command failed with ${exitCode}`);
+}
+```
+
+## Cleanup with try/finally
+
+Always wrap sandbox usage in `try/finally` to ensure `sb.close()` runs even if an exec throws or a timeout fires:
+
+```ts
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "512Mi" },
+});
+
+try {
+  await sb.exec("step 1").pipe(process.stdout);
+  await sb.exec("step 2").pipe(process.stdout);
+  // If step 2 throws CommandError, finally still runs
+} finally {
+  await sb.close(); // always deletes the container
+}
+```
+
+`close()` is idempotent — calling it multiple times is safe.
+
+## Handling long-running commands
+
+For commands that might run indefinitely, combine `timeout` with error handling:
+
+```ts
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "256Mi" },
+});
+try {
+  const result = await sb.exec("timeout 60 ./run-tests.sh", { strict: false });
+  if (result.exitCode === 124) {
+    console.error("Tests timed out after 60 seconds");
+  } else if (result.exitCode !== 0) {
+    console.error(`Tests failed: exit ${result.exitCode}`);
+    console.error(result.stderr);
+  }
+} finally {
+  await sb.close();
+}
+```
+
+## Retry with backoff
+
+For flaky operations, use `retry` from `@alineo-labs/workflow` instead of manual retry loops. It handles backoff and re-runs cleanly:
+
+```ts
+import { workflow } from "@alineo-labs/workflow";
+
+await workflow(client)
+  .sandbox({ image: "ubuntu:22.04", resources: { cpu: "500m", memory: "256Mi" } }, (sb) => {
+    sb.retry(5, (sb) => sb.exec("curl --retry 0 --max-time 10 https://example.com"), {
+      delayMs: 1000,
+      backoff: "exponential",
+    });
+  })
+  .pipe(process.stdout);
+```
+
+See [Control flow](/docs/core/building/control-flow) for full retry docs.
