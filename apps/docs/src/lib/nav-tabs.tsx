@@ -1,13 +1,9 @@
 import { Package, Workflow, Bot, Terminal } from "lucide-react";
 import type { LayoutTab } from "fumadocs-ui/layouts/shared";
-import { coreLatestVersion, alineoLatestVersion } from "@/lib/source";
 
 export const docsTabs: LayoutTab[] = [
   {
-    // Points at the latest version directly rather than the unversioned /docs/core
-    // alias, to avoid an extra redirect hop on every product switch while already
-    // browsing docs. coreLatestVersion is the single place a version cut updates.
-    url: `/docs/core/${coreLatestVersion}`,
+    url: "/docs/core",
     title: "Core SDK",
     description: "alineo",
     icon: <Package className="size-4" />,
@@ -25,7 +21,7 @@ export const docsTabs: LayoutTab[] = [
     icon: <Bot className="size-4" />,
   },
   {
-    url: `/docs/alineo/${alineoLatestVersion}`,
+    url: "/docs/alineo",
     title: "alineo CLI",
     description: "alineo-cli",
     icon: <Terminal className="size-4" />,

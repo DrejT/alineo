@@ -3,9 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "predev": "bun scripts/sync-doc-versions.ts && bun scripts/sync-redirects.ts",
     "dev": "next dev",
-    "prebuild": "bun scripts/sync-doc-versions.ts && bun scripts/sync-redirects.ts",
     "build": "next build",
     "start": "next start",
     "test": "bun test",
