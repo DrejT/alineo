@@ -1,5 +1,63 @@
 # drej
 
+## 0.4.0
+
+### Minor Changes
+
+- 87a9c39: Approve-on-egress hold for agents: `approval: "hold"` on a credential env binding.
+
+  A `CredentialEnvBinding` in `AgentSpec.env` can now carry `approval: "hold"`. The agent's
+  sandbox starts with that host **denied** at the egress sidecar and the credential **not
+  registered in the vault at all** (the vault refuses a binding whose host isn't allowed);
+  everything else, including the agent's own model traffic, keeps working. The first outbound
+  request to the held host pauses and calls the `onEgressRequest` handler you pass to
+  `Alineo.load()`, which returns `"allow-once"` (reversed when the turn ends), `"allow-always"`
+  (permanent for the agent's life), or `"deny"`. Only on approval does the gate open the egress
+  rule and _then_ register the credential — so the secret literally does not exist inside the
+  sandbox until a human approves. Enforcement is entirely out-of-process at the sidecar — a
+  compromised in-sandbox agent cannot skip it.
+
+  - New `EgressApprovalGate` (exported from `alineo`): a small host-side listener for the
+    sidecar's deny webhook that, on approval, calls `sb.egress.patch()` then
+    `sb.credentials.set()` (and reverses both on an `allow-once` at turn end). `Alineo` starts
+    one automatically for `hold` bindings and stops it on `close()`;
+    `agent.pendingEgressRequests()` lists what is waiting. `agent.egressGate` is exposed for
+    direct control. Ledger: `PermissionRequested` / `PermissionResolved` with `tool: "network"`.
+  - The webhook host defaults to the Docker bridge gateway (`172.17.0.1`); override via
+    `ALINEO_EGRESS_APPROVAL_HOST` for other topologies.
+  - `@alineo-labs/sandbox`: `restoreSnapshot()` gains an `env` option (for re-supplying
+    `OPENSANDBOX_EGRESS_*` sidecar vars on a restore — the sidecar is not snapshotted).
+
+  Deferred: the deny-webhook signal is not yet unified into the Pi tool-permission stream (so
+  network approvals do not appear in `listPendingPermissions()` alongside tool permissions or
+  in the chat UI), and there is no automatic re-run of the request that hit the denial — the
+  model retries on its own (the retry window is effectively instant). Both are follow-ups.
+
+- 87a9c39: Egress network policy: CIDR/IP targets, and runtime policy changes on a live sandbox.
+
+  - **`NetworkRule.target` now documents (and the SDK validates) IP and CIDR targets** —
+    `"10.0.0.5"`, `"10.0.0.0/8"`, plus IPv6 — alongside FQDNs and `*.` wildcards. IP/CIDR rules
+    are enforced at the nftables layer (so they need `egress.mode = "dns+nft"`) and gate raw-IP
+    egress only, not name resolution. A malformed `networkPolicy` target now throws
+    `SandboxClientError` locally instead of failing on a server round-trip
+    (`isValidEgressTarget` is exported from `@alineo-labs/opensandbox`).
+  - **`sb.egress.patch(rules)` / `sb.egress.delete(targets)` / `sb.egress.get()`** adjust a
+    running sandbox's egress policy through its sidecar — merge in allow/deny rules (an incoming
+    rule replaces any rule with the same `target`) or remove them by target. Changes apply
+    immediately and are recorded to the ledger (`EgressRuleAdded` / `EgressRuleRemoved`), so
+    `Sandbox.resume()` re-applies a still-wanted allowance — egress policy is sidecar-local and
+    does not survive a resume on its own. New `EgressClient` in `@alineo-labs/opensandbox` and
+    `reconstructEgressRules` in `@alineo-labs/core`.
+
+### Patch Changes
+
+- Updated dependencies [87a9c39]
+- Updated dependencies [87a9c39]
+- Updated dependencies [c4e64df]
+  - @alineo-labs/core@0.4.0
+  - @alineo-labs/vault@0.3.0
+  - @alineo-labs/opensandbox@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes
