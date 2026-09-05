@@ -51,13 +51,17 @@ const jsonLd = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.variable} ${geistMono.variable} light`}
+      suppressHydrationWarning
+    >
       <body suppressHydrationWarning>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <RootProvider search={{ SearchDialog }}>
+        <RootProvider theme={{ forcedTheme: "light" }} search={{ SearchDialog }}>
           <HomeLayout
             nav={{ title: "alineo", url: "/" }}
             themeSwitch={{ enabled: false }}
