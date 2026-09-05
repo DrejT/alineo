@@ -6,7 +6,7 @@
   "author": "alineo",
   "cli": "pi",
   "provider": "nvidia",
-  "model": "nvidia/nemotron-3-nano-30b-a3b",
+  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
   "packages": ["python3", "python3-pip"],
   "env": {
     "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
