@@ -6,42 +6,8 @@ description: Task-oriented recipes for building with alineo — composed from th
 Every recipe below is a real, runnable package in the
 [alineo repo](https://github.com/DrejT/alineo/tree/main/cookbooks) — `cd cookbooks/<recipe>`,
 `bun install`, `bun start`. Where [Examples](/docs/examples) demonstrates one SDK primitive at a
-time, a cookbook recipe composes several of them to solve one real task.
+time, a cookbook recipe composes several of them to solve one real task. Each page below has an
+in-browser preview of what running it looks like, plus a step-by-step walkthrough of what's
+actually happening.
 
-<Cards>
-  <Card
-    href="/docs/cookbooks/untrusted-code-execution"
-    title="Untrusted Code Execution"
-    description="Safely run LLM-generated or user-submitted code — per-snippet isolation, resource caps, and timeouts."
-  />
-  <Card
-    href="/docs/cookbooks/ci-test-runner"
-    title="CI Test Runner"
-    description="Run a repo's test suite in a disposable sandbox and turn the output into a structured pass/fail report."
-  />
-  <Card
-    href="/docs/cookbooks/parallel-test-shards"
-    title="Parallel Test Shards"
-    description="Install dependencies once, then fork into parallel sandboxes to shard work across them."
-  />
-  <Card
-    href="/docs/cookbooks/resumable-etl-pipeline"
-    title="Resumable ETL Pipeline"
-    description="A multi-stage pipeline that checkpoints after every stage and resumes without redoing completed work."
-  />
-  <Card
-    href="/docs/cookbooks/ai-agent-bugfix"
-    title="AI Agent Bugfix"
-    description="An agent that debugs and fixes a failing test on its own, then gets independently verified."
-  />
-  <Card
-    href="/docs/cookbooks/persistent-agent-memory"
-    title="Persistent Agent Memory"
-    description="An agent that remembers things about a customer across separate sandbox sessions, via @alineo-labs/memory."
-  />
-  <Card
-    href="/docs/cookbooks/credential-scoped-agent"
-    title="Credential-Scoped Agent"
-    description="An agent that calls an authenticated API with a token it can never read — injected at the egress layer."
-  />
-</Cards>
+<CookbookGrid />

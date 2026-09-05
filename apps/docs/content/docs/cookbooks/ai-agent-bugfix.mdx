@@ -3,4 +3,95 @@ title: AI Agent Bugfix
 description: An agent that debugs and fixes a failing test on its own, then gets independently verified.
 ---
 
-<include cwd>../../cookbooks/ai-agent-bugfix/README.md</include>
+<CookbookMeta
+  difficulty="Intermediate"
+  time="~10 min"
+  primitives={["Alineo.load()", "agent.prompt()", "agent.bash()"]}
+/>
+
+An AI agent that debugs a failing test and fixes the bug itself — inside its own sandbox, using
+nothing but bash and a model.
+
+## Setup
+
+<Steps>
+<Step>
+
+Start OpenSandbox in Docker (one-time setup):
+
+```bash
+bunx alineo-cli init
+```
+
+</Step>
+<Step>
+
+Get a free API key from [build.nvidia.com](https://build.nvidia.com) and export it:
+
+```bash
+export NVIDIA_API_KEY=...
+```
+
+</Step>
+</Steps>
+
+## Run it
+
+<CookbookPlayground
+  cwd="cookbooks/ai-agent-bugfix"
+  repoHref="https://github.com/DrejT/alineo/tree/main/cookbooks/ai-agent-bugfix"
+  commands={[
+    { command: "bun install" },
+    { command: "bun start" },
+  ]}
+  output={`Planting an off-by-one bug in calc.py...
+Running pytest — 1 failed (as expected)
+
+Agent: reading calc.py... found it — range(n) should be range(n + 1). Patching...
+Agent: re-running pytest inside the sandbox — 2 passed. Reporting done.
+
+Independent verification (agent.sandbox.exec, not the agent's own claim):
+pytest ................. 2 passed ✔`}
+/>
+
+## What it does
+
+<Steps>
+<Step>
+
+Plants a deliberate off-by-one bug in `calc.py` and a test that catches it.
+
+</Step>
+<Step>
+
+Runs `pytest` via `agent.bash()` to show the failure.
+
+</Step>
+<Step>
+
+Prompts the agent — via `alineo`'s `Alineo.load()` + `agent.prompt()` — to find and fix the bug
+itself, streaming its reasoning and tool calls as they happen.
+
+</Step>
+<Step>
+
+**Re-runs `pytest` independently of the agent** (via `agent.sandbox.exec()`) to verify the fix,
+rather than trusting the agent's own claim that it passed.
+
+</Step>
+</Steps>
+
+`agents/bugfix-agent.json` configures a Pi agent on `python:3.11-slim` using the NVIDIA NIM API.
+Swap `provider`/`model` for anything in `@alineo-labs/model-providers` to use a different key.
+
+<Callout type="warn" title="Never trust the agent's self-report">
+  Step 4 is the important part of this recipe: never trust an agent's self-report that a fix worked
+  — re-run the check yourself against the sandbox it was working in.
+</Callout>
+
+<Callout title="Where to go next">
+  See the [Agent SDK docs](/docs/agent) for the full `alineo` API (`prompt`, `bash`, `steer`,
+  `fork`, model switching, and more), and
+  [examples/pi-agent](https://github.com/DrejT/alineo/tree/main/examples/pi-agent) for a tour of
+  every command it exposes.
+</Callout>

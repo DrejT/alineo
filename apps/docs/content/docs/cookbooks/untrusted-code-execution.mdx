@@ -3,4 +3,78 @@ title: Untrusted Code Execution
 description: Safely run LLM-generated or user-submitted code — per-snippet isolation, resource caps, and timeouts.
 ---
 
-<include cwd>../../cookbooks/untrusted-code-execution/README.md</include>
+<CookbookMeta difficulty="Beginner" time="~5 min" primitives={["exec", "resources", "timeouts"]} />
+
+Safely execute untrusted or LLM-generated Python snippets — each one gets its own throwaway,
+resource-capped sandbox with a wall-clock timeout, and failures are captured as data instead of
+crashing the batch.
+
+## Setup
+
+<Steps>
+<Step>
+
+Start OpenSandbox in Docker (one-time setup):
+
+```bash
+bunx alineo-cli init
+```
+
+</Step>
+</Steps>
+
+## Run it
+
+<CookbookPlayground
+  cwd="cookbooks/untrusted-code-execution"
+  repoHref="https://github.com/DrejT/alineo/tree/main/cookbooks/untrusted-code-execution"
+  commands={[
+    { command: "bun install" },
+    { command: "bun start" },
+  ]}
+  output={`▶ well-behaved     exit 0   "the answer is 42"
+▶ raises           exit 1   Traceback (most recent call last):
+                              ValueError: something went wrong
+▶ infinite-loop    exit 124 timed out after 5000ms
+
+3 snippets run — 1 succeeded, 2 failed (as expected)`}
+/>
+
+## What it does
+
+Runs three Python snippets in parallel, each in its own sandbox:
+
+<Steps>
+<Step>
+
+**`well-behaved`** — a snippet that just prints a value.
+
+</Step>
+<Step>
+
+**`raises`** — a snippet that raises an uncaught exception.
+
+</Step>
+<Step>
+
+**`infinite-loop`** — a snippet that never terminates on its own.
+
+</Step>
+</Steps>
+
+Each sandbox is created with tight `resources` (`250m` CPU / `128Mi` memory), a 30s container
+`timeout`, and a 5s `timeoutMs` on the exec call itself. `strict: false` means a non-zero exit is
+returned as data (`exitCode`, `stdout`, `stderr`) instead of throwing, so one bad snippet doesn't
+abort the batch. Every sandbox is closed in `finally`, even on timeout or crash.
+
+<Callout title="Reach for this pattern when...">
+  You're executing code you didn't write yourself — an LLM's generated code, a user-submitted
+  script, a plugin. Swap `runUntrusted()`'s body for `execCode()`/`createCodeContext()` (see [Code
+  Interpreter](/docs/examples/exec-code)) if you want a stateful REPL instead of one-shot scripts.
+</Callout>
+
+<Callout type="warn" title="Server proxy">
+  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
+  Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable
+  (e.g. when using `uvx opensandbox-server` on the host).
+</Callout>

@@ -3,8 +3,13 @@ import { cookbooksSource } from "@/lib/source";
 import { notFound } from "next/navigation";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { Steps, Step } from "fumadocs-ui/components/steps";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import type { Metadata } from "next";
 import { createMetadata } from "@/lib/metadata";
+import { CookbookPlayground } from "@/components/cookbook/playground";
+import { CookbookMeta } from "@/components/cookbook/meta";
+import { CookbookGrid } from "@/components/cookbook/grid";
 
 const OVERVIEW_SLUGS = new Set([""]);
 
@@ -22,7 +27,20 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
       <DocsTitle>{page.data.title}</DocsTitle>
       {page.data.description && <DocsDescription>{page.data.description}</DocsDescription>}
       <DocsBody>
-        <MDX components={{ ...defaultMdxComponents, Steps, Step }} />
+        <MDX
+          components={{
+            ...defaultMdxComponents,
+            Steps,
+            Step,
+            Tabs,
+            Tab,
+            Accordion,
+            Accordions,
+            CookbookPlayground,
+            CookbookMeta,
+            CookbookGrid,
+          }}
+        />
       </DocsBody>
     </DocsPage>
   );

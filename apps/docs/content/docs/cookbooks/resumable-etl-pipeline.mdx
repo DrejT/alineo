@@ -3,4 +3,111 @@ title: Resumable ETL Pipeline
 description: A multi-stage pipeline that checkpoints after every stage and resumes without redoing completed work.
 ---
 
-<include cwd>../../cookbooks/resumable-etl-pipeline/README.md</include>
+<CookbookMeta difficulty="Intermediate" time="~5 min" primitives={["checkpoint", "resume"]} />
+
+A multi-stage ETL pipeline (extract → transform → load) that checkpoints after each stage, so a
+crash — or just wanting to re-run "load" in isolation — doesn't mean paying for extract and
+transform again.
+
+## Setup
+
+<Steps>
+<Step>
+
+Start OpenSandbox in Docker (one-time setup):
+
+```bash
+bunx alineo-cli init
+```
+
+</Step>
+</Steps>
+
+## Run it
+
+<CookbookPlayground
+  cwd="cookbooks/resumable-etl-pipeline"
+  repoHref="https://github.com/DrejT/alineo/tree/main/cookbooks/resumable-etl-pipeline"
+  commands={[
+    { command: "bun install" },
+    { command: "bun start" },
+  ]}
+  output={`── original run ──
+extract    installed pandas, wrote raw.csv         checkpoint: after-extract
+transform  aggregated revenue by region             checkpoint: after-transform
+load       published transformed.csv ✔
+
+── resumed run (client.resume(sandboxId)) ──
+restored from checkpoint "after-transform"
+[replayed] pip install pandas ← instant, from the ledger, no network call
+load transformed.csv already on disk — published ✔`}
+/>
+
+## What it does
+
+<Tabs items={['Original run', 'Resumed run']}>
+<Tab value="Original run">
+
+<Steps>
+<Step>
+
+**Extract** — installs `pandas`, writes raw CSV data, then `sb.checkpoint("after-extract")`.
+
+</Step>
+<Step>
+
+**Transform** — aggregates revenue by region with pandas, writes `transformed.csv`, then
+`sb.checkpoint("after-transform")`.
+
+</Step>
+<Step>
+
+**Load** — reads back the final output and "publishes" it (prints it).
+
+</Step>
+</Steps>
+
+</Tab>
+<Tab value="Resumed run">
+
+Simulates picking the pipeline back up later:
+
+<Steps>
+<Step>
+
+`client.resume(sandboxId)` restores the container from the last checkpoint (`after-transform`).
+
+</Step>
+<Step>
+
+The first `exec()` call after resume replays instantly from the ledger — no network call, no
+re-install. This demo re-issues the identical `pip install` command from the extract stage as a
+matter of good practice; the replay itself is positional (see the note below), not a check that
+the command matches.
+
+</Step>
+<Step>
+
+`transformed.csv` is already present on the restored container's filesystem, so the load stage
+reads it straight away — the transform never re-runs.
+
+</Step>
+</Steps>
+
+</Tab>
+</Tabs>
+
+<Callout type="warn" title="Replay is positional, not content-matched">
+  Every `sb.checkpoint(tag)` is a real container snapshot, not just a ledger bookmark — the restored
+  container genuinely has extract and transform's output on disk. The ledger replay on top of that
+  is an optimization: the Nth `exec()` call since resume returns the Nth call's original result,
+  whatever command is actually passed — there's no check that it matches what was recorded. Always
+  re-issue calls in the same order as the original run. See [Checkpoint &
+  Resume](/docs/examples/snapshot-replay) for the primitive this recipe builds on.
+</Callout>
+
+<Callout type="warn" title="Server proxy">
+  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
+  Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable
+  (e.g. when using `uvx opensandbox-server` on the host).
+</Callout>

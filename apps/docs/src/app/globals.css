@@ -27,42 +27,42 @@ html.dark {
   --radius-pill: 9999px;
 
   /* Light theme tokens */
-  --color-fd-background: oklch(1 0 0);
-  --color-fd-foreground: oklch(0.15 0 0);
-  --color-fd-muted: oklch(0.97 0 0);
-  --color-fd-muted-foreground: oklch(0.5 0 0);
-  --color-fd-popover: oklch(1 0 0);
-  --color-fd-popover-foreground: oklch(0.15 0 0);
-  --color-fd-card: oklch(0.985 0 0);
-  --color-fd-card-foreground: oklch(0.15 0 0);
-  --color-fd-border: oklch(0.9 0 0);
-  --color-fd-primary: oklch(0 0 0);
-  --color-fd-primary-foreground: oklch(1 0 0);
-  --color-fd-secondary: oklch(0.97 0 0);
-  --color-fd-secondary-foreground: oklch(0.15 0 0);
-  --color-fd-accent: oklch(0.94 0 0);
-  --color-fd-accent-foreground: oklch(0.15 0 0);
-  --color-fd-ring: oklch(0 0 0);
+  --color-fd-background: #ffffff;
+  --color-fd-foreground: #111111;
+  --color-fd-muted: #f4f4f5;
+  --color-fd-muted-foreground: #71717a;
+  --color-fd-popover: #ffffff;
+  --color-fd-popover-foreground: #111111;
+  --color-fd-card: #fafafa;
+  --color-fd-card-foreground: #111111;
+  --color-fd-border: #e4e4e7;
+  --color-fd-primary: #7a1b48;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #f4f4f5;
+  --color-fd-secondary-foreground: #111111;
+  --color-fd-accent: #e4e4e7;
+  --color-fd-accent-foreground: #111111;
+  --color-fd-ring: #7a1b48;
 }
 
-/* Dark theme overrides: Pure black background, white text/animations */
+/* Dark theme overrides: Logo color background, white text/animations */
 html.dark {
-  --color-fd-background: oklch(0 0 0);
-  --color-fd-foreground: oklch(0.95 0 0);
-  --color-fd-muted: oklch(0.15 0 0);
-  --color-fd-muted-foreground: oklch(0.6 0 0);
-  --color-fd-popover: oklch(0 0 0);
-  --color-fd-popover-foreground: oklch(0.95 0 0);
-  --color-fd-card: oklch(0.05 0 0);
-  --color-fd-card-foreground: oklch(0.95 0 0);
-  --color-fd-border: oklch(0.2 0 0);
-  --color-fd-primary: oklch(1 0 0);
-  --color-fd-primary-foreground: oklch(0 0 0);
-  --color-fd-secondary: oklch(0.1 0 0);
-  --color-fd-secondary-foreground: oklch(0.95 0 0);
-  --color-fd-accent: oklch(0.15 0 0);
-  --color-fd-accent-foreground: oklch(0.95 0 0);
-  --color-fd-ring: oklch(1 0 0);
+  --color-fd-background: #7a1b48;
+  --color-fd-foreground: #ffffff;
+  --color-fd-muted: #9c2860;
+  --color-fd-muted-foreground: #f4d6e4;
+  --color-fd-popover: #7a1b48;
+  --color-fd-popover-foreground: #ffffff;
+  --color-fd-card: #591033;
+  --color-fd-card-foreground: #ffffff;
+  --color-fd-border: #9c2860;
+  --color-fd-primary: #ffffff;
+  --color-fd-primary-foreground: #7a1b48;
+  --color-fd-secondary: #591033;
+  --color-fd-secondary-foreground: #ffffff;
+  --color-fd-accent: #9c2860;
+  --color-fd-accent-foreground: #ffffff;
+  --color-fd-ring: #ffffff;
 }
 
 @layer base {
@@ -93,4 +93,46 @@ html.dark {
   [data-search-full] {
     @apply rounded-(--radius-pill)!;
   }
+}
+
+/* Force dark theme exclusively on the sidebar */
+aside {
+  --color-fd-background: #7a1b48;
+  --color-fd-foreground: #ffffff;
+  --color-fd-muted: #9c2860;
+  --color-fd-muted-foreground: #f4d6e4;
+  --color-fd-popover: #7a1b48;
+  --color-fd-popover-foreground: #ffffff;
+  --color-fd-card: #591033;
+  --color-fd-card-foreground: #ffffff;
+  --color-fd-border: #9c2860;
+  --color-fd-primary: #ffffff;
+  --color-fd-primary-foreground: #7a1b48;
+  --color-fd-secondary: #591033;
+  --color-fd-secondary-foreground: #ffffff;
+  --color-fd-accent: #9c2860;
+  --color-fd-accent-foreground: #ffffff;
+  --color-fd-ring: #ffffff;
+
+  background-color: var(--color-fd-background) !important;
+  color: var(--color-fd-foreground) !important;
+  border-right: 1px solid var(--color-fd-border) !important;
+}
+
+aside a,
+aside button,
+aside [class*="title"],
+aside [class*="text"] {
+  color: var(--color-fd-foreground);
+}
+
+aside [data-active="true"],
+aside [aria-current="page"] {
+  background-color: var(--color-fd-secondary) !important;
+  color: var(--color-fd-primary) !important;
+}
+
+aside [data-active="true"] *,
+aside [aria-current="page"] * {
+  color: var(--color-fd-primary) !important;
 }
