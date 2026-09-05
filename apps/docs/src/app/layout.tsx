@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${geistMono.variable} dark`}
+      className={`${inter.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
@@ -61,7 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <RootProvider theme={{ forcedTheme: "dark" }} search={{ SearchDialog }}>
+        <RootProvider search={{ SearchDialog }}>
           <HomeLayout
             nav={{ title: "alineo", url: "/" }}
             themeSwitch={{ enabled: false }}
