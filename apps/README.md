@@ -5,7 +5,7 @@ Deployable sites for alineo, separate from the publishable SDK packages in `pack
 | App                    | Description                                                                                          | Stack              | Deploy                             |
 | ---------------------- | ---------------------------------------------------------------------------------------------------- | ------------------ | ---------------------------------- |
 | [`docs`](docs)         | Documentation site ([docs.alineo.tech](https://docs.alineo.tech))                                    | Next.js + Fumadocs | Cloudflare Pages (`alineo-docs`)   |
-| [`registry`](registry) | Curated `AgentSpec` examples for `alineo add` ([registry.alineo.tech](https://registry.alineo.tech)) | Astro              | Cloudflare Pages (`drej-registry`) |
+| [`registry`](registry) | Curated `AgentSpec` examples for `alineo add` ([registry.alineo.tech](https://registry.alineo.tech)) | Astro              | Cloudflare Pages (`alineo-registry`) |
 
 ## Commands
 

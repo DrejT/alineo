@@ -25,5 +25,5 @@ Adding a new example: drop an `AgentSpec` JSON file into `public/agents/`, match
 bun run dev      # astro dev
 bun run build    # astro build -> dist/
 bun run preview  # preview the production build locally
-bun run deploy   # build + wrangler pages deploy (project: drej-registry)
+bun run deploy   # build + wrangler pages deploy (project: alineo-registry)
 ```
