@@ -30,7 +30,13 @@ A live AI coding agent running inside an OpenSandbox container. Wraps a Pi CLI p
 ```ts
 static async load(
   spec: AgentSpec | Record<string, unknown>,
-  opts: { adapter: IStorageAdapter; rebuild?: boolean; spawnDepth?: number; maxAgents?: number },
+  opts: {
+    adapter: IStorageAdapter;
+    rebuild?: boolean;
+    spawnDepth?: number;
+    maxAgents?: number;
+    onEgressRequest?: EgressRequestHandler;
+  },
 ): Promise<Alineo>
 ```
 
@@ -47,6 +53,8 @@ const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
 ```
 
 `spawnDepth`/`maxAgents` override the spec's own fields — see [Spawning child agents](#spawning-child-agents) below.
+
+`onEgressRequest` is **required** when the spec has any `env` credential binding with `approval: "hold"` — it decides each first outbound request to a held host. See [Permission gate — holding network egress](/docs/agent/getting-started/permissions#holding-network-egress-for-approval).
 
 ### Alineo.resume()
 
@@ -131,10 +139,19 @@ Refuses immediately unless this agent's own spawn-depth budget (`spawnDepth` in 
 ### agent.prompt()
 
 ```ts
-prompt(message: string, opts?: { streamingBehavior?: "steer" | "followUp" }): AgentStream
+prompt(
+  message: string,
+  opts?: {
+    streamingBehavior?: "steer" | "followUp";
+    inactivityTimeoutMs?: number;
+    onPermission?: (req: PermissionRequest) => PermissionDecision | Promise<PermissionDecision>;
+  },
+): AgentStream
 ```
 
 Send a message to Pi and stream the response. Pi maintains its own conversation context across calls within a session.
+
+`onPermission` auto-resolves each `permission_request` on the stream with the handler's decision, instead of calling `resolvePermission()` by hand — the events still flow through the stream. Only meaningful when the spec sets `permissions`. See [Permission gate](/docs/agent/getting-started/permissions).
 
 ```ts
 // Text only (most common):
@@ -195,7 +212,53 @@ Queue a message for Pi to process after it finishes the current task. Pi receive
 async abort(): Promise<void>
 ```
 
-Cancel Pi's current operation. The in-flight `prompt()` stream ends with whatever was generated before the abort.
+Cancel Pi's current operation. The in-flight `prompt()` stream ends with whatever was generated before the abort. Any pending permission requests are auto-rejected (`steer()` leaves them open).
+
+---
+
+## Permissions & approvals
+
+Active only when `AgentSpec.permissions` is set to something other than `"auto"`. See [Permission gate](/docs/agent/getting-started/permissions) for the full model.
+
+### agent.resolvePermission()
+
+```ts
+async resolvePermission(requestId: string, decision: PermissionDecision): Promise<void>
+```
+
+Answer a `permission_request` event. `PermissionDecision` is `{ kind: "once" }`, `{ kind: "always" }`, or `{ kind: "reject"; feedback?: string }`. `always` / `reject` also clear every other still-pending request for the same tool.
+
+```ts
+for await (const ev of agent.prompt("Refactor auth")) {
+  if (ev.type === "permission_request") {
+    await agent.resolvePermission(ev.requestId, { kind: "once" });
+  }
+}
+```
+
+### agent.listPendingPermissions()
+
+```ts
+async listPendingPermissions(): Promise<PendingPermission[]>
+```
+
+Tool calls currently paused awaiting a decision — each `{ requestId, tool, target, title, since }`. Useful after reconnecting to a session to discover approvals still outstanding.
+
+### agent.pendingEgressRequests()
+
+```ts
+pendingEgressRequests(): EgressRequest[]
+```
+
+Outbound network requests to `approval: "hold"` hosts currently waiting for an `onEgressRequest` decision — each `{ host, since }`. Empty unless the spec has held credential bindings.
+
+### agent.egressGate
+
+```ts
+readonly egressGate?: EgressApprovalGate
+```
+
+The host-side listener that holds egress to `approval: "hold"` hosts until `onEgressRequest` approves. Present only when the spec has held bindings; started on `load()`, stopped on `close()`.
 
 ---
 
@@ -557,25 +620,26 @@ The JSON shape of an agent spec file. Pass the path to `Alineo.load(specPath)`.
 import type { AgentSpec } from "alineo";
 ```
 
-| Field                  | Type                                     | Description                                                                                                                                                                                                                                                                                                     |
-| ---------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                 | `string`                                 | Unique identifier. Used as the sandbox session name.                                                                                                                                                                                                                                                            |
-| `cli`                  | `"pi"`                                   | CLI to run. Only `"pi"` is supported.                                                                                                                                                                                                                                                                           |
-| `cliVersion`           | `string?`                                | npm version specifier for the Pi CLI (e.g. `"1.2.3"`, `"^1.2.0"`, or a dist-tag like `"latest"`). Passed to `npm install -g @earendil-works/pi-coding-agent@<cliVersion>`. Omit to install whatever npm resolves as latest. Included in the setup-hash cache key, so changing it forces a fresh Pi CLI install. |
-| `model`                | `string?`                                | Model ID passed to Pi via `--model`.                                                                                                                                                                                                                                                                            |
-| `provider`             | `string?`                                | AI provider passed via `--provider`. Omit for a direct Google API key.                                                                                                                                                                                                                                          |
-| `packages`             | `string[]?`                              | APT packages to install before Pi (e.g. `["python3", "git"]`).                                                                                                                                                                                                                                                  |
-| `env`                  | `Record<string,string>?`                 | Env vars for the sandbox. Values may reference host env: `"${MY_VAR}"`.                                                                                                                                                                                                                                         |
-| `resources`            | `{ cpu: string; memory: string; gpu? }?` | Container resource limits. Falls back to `alineo.config.json` defaults.                                                                                                                                                                                                                                         |
-| `setup`                | `SetupStep[]?`                           | Workspace setup steps — run after Pi install, baked into the snapshot.                                                                                                                                                                                                                                          |
-| `title`                | `string?`                                | Human-readable display name.                                                                                                                                                                                                                                                                                    |
-| `description`          | `string?`                                | Short description of the agent.                                                                                                                                                                                                                                                                                 |
-| `author`               | `string?`                                | Author name.                                                                                                                                                                                                                                                                                                    |
-| `categories`           | `string[]?`                              | Arbitrary category tags.                                                                                                                                                                                                                                                                                        |
-| `metadata`             | `Record<string,string>?`                 | Not read anywhere in `alineo`; has no effect on the sandbox.                                                                                                                                                                                                                                                    |
-| `registryDependencies` | `string[]?`                              | Other agent spec URLs. Not read by `alineo` itself — used by `alineo add`, which fetches and saves each one first, depth-first.                                                                                                                                                                                 |
-| `spawnDepth`           | `number?`                                | Nesting-depth budget for `agent.spawn()`, force-decremented into each child's env. Non-negative integer. Required (directly or via `--depth`/`opts.spawnDepth`) for `agent.spawn()` to be allowed at all.                                                                                                       |
-| `maxAgents`            | `number?`                                | Optional cap on total descendants for this lineage, independent of `spawnDepth`. Non-negative integer. Unset means uncapped — unlike `spawnDepth`, omitting this doesn't disable spawning.                                                                                                                      |
+| Field                  | Type                                                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                 | `string`                                             | Unique identifier. Used as the sandbox session name.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `cli`                  | `"pi"`                                               | CLI to run. Only `"pi"` is supported.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `cliVersion`           | `string?`                                            | npm version specifier for the Pi CLI (e.g. `"1.2.3"`, `"^1.2.0"`, or a dist-tag like `"latest"`). Passed to `npm install -g @earendil-works/pi-coding-agent@<cliVersion>`. Omit to install whatever npm resolves as latest. Included in the setup-hash cache key, so changing it forces a fresh Pi CLI install.                                                                                                                                                                        |
+| `model`                | `string?`                                            | Model ID passed to Pi via `--model`.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `provider`             | `string?`                                            | AI provider passed via `--provider`. Omit for a direct Google API key.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `packages`             | `string[]?`                                          | APT packages to install before Pi (e.g. `["python3", "git"]`).                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `env`                  | `Record<string, string \| CredentialEnvBinding>?`    | Env vars for the sandbox. Values may reference host env: `"${MY_VAR}"`. A value can also be a `CredentialEnvBinding` (`{ credential, host, injection, approval? }`) — that key never becomes a container env var; it's registered with the credential broker instead. `approval: "hold"` holds egress to `host` until approved. See [Credentials](/docs/core/concepts/credentials) and [Permission gate](/docs/agent/getting-started/permissions#holding-network-egress-for-approval). |
+| `resources`            | `{ cpu: string; memory: string; gpu? }?`             | Container resource limits. Falls back to `alineo.config.json` defaults.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `setup`                | `SetupStep[]?`                                       | Workspace setup steps — run after Pi install, baked into the snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `permissions`          | `"auto" \| "ask" \| "readonly" \| PermissionPolicy?` | Human-in-the-loop tool-call gate. Omit (or `"auto"`) for the current behavior — no gate. See [Permission gate](/docs/agent/getting-started/permissions).                                                                                                                                                                                                                                                                                                                               |
+| `title`                | `string?`                                            | Human-readable display name.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `description`          | `string?`                                            | Short description of the agent.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `author`               | `string?`                                            | Author name.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `categories`           | `string[]?`                                          | Arbitrary category tags.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `metadata`             | `Record<string,string>?`                             | Not read anywhere in `alineo`; has no effect on the sandbox.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `registryDependencies` | `string[]?`                                          | Other agent spec URLs. Not read by `alineo` itself — used by `alineo add`, which fetches and saves each one first, depth-first.                                                                                                                                                                                                                                                                                                                                                        |
+| `spawnDepth`           | `number?`                                            | Nesting-depth budget for `agent.spawn()`, force-decremented into each child's env. Non-negative integer. Required (directly or via `--depth`/`opts.spawnDepth`) for `agent.spawn()` to be allowed at all.                                                                                                                                                                                                                                                                              |
+| `maxAgents`            | `number?`                                            | Optional cap on total descendants for this lineage, independent of `spawnDepth`. Non-negative integer. Unset means uncapped — unlike `spawnDepth`, omitting this doesn't disable spawning.                                                                                                                                                                                                                                                                                             |
 
 ### Example
 
@@ -642,6 +706,8 @@ type AgentEvent =
   | { type: "tool_update"; toolCallId: string; toolName: string; partialResult: unknown }
   | { type: "tool_end"; toolCallId: string; toolName: string; result: unknown; isError: boolean }
   | { type: "extension_ui"; method: string; params: unknown; isDialog: boolean; requestId?: string }
+  | { type: "permission_request"; requestId: string; tool: string; target: string; title: string }
+  | { type: "permission_resolved"; requestId: string; decision: PermissionDecision }
   | {
       type: "auto_retry_start";
       attempt: number;
