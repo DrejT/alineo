@@ -1,19 +1,20 @@
 ---
 ---
 
-Cookbooks only, no publishable package changes: point the three agent recipes at a live
-NVIDIA NIM model.
+Cookbooks + examples + a test: replace every reference to the end-of-life NVIDIA NIM model
+`nvidia/nemotron-3-nano-30b-a3b` with `nvidia/nemotron-3.5-lightning-30b-a3b`.
 
-`ai-agent-bugfix`, `persistent-agent-memory` and `credential-scoped-agent` pinned
-`nvidia/nemotron-3-nano-30b-a3b`, which reached end-of-life on the NVIDIA NIM API on
-2026-09-01 — `/v1/chat/completions` now returns `410 Gone`. The agent's completion call
-failed silently (empty event stream) and each recipe still exited 0 while doing nothing.
+`nvidia/nemotron-3-nano-30b-a3b` reached end-of-life on the NVIDIA NIM API on 2026-09-01 —
+`/v1/chat/completions` returns `410 Gone`. Every agent spec pinning it silently produced an
+empty event stream while still exiting 0.
 
-Swapped all three specs to **`nvidia/nemotron-3.5-lightning-30b-a3b`** (same 30B-a3b class,
-still on the free tier). Verified end-to-end against a local OpenSandbox server: the bugfix
-agent diagnoses and fixes the off-by-one and passes independent verification; the memory
-agent recalls the customer profile across sandbox sessions and answers grounded in it; the
-credential agent runs its own authenticated `curl` and the inject/revoke audit behaves.
-
-`examples/*` and `packages/model-providers/test/nvidia.test.ts` still reference the dead
-id — separate follow-up.
+- `cookbooks/{ai-agent-bugfix,persistent-agent-memory,credential-scoped-agent}/agents/*.json`
+  — verified all three end-to-end against a local OpenSandbox server with the new model.
+- `examples/{pi-agent,rlm-repo-fanout,rlm-master,human-in-the-loop,agent-egress-approval}`
+  agent specs (including the ones printf'd into a setup step).
+- `packages/model-providers/test/nvidia.test.ts` — the id is only used as an arbitrary string
+  fixture; tests still pass.
+- `examples/rlm-repo-fanout/{README,RUBRIC}.md` — updated the "current spec" references and
+  noted that the benchmark tables predate the EOL. Those figures are left as the historical
+  record; the `rlm-*` examples' master model (`nvidia/nvidia-nemotron-nano-9b-v2`) is *also*
+  EOL and both need a proper re-benchmark — out of scope here.

@@ -35,7 +35,7 @@
     },
     {
       "name": "Add the worker spec",
-      "run": "mkdir -p agents && printf '{\"name\":\"rlm-fanout-worker\",\"cli\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3-nano-30b-a3b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/worker.json"
+      "run": "mkdir -p agents && printf '{\"name\":\"rlm-fanout-worker\",\"cli\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3.5-lightning-30b-a3b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/worker.json"
     },
     {
       "name": "Write TASK.md",

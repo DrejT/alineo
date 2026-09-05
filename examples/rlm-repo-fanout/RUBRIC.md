@@ -19,7 +19,7 @@ full design rationale this example implements.
   directory and complete the task described there. Report a summary...". The
   task itself lives in `TASK.md`, written by a setup step baked into the
   snapshot, never pasted into the prompt string.
-- **Worker spec**: `agents/worker.json` — Pi CLI only, `nvidia/nemotron-3-nano-30b-a3b`
+- **Worker spec**: `agents/worker.json` — Pi CLI only, `nvidia/nemotron-3.5-lightning-30b-a3b`
   (faster than the master's model — a worker's task is a single bounded edit,
   not multi-step decomposition, so speed matters more than tenacity here). No
   `alineo` install, no `alineo.config.json`, no fork tools of any kind reachable.
@@ -73,6 +73,13 @@ model toward the wrong primitive elsewhere), so this is no longer a
 per-example opt-out; it's now true of every alineo-based spec by default.
 
 ## Why this model
+
+> **Note (2026-09-05):** both models this section settled on —
+> `nvidia/nemotron-3-nano-30b-a3b` (worker) and `nvidia/nvidia-nemotron-nano-9b-v2`
+> (master) — have since reached end-of-life on the NVIDIA NIM API (`410 Gone` /
+> `404`). The specs now pin `nvidia/nemotron-3.5-lightning-30b-a3b` as a working
+> stand-in; the benchmark below is kept as the historical record and a proper
+> re-benchmark of the current model set is still pending.
 
 Benchmarked several NVIDIA NIM models locally first (`pi -p --provider
 nvidia --model <id> ...`, outside any sandbox — a plain text prompt and a
@@ -128,7 +135,7 @@ per model tried, before landing on a model with none of them:
   generated Python script) using the `edit` tool and re-ran successfully,
   unprompted. Slower per call than several alternatives, but the only model
   tried that never corrupted a tool call across many multi-turn runs. Used
-  for the master; the worker keeps `nemotron-3-nano-30b-a3b` since its job
+  for the master; the worker keeps `nemotron-3.5-lightning-30b-a3b` since its job
   is one bounded edit, not open-ended decomposition.
 
 ## Strongest case against

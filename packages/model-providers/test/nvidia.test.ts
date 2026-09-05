@@ -30,7 +30,7 @@ describe("nvidiaProvider", () => {
   it("languageModel throws when NVIDIA_API_KEY is unset", async () => {
     delete process.env.NVIDIA_API_KEY;
     const { nvidiaProvider } = await freshModule();
-    expect(() => nvidiaProvider.languageModel("nvidia/nemotron-3-nano-30b-a3b")).toThrow(
+    expect(() => nvidiaProvider.languageModel("nvidia/nemotron-3.5-lightning-30b-a3b")).toThrow(
       "NVIDIA_API_KEY is not set on the dashboard server",
     );
   });
@@ -38,7 +38,7 @@ describe("nvidiaProvider", () => {
   it("languageModel returns a LanguageModel when NVIDIA_API_KEY is set", async () => {
     process.env.NVIDIA_API_KEY = "test-key";
     const { nvidiaProvider } = await freshModule();
-    const model = nvidiaProvider.languageModel("nvidia/nemotron-3-nano-30b-a3b");
+    const model = nvidiaProvider.languageModel("nvidia/nemotron-3.5-lightning-30b-a3b");
     expect(model).toBeDefined();
   });
 
@@ -66,14 +66,16 @@ describe("nvidiaProvider", () => {
     process.env.NVIDIA_API_KEY = "test-key";
     const fetchSpy = mock(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ data: [{ id: "nvidia/nemotron-3-nano-30b-a3b" }] }), {
+        new Response(JSON.stringify({ data: [{ id: "nvidia/nemotron-3.5-lightning-30b-a3b" }] }), {
           status: 200,
         }),
       ),
     );
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     const { nvidiaProvider } = await freshModule();
-    expect(await nvidiaProvider.listModels()).toEqual([{ id: "nvidia/nemotron-3-nano-30b-a3b" }]);
+    expect(await nvidiaProvider.listModels()).toEqual([
+      { id: "nvidia/nemotron-3.5-lightning-30b-a3b" },
+    ]);
     await nvidiaProvider.listModels();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });

@@ -6,7 +6,7 @@
   "author": "alineo",
   "cli": "pi",
   "provider": "nvidia",
-  "model": "nvidia/nemotron-3-nano-30b-a3b",
+  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
   "packages": ["nodejs_22"],
   "env": {
     "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
@@ -25,7 +25,7 @@
     },
     {
       "name": "Add a child spec for alineo spawn to launch",
-      "run": "printf '{\"name\":\"hello-agent\",\"cli\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3-nano-30b-a3b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/hello-agent.json"
+      "run": "printf '{\"name\":\"hello-agent\",\"cli\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3.5-lightning-30b-a3b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/hello-agent.json"
     }
   ]
 }
