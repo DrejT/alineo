@@ -3,4 +3,79 @@ title: Parallel Test Shards
 description: Install dependencies once, then fork into parallel sandboxes to shard work across them.
 ---
 
-<include cwd>../../cookbooks/parallel-test-shards/README.md</include>
+<CookbookMeta difficulty="Intermediate" time="~5 min" primitives={["fork", "Promise.all"]} />
+
+Install dependencies once, then fork the sandbox into N independent copies that each run a shard
+of the test suite in parallel — cutting wall-clock time roughly by the number of shards, without
+repeating the install in every shard.
+
+## Setup
+
+<Steps>
+<Step>
+
+Start OpenSandbox in Docker (one-time setup):
+
+```bash
+bunx alineo-cli init
+```
+
+</Step>
+</Steps>
+
+## Run it
+
+<CookbookPlayground
+  cwd="cookbooks/parallel-test-shards"
+  repoHref="https://github.com/DrejT/alineo/tree/main/cookbooks/parallel-test-shards"
+  commands={[
+    { command: "bun install" },
+    { command: "bun start" },
+  ]}
+  output={`Base sandbox: installing pytest, writing 3 test files...
+Forking into 3 shards...
+
+shard-1  exit 0   2 passed
+shard-2  exit 0   2 passed
+shard-3  exit 1   1 passed, 1 failed
+
+Overall: FAILED (2/3 shards green)`}
+/>
+
+## What it does
+
+<Steps>
+<Step>
+
+Creates one base sandbox, installs `pytest`, and writes three small test files to it.
+
+</Step>
+<Step>
+
+Calls `base.fork()` three times — each fork branches off the base sandbox's state, so none of
+them repeat the `pip install`.
+
+</Step>
+<Step>
+
+Runs a different test file in each fork with `Promise.all`, in parallel.
+
+</Step>
+<Step>
+
+Aggregates each shard's exit code and a one-line summary into an overall pass/fail report.
+
+</Step>
+</Steps>
+
+<Callout title="Generalizing to a real repo">
+  Install dependencies and discover shard boundaries once in the base sandbox, then fork once per
+  shard (or per CPU core) instead of paying setup cost N times. See
+  [Forking Sandboxes](/docs/examples/sandbox-fork) for the underlying `sb.fork()` primitive.
+</Callout>
+
+<Callout type="warn" title="Server proxy">
+  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server
+  so Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to
+  disable (e.g. when using `uvx opensandbox-server` on the host).
+</Callout>
