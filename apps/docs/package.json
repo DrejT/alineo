@@ -26,11 +26,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
-    "bun-types": "1.3.14",
+    "bun-types": "1.4.0",
     "eslint": "^10",
-    "eslint-config-next": "16.3.1",
+    "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^7"
   },
   "ignoreScripts": [
     "sharp",
