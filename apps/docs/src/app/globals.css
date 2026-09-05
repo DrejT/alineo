@@ -7,6 +7,18 @@ html {
   color-scheme: light;
 }
 
+/* The root layout wraps every page in `HomeLayout`, whose navbar is `sticky h-14
+   top-0 z-40`. The docs pages then nest `DocsLayout` inside it — and DocsLayout
+   assumes nothing sits above it on desktop (`--fd-header-height: 0px`), so its
+   sticky sidebar and "On this page" TOC anchor at `top: 0` and slide under the
+   56px navbar on scroll. `--fd-docs-row-1` is `var(--fd-banner-height, 0px)`, the
+   offset fumadocs exposes for exactly this "fixed bar above the layout" case —
+   feed it the navbar height so the sticky rails (and the mobile docs header) park
+   below it instead. */
+:root {
+  --fd-banner-height: 3.5rem;
+}
+
 /* Set dark color scheme for browser defaults (scrollbars, etc.) */
 html.dark {
   color-scheme: dark;
