@@ -33,6 +33,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: drej-registry
+          projectName: alineo-registry
           directory: apps/registry/dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
