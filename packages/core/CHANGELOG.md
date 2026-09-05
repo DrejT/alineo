@@ -1,5 +1,89 @@
 # @drej/core
 
+## 0.4.0
+
+### Minor Changes
+
+- 87a9c39: Credential injection: replace the placeholder `query` / `path` shapes with a working
+  `substitution` type.
+
+  `CredentialBinding.injection` (and `AgentSpec.env`'s `CredentialEnvBinding.injection`) is now:
+
+  ```ts
+  | { type: "header"; name: string }
+  | { type: "substitution"; placeholder: string; in: Array<"path" | "query" | "header" | "body"> }
+  ```
+
+  `substitution` maps onto the egress sidecar's real `passthrough` + `substitutions` auth model:
+  the sidecar replaces every literal occurrence of `placeholder` in the listed request surfaces
+  with the credential value. **The outbound request must already contain `placeholder` verbatim**
+  — put it in a base URL, e.g. `https://api.example.com/v1?key=__API_KEY__`. `header` injection
+  is unchanged and stays the recommended default.
+
+  **Migration** — the old `{ type: "query"; param }` / `{ type: "path"; segment }` shapes are
+  removed (they only ever threw `UnsupportedInjectionError`). Replace
+  `{ type: "query"; param: "k" }` with `{ type: "substitution"; placeholder: "__CRED__"; in: ["query"] }`
+  and add `?k=__CRED__` to the request. `sb.credentials.listBindings()` is lossy for
+  substitution bindings (the vault does not echo `substitutions` back) — `resume()` / `fork()`
+  recover the full shape from the ledger instead.
+
+- 87a9c39: Egress network policy: CIDR/IP targets, and runtime policy changes on a live sandbox.
+
+  - **`NetworkRule.target` now documents (and the SDK validates) IP and CIDR targets** —
+    `"10.0.0.5"`, `"10.0.0.0/8"`, plus IPv6 — alongside FQDNs and `*.` wildcards. IP/CIDR rules
+    are enforced at the nftables layer (so they need `egress.mode = "dns+nft"`) and gate raw-IP
+    egress only, not name resolution. A malformed `networkPolicy` target now throws
+    `SandboxClientError` locally instead of failing on a server round-trip
+    (`isValidEgressTarget` is exported from `@alineo-labs/opensandbox`).
+  - **`sb.egress.patch(rules)` / `sb.egress.delete(targets)` / `sb.egress.get()`** adjust a
+    running sandbox's egress policy through its sidecar — merge in allow/deny rules (an incoming
+    rule replaces any rule with the same `target`) or remove them by target. Changes apply
+    immediately and are recorded to the ledger (`EgressRuleAdded` / `EgressRuleRemoved`), so
+    `Sandbox.resume()` re-applies a still-wanted allowance — egress policy is sidecar-local and
+    does not survive a resume on its own. New `EgressClient` in `@alineo-labs/opensandbox` and
+    `reconstructEgressRules` in `@alineo-labs/core`.
+
+- c4e64df: Add a human-in-the-loop permission gate for sandboxed agents.
+
+  `AgentSpec.permissions` — a mode shorthand (`"auto"` (default), `"ask"`, `"readonly"`) or
+  a full `PermissionPolicy` with ordered per-tool / per-pattern rules (last match wins;
+  actions `allow` / `ask` / `deny` / `rate_limit` / `classify`, plus `disabledTools` and
+  `restrictToTools`) — is enforced by a bundled Pi extension (`pi-permission-gate.js`, loaded
+  via `-e` only when a policy is set).
+
+  - Gated tool calls emit a `permission_request` `AgentEvent`; resolve each with
+    `agent.resolvePermission(requestId, { kind: "once" | "always" | "reject" })`. A `reject`
+    can carry `feedback` that becomes the reason the model reads. `always` / `reject`
+    auto-clear other still-pending requests for the same tool.
+  - `prompt(msg, { onPermission })` auto-resolves each request with the handler's decision —
+    no hand-wired `resolvePermission` loop.
+  - `agent.listPendingPermissions()` reports tool calls currently paused; a reconnecting
+    operator (`/permission-stream`) is replayed the outstanding requests and the auto-deny
+    timeout is suspended while attached.
+  - `restrictToTools` / `disabledTools` are applied via Pi's `setActiveTools` at session
+    start, so the model never sees a tool it may not use. `"readonly"` restricts the toolset
+    to the read tools and `classify`-triages any `bash` call left reachable.
+  - `classify` does a conservative read-vs-write triage of a `bash` command (split on
+    `&&`/`||`/`;`/`|`, checked against a safe-reader list) — read-only → allow, else ask.
+  - Every request/resolution is written to the ledger (`permission_requested` /
+    `permission_resolved`, metadata only — never raw tool args). `Alineo.resume()` closes out
+    approvals dropped when the old Pi process ended.
+  - `abort()` auto-rejects any pending approvals; `steer()` leaves them open.
+  - Enforcement is in-process (Pi's `tool_call` hook) — it stops a misbehaving model, not a
+    process with shell access inside the sandbox actively defeating the gate (that's the
+    deferred proxy tier). Ambient user extensions (`settings.json`, `.pi/extensions/`) still
+    load and cannot bypass the gate (Pi's first-block-wins hook semantics).
+  - Default behavior is unchanged: no `permissions` (or `"auto"`) loads no gate.
+
+  See `examples/human-in-the-loop` and `plans/human-in-the-loop.md`. Fully durable pauses
+  across `sb.pause()` / checkpoint (Phase 3c, needs an upstream Pi change) and the
+  credential-proxy enforcement tier (Phase 4) are tracked as follow-ups in that plan.
+
+### Patch Changes
+
+- Updated dependencies [87a9c39]
+  - @alineo-labs/opensandbox@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes
