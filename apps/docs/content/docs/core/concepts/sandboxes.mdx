@@ -23,17 +23,17 @@ const sb = await client.sandbox({
 
 ## SandboxOptions
 
-| Option            | Type                                            | Description                                                                                                                                                  |
-| ----------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `image`           | `string \| { uri, auth? }`                      | Container image. String form: `"ubuntu:22.04"`. Object form for private registries: `{ uri: "ghcr.io/org/image", auth: { username, password } }`             |
-| `resources`       | `{ cpu: string; memory: string; gpu?: string }` | Resource limits. Required. `cpu` is a Kubernetes-style string like `"500m"` or `"2"`. `memory` is `"256Mi"`, `"1Gi"`, etc.                                   |
-| `env`             | `Record<string, string>`                        | Environment variables set in the container at startup                                                                                                        |
-| `metadata`        | `Record<string, string>`                        | Arbitrary key-value labels attached to the sandbox (e.g. `{ runId: "ci-42" }`)                                                                               |
-| `name`            | `string`                                        | User-provided name for the run — used as the ledger key. Auto-generated if omitted.                                                                          |
-| `timeout`         | `number`                                        | Sandbox lifetime in seconds. Defaults to the OpenSandbox server's default.                                                                                   |
-| `hooks`           | `SandboxHooks`                                  | Lifecycle callbacks for observability. See [Observability](/docs/core/patterns/observability).                                                               |
-| `networkPolicy`   | `{ defaultAction, egress }`                     | Optional outbound network policy — which hosts the sandbox may reach. Required to use `credentialProxy`. See [Credentials](/docs/core/concepts/credentials). |
-| `credentialProxy` | `boolean`                                       | Opt-in to credential injection via `sb.credentials.*`. See [Credentials](/docs/core/concepts/credentials).                                                   |
+| Option            | Type                                            | Description                                                                                                                                                        |
+| ----------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `image`           | `string \| { uri, auth? }`                      | Container image. String form: `"ubuntu:22.04"`. Object form for private registries: `{ uri: "ghcr.io/org/image", auth: { username, password } }`                   |
+| `resources`       | `{ cpu: string; memory: string; gpu?: string }` | Resource limits. Required. `cpu` is a Kubernetes-style string like `"500m"` or `"2"`. `memory` is `"256Mi"`, `"1Gi"`, etc.                                         |
+| `env`             | `Record<string, string>`                        | Environment variables set in the container at startup                                                                                                              |
+| `metadata`        | `Record<string, string>`                        | Arbitrary key-value labels attached to the sandbox (e.g. `{ runId: "ci-42" }`)                                                                                     |
+| `name`            | `string`                                        | User-provided name for the run — used as the ledger key. Auto-generated if omitted.                                                                                |
+| `timeout`         | `number`                                        | Sandbox lifetime in seconds. Defaults to the OpenSandbox server's default.                                                                                         |
+| `hooks`           | `SandboxHooks`                                  | Lifecycle callbacks for observability. See [Observability](/docs/core/patterns/observability).                                                                     |
+| `networkPolicy`   | `{ defaultAction, egress }`                     | Optional outbound network policy — which hosts the sandbox may reach. Required to use `credentialProxy`. See [Network policy](/docs/core/concepts/network-policy). |
+| `credentialProxy` | `boolean`                                       | Opt-in to credential injection via `sb.credentials.*`. See [Credentials](/docs/core/concepts/credentials).                                                         |
 
 ## Sandbox lifecycle
 

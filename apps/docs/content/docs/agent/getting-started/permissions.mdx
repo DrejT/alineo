@@ -1,0 +1,212 @@
+---
+title: Permission gate (human-in-the-loop)
+description: Pause an agent's tool calls for human approval — a mode shorthand or a full per-tool policy, plus a gate that holds outbound network egress until someone approves.
+---
+
+By default a sandboxed Pi agent runs its tools without asking (`pi --mode rpc --approve`). `AgentSpec.permissions` puts a gate in front of every tool call: some run free, some pause and wait for a human, some are refused outright.
+
+Enforcement runs **inside the Pi process** (its `tool_call` hook). It stops a misbehaving _model_ — it is not a barrier against a process with shell access inside the sandbox actively working around it. For that, hold the network itself: see [Holding network egress for approval](#holding-network-egress-for-approval) below.
+
+## Modes
+
+The quickest form is a string:
+
+```json
+{
+  "name": "my-agent",
+  "cli": "pi",
+  "permissions": "readonly"
+}
+```
+
+| Mode         | Behavior                                                                                                                                                                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"auto"`     | Never ask. Identical to omitting `permissions` — no gate is loaded at all. (Default.)                                                                                                                      |
+| `"ask"`      | Pause before **every** tool call.                                                                                                                                                                          |
+| `"readonly"` | Restrict the model's toolset to the read-only tools (`read`, `grep`, `find`, `ls`) via Pi's `setActiveTools`, so it never sees `write` / `edit` / `bash`. Any `bash` left reachable is `classify`-triaged. |
+
+## Full policy
+
+For anything finer, `permissions` takes an object:
+
+```jsonc
+{
+  "permissions": {
+    "default": "ask",
+    "rules": [
+      { "tool": "read", "action": "allow" },
+      { "tool": "grep", "action": "allow" },
+      { "tool": "bash", "action": "classify" },
+      { "tool": "bash", "pattern": "*rm -rf*", "action": "deny" },
+      { "tool": "write", "pattern": "*/package.json", "action": "ask" },
+    ],
+  },
+}
+```
+
+| `PermissionPolicy` field | Type               | Description                                                                                                                                                                  |
+| ------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`                | `PermissionAction` | Action when no rule matches. Defaults to `"ask"`.                                                                                                                            |
+| `rules`                  | `PermissionRule[]` | Evaluated in order; the **last** matching rule wins.                                                                                                                         |
+| `disabledTools`          | `string[]`         | Tools the agent may never call. Stripped from the model's tool list at session start, with an unconditional `deny` backstop for anything registered later (SDK / MCP tools). |
+| `restrictToTools`        | `string[]`         | If set, the **only** tools the model may see. An allowlist (`disabledTools` is a denylist). `"readonly"` expands to this.                                                    |
+
+### PermissionRule
+
+| Field     | Type                   | Description                                                                                                                                                                                                                                                                            |
+| --------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tool`    | `string`               | Tool name or glob (`*` = any run of chars, `?` = one). `"bash"`, `"write"`, `"*"`.                                                                                                                                                                                                     |
+| `pattern` | `string?`              | Glob matched against a tool-specific target: the command for `bash`, the path for `read` / `write` / `edit`, the query for `grep`. **Anchored** — `"git *"` matches `"git status"` but not `"x && git status"`; use `"*git*"` for a substring match. Omit to match any call to `tool`. |
+| `action`  | `PermissionAction`     | What to do on a match.                                                                                                                                                                                                                                                                 |
+| `limit`   | `{ count, windowMs }?` | `rate_limit` only: the ceiling and rolling window.                                                                                                                                                                                                                                     |
+
+### Actions
+
+| Action       | Effect                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allow`      | Run it, no prompt.                                                                                                                                                                                                                                                                                                                                                                          |
+| `ask`        | Pause, emit a `permission_request`, wait for a human decision.                                                                                                                                                                                                                                                                                                                              |
+| `deny`       | Refuse, with a reason the model reads and can adjust to.                                                                                                                                                                                                                                                                                                                                    |
+| `rate_limit` | Allow up to `limit.count` matching calls per `limit.windowMs`, then deny.                                                                                                                                                                                                                                                                                                                   |
+| `classify`   | Best-effort read-vs-write triage (today: `bash` / `powershell` only). Splits the command on `&&` / `\|\|` / `;` / `\|` / newline and checks each part against a built-in safe-reader list (`ls`, `cat`, `grep`, `git status`, …). All parts read-only → `allow`; anything unrecognised, a redirect, `sudo`, `rm` → falls through to `ask`. For any other tool, `classify` behaves as `ask`. |
+
+## Resolving a request from the stream
+
+When the gate pauses a call it emits a `permission_request` event. Answer it with `agent.resolvePermission()`:
+
+```ts
+for await (const ev of agent.prompt("Refactor the auth module")) {
+  if (ev.type === "text") process.stdout.write(ev.text);
+  else if (ev.type === "permission_request") {
+    console.log(`${ev.tool}: ${ev.target}`);
+    await agent.resolvePermission(ev.requestId, { kind: "once" });
+  }
+}
+```
+
+`PermissionDecision`:
+
+| `kind`     | Effect                                                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"once"`   | Allow this one call.                                                                                                                           |
+| `"always"` | Allow this call and auto-allow every other still-pending request for the same tool. Does **not** persist past the session.                     |
+| `"reject"` | Block the call. `feedback` (if given) becomes the reason the model reads. Every other still-pending request for the same tool is rejected too. |
+
+```ts
+await agent.resolvePermission(ev.requestId, {
+  kind: "reject",
+  feedback: "No package installs — use the standard library.",
+});
+```
+
+## Handler form — `prompt({ onPermission })`
+
+To skip the hand-wired loop, pass an `onPermission` handler. It's called for each request and its return value auto-resolves it; the `permission_request` / `permission_resolved` events still flow through the stream.
+
+```ts
+import { Alineo, type PermissionRequest, type PermissionDecision } from "alineo";
+
+async function onPermission(req: PermissionRequest): Promise<PermissionDecision> {
+  if (/\b(pip|npm|apt)\b.*\binstall\b/.test(req.target)) {
+    return { kind: "reject", feedback: "No installs in this run." };
+  }
+  return { kind: "once" };
+}
+
+for await (const ev of agent.prompt("Do the task", { onPermission })) {
+  if (ev.type === "text") process.stdout.write(ev.text);
+}
+```
+
+## Inspecting what's paused
+
+`agent.listPendingPermissions()` returns the tool calls currently waiting — useful after reconnecting to a session:
+
+```ts
+for (const p of await agent.listPendingPermissions()) {
+  console.log(`${p.tool}: ${p.target}  (waiting since ${new Date(p.since).toISOString()})`);
+  await agent.resolvePermission(p.requestId, { kind: "once" });
+}
+```
+
+An operator reconnecting over `/permission-stream` is replayed the outstanding requests, and the auto-deny timeout is suspended while an operator is attached.
+
+## Audit trail
+
+Every request and resolution is written to the ledger as `permission_requested` / `permission_resolved` — **metadata only, never raw tool arguments**. Read it back with any storage adapter or `alineo logs <session>`.
+
+```ts
+for (const e of await adapter.readAll(agent.name, agent.sandboxId)) {
+  if (e.event === "permission_requested" || e.event === "permission_resolved") {
+    console.log(e.event, e.payload);
+  }
+}
+```
+
+## Lifecycle notes
+
+- `abort()` auto-rejects any pending approvals; `steer()` leaves them open.
+- `Alineo.resume()` closes out approvals that were dropped when the previous Pi process ended.
+- Ambient user extensions (`settings.json`, `.pi/extensions/`) still load but cannot bypass the gate — Pi's hook semantics are first-block-wins.
+- Fully durable pauses across `sb.pause()` / checkpoint need an upstream Pi change and are tracked as a follow-up.
+
+See the runnable [`examples/human-in-the-loop`](https://github.com/DrejT/alineo/tree/main/examples/human-in-the-loop) for an end-to-end walkthrough.
+
+---
+
+## Holding network egress for approval
+
+The permission gate above stops a misbehaving model. To gate a _host_ regardless of what runs inside the sandbox, mark a credential binding in `AgentSpec.env` with `approval: "hold"`:
+
+```jsonc
+{
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
+    "GITHUB_TOKEN": {
+      "credential": "${GITHUB_TOKEN}",
+      "host": "api.github.com",
+      "injection": { "type": "header", "name": "Authorization" },
+      "approval": "hold",
+    },
+  },
+}
+```
+
+On `Alineo.load()`:
+
+1. The sandbox starts `defaultAction: "allow"` with a single `deny` rule for `api.github.com` — everything else, including the agent's own model traffic, works normally.
+2. The `GITHUB_TOKEN` credential is **not registered in the vault at all** (the vault refuses a binding whose host isn't allowed).
+3. The first outbound request to the held host is denied at the sidecar, which fires a webhook. That pauses the request and calls the `onEgressRequest` handler you passed to `Alineo.load()`.
+4. On approval the gate opens the egress rule (`sb.egress.patch`) and **then** registers the credential — so the secret literally does not exist inside the sandbox until a human approves.
+
+```ts
+import { Alineo, type EgressRequest, type EgressDecision } from "alineo";
+
+async function onEgressRequest(req: EgressRequest): Promise<EgressDecision> {
+  return req.host === "api.github.com" ? "allow-once" : "deny";
+}
+
+const agent = await Alineo.load(spec, { adapter, onEgressRequest });
+```
+
+| `EgressDecision` | Effect                                                                         |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `"allow-once"`   | Open the host and inject the credential; both are reversed when the turn ends. |
+| `"allow-always"` | Open the host and inject the credential permanently (for the agent's life).    |
+| `"deny"`         | Leave the host denied. The model sees the failed request and moves on.         |
+
+Loading a spec that has a `"hold"` binding **without** an `onEgressRequest` handler throws.
+
+- Enforcement is entirely **out-of-process at the egress sidecar** — a compromised in-sandbox agent cannot reach a held host until a human approves, no matter what it does inside the sandbox.
+- `agent.pendingEgressRequests()` lists what's waiting; `agent.egressGate` (an `EgressApprovalGate`) is exposed for direct control. The listener is started on `load()` and stopped on `close()`.
+- Requests and resolutions land on the ledger as `PermissionRequested` / `PermissionResolved` with `tool: "network"`.
+- The sidecar reaches the host process at the Docker bridge gateway (`172.17.0.1`) by default — override with `ALINEO_EGRESS_APPROVAL_HOST` for other network topologies.
+
+<Callout title="Deferred">
+  The deny-webhook signal is not yet unified into the Pi tool-permission stream, so network
+  approvals do **not** appear in `listPendingPermissions()` or the chat UI alongside tool
+  permissions. There is also no automatic re-run of the request that hit the denial — the model
+  retries on its own (the window is effectively instant). Both are tracked follow-ups.
+</Callout>
+
+See the runnable [`examples/agent-egress-approval`](https://github.com/DrejT/alineo/tree/main/examples/agent-egress-approval).

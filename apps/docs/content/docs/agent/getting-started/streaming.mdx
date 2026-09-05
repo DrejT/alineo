@@ -14,6 +14,8 @@ type AgentEvent =
   | { type: "tool_update"; toolCallId: string; toolName: string; partialResult: unknown }
   | { type: "tool_end"; toolCallId: string; toolName: string; result: unknown; isError: boolean }
   | { type: "extension_ui"; method: string; params: unknown; isDialog: boolean; requestId?: string }
+  | { type: "permission_request"; requestId: string; tool: string; target: string; title: string }
+  | { type: "permission_resolved"; requestId: string; decision: PermissionDecision }
   | {
       type: "auto_retry_start";
       attempt: number;
@@ -47,26 +49,28 @@ type AgentEvent =
   | { type: "extension_error"; extensionPath: string; event: string; error: string };
 ```
 
-| Event              | When it fires                                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `text`             | Pi is writing a text chunk                                                                                     |
-| `tool_start`       | Pi has invoked a tool (e.g. `bash`, `write_file`)                                                              |
-| `tool_update`      | Partial output from a long-running tool                                                                        |
-| `tool_end`         | Tool completed — includes the full result and whether it errored                                               |
-| `extension_ui`     | A Pi extension requested UI interaction (dialog auto-cancelled; forwarded for observability)                   |
-| `auto_retry_start` | Pi is retrying after a transient error (429, 5xx)                                                              |
-| `auto_retry_end`   | Retry sequence completed — `success` indicates whether it recovered                                            |
-| `agent_start`      | Pi began processing the prompt                                                                                 |
-| `agent_end`        | Pi finished the full agent run (all turns complete); includes all messages                                     |
-| `turn_start`       | A new LLM turn began; includes `turnIndex` and `timestamp`                                                     |
-| `turn_end`         | A turn completed with its assistant message and tool results                                                   |
-| `message_start`    | A new assistant message began streaming                                                                        |
-| `message_update`   | Streaming delta from an in-flight message; `delta` is the raw Pi event (text, thinking, tool call delta, etc.) |
-| `message_end`      | An assistant message completed                                                                                 |
-| `queue_update`     | The steering/follow-up queue changed (e.g. after `followUp()`)                                                 |
-| `compaction_start` | Pi began compacting context (manual or automatic)                                                              |
-| `compaction_end`   | Context compaction finished; `result` has token counts, `aborted` if it was cancelled                          |
-| `extension_error`  | A Pi extension threw an error                                                                                  |
+| Event                 | When it fires                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `text`                | Pi is writing a text chunk                                                                                                                |
+| `tool_start`          | Pi has invoked a tool (e.g. `bash`, `write_file`)                                                                                         |
+| `tool_update`         | Partial output from a long-running tool                                                                                                   |
+| `tool_end`            | Tool completed — includes the full result and whether it errored                                                                          |
+| `extension_ui`        | A Pi extension requested UI interaction (dialog auto-cancelled; forwarded for observability)                                              |
+| `permission_request`  | The [permission gate](/docs/agent/getting-started/permissions) paused a tool call for approval — resolve with `agent.resolvePermission()` |
+| `permission_resolved` | A `permission_request` was answered (by a caller, a batched decision, or the timeout)                                                     |
+| `auto_retry_start`    | Pi is retrying after a transient error (429, 5xx)                                                                                         |
+| `auto_retry_end`      | Retry sequence completed — `success` indicates whether it recovered                                                                       |
+| `agent_start`         | Pi began processing the prompt                                                                                                            |
+| `agent_end`           | Pi finished the full agent run (all turns complete); includes all messages                                                                |
+| `turn_start`          | A new LLM turn began; includes `turnIndex` and `timestamp`                                                                                |
+| `turn_end`            | A turn completed with its assistant message and tool results                                                                              |
+| `message_start`       | A new assistant message began streaming                                                                                                   |
+| `message_update`      | Streaming delta from an in-flight message; `delta` is the raw Pi event (text, thinking, tool call delta, etc.)                            |
+| `message_end`         | An assistant message completed                                                                                                            |
+| `queue_update`        | The steering/follow-up queue changed (e.g. after `followUp()`)                                                                            |
+| `compaction_start`    | Pi began compacting context (manual or automatic)                                                                                         |
+| `compaction_end`      | Context compaction finished; `result` has token counts, `aborted` if it was cancelled                                                     |
+| `extension_error`     | A Pi extension threw an error                                                                                                             |
 
 ## Text-only with textOnly()
 

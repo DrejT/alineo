@@ -1,0 +1,85 @@
+---
+title: Network policy
+description: Control which hosts a sandbox may reach — set an allow/deny policy at creation, or change it at runtime with sb.egress.*.
+---
+
+By default a sandbox has ordinary, unrestricted outbound network access. Pass a `networkPolicy` to `client.sandbox()` and an **egress sidecar** is attached to the container: every DNS query and (in `dns+nft` mode) every raw-IP connection is checked against your rules before it leaves.
+
+```ts
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "256Mi" },
+  networkPolicy: {
+    defaultAction: "deny",
+    egress: [
+      { action: "allow", target: "api.github.com" },
+      { action: "allow", target: "*.npmjs.org" },
+    ],
+  },
+});
+```
+
+<Callout title="Server requirement">
+  The egress sidecar needs the OpenSandbox server to have `egress.image` configured. `alineo init`
+  sets this up by default (`opensandbox/egress:v1.1.7`, `mode = "dns+nft"`). On an older config or a
+  `uvx opensandbox-server` host, add an `[egress]` section to `~/.config/alineo/server.toml` (or
+  `~/.sandbox.toml`) and restart the server. Omit `networkPolicy` entirely and none of this applies
+  — no sidecar is attached.
+</Callout>
+
+## NetworkPolicy
+
+| Field           | Type                | Description                                                                   |
+| --------------- | ------------------- | ----------------------------------------------------------------------------- |
+| `defaultAction` | `"allow" \| "deny"` | What to do when no rule matches. Defaults to `"deny"` server-side if omitted. |
+| `egress`        | `NetworkRule[]`     | Ordered allow/deny rules.                                                     |
+
+Each `NetworkRule` is `{ action: "allow" | "deny"; target: string }`.
+
+### Rule targets
+
+`target` is one of:
+
+- **An FQDN** — `"api.github.com"`. Matched against the DNS query name.
+- **A wildcard domain** — `"*.openai.com"`. The `*.` prefix is the sidecar's only wildcard form (it matches one or more leading labels).
+- **A bare IPv4/IPv6 address** — `"10.0.0.5"`, `"2606:4700::1111"`.
+- **A CIDR block** — `"10.0.0.0/8"`, `"fd00::/8"`.
+
+IP and CIDR rules are enforced at the **nftables layer**, so they only take effect when the server runs `egress.mode = "dns+nft"`, and they gate **raw-IP egress only**. A CIDR rule does _not_ authorize resolving a _domain_ that happens to point into that range — for reach-by-name you still need a domain rule.
+
+A malformed `target` (a URL, whitespace, a space-containing string) throws `SandboxClientError` locally before any server round-trip. The same check is exported as `isValidEgressTarget` from `@alineo-labs/opensandbox`.
+
+## Changing the policy at runtime
+
+`sb.egress.*` adjusts a **running** sandbox's policy through its sidecar. The change applies immediately — no restart, no new sandbox.
+
+```ts
+// Allow a host on a sandbox that's already running:
+await sb.egress.patch([{ action: "allow", target: "example.com" }]);
+
+// Revoke it — the host is blocked again:
+await sb.egress.delete(["example.com"]);
+
+// Read back the live policy from the sidecar:
+const { policy } = await sb.egress.get();
+```
+
+| Method                      | Behavior                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sb.egress.patch(rules)`    | Merge rules in. An incoming rule **replaces** any existing rule with the same `target`; every other rule and `defaultAction` are untouched. |
+| `sb.egress.delete(targets)` | Remove rules by `target`. Unknown targets are silently ignored.                                                                             |
+| `sb.egress.get()`           | Returns the sidecar's status envelope: `{ status?, mode?, enforcementMode?, policy? }`.                                                     |
+
+These only work on a sandbox created **with** a `networkPolicy` — without one there is no sidecar and the calls error.
+
+## Persistence across resume and fork
+
+Runtime `sb.egress.*` changes are **sidecar-local**: they don't survive the sidecar restarting and OpenSandbox's snapshot/checkpoint doesn't capture them. Every `patch` / `delete` is written to the ledger (`EgressRuleAdded` / `EgressRuleRemoved`), and `Sandbox.resume()` folds whatever is still live back into the resumed sandbox's boot policy — so a still-wanted allowance is re-applied automatically.
+
+`sb.fork()` does **not** carry runtime egress rules. A fork is a fresh branch and starts with a wide-open `defaultAction: "allow"` policy.
+
+## Relationship to credential injection
+
+`networkPolicy` (which hosts are reachable) and `credentialProxy` (transparent credential injection) are separate concerns that ride the same sidecar. `credentialProxy: true` **requires** `networkPolicy` to also be set. See [Credentials](/docs/core/concepts/credentials).
+
+For an agent that should hold a specific host behind a **human decision** before it's reachable, see [Permission gate](/docs/agent/getting-started/permissions#holding-network-egress-for-approval).

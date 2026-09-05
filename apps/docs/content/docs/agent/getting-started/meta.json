@@ -1,4 +1,12 @@
 {
   "title": "Getting Started",
-  "pages": ["quickstart", "snapshotting", "workspace-setup", "streaming"]
+  "pages": [
+    "quickstart",
+    "snapshotting",
+    "workspace-setup",
+    "streaming",
+    "reliability",
+    "session-inspection",
+    "permissions"
+  ]
 }
