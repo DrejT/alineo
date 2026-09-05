@@ -3,11 +3,7 @@ title: Untrusted Code Execution
 description: Safely run LLM-generated or user-submitted code — per-snippet isolation, resource caps, and timeouts.
 ---
 
-<CookbookMeta
-  difficulty="Beginner"
-  time="~5 min"
-  primitives={["exec", "resources", "timeouts"]}
-/>
+<CookbookMeta difficulty="Beginner" time="~5 min" primitives={["exec", "resources", "timeouts"]} />
 
 Safely execute untrusted or LLM-generated Python snippets — each one gets its own throwaway,
 resource-capped sandbox with a wall-clock timeout, and failures are captured as data instead of
@@ -73,13 +69,12 @@ abort the batch. Every sandbox is closed in `finally`, even on timeout or crash.
 
 <Callout title="Reach for this pattern when...">
   You're executing code you didn't write yourself — an LLM's generated code, a user-submitted
-  script, a plugin. Swap `runUntrusted()`'s body for `execCode()`/`createCodeContext()` (see
-  [Code Interpreter](/docs/examples/exec-code)) if you want a stateful REPL instead of one-shot
-  scripts.
+  script, a plugin. Swap `runUntrusted()`'s body for `execCode()`/`createCodeContext()` (see [Code
+  Interpreter](/docs/examples/exec-code)) if you want a stateful REPL instead of one-shot scripts.
 </Callout>
 
 <Callout type="warn" title="Server proxy">
-  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server
-  so Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to
-  disable (e.g. when using `uvx opensandbox-server` on the host).
+  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
+  Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable
+  (e.g. when using `uvx opensandbox-server` on the host).
 </Callout>

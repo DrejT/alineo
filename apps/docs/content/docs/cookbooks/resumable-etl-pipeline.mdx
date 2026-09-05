@@ -3,11 +3,7 @@ title: Resumable ETL Pipeline
 description: A multi-stage pipeline that checkpoints after every stage and resumes without redoing completed work.
 ---
 
-<CookbookMeta
-  difficulty="Intermediate"
-  time="~5 min"
-  primitives={["checkpoint", "resume"]}
-/>
+<CookbookMeta difficulty="Intermediate" time="~5 min" primitives={["checkpoint", "resume"]} />
 
 A multi-stage ETL pipeline (extract → transform → load) that checkpoints after each stage, so a
 crash — or just wanting to re-run "load" in isolation — doesn't mean paying for extract and
@@ -43,8 +39,8 @@ load       published transformed.csv ✔
 
 ── resumed run (client.resume(sandboxId)) ──
 restored from checkpoint "after-transform"
-[replayed] pip install pandas   ← instant, from the ledger, no network call
-load       transformed.csv already on disk — published ✔`}
+[replayed] pip install pandas ← instant, from the ledger, no network call
+load transformed.csv already on disk — published ✔`}
 />
 
 ## What it does
@@ -102,16 +98,16 @@ reads it straight away — the transform never re-runs.
 </Tabs>
 
 <Callout type="warn" title="Replay is positional, not content-matched">
-  Every `sb.checkpoint(tag)` is a real container snapshot, not just a ledger bookmark — the
-  restored container genuinely has extract and transform's output on disk. The ledger replay on
-  top of that is an optimization: the Nth `exec()` call since resume returns the Nth call's
-  original result, whatever command is actually passed — there's no check that it matches what
-  was recorded. Always re-issue calls in the same order as the original run. See
-  [Checkpoint & Resume](/docs/examples/snapshot-replay) for the primitive this recipe builds on.
+  Every `sb.checkpoint(tag)` is a real container snapshot, not just a ledger bookmark — the restored
+  container genuinely has extract and transform's output on disk. The ledger replay on top of that
+  is an optimization: the Nth `exec()` call since resume returns the Nth call's original result,
+  whatever command is actually passed — there's no check that it matches what was recorded. Always
+  re-issue calls in the same order as the original run. See [Checkpoint &
+  Resume](/docs/examples/snapshot-replay) for the primitive this recipe builds on.
 </Callout>
 
 <Callout type="warn" title="Server proxy">
-  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server
-  so Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to
-  disable (e.g. when using `uvx opensandbox-server` on the host).
+  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
+  Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable
+  (e.g. when using `uvx opensandbox-server` on the host).
 </Callout>

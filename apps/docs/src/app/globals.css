@@ -27,42 +27,42 @@ html.dark {
   --radius-pill: 9999px;
 
   /* Light theme tokens */
-  --color-fd-background: #FFFFFF;
+  --color-fd-background: #ffffff;
   --color-fd-foreground: #111111;
-  --color-fd-muted: #F4F4F5;
-  --color-fd-muted-foreground: #71717A;
-  --color-fd-popover: #FFFFFF;
+  --color-fd-muted: #f4f4f5;
+  --color-fd-muted-foreground: #71717a;
+  --color-fd-popover: #ffffff;
   --color-fd-popover-foreground: #111111;
-  --color-fd-card: #FAFAFA;
+  --color-fd-card: #fafafa;
   --color-fd-card-foreground: #111111;
-  --color-fd-border: #E4E4E7;
-  --color-fd-primary: #7A1B48;
-  --color-fd-primary-foreground: #FFFFFF;
-  --color-fd-secondary: #F4F4F5;
+  --color-fd-border: #e4e4e7;
+  --color-fd-primary: #7a1b48;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #f4f4f5;
   --color-fd-secondary-foreground: #111111;
-  --color-fd-accent: #E4E4E7;
+  --color-fd-accent: #e4e4e7;
   --color-fd-accent-foreground: #111111;
-  --color-fd-ring: #7A1B48;
+  --color-fd-ring: #7a1b48;
 }
 
 /* Dark theme overrides: Logo color background, white text/animations */
 html.dark {
-  --color-fd-background: #7A1B48;
-  --color-fd-foreground: #FFFFFF;
-  --color-fd-muted: #9C2860;
-  --color-fd-muted-foreground: #F4D6E4;
-  --color-fd-popover: #7A1B48;
-  --color-fd-popover-foreground: #FFFFFF;
+  --color-fd-background: #7a1b48;
+  --color-fd-foreground: #ffffff;
+  --color-fd-muted: #9c2860;
+  --color-fd-muted-foreground: #f4d6e4;
+  --color-fd-popover: #7a1b48;
+  --color-fd-popover-foreground: #ffffff;
   --color-fd-card: #591033;
-  --color-fd-card-foreground: #FFFFFF;
-  --color-fd-border: #9C2860;
-  --color-fd-primary: #FFFFFF;
-  --color-fd-primary-foreground: #7A1B48;
+  --color-fd-card-foreground: #ffffff;
+  --color-fd-border: #9c2860;
+  --color-fd-primary: #ffffff;
+  --color-fd-primary-foreground: #7a1b48;
   --color-fd-secondary: #591033;
-  --color-fd-secondary-foreground: #FFFFFF;
-  --color-fd-accent: #9C2860;
-  --color-fd-accent-foreground: #FFFFFF;
-  --color-fd-ring: #FFFFFF;
+  --color-fd-secondary-foreground: #ffffff;
+  --color-fd-accent: #9c2860;
+  --color-fd-accent-foreground: #ffffff;
+  --color-fd-ring: #ffffff;
 }
 
 @layer base {
@@ -97,22 +97,22 @@ html.dark {
 
 /* Force dark theme exclusively on the sidebar */
 aside {
-  --color-fd-background: #7A1B48;
-  --color-fd-foreground: #FFFFFF;
-  --color-fd-muted: #9C2860;
-  --color-fd-muted-foreground: #F4D6E4;
-  --color-fd-popover: #7A1B48;
-  --color-fd-popover-foreground: #FFFFFF;
+  --color-fd-background: #7a1b48;
+  --color-fd-foreground: #ffffff;
+  --color-fd-muted: #9c2860;
+  --color-fd-muted-foreground: #f4d6e4;
+  --color-fd-popover: #7a1b48;
+  --color-fd-popover-foreground: #ffffff;
   --color-fd-card: #591033;
-  --color-fd-card-foreground: #FFFFFF;
-  --color-fd-border: #9C2860;
-  --color-fd-primary: #FFFFFF;
-  --color-fd-primary-foreground: #7A1B48;
+  --color-fd-card-foreground: #ffffff;
+  --color-fd-border: #9c2860;
+  --color-fd-primary: #ffffff;
+  --color-fd-primary-foreground: #7a1b48;
   --color-fd-secondary: #591033;
-  --color-fd-secondary-foreground: #FFFFFF;
-  --color-fd-accent: #9C2860;
-  --color-fd-accent-foreground: #FFFFFF;
-  --color-fd-ring: #FFFFFF;
+  --color-fd-secondary-foreground: #ffffff;
+  --color-fd-accent: #9c2860;
+  --color-fd-accent-foreground: #ffffff;
+  --color-fd-ring: #ffffff;
 
   background-color: var(--color-fd-background) !important;
   color: var(--color-fd-foreground) !important;

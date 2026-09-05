@@ -35,9 +35,9 @@ bunx alineo-cli init
   output={`Base sandbox: installing pytest, writing 3 test files...
 Forking into 3 shards...
 
-shard-1  exit 0   2 passed
-shard-2  exit 0   2 passed
-shard-3  exit 1   1 passed, 1 failed
+shard-1 exit 0 2 passed
+shard-2 exit 0 2 passed
+shard-3 exit 1 1 passed, 1 failed
 
 Overall: FAILED (2/3 shards green)`}
 />
@@ -70,12 +70,12 @@ Aggregates each shard's exit code and a one-line summary into an overall pass/fa
 
 <Callout title="Generalizing to a real repo">
   Install dependencies and discover shard boundaries once in the base sandbox, then fork once per
-  shard (or per CPU core) instead of paying setup cost N times. See
-  [Forking Sandboxes](/docs/examples/sandbox-fork) for the underlying `sb.fork()` primitive.
+  shard (or per CPU core) instead of paying setup cost N times. See [Forking
+  Sandboxes](/docs/examples/sandbox-fork) for the underlying `sb.fork()` primitive.
 </Callout>
 
 <Callout type="warn" title="Server proxy">
-  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server
-  so Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to
-  disable (e.g. when using `uvx opensandbox-server` on the host).
+  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
+  Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable
+  (e.g. when using `uvx opensandbox-server` on the host).
 </Callout>

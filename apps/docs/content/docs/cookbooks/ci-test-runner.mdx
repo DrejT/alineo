@@ -37,9 +37,9 @@ Installing pytest...
 Running pytest...
 
 {
-  "status": "failed",
-  "summary": "1 passed, 1 failed",
-  "output": "FAILED test_calc.py::test_subtract - assert 1 == 2"
+"status": "failed",
+"summary": "1 passed, 1 failed",
+"output": "FAILED test_calc.py::test_subtract - assert 1 == 2"
 }
 
 process.exitCode = 1`}
@@ -83,7 +83,7 @@ await sb.exec(`git clone --depth 1 ${repoUrl} /workspace`);
 </Callout>
 
 <Callout type="warn" title="Server proxy">
-  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server
-  so Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to
-  disable (e.g. when using `uvx opensandbox-server` on the host).
+  All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
+  Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable
+  (e.g. when using `uvx opensandbox-server` on the host).
 </Callout>
