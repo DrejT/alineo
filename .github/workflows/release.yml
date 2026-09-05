@@ -31,7 +31,7 @@ jobs:
         run: bun run build
 
       - name: Create Release PR or Publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           publish: bun run release:publish
           version: bun run release:version
