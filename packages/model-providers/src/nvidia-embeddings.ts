@@ -2,7 +2,7 @@ import { requireApiKey } from "./types";
 
 const BASE_URL = "https://integrate.api.nvidia.com/v1";
 const ENV_VAR = "NVIDIA_API_KEY";
-const DEFAULT_MODEL = "nvidia/nv-embedqa-e5-v5";
+const DEFAULT_MODEL = "nvidia/nemotron-3-embed-1b";
 
 /**
  * Shape any `EmbeddingProvider`-consuming package (`@alineo-labs/memory`'s
@@ -21,7 +21,7 @@ export interface NvidiaEmbeddingProvider {
 }
 
 export interface NvidiaEmbeddingOptions {
-  /** NIM embedding model ID. Defaults to `"nvidia/nv-embedqa-e5-v5"`. */
+  /** NIM embedding model ID. Defaults to `"nvidia/nemotron-3-embed-1b"` (2048-dim). */
   model?: string;
   /**
    * NIM's embedding endpoint asks whether the text being embedded is a search query or a
