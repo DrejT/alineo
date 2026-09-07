@@ -25,7 +25,7 @@ async function freshModule(): Promise<typeof NvidiaEmbeddingsModule> {
 describe("createNvidiaEmbeddingProvider", () => {
   it("defaults id to the default model", async () => {
     const { createNvidiaEmbeddingProvider } = await freshModule();
-    expect(createNvidiaEmbeddingProvider().id).toBe("nvidia:nvidia/nv-embedqa-e5-v5");
+    expect(createNvidiaEmbeddingProvider().id).toBe("nvidia:nvidia/nemotron-3-embed-1b");
   });
 
   it("id reflects a custom model", async () => {
@@ -103,7 +103,7 @@ describe("createNvidiaEmbeddingProvider", () => {
     ]);
     expect(capturedBody).toEqual({
       input: ["first", "second"],
-      model: "nvidia/nv-embedqa-e5-v5",
+      model: "nvidia/nemotron-3-embed-1b",
       input_type: "passage",
     });
   });
