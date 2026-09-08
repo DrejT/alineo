@@ -18,6 +18,3 @@ routes = [
   { pattern = "docs.alineo.tech/mcp", zone_name = "alineo.tech" },
   { pattern = "docs.alineo.tech/mcp/*", zone_name = "alineo.tech" },
 ]
-
-[observability]
-enabled = true
