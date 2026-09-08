@@ -19,7 +19,7 @@
     "mermaid": "^11.17.2",
     "next": "16.3.1",
     "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react-dom": "19.2.8",
     "zod": "^4"
   },
   "devDependencies": {
