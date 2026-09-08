@@ -26,3 +26,8 @@
 # Feed readers want application/rss+xml (Cloudflare would serve .xml as application/xml).
 /blog/rss.xml
   Content-Type: application/rss+xml; charset=utf-8
+
+# Blog cover images / demo GIFs are content-addressed by slug and never change in place —
+# a new asset gets a new path. Cache hard.
+/blog-assets/*
+  Cache-Control: public, max-age=31536000, immutable
