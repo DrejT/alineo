@@ -26,8 +26,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     author: { "@type": "Organization", name: page.data.author },
     publisher: { "@type": "Organization", name: "alineo", url: "https://alineo.tech" },
     mainEntityOfPage: `${SITE}${page.url}`,
-    image: `${SITE}/blog-og/${slug}`,
+    image: page.data.cover ? `${SITE}${page.data.cover}` : `${SITE}/blog-og/${slug}`,
   };
+
+  const cover = page.data.cover;
 
   return (
     <article className="mx-auto w-full max-w-3xl flex-1 px-6 py-24">
@@ -41,9 +43,20 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <h1 className="mt-6 text-3xl font-semibold tracking-[-0.025em] text-fd-foreground">
         {page.data.title}
       </h1>
-      <div className="mt-3 text-sm text-fd-muted-foreground">
-        <time dateTime={date.toISOString()}>{formatBlogDate(date)}</time> · {page.data.author}
+      <div className="mt-3 flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.05em] text-fd-muted-foreground">
+        <time dateTime={date.toISOString()}>{formatBlogDate(date)}</time>
+        <span className="text-fd-primary">{page.data.tag}</span>
+        <span>·</span>
+        <span>{page.data.author}</span>
       </div>
+      {cover ? (
+        // eslint-disable-next-line @next/next/no-img-element -- static export, next/image optimization is off
+        <img
+          src={cover}
+          alt={page.data.coverAlt ?? page.data.title}
+          className="mt-8 w-full rounded-xl border border-fd-border"
+        />
+      ) : null}
       <DocsBody className="mt-10">
         <MDX components={mdxComponents} />
       </DocsBody>
