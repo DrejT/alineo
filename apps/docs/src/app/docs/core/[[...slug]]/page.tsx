@@ -1,8 +1,7 @@
 import { DocsPage, DocsBody } from "fumadocs-ui/layouts/docs/page";
 import { coreSource } from "@/lib/source";
 import { notFound } from "next/navigation";
-import defaultMdxComponents from "fumadocs-ui/mdx";
-import { Steps, Step } from "fumadocs-ui/components/steps";
+import { mdxComponents } from "@/lib/mdx-components";
 import type { Metadata } from "next";
 import { createMetadata } from "@/lib/metadata";
 import { DocPageHeader } from "@/components/doc-page-header";
@@ -38,7 +37,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
         githubUrl={githubSourceUrl("core", page.path)}
       />
       <DocsBody>
-        <MDX components={{ ...defaultMdxComponents, Steps, Step }} />
+        <MDX components={mdxComponents} />
       </DocsBody>
     </DocsPage>
   );
