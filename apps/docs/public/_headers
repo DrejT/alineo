@@ -1,0 +1,22 @@
+# Cloudflare Pages response headers. apps/docs is a static export (output: "export"),
+# so per-route headers can't come from next.config.ts — Cloudflare Pages reads this
+# file at the edge, same as _redirects.
+
+# Next's metadata image routes (opengraph-image, twitter-image, the docs-og/* OG
+# images) are emitted as extension-less files, which Cloudflare serves as
+# application/octet-stream. Link-preview crawlers (Slack, X, LinkedIn, Discord,
+# iMessage, Facebook) and image search then refuse to render them. Force PNG.
+/opengraph-image
+  Content-Type: image/png
+/twitter-image
+  Content-Type: image/png
+/docs-og/*
+  Content-Type: image/png
+
+# llms.txt / llms-full.txt are Markdown. Serve them as such — matches the per-page
+# /llms.mdx/*.md responses (Cloudflare already types those correctly from the .md
+# extension).
+/llms.txt
+  Content-Type: text/markdown; charset=utf-8
+/llms-full.txt
+  Content-Type: text/markdown; charset=utf-8

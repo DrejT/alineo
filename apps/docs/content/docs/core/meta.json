@@ -1,4 +1,12 @@
 {
   "title": "Core SDK",
-  "pages": ["getting-started", "concepts", "building", "patterns", "adapters", "api-reference"]
+  "pages": [
+    "getting-started",
+    "concepts",
+    "building",
+    "patterns",
+    "adapters",
+    "api-reference",
+    "ai-resources"
+  ]
 }

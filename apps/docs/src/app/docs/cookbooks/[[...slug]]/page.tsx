@@ -8,6 +8,7 @@ import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import type { Metadata } from "next";
 import { createMetadata } from "@/lib/metadata";
 import { DocPageHeader } from "@/components/doc-page-header";
+import { DocStructuredData } from "@/components/doc-structured-data";
 import { githubSourceUrl, pageMarkdownUrl } from "@/lib/doc-markdown";
 import { CookbookPlayground } from "@/components/cookbook/playground";
 import { CookbookMeta } from "@/components/cookbook/meta";
@@ -26,6 +27,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
 
   return (
     <DocsPage toc={isOverview ? [] : page.data.toc} full={isOverview}>
+      <DocStructuredData page={page} tree={cookbooksSource.pageTree} collection="cookbooks" />
       <DocPageHeader
         title={page.data.title}
         description={page.data.description}
