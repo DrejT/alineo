@@ -36,10 +36,10 @@ For anything in between, `permissions` takes a policy — ordered rules, last ma
     "rules": [
       { "tool": "read", "action": "allow" },
       { "tool": "ls", "action": "allow" },
-      { "tool": "bash", "action": "classify" },          // read-only bash runs free
-      { "tool": "bash", "pattern": "*rm -rf*", "action": "deny" }  // never, no prompt
-    ]
-  }
+      { "tool": "bash", "action": "classify" }, // read-only bash runs free
+      { "tool": "bash", "pattern": "*rm -rf*", "action": "deny" }, // never, no prompt
+    ],
+  },
 }
 ```
 
@@ -100,7 +100,7 @@ decided.
 
 ## What it doesn't do
 
-The gate runs **inside** the Pi process. It stops a misbehaving *model* — it is not a barrier
+The gate runs **inside** the Pi process. It stops a misbehaving _model_ — it is not a barrier
 against a process with a shell inside the sandbox actively working around it. To gate a host
 regardless of what runs inside, hold the network itself: mark a credential binding with
 `approval: "hold"` and the secret does not exist in the sandbox until someone approves the
