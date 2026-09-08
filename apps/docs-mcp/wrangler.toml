@@ -10,6 +10,5 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-account_id = "68eaf5a2fb30025e59d1c4b9ab8d2bc7"
-
+# account_id comes from the CLOUDFLARE_ACCOUNT_ID secret (wrangler-action env).
 # The docs.alineo.tech/mcp route is attached in the Cloudflare dashboard, not here.
