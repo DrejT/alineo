@@ -10,12 +10,6 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-# The alineo Cloudflare account (also in every dashboard URL — not a secret).
-# Pinning it means the deploy token doesn't also need "Account Settings: Read".
 account_id = "68eaf5a2fb30025e59d1c4b9ab8d2bc7"
 
-# The public endpoint is docs.alineo.tech/mcp. That route is added to this Worker
-# in the Cloudflare dashboard (Workers & Pages → alineo-docs-mcp → Settings →
-# Domains & Routes → Add route: docs.alineo.tech/mcp*), not here — managing it from
-# wrangler.toml would make the deploy token also need "Workers Routes: Edit" on the
-# zone. Until the route is added, the Worker is reachable at its *.workers.dev URL.
+# The docs.alineo.tech/mcp route is attached in the Cloudflare dashboard, not here.
