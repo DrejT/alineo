@@ -1,11 +1,11 @@
-import { DocsPage, DocsBody, DocsTitle, DocsDescription } from "fumadocs-ui/layouts/docs/page";
+import { DocsPage, DocsBody } from "fumadocs-ui/layouts/docs/page";
 import { examplesSource } from "@/lib/source";
 import { notFound } from "next/navigation";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 import type { Metadata } from "next";
 import { createMetadata } from "@/lib/metadata";
-import { DocPageActions } from "@/components/doc-page-actions";
+import { DocPageHeader } from "@/components/doc-page-header";
 import { githubSourceUrl, pageMarkdownUrl } from "@/lib/doc-markdown";
 
 const OVERVIEW_SLUGS = new Set([""]);
@@ -21,9 +21,9 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
 
   return (
     <DocsPage toc={isOverview ? [] : page.data.toc} full={isOverview}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      {page.data.description && <DocsDescription>{page.data.description}</DocsDescription>}
-      <DocPageActions
+      <DocPageHeader
+        title={page.data.title}
+        description={page.data.description}
         markdownUrl={pageMarkdownUrl("examples", page.slugs)}
         githubUrl={githubSourceUrl("examples", page.path)}
       />
