@@ -33,10 +33,12 @@ bun run typecheck
 ## Deploy
 
 Automatic on push to `main` touching `apps/docs-mcp/**`
-(`.github/workflows/deploy-docs-mcp.yml`, via `wrangler deploy`).
+(`.github/workflows/deploy-docs-mcp.yml`, via `wrangler deploy`). The deploy token
+(`CLOUDFLARE_API_TOKEN`) needs **Account · Workers Scripts · Edit**.
 
-The `routes` in `wrangler.toml` bind the Worker to `docs.alineo.tech/mcp*` (Workers
-routes take precedence over the Pages site on the same hostname). If the deploy
-token lacks **Workers Routes: Edit** on the `alineo.tech` zone, add the two routes
-once in the Cloudflare dashboard — the Worker is also published to its
-`*.workers.dev` URL as a fallback.
+The public endpoint `docs.alineo.tech/mcp` is a Worker **route**, added once in the
+dashboard — **Workers & Pages → alineo-docs-mcp → Settings → Domains & Routes → Add
+route** → `docs.alineo.tech/mcp*` (zone `alineo.tech`). Workers routes take
+precedence over the Pages site on the same hostname. It's kept out of
+`wrangler.toml` so the deploy token doesn't also need **Workers Routes · Edit**.
+Until the route exists, the Worker is reachable at its `*.workers.dev` URL.

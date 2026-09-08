@@ -14,11 +14,8 @@ workers_dev = true
 # Pinning it means the deploy token doesn't also need "Account Settings: Read".
 account_id = "68eaf5a2fb30025e59d1c4b9ab8d2bc7"
 
-# Serve at docs.alineo.tech/mcp. Workers routes take precedence over the Pages
-# site on the same hostname. Needs "Workers Routes: Edit" on the alineo.tech zone;
-# without it, add the route once in the dashboard (the Worker still publishes to
-# its *.workers.dev URL).
-routes = [
-  { pattern = "docs.alineo.tech/mcp", zone_name = "alineo.tech" },
-  { pattern = "docs.alineo.tech/mcp/*", zone_name = "alineo.tech" },
-]
+# The public endpoint is docs.alineo.tech/mcp. That route is added to this Worker
+# in the Cloudflare dashboard (Workers & Pages → alineo-docs-mcp → Settings →
+# Domains & Routes → Add route: docs.alineo.tech/mcp*), not here — managing it from
+# wrangler.toml would make the deploy token also need "Workers Routes: Edit" on the
+# zone. Until the route is added, the Worker is reachable at its *.workers.dev URL.
