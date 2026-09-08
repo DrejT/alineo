@@ -10,11 +10,5 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-# Serve at docs.alineo.tech/mcp. Workers routes take precedence over the Pages
-# site on the same hostname. If the deploy token can't create the route, add it
-# once in the Cloudflare dashboard (Workers Routes → alineo.tech) or set
-# workers_dev and use the *.workers.dev URL.
-routes = [
-  { pattern = "docs.alineo.tech/mcp", zone_name = "alineo.tech" },
-  { pattern = "docs.alineo.tech/mcp/*", zone_name = "alineo.tech" },
-]
+# account_id comes from the CLOUDFLARE_ACCOUNT_ID secret (wrangler-action env).
+# The docs.alineo.tech/mcp route is attached in the Cloudflare dashboard, not here.

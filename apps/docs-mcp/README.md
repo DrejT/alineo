@@ -26,17 +26,9 @@ sandboxes.
 
 ```bash
 bun install
-bun run dev        # wrangler dev on :8787
+bun run dev        # wrangler dev
 bun run typecheck
 ```
 
-## Deploy
-
-Automatic on push to `main` touching `apps/docs-mcp/**`
-(`.github/workflows/deploy-docs-mcp.yml`, via `wrangler deploy`).
-
-The `routes` in `wrangler.toml` bind the Worker to `docs.alineo.tech/mcp*` (Workers
-routes take precedence over the Pages site on the same hostname). If the deploy
-token lacks **Workers Routes: Edit** on the `alineo.tech` zone, add the two routes
-once in the Cloudflare dashboard — the Worker is also published to its
-`*.workers.dev` URL as a fallback.
+Deploys automatically on push to `main` touching `apps/docs-mcp/**`
+(`.github/workflows/deploy-docs-mcp.yml`).
