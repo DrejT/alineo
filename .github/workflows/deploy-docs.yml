@@ -18,6 +18,10 @@ jobs:
       deployments: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history so fumadocs' last-modified plugin can read each doc file's
+          # git commit date (feeds sitemap <lastmod> + per-page TechArticle dateModified).
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:

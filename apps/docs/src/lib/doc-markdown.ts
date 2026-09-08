@@ -50,6 +50,18 @@ export function pageMarkdownUrl(collection: DocCollection, slugs: string[]) {
   return `/llms.mdx/${markdownSlugSegments(collection, slugs).join("/")}`;
 }
 
+/**
+ * Rewrite a docs page URL (`/docs/core/adapters/postgres`) to its raw-markdown URL
+ * (`/llms.mdx/core/adapters/postgres.md`). Used to point llms.txt entries at clean
+ * Markdown instead of HTML.
+ */
+export function docUrlToMarkdownUrl(url: string): string {
+  const rest = url.replace(/^\/docs\//, "").replace(/\/+$/, "");
+  const segments = rest.split("/");
+  segments[segments.length - 1] += ".md";
+  return `/llms.mdx/${segments.join("/")}`;
+}
+
 /** Resolve a `/llms.mdx/...` slug back to its collection and page slugs. */
 export function parseMarkdownSlug(
   slug: string[],

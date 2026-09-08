@@ -6,6 +6,7 @@ import { Steps, Step } from "fumadocs-ui/components/steps";
 import type { Metadata } from "next";
 import { createMetadata } from "@/lib/metadata";
 import { DocPageHeader } from "@/components/doc-page-header";
+import { DocStructuredData } from "@/components/doc-structured-data";
 import { githubSourceUrl, pageMarkdownUrl } from "@/lib/doc-markdown";
 
 const OVERVIEW_SLUGS = new Set([
@@ -29,6 +30,7 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
 
   return (
     <DocsPage toc={isOverview ? [] : page.data.toc} full={isOverview}>
+      <DocStructuredData page={page} tree={coreSource.pageTree} collection="core" />
       <DocPageHeader
         title={page.data.title}
         description={page.data.description}
