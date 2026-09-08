@@ -1,8 +1,6 @@
 import { DocsPage, DocsBody } from "fumadocs-ui/layouts/docs/page";
 import { cookbooksSource } from "@/lib/source";
 import { notFound } from "next/navigation";
-import { Tabs, Tab } from "fumadocs-ui/components/tabs";
-import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { mdxComponents } from "@/lib/mdx-components";
 import type { Metadata } from "next";
 import { createMetadata } from "@/lib/metadata";
@@ -37,10 +35,6 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
         <MDX
           components={{
             ...mdxComponents,
-            Tabs,
-            Tab,
-            Accordion,
-            Accordions,
             CookbookPlayground,
             CookbookMeta,
             CookbookGrid,

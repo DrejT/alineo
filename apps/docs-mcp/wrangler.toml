@@ -1,0 +1,23 @@
+# alineo docs MCP server — a stateless Worker that exposes the alineo documentation
+# to MCP clients (Claude Code, Cursor, ChatGPT desktop, …).
+#
+# It reads the live docs at request time (/search-index.json, /llms.mdx/*.md) and
+# caches them at the edge, so it has no build-time data step and always reflects
+# what's deployed.
+name = "alineo-docs-mcp"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Serve at docs.alineo.tech/mcp. Workers routes take precedence over the Pages
+# site on the same hostname. If the deploy token can't create the route, add it
+# once in the Cloudflare dashboard (Workers Routes → alineo.tech) or set
+# workers_dev and use the *.workers.dev URL.
+routes = [
+  { pattern = "docs.alineo.tech/mcp", zone_name = "alineo.tech" },
+  { pattern = "docs.alineo.tech/mcp/*", zone_name = "alineo.tech" },
+]
+
+[observability]
+enabled = true

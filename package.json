@@ -23,6 +23,7 @@
     "cookbooks/*",
     "tests/integration",
     "apps/docs",
+    "apps/docs-mcp",
     "apps/registry",
     "apps/sandbox",
     "apps/telemetry"
