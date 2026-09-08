@@ -7,16 +7,13 @@ description: SandboxHandle as a first-class object, ExecHandle, the durable ledg
 
 `client.sandbox()` creates a container and returns a live `SandboxHandle` object. You hold it as a variable, call methods on it, and `close()` it when done. Multiple sandboxes are just multiple variables — no special API.
 
-```
-client.sandbox(opts)
-      ↓
-  SandboxHandle    ← you hold this
-  ├── exec()       ← returns ExecHandle
-  ├── execCode()   ← returns ExecHandle
-  ├── writeFile()
-  ├── readFile()
-  ├── checkpoint() ← snapshot the container
-  └── close()      ← delete the container
+```mermaid
+flowchart LR
+  A["client.sandbox(opts)"] --> B["SandboxHandle<br/>(you hold this)"]
+  B --> C["exec() / execCode()<br/>→ ExecHandle"]
+  B --> D["writeFile() / readFile()"]
+  B --> E["checkpoint()<br/>snapshot the container"]
+  B --> F["close()<br/>delete the container"]
 ```
 
 Always wrap sandbox usage in `try/finally` so the container is cleaned up even if an exec throws:

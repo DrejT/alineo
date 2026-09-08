@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { docCollections } from "@/lib/doc-markdown";
 import { getChangelogEntries } from "@/lib/changelog";
+import { getBlogPosts } from "@/lib/blog";
 
 export const dynamic = "force-static";
 
@@ -22,8 +23,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const changelogEntries = await getChangelogEntries();
   const changelogUpdated = changelogEntries.find((e) => e.date)?.date;
 
+  const blogPosts = getBlogPosts();
+  const blogPages: MetadataRoute.Sitemap = blogPosts.map((post) => ({
+    url: `${BASE_URL}${post.url}`,
+    lastModified: post.date,
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  }));
+
   return [
     { url: BASE_URL, changeFrequency: "monthly", priority: 1 },
+    {
+      url: `${BASE_URL}/blog`,
+      ...(blogPosts[0] ? { lastModified: blogPosts[0].date } : {}),
+      changeFrequency: "weekly",
+      priority: 0.6,
+    },
     {
       url: `${BASE_URL}/changelog`,
       ...(changelogUpdated ? { lastModified: new Date(changelogUpdated) } : {}),
@@ -32,6 +47,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     { url: `${BASE_URL}/cookbook`, changeFrequency: "weekly", priority: 0.5 },
     { url: `${BASE_URL}/faq`, changeFrequency: "weekly", priority: 0.5 },
+    { url: `${BASE_URL}/brand`, changeFrequency: "yearly", priority: 0.3 },
+    ...blogPages,
     ...docPages,
   ];
 }

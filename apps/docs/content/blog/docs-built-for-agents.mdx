@@ -1,0 +1,44 @@
+---
+title: The docs are now built for agents
+description: Every alineo docs page is available as clean Markdown, indexed in llms.txt, and one click away from ChatGPT, Claude, or Cursor.
+date: 2026-09-08
+author: The alineo team
+---
+
+alineo is a tool for building agents, so it would be strange if the docs only spoke
+to browsers. As of this week, every page is published in a form a coding agent can
+actually use.
+
+## Clean Markdown for every page
+
+Append nothing, learn nothing — every docs URL has a Markdown twin under
+`/llms.mdx/`:
+
+```
+https://docs.alineo.tech/docs/core/getting-started        (HTML)
+https://docs.alineo.tech/llms.mdx/core/getting-started.md    (Markdown)
+```
+
+At the top of any page there's a **Copy Markdown** button and an **Open** menu that
+hands the page straight to ChatGPT, Claude, or Cursor.
+
+## llms.txt
+
+[`/llms.txt`](https://docs.alineo.tech/llms.txt) is a structured index of the whole
+documentation — every page, its description, and a link to its Markdown. Point an
+agent at it and it can pull only what it needs.
+[`/llms-full.txt`](https://docs.alineo.tech/llms-full.txt) is the entire corpus in
+one file. There's also a flat
+[`/search-index.json`](https://docs.alineo.tech/search-index.json) with per-section
+text for retrieval.
+
+## Skills
+
+If your agent supports [skills](https://skills.sh), install the alineo skill so it
+follows the SDK's conventions:
+
+```bash
+npx skills add DrejT/alineo --skill alineo
+```
+
+See [AI Resources](/docs/core/ai-resources) for the full list.

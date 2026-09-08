@@ -69,9 +69,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               { text: "Docs", url: "/docs/core", active: "nested-url" },
               { text: "Examples", url: "/docs/examples", active: "nested-url" },
               { text: "Cookbook", url: "/cookbook", active: "nested-url" },
+              { text: "Blog", url: "/blog", active: "nested-url" },
               { text: "FAQ", url: "/faq", active: "nested-url" },
-              { text: "Use Cases", url: "/use-cases", active: "nested-url" },
               { text: "Changelog", url: "/changelog", active: "nested-url" },
+              { text: "Brand", url: "/brand", active: "nested-url" },
             ]}
           >
             {children}
