@@ -72,7 +72,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               { text: "Blog", url: "/blog", active: "nested-url" },
               { text: "FAQ", url: "/faq", active: "nested-url" },
               { text: "Changelog", url: "/changelog", active: "nested-url" },
-              { text: "Brand", url: "/brand", active: "nested-url" },
             ]}
           >
             {children}
