@@ -34,6 +34,56 @@ Cursor, or shows it as raw Markdown.
 When citing or linking a page, use its canonical URL — the one without the `.md`
 suffix.
 
+## MCP server
+
+`https://docs.alineo.tech/mcp` is a [Model Context Protocol](https://modelcontextprotocol.io)
+server that lets an MCP client search and read these docs from inside your editor or
+agent. It exposes three tools: `search_docs`, `get_doc`, and `list_docs`. It's
+read-only and covers documentation only.
+
+<Tabs items={["Claude Code", "Cursor", "opencode", "Manual"]}>
+  <Tab value="Claude Code">
+    ```bash
+    claude mcp add --transport http alineo-docs https://docs.alineo.tech/mcp
+    ```
+  </Tab>
+  <Tab value="Cursor">
+    <a href="cursor://anysphere.cursor-deeplink/mcp/install?name=alineo-docs&config=eyJ1cmwiOiJodHRwczovL2RvY3MuYWxpbmVvLnRlY2gvbWNwIn0=">
+      Add alineo docs to Cursor
+    </a>
+
+    Or add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+    ```json
+    {
+      "mcpServers": {
+        "alineo-docs": { "url": "https://docs.alineo.tech/mcp" }
+      }
+    }
+    ```
+
+  </Tab>
+  <Tab value="opencode">
+    Add to `opencode.json`:
+
+    ```json
+    {
+      "mcp": {
+        "alineo-docs": { "type": "remote", "url": "https://docs.alineo.tech/mcp" }
+      }
+    }
+    ```
+
+  </Tab>
+  <Tab value="Manual">
+    Any MCP client that supports a remote (HTTP) server: point it at
+    `https://docs.alineo.tech/mcp`. No authentication.
+  </Tab>
+</Tabs>
+
+This is separate from the alineo SDK/CLI itself, which is what actually _runs_
+sandboxed agents.
+
 ## Agent skills
 
 Install the alineo [skill](https://skills.sh) so your coding agent follows the

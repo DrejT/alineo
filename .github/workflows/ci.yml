@@ -30,6 +30,10 @@ jobs:
         run: bun run typecheck
         working-directory: apps/sandbox
 
+      - name: Typecheck docs MCP
+        run: bun run typecheck
+        working-directory: apps/docs-mcp
+
       - name: Lint
         run: bun run lint
 
