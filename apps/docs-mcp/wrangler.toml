@@ -10,10 +10,14 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
+# The alineo Cloudflare account (also in every dashboard URL — not a secret).
+# Pinning it means the deploy token doesn't also need "Account Settings: Read".
+account_id = "68eaf5a2fb30025e59d1c4b9ab8d2bc7"
+
 # Serve at docs.alineo.tech/mcp. Workers routes take precedence over the Pages
-# site on the same hostname. If the deploy token can't create the route, add it
-# once in the Cloudflare dashboard (Workers Routes → alineo.tech) or set
-# workers_dev and use the *.workers.dev URL.
+# site on the same hostname. Needs "Workers Routes: Edit" on the alineo.tech zone;
+# without it, add the route once in the dashboard (the Worker still publishes to
+# its *.workers.dev URL).
 routes = [
   { pattern = "docs.alineo.tech/mcp", zone_name = "alineo.tech" },
   { pattern = "docs.alineo.tech/mcp/*", zone_name = "alineo.tech" },
