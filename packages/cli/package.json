@@ -32,7 +32,7 @@
     "@alineo-labs/opensandbox": "workspace:*",
     "@alineo-labs/sandbox": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
-    "@opentui/core": "^0.4.3",
+    "@opentui/core": "^0.5.10",
     "alineo": "workspace:*"
   },
   "devDependencies": {
