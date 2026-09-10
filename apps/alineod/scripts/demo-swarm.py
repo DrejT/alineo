@@ -11,6 +11,8 @@ Not a test — a scripted client that exercises the v0 routes end to end.
 """
 import json
 import sys
+import time
+import urllib.error
 import urllib.request
 
 sys.stdout.reconfigure(line_buffering=True)  # so progress shows in a redirected log
@@ -32,6 +34,8 @@ def call(method, path, body=None, timeout=320):
             return r.status, (json.loads(raw) if raw else None)
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read().decode() or "null")
+    except (urllib.error.URLError, ConnectionError, TimeoutError) as e:
+        return 0, {"transport_error": str(e)}
 
 
 def spec(name, **extra):
@@ -79,12 +83,14 @@ st, g = call("POST", f"/runs/{rid}/agents", {
 print("   ", st, g)
 gather = g["agentId"]
 
-print(f"[4] GET /agents/{gather}/result?wait=240  (polls until settled)")
+print(f"[4] GET /agents/{gather}/result  (poll until settled)")
 res = None
-for _ in range(20):
-    st, res = call("GET", f"/agents/{gather}/result?wait=240", timeout=250)
+for i in range(120):
+    st, res = call("GET", f"/agents/{gather}/result", timeout=20)
+    print(f"    [{i}] {st} {res.get('state') if res else res}")
     if res and res.get("state") == "settled":
         break
+    time.sleep(5)
 print("   ", st)
 print(json.dumps(res, indent=2))
 

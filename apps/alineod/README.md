@@ -73,6 +73,24 @@ Selectors beyond one agent / subtree · checkpoint & rollback · `steer` / `inte
 `rebudget` · context-policy knobs · channels / `notifyWhen` / quiescence / deadlock detection
 · the authority model. See [`research/open-questions.md`](../../../research/open-questions.md).
 
+## Known issues
+
+- **`GET /agents/:id/result?wait=` long-poll can hang past settle** in some cases (the held
+  request doesn't always return when the handle settles mid-wait). `?wait=0` polling works
+  reliably — `demo-swarm.py` polls. Under investigation.
+- **`POST /runs` and `POST /runs/:id/agents` are synchronous** — they block for the full
+  sandbox provision (~70s cold, ~12s snapshot-fork). `curl` times out while the server keeps
+  working. Async `202 + provisioning` state is the fix.
+- **Some NIM models stall mid-turn** on multi-tool-call turns; `driveTurn` bounds this with
+  `inactivityTimeoutMs` (default 180s) and settles with partial text.
+
 ## No tests yet
 
 Code only, per the prototype plan. Test surface will follow.
+
+## Verified on the VPS (2026-09-10)
+
+A 5-agent fan-out/gather swarm — `coordinator` + 3 haiku workers + a `gather` that
+`waitFor`s all three — runs green end to end. The gather agent reads the workers' outputs
+from `/inputs.json` + `/inputs/*.txt` in its sandbox and assembles the final poem;
+`GET /agents/:id/result` returns it with `resultRef: fs://<agentId>/result.md`.
