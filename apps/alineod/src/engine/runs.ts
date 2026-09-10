@@ -42,7 +42,7 @@ export async function createRun(body: CreateRunBody): Promise<CreateRunResult> {
   emit(runId, rootAgentId, "agent_spawned", {
     parentAgentId: null,
     runId,
-    specName: agent.name,
+    specName: (body.spec.name as string | undefined) ?? agent.name,
     specJson: JSON.stringify(body.spec),
     depth: 0,
     spawnIndex: 0,
