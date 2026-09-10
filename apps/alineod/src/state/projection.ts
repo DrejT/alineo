@@ -37,6 +37,13 @@ const settleHandleRow = db.query(
    WHERE agent_id = $agentId`,
 );
 
+// Safety net for an agent that ended without an explicit handle_settled — must NOT clobber a
+// handle that a prior handle_settled already resolved (that one carries the real resultRef).
+const settleHandleIfPending = db.query(
+  `UPDATE handles SET state = 'settled', outcome = $outcome, settled_at = $settledAt
+   WHERE agent_id = $agentId AND state = 'pending'`,
+);
+
 /** Fold one ledger row into the projections. Unknown / forwarded harness events are ignored. */
 export function apply(row: LedgerRow): void {
   const p = row.payload ? (JSON.parse(row.payload) as Record<string, unknown>) : {};
@@ -76,11 +83,9 @@ export function apply(row: LedgerRow): void {
         $outcome: (p.outcome as string) ?? "failed",
         $endedAt: row.ts,
       });
-      // Safety net: an agent that ended without an explicit handle_settled still settles.
-      settleHandleRow.run({
+      settleHandleIfPending.run({
         $agentId: row.agent_id,
         $outcome: (p.outcome as string) ?? "failed",
-        $resultRef: null,
         $settledAt: row.ts,
       });
       break;

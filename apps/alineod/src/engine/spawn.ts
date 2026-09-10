@@ -74,7 +74,8 @@ export async function spawnAgent(runId: string, body: SpawnAgentBody): Promise<S
   emit(runId, childId, "agent_spawned", {
     parentAgentId: body.parentAgentId,
     runId,
-    specName: child.name,
+    // The spec's declared name — `child.name` is the forked sandbox's auto name (fork-<parent>-<id>).
+    specName: (body.spec.name as string | undefined) ?? child.name,
     specJson: JSON.stringify(body.spec),
     depth: parentRow.depth + 1,
     spawnIndex: childCount(body.parentAgentId),

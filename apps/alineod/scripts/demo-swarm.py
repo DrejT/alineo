@@ -11,8 +11,9 @@ Not a test — a scripted client that exercises the v0 routes end to end.
 """
 import json
 import sys
-import time
 import urllib.request
+
+sys.stdout.reconfigure(line_buffering=True)  # so progress shows in a redirected log
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:4600"
 MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
