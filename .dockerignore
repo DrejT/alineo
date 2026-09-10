@@ -17,3 +17,7 @@ apps/*/.astro/
 **/*.log
 data/
 apps/sandbox/data/
+.turbo/
+coverage/
+.config/
+scratchpad/

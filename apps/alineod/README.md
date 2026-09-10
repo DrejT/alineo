@@ -15,11 +15,42 @@ The **protocol** is this daemon's wire contract — `specs/alineod/openapi.json`
 
 ## Run
 
+### Bare
+
 ```bash
 bun run start          # or: bun run dev   (watch mode)
 ```
 
-Env: `ALINEOD_PORT` (4600), `ALINEOD_DB_PATH`, `ALINEOD_SDK_LEDGER_PATH`, `ALINEOD_WORK_DIR`.
+Run it from a directory that has an `alineo.config.json` (or rely on the SDK defaults:
+`http://127.0.0.1:8080`, `useServerProxy: true`). Env: `ALINEOD_PORT` (4600), `ALINEOD_DB_PATH`,
+`ALINEOD_SDK_LEDGER_PATH`, `ALINEOD_WORK_DIR`, `ALINEOD_PROMPT_INACTIVITY_MS`.
+
+### Docker
+
+```bash
+# from the repo root (the build needs the whole monorepo to build the SDK)
+docker build -f apps/alineod/Dockerfile -t alineod .
+
+docker run --rm -p 4600:4600 \
+  --add-host host.docker.internal:host-gateway \
+  -e ALINEO_SERVER_URL=http://host.docker.internal:8080 \
+  -e NVIDIA_API_KEY=nvapi-... \
+  -v alineod-data:/data \
+  alineod
+```
+
+or `NVIDIA_API_KEY=nvapi-... docker compose -f apps/alineod/docker-compose.yml up --build`.
+
+The `docker-entrypoint.sh` writes `/data/alineo.config.json` from the `ALINEO_SERVER_URL` /
+`ALINEO_USE_SERVER_PROXY` / `ALINEO_API_KEY` env before starting the server. State
+(`/data`) is a volume — the crash-only design means the container can be recreated freely.
+
+**Networking caveat:** the container reaches OpenSandbox over HTTP (it does *not* need the
+Docker socket — OpenSandbox owns container creation). But in server-proxy mode OpenSandbox
+hands back sandbox URLs built from its own configured `eip`; if that's `http://localhost:8080`
+it won't resolve from inside the alineod container. Either put alineod on the same Docker
+network as OpenSandbox with a routable `eip`, or run alineod with `--network host` (same as
+running it bare).
 
 ## Emit the protocol spec
 

@@ -1,0 +1,26 @@
+# alineod, reaching an OpenSandbox already running on the host.
+#
+#   NVIDIA_API_KEY=nvapi-... docker compose -f apps/alineod/docker-compose.yml up --build
+#
+# Run from the repo root (build context is `../..`). See apps/alineod/README.md for the
+# server-proxy / eip networking caveat.
+services:
+  alineod:
+    build:
+      context: ../..
+      dockerfile: apps/alineod/Dockerfile
+    ports:
+      - "4600:4600"
+    environment:
+      ALINEO_SERVER_URL: ${ALINEO_SERVER_URL:-http://host.docker.internal:8080}
+      ALINEO_USE_SERVER_PROXY: "true"
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      # add ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY here as needed
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - alineod-data:/data
+    restart: unless-stopped
+
+volumes:
+  alineod-data:
