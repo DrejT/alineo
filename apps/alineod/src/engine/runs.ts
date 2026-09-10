@@ -33,6 +33,11 @@ export async function createRun(body: CreateRunBody): Promise<CreateRunResult> {
 
   register(rootAgentId, agent);
 
+  // alineod owns the spawn-depth budget because it drives `.spawn()` from outside any sandbox
+  // (the SDK's ALINEO_SPAWN_DEPTH env mechanism only applies to in-sandbox `alineo fork`).
+  const specDepth = numeric(body.spec.spawnDepth);
+  const specMax = numeric(body.spec.maxAgents);
+
   emit(runId, null, "run_started", { runId });
   emit(runId, rootAgentId, "agent_spawned", {
     parentAgentId: null,
@@ -42,9 +47,15 @@ export async function createRun(body: CreateRunBody): Promise<CreateRunResult> {
     depth: 0,
     spawnIndex: 0,
     sandboxId: agent.sandboxId,
+    spawnBudget: body.budget?.spawnDepth ?? specDepth ?? null,
+    maxAgentsBudget: body.budget?.maxAgents ?? specMax ?? null,
   });
 
   if (body.prompt) void driveTurn(rootAgentId, body.prompt);
 
   return { runId, rootAgentId };
+}
+
+function numeric(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
 }

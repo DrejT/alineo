@@ -12,8 +12,10 @@ import type { AgentView } from "../schema";
 
 const upsertAgent = db.query(
   `INSERT INTO agents
-     (agent_id, run_id, parent_agent_id, depth, spawn_index, state, spec_name, spec_json, sandbox_id, created_at)
-   VALUES ($agentId, $runId, $parentAgentId, $depth, $spawnIndex, 'provisioning', $specName, $specJson, $sandboxId, $createdAt)
+     (agent_id, run_id, parent_agent_id, depth, spawn_index, state, spec_name, spec_json, sandbox_id,
+      spawn_budget, max_agents_budget, created_at)
+   VALUES ($agentId, $runId, $parentAgentId, $depth, $spawnIndex, 'provisioning', $specName, $specJson, $sandboxId,
+      $spawnBudget, $maxAgentsBudget, $createdAt)
    ON CONFLICT(agent_id) DO NOTHING`,
 );
 
@@ -49,6 +51,8 @@ export function apply(row: LedgerRow): void {
         $specName: (p.specName as string) ?? "",
         $specJson: (p.specJson as string) ?? "{}",
         $sandboxId: (p.sandboxId as string | null) ?? null,
+        $spawnBudget: (p.spawnBudget as number | null) ?? null,
+        $maxAgentsBudget: (p.maxAgentsBudget as number | null) ?? null,
         $createdAt: row.ts,
       });
       upsertHandlePending.run({ $agentId: row.agent_id, $runId: row.run_id });
@@ -130,6 +134,8 @@ interface AgentRow {
   spec_name: string;
   spec_json: string;
   sandbox_id: string | null;
+  spawn_budget: number | null;
+  max_agents_budget: number | null;
   created_at: number;
   ended_at: number | null;
   outcome: string | null;
