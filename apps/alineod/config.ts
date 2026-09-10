@@ -30,8 +30,21 @@ export const SDK_LEDGER_PATH = process.env.ALINEOD_SDK_LEDGER_PATH ?? "./data/al
  */
 export const WORK_DIR = process.env.ALINEOD_WORK_DIR ?? "./data/alineod-work";
 
-/** SSE keep-alive comment interval. */
-export const SSE_HEARTBEAT_MS = 15_000;
+/**
+ * Bun's socket idle timeout, in seconds. Bun.serve caps this at 255 and defaults it to ~10s —
+ * far too short for SSE or a long-poll. Everything below must stay under this.
+ */
+export const IDLE_TIMEOUT_SECONDS = 255;
 
-/** Default cap for `GET /agents/:id/result?wait=<seconds>` long-poll. */
-export const MAX_RESULT_WAIT_SECONDS = 300;
+/** SSE keep-alive comment interval — must be well under IDLE_TIMEOUT_SECONDS. */
+export const SSE_HEARTBEAT_MS = 10_000;
+
+/** Cap for `GET /agents/:id/result?wait=<seconds>` long-poll — must be under IDLE_TIMEOUT_SECONDS. */
+export const MAX_RESULT_WAIT_SECONDS = 240;
+
+/**
+ * If a driven turn produces no stream activity for this long, give up on it — the turn's
+ * handle settles (failed, or success if partial text exists) instead of hanging the swarm.
+ * Some NIM models stall mid-turn on multi-tool-call turns (see the pi-bridge notes).
+ */
+export const PROMPT_INACTIVITY_TIMEOUT_MS = Number(process.env.ALINEOD_PROMPT_INACTIVITY_MS ?? 180_000);

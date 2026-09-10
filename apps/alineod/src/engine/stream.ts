@@ -10,6 +10,7 @@ import { get } from "./registry";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
 import { getAgentRow } from "../state/projection";
+import { PROMPT_INACTIVITY_TIMEOUT_MS } from "../../config";
 
 /** Runs in the background — callers do not await this. */
 export async function driveTurn(agentId: string, message: string): Promise<void> {
@@ -20,7 +21,7 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
   setState(agentId, "running", "prompt");
 
   try {
-    for await (const ev of agent.prompt(message)) {
+    for await (const ev of agent.prompt(message, { inactivityTimeoutMs: PROMPT_INACTIVITY_TIMEOUT_MS })) {
       emitHarness(runId, agentId, ev as { type: string } & Record<string, unknown>);
     }
     const text = await safeLastText(agent);
@@ -29,9 +30,12 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     emit(runId, agentId, "agent_ended", { outcome: "success", endedAt: Date.now() });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    writeResult(agentId, null);
-    emit(runId, agentId, "handle_settled", { outcome: "failed", resultRef: null });
-    emit(runId, agentId, "agent_ended", { outcome: "failed", endedAt: Date.now(), error: message });
+    // A stalled / timed-out turn may still have produced partial assistant text — keep it.
+    const partial = await safeLastText(agent);
+    const resultRef = writeResult(agentId, partial);
+    const outcome = partial ? "success" : "failed";
+    emit(runId, agentId, "handle_settled", { outcome, resultRef: partial ? resultRef : null });
+    emit(runId, agentId, "agent_ended", { outcome, endedAt: Date.now(), error: message });
   }
 }
 

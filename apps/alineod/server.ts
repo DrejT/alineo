@@ -7,7 +7,7 @@
  */
 import { Elysia } from "elysia";
 import { openapi } from "@elysiajs/openapi";
-import { PORT } from "./config";
+import { PORT, IDLE_TIMEOUT_SECONDS } from "./config";
 import "./src/state/db"; // side effect: open the db, create tables
 import { connectSdkAdapter } from "./src/engine/registry";
 import { rehydrate } from "./src/engine/rehydrate";
@@ -19,7 +19,10 @@ import { resultsRoutes } from "./src/routes/results";
 await connectSdkAdapter();
 await rehydrate();
 
-const app = new Elysia()
+const app = new Elysia({
+  // Bun kills idle sockets after ~10s by default — lethal for SSE and the result long-poll.
+  serve: { idleTimeout: IDLE_TIMEOUT_SECONDS },
+})
   .use(openapi())
   .onError(({ error }) => toErrorResponse(error))
   .get("/health", () => ({ ok: true }))
