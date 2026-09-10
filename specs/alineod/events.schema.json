@@ -1,0 +1,198 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": [
+            "run_started"
+          ]
+        },
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "runId"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent_spawned"
+          ]
+        },
+        "parentAgentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "specName": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "spawnIndex": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "sandboxId": {
+          "nullable": true,
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "parentAgentId",
+        "runId",
+        "specName",
+        "depth",
+        "spawnIndex",
+        "sandboxId"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent_state_changed"
+          ]
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent_ended"
+          ]
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "endedAt": {
+          "type": "number"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "outcome",
+        "endedAt"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "handle_settled"
+          ]
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "resultRef": {
+          "nullable": true,
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "outcome",
+        "resultRef"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "budget_denied"
+          ]
+        },
+        "dimension": {
+          "type": "string",
+          "enum": [
+            "spawnDepth",
+            "maxAgents"
+          ]
+        },
+        "remaining": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "dimension",
+        "remaining"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}
