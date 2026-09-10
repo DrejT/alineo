@@ -39,16 +39,22 @@ export const resultsRoutes = new Elysia().get("/agents/:agentId/result", async (
 
 function waitForSettle(runId: string, agentId: string, timeoutMs: number): Promise<void> {
   return new Promise((resolve) => {
-    const timer = setTimeout(() => {
+    let off = () => {};
+    const done = () => {
+      clearTimeout(timer);
       off();
       resolve();
-    }, timeoutMs);
-    const off = onRun(runId, (msg) => {
-      if (msg.event === "handle_settled" && (msg.data as { agentId?: string }).agentId === agentId) {
-        clearTimeout(timer);
-        off();
-        resolve();
+    };
+    const timer = setTimeout(done, timeoutMs);
+    // Subscribe first, then check — a settle in the gap re-triggers the check via the listener.
+    off = onRun(runId, (msg) => {
+      if (
+        (msg.event === "handle_settled" || msg.event === "agent_ended") &&
+        (msg.data as { agentId?: string }).agentId === agentId
+      ) {
+        done();
       }
     });
+    if (getHandle(agentId)?.state === "settled") done();
   });
 }
