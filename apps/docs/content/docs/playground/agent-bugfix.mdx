@@ -1,0 +1,26 @@
+---
+title: Agent bugfix
+description: Load a Pi coding agent into a sandbox, hand it a failing test, and stream every tool call as it debugs and fixes it.
+---
+
+`alineo` runs [Pi](https://pi.ai) coding agents inside sandboxes. You hand the agent a task and
+stream back everything it does — text, and every tool call — while it reads files, edits code,
+and runs commands inside its own container.
+
+This workflow plants a buggy `fib.py` with a failing test, hands it to a `python-data` agent,
+and streams the session until the agent stops. Then it runs the test suite independently to
+check the agent's work.
+
+<WorkflowRunner workflow="agent-bugfix" />
+
+## What just happened
+
+- `Alineo.load(pythonDataSpec)` booted an agent — a sandbox with Pi installed and configured.
+- `agent.prompt(task)` returned an event stream. Each `tool_start` / `tool_end` is the agent
+  running a real command or file edit inside its sandbox; `text` is the model's narration.
+- The verify step ran `pytest` ourselves — never take the agent's "all green" on faith.
+- `agent.close()` ended the Pi session and deleted the sandbox.
+
+The [AI Agent Bugfix](/docs/cookbooks/ai-agent-bugfix) cookbook adds an independent verifier
+agent and a structured verdict. For streaming mechanics, see
+[Streaming](/docs/agent/getting-started/streaming).

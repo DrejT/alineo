@@ -5,6 +5,7 @@ import {
   agentDocs,
   examplesDocs,
   cookbooksDocs,
+  playgroundDocs,
   blogPosts,
 } from "collections/server";
 import { loader } from "fumadocs-core/source";
@@ -35,6 +36,11 @@ export const examplesSource = loader({
 export const cookbooksSource = loader({
   baseUrl: "/docs/cookbooks",
   source: cookbooksDocs.toFumadocsSource(),
+});
+
+export const playgroundSource = loader({
+  baseUrl: "/docs/playground",
+  source: playgroundDocs.toFumadocsSource(),
 });
 
 export const blogSource = loader({

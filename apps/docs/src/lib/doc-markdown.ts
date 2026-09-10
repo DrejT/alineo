@@ -5,6 +5,7 @@ import {
   alineoSource,
   examplesSource,
   cookbooksSource,
+  playgroundSource,
 } from "@/lib/source";
 
 /**
@@ -19,6 +20,7 @@ export const docCollections = {
   alineo: alineoSource,
   examples: examplesSource,
   cookbooks: cookbooksSource,
+  playground: playgroundSource,
 } as const;
 
 export type DocCollection = keyof typeof docCollections;

@@ -1,0 +1,25 @@
+---
+title: CI test runner
+description: Run a suite in a disposable sandbox, watch it fail, apply a fix, watch it pass — then turn the output into a structured report.
+---
+
+A CI job is just a sandbox that clones a repo, runs the tests, and reports back. This workflow
+does the smallest honest version of that: a three-assertion suite against an implementation with
+a planted bug, a fix applied mid-run, and the raw `node --test` output parsed into the
+pass/fail summary a real job would post to a PR.
+
+<WorkflowRunner workflow="ci-test-runner" />
+
+## What just happened
+
+- The project (`package.json`, `sum.js`, `sum.test.js`) was written into `/proj` with
+  `sb.writeFile`. `sum.js` subtracts instead of adds.
+- `sb.exec("node --test")` ran the suite. Its stdout was streamed live and also captured so the
+  step could parse `# pass` / `# fail` counts out of it.
+- The fix from the editor overwrote `sum.js` — same `writeFile` call, no new sandbox.
+- The suite ran again, green this time, and the final step emitted a JSON report comparing
+  before and after.
+
+Everything ran in one container. A real runner would fork per shard — that's the
+[Parallel Test Shards](/docs/cookbooks/parallel-test-shards) cookbook, and the
+[fork workflow](/docs/playground/fork-a-sandbox) here.

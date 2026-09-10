@@ -6,6 +6,7 @@ import {
   agentSource,
   examplesSource,
   cookbooksSource,
+  playgroundSource,
 } from "@/lib/source";
 import { loadOgFonts, ogImageSize, renderOgImage } from "@/lib/og-image";
 
@@ -16,6 +17,7 @@ const SOURCES = {
   agent: agentSource,
   examples: examplesSource,
   cookbooks: cookbooksSource,
+  playground: playgroundSource,
 } as const;
 
 type Collection = keyof typeof SOURCES;

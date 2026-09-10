@@ -52,6 +52,18 @@ const server = Bun.serve({
         return sandboxRoutes.writeFile(req.params.id, path, content);
       },
     }),
+    "/api/sandboxes/:id/exec": cors({
+      POST: async (req: Bun.BunRequest<"/api/sandboxes/:id/exec">) => {
+        const body = (await req.json().catch(() => ({}))) as { command?: string };
+        return sandboxRoutes.execCommand(req.params.id, body.command ?? "");
+      },
+    }),
+    "/api/sandboxes/:id/fork": cors({
+      POST: async (req: Bun.BunRequest<"/api/sandboxes/:id/fork">) => {
+        const body = (await req.json().catch(() => ({}))) as { tag?: string };
+        return sandboxRoutes.forkSandbox(req.params.id, body.tag);
+      },
+    }),
     "/api/sandboxes/:id/metrics": cors({
       GET: (req: Bun.BunRequest<"/api/sandboxes/:id/metrics">) =>
         sandboxRoutes.getMetrics(req.params.id),

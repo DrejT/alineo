@@ -1,0 +1,72 @@
+---
+title: Playground
+description: Run real alineo workflows end-to-end from your browser — live sandboxes, real command output, nothing simulated.
+---
+
+This is the playground. Every workflow here executes for real: it creates live
+[OpenSandbox](https://open-sandbox.ai) containers, writes real files into them, streams real
+command output back, and tears everything down when it finishes. There is no replay and no mock
+data — what you see is what the SDK does.
+
+It talks to the same [alineo sandbox API](https://github.com/DrejT/alineo/tree/main/apps/sandbox)
+that powers the standalone dashboard at [sandbox.alineo.tech](https://sandbox.alineo.tech). By
+default it points at the hosted endpoint; if you'd rather run against your own machine, start a
+server locally and switch the endpoint below.
+
+<PlaygroundConnect />
+
+## Run your own server
+
+The hosted endpoint is hard-capped and shared. For unlimited runs, or to poke at the internals,
+run the stack locally:
+
+<Steps>
+<Step>
+
+Start OpenSandbox in Docker:
+
+```bash
+bunx alineo-cli init
+```
+
+</Step>
+<Step>
+
+From a clone of the [alineo repo](https://github.com/DrejT/alineo), start the sandbox API:
+
+```bash
+cd apps/sandbox && bun run start
+```
+
+It listens on `http://localhost:3000`. For the agent workflow, also set `GEMINI_API_KEY` in its
+environment.
+
+</Step>
+<Step>
+
+Back here, open **Change** on the connection panel and pick **Local**.
+
+</Step>
+</Steps>
+
+## Workflows
+
+Each one composes several SDK primitives into a single real task. Start with **Run untrusted
+code** — it's the shortest.
+
+<WorkflowGrid />
+
+## How it maps to code
+
+The playground drives the HTTP API, but every step corresponds directly to a call you'd make
+from the [Core SDK](/docs/core) or [Agent SDK](/docs/agent):
+
+| Playground step        | SDK call                                   |
+| ---------------------- | ------------------------------------------ |
+| Create sandbox         | `client.sandbox({ image, resources })`     |
+| Write / read a file    | `sb.writeFile(path, content)` / `sb.readFile(path)` |
+| Run a command          | `await sb.exec(cmd)` — streamed            |
+| Checkpoint             | `await sb.checkpoint()`                    |
+| Fork                   | `await sb.fork(tag)`                       |
+| Load an agent          | `Alineo.load(spec, { adapter })`           |
+| Prompt an agent        | `for await (const ev of agent.prompt(text))` |
