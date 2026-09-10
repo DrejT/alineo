@@ -1,0 +1,611 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "alineod — swarm control API",
+    "version": "0.0.0",
+    "description": "Initiate and orchestrate agent swarms. alineod drives OpenSandbox through the alineo SDK; this is the language-neutral wire contract. Prototype."
+  },
+  "paths": {
+    "/runs": {
+      "post": {
+        "summary": "Create a run (load the root agent)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "spec": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "description": "alineo AgentSpec (validated by the SDK)"
+                  },
+                  "prompt": {
+                    "description": "If set, drive one turn on the root agent after load.",
+                    "type": "string"
+                  },
+                  "budget": {
+                    "type": "object",
+                    "properties": {
+                      "spawnDepth": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxAgents": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Overrides the spec's own spawnDepth / maxAgents (flag-beats-config)."
+                  }
+                },
+                "required": [
+                  "spec"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Run created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "rootAgentId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "runId",
+                    "rootAgentId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Spec load failed"
+          }
+        }
+      }
+    },
+    "/runs/{runId}": {
+      "get": {
+        "summary": "The spawn tree",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tree",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "rootAgentId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "runId": {
+                            "type": "string"
+                          },
+                          "parentAgentId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "depth": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "spawnIndex": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "specName": {
+                            "type": "string"
+                          },
+                          "sandboxId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "number"
+                          },
+                          "endedAt": {
+                            "nullable": true,
+                            "type": "number"
+                          },
+                          "outcome": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "runId",
+                          "parentAgentId",
+                          "depth",
+                          "spawnIndex",
+                          "state",
+                          "specName",
+                          "sandboxId",
+                          "createdAt",
+                          "endedAt",
+                          "outcome"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "asOf": {
+                      "type": "number",
+                      "description": "Highest ledger seq reflected in this projection."
+                    }
+                  },
+                  "required": [
+                    "runId",
+                    "rootAgentId",
+                    "agents",
+                    "asOf"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Tear down the run (keeps the ledger)",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Torn down"
+          }
+        }
+      }
+    },
+    "/runs/{runId}/events": {
+      "get": {
+        "summary": "SSE stream of the whole swarm",
+        "description": "text/event-stream. alineod agent_* events plus forwarded harness events, each tagged with agentId. Honours Last-Event-ID (the ledger seq).",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event stream",
+            "content": {
+              "text/event-stream": {}
+            }
+          }
+        }
+      }
+    },
+    "/runs/{runId}/agents": {
+      "post": {
+        "summary": "Spawn a child agent",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "spec": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "description": "alineo AgentSpec (validated by the SDK)"
+                  },
+                  "parentAgentId": {
+                    "type": "string"
+                  },
+                  "waitFor": {
+                    "description": "Hold the spawn until every named agent's handle is settled (hold-then-spawn, D-c).",
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "budget": {
+                    "type": "object",
+                    "properties": {
+                      "spawnDepth": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxAgents": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Overrides the spec's own spawnDepth / maxAgents (flag-beats-config)."
+                  }
+                },
+                "required": [
+                  "spec",
+                  "parentAgentId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Spawned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agentId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "agentId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Budget denied / parent not live"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}": {
+      "get": {
+        "summary": "Inspect an agent",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agentId": {
+                      "type": "string"
+                    },
+                    "runId": {
+                      "type": "string"
+                    },
+                    "parentAgentId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "depth": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "spawnIndex": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "specName": {
+                      "type": "string"
+                    },
+                    "sandboxId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "number"
+                    },
+                    "endedAt": {
+                      "nullable": true,
+                      "type": "number"
+                    },
+                    "outcome": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "sessionStats": {}
+                  },
+                  "required": [
+                    "agentId",
+                    "runId",
+                    "parentAgentId",
+                    "depth",
+                    "spawnIndex",
+                    "state",
+                    "specName",
+                    "sandboxId",
+                    "createdAt",
+                    "endedAt",
+                    "outcome"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/prompt": {
+      "post": {
+        "summary": "Drive a turn",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/stop": {
+      "post": {
+        "summary": "Abort + close an agent",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "default": {
+                  "mode": "abort"
+                },
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "default": "abort",
+                    "type": "string",
+                    "enum": [
+                      "abort",
+                      "drain"
+                    ]
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/result": {
+      "get": {
+        "summary": "Resolve a handle",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Long-poll seconds."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agentId": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "settled"
+                      ]
+                    },
+                    "outcome": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "resultRef": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "result": {
+                      "nullable": true,
+                      "description": "Prototype convenience: the inline result text.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "agentId",
+                    "state",
+                    "outcome",
+                    "resultRef",
+                    "result"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Still pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agentId": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "settled"
+                      ]
+                    },
+                    "outcome": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "resultRef": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "result": {
+                      "nullable": true,
+                      "description": "Prototype convenience: the inline result text.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "agentId",
+                    "state",
+                    "outcome",
+                    "resultRef",
+                    "result"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
