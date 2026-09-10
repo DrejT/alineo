@@ -48,11 +48,16 @@ export async function spawnAgent(runId: string, body: SpawnAgentBody): Promise<S
   const childId = newAgentId();
   const specPath = writeSpecFile(childId, body.spec);
 
+  // alineod-owned budget accounting (see db.ts). The value passed here is "the parent's
+  // remaining budget"; the SDK writes `value - 1` into the child's env and refuses at <= 0.
+  const spawnBudget = body.budget?.spawnDepth ?? parentRow.spawn_budget ?? undefined;
+  const maxAgentsBudget = body.budget?.maxAgents ?? parentRow.max_agents_budget ?? undefined;
+
   let child: Alineo;
   try {
     child = await parent.spawn(specPath, {
-      spawnDepth: body.budget?.spawnDepth,
-      maxAgents: body.budget?.maxAgents,
+      spawnDepth: spawnBudget,
+      maxAgents: maxAgentsBudget,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -74,6 +79,8 @@ export async function spawnAgent(runId: string, body: SpawnAgentBody): Promise<S
     depth: parentRow.depth + 1,
     spawnIndex: childCount(body.parentAgentId),
     sandboxId: child.sandboxId,
+    spawnBudget: spawnBudget !== undefined ? spawnBudget - 1 : null,
+    maxAgentsBudget: maxAgentsBudget !== undefined ? maxAgentsBudget - 1 : null,
   });
 
   if (body.waitFor && body.waitFor.length > 0) {
