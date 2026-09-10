@@ -79,8 +79,12 @@ st, g = call("POST", f"/runs/{rid}/agents", {
 print("   ", st, g)
 gather = g["agentId"]
 
-print(f"[4] GET /agents/{gather}/result?wait=280")
-st, res = call("GET", f"/agents/{gather}/result?wait=280", timeout=300)
+print(f"[4] GET /agents/{gather}/result?wait=240  (polls until settled)")
+res = None
+for _ in range(20):
+    st, res = call("GET", f"/agents/{gather}/result?wait=240", timeout=250)
+    if res and res.get("state") == "settled":
+        break
 print("   ", st)
 print(json.dumps(res, indent=2))
 
