@@ -212,6 +212,12 @@ export class Alineo {
    * are already present — only the bridge process needs to be restarted.
    * Pi is started with `--continue` so it resumes the most recent session.
    *
+   * **Kills and restarts the bridge process** — anything mid-flight when the previous host
+   * process exited (a streaming turn, a tool call parked on a human decision) is dropped.
+   * If the bridge might still be alive and you'd rather preserve that, try `Alineo.reattach()`
+   * first and fall back to this only if it fails (e.g. the whole sandbox — not just this
+   * process — actually restarted).
+   *
    * @param sandboxId  The sandbox ID returned by the original `Alineo.load()`.
    * @param opts.spec  An already-parsed agent spec object — skips file I/O entirely, same as
    *   `load()`. Takes precedence over `opts.specPath` if both are set.
@@ -249,6 +255,52 @@ export class Alineo {
     },
   ): Promise<Alineo> {
     const r = await factory.resumeAgent(sandboxId, opts);
+    const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    agent.memory = opts.memory;
+    return agent;
+  }
+
+  /**
+   * Reconnect to a previously-created agent WITHOUT restarting its bridge — the crash-only
+   * counterpart to `resume()`. Use this when the caller's own process exited or restarted
+   * (e.g. a control-plane daemon coming back up) but has good reason to believe the sandbox,
+   * and the bridge process inside it, never stopped: nothing here kills or re-execs anything.
+   * `sb.proxy()` is a pure URL lookup, so the only network activity is re-deriving the proxy
+   * URL and one health-check request.
+   *
+   * The returned `Alineo` is fully functional — `.prompt()`/`.bash()` work exactly as they
+   * would have on the original handle, continuing the same Pi conversation, because it's
+   * still the same process.
+   *
+   * **Fails fast (5s) if the bridge doesn't answer** — the container can be `Running` while
+   * the bridge process inside it has independently died, and this can't distinguish that from
+   * a slow-to-respond-but-fine bridge on its own. On failure, fall back to `Alineo.resume()`.
+   *
+   * @param sandboxId  The sandbox ID returned by the original `Alineo.load()`/`.spawn()`.
+   * @param opts.spec / opts.specPath  Same three-way fallback as `resume()` — see its docs.
+   *
+   * @example
+   * ```ts
+   * let agent: Alineo;
+   * try {
+   *   agent = await Alineo.reattach(savedSandboxId, { adapter });
+   * } catch {
+   *   agent = await Alineo.resume(savedSandboxId, { adapter }); // bridge really is gone
+   * }
+   * ```
+   */
+  static async reattach(
+    sandboxId: string,
+    opts: {
+      adapter: IStorageAdapter;
+      spec?: AgentSpec | Record<string, unknown>;
+      specPath?: string;
+      runId?: string;
+      /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
+      memory?: Memory;
+    },
+  ): Promise<Alineo> {
+    const r = await factory.reattachAgent(sandboxId, opts);
     const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
     agent.memory = opts.memory;
     return agent;

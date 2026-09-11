@@ -225,6 +225,21 @@ export class PiAdapter {
     this._bridgeUrl = url;
   }
 
+  /**
+   * Rebind to a bridge that's already running (as opposed to `startBridge()`, which execs a
+   * fresh `node /alineo-bridge.js`). `sb.proxy(port)` is a pure URL lookup against the
+   * sandbox's control plane — it starts nothing — so this has zero effect on the sandbox
+   * itself: no killed process, no dropped in-flight turn, no reset Pi conversation state.
+   *
+   * Call `waitReady()` afterwards to confirm the bridge is actually still there before relying
+   * on it — the container can be alive while the bridge process inside it isn't (e.g. it
+   * crashed independently), and this method alone can't tell the difference.
+   */
+  async reattachBridge(sb: SandboxHandle): Promise<void> {
+    const { url } = await sb.proxy(3001);
+    this._bridgeUrl = url;
+  }
+
   async waitReady(timeoutMs = 30_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
