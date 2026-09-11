@@ -9,7 +9,8 @@ import { HttpError } from "../engine/errors";
 import { sseResponse } from "./sse";
 
 export const runsRoutes = new Elysia({ prefix: "/runs" })
-  .post("/", async ({ body }) => {
+  .post("/", ({ body, set }) => {
+    set.status = 202; // async — provisioning happens in the background, poll for real state
     return createRun(parseBody(CreateRunBody, body));
   })
 

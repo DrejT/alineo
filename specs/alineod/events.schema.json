@@ -110,6 +110,31 @@
         "event": {
           "type": "string",
           "enum": [
+            "agent_provisioned"
+          ]
+        },
+        "sandboxId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "sandboxId"
+      ],
+      "additionalProperties": false,
+      "description": "The sandbox now exists and the bridge is up — backfills what agent_spawned couldn't know yet."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
             "agent_ended"
           ]
         },

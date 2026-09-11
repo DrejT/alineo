@@ -62,6 +62,15 @@ CREATE TABLE IF NOT EXISTS handles (
   result_ref TEXT,                        -- prototype: a local path; real impl: fs://<agentId>/<path> (D-d)
   settled_at INTEGER
 );
+
+-- D-f: client-supplied idempotency keys for POST /runs/:id/agents. Not ledger-backed (it's
+-- request-dedup bookkeeping, not swarm history) -- rebuild() never touches this table.
+CREATE TABLE IF NOT EXISTS spawn_idempotency (
+  run_id   TEXT NOT NULL,
+  key      TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  PRIMARY KEY (run_id, key)
+);
 `);
 
 /** Additive column migrations — `ALTER TABLE ADD COLUMN` throws if the column already exists. */
@@ -126,4 +135,22 @@ const selectAllLedger = db.query<LedgerRow, []>(
 
 export function readAllLedger(): LedgerRow[] {
   return selectAllLedger.all();
+}
+
+// ── spawn idempotency (D-f) ──────────────────────────────────────────────────
+
+const insertIdempotent = db.query<unknown, [string, string, string]>(
+  `INSERT INTO spawn_idempotency (run_id, key, agent_id) VALUES (?, ?, ?)
+   ON CONFLICT (run_id, key) DO NOTHING`,
+);
+const selectIdempotent = db.query<{ agent_id: string }, [string, string]>(
+  `SELECT agent_id FROM spawn_idempotency WHERE run_id = ? AND key = ?`,
+);
+
+export function recordIdempotent(runId: string, key: string, agentId: string): void {
+  insertIdempotent.run(runId, key, agentId);
+}
+
+export function findIdempotent(runId: string, key: string): string | null {
+  return selectIdempotent.get(runId, key)?.agent_id ?? null;
 }
