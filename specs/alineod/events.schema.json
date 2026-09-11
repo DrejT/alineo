@@ -147,6 +147,30 @@
         "event": {
           "type": "string",
           "enum": [
+            "agent_steered"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
             "agent_ended"
           ]
         },

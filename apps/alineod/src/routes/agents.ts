@@ -1,9 +1,10 @@
-/** Agent routes: spawn under a run, inspect, prompt, stop. */
+/** Agent routes: spawn under a run, inspect, prompt, steer, stop. */
 import { Elysia } from "elysia";
-import { SpawnAgentBody, StopAgentBody, PromptBody } from "../schema";
+import { SpawnAgentBody, StopAgentBody, PromptBody, SteerBody } from "../schema";
 import { parseBody } from "./http";
 import { spawnAgent } from "../engine/spawn";
 import { stopAgent } from "../engine/lifecycle";
+import { steerAgent } from "../engine/steer";
 import { driveTurn } from "../engine/stream";
 import { get } from "../engine/registry";
 import { getAgentView } from "../state/projection";
@@ -34,6 +35,12 @@ export const agentsRoutes = new Elysia()
     const { text } = parseBody(PromptBody, body);
     if (!get(params.agentId)) throw new HttpError(409, `agent ${params.agentId} is not live`);
     void driveTurn(params.agentId, text);
+    return new Response(null, { status: 202 });
+  })
+
+  .post("/agents/:agentId/steer", async ({ params, body }) => {
+    const { message } = parseBody(SteerBody, body);
+    await steerAgent(params.agentId, message);
     return new Response(null, { status: 202 });
   })
 

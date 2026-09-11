@@ -93,6 +93,12 @@ export const StopAgentBody = z
 
 export const PromptBody = z.object({ text: z.string().min(1) });
 
+// ── POST /agents/:id/steer ───────────────────────────────────────────────────
+
+export const SteerBody = z
+  .object({ message: z.string().min(1) })
+  .describe("Injected into the agent's current turn (research/swarm-control.md §8) — the named agent only, never a subtree.");
+
 // ── GET /agents/:id/result ───────────────────────────────────────────────────
 
 export const ResultResponse = z.object({
@@ -137,6 +143,10 @@ export const AlineodEvent = z.discriminatedUnion("event", [
     event: z.literal("agent_provisioned"),
     sandboxId: z.string(),
   }).describe("The sandbox now exists and the bridge is up — backfills what agent_spawned couldn't know yet."),
+  EventBase.extend({
+    event: z.literal("agent_steered"),
+    message: z.string(),
+  }),
   EventBase.extend({
     event: z.literal("agent_ended"),
     outcome: z.string(),
