@@ -29,6 +29,7 @@ export type CreateRunBody = z.infer<typeof CreateRunBody>;
 export const CreateRunResponse = z.object({
   runId: z.string(),
   rootAgentId: z.string(),
+  state: z.string().describe('Always "provisioning" at return time (the route is async) — poll for the real state.'),
 });
 
 // ── POST /runs/:runId/agents ──────────────────────────────────────────────────
@@ -42,10 +43,17 @@ export const SpawnAgentBody = z.object({
     .describe("Hold the spawn until every named agent's handle is settled (hold-then-spawn, D-c)."),
   prompt: z.string().optional(),
   budget: BudgetOverride.optional(),
+  idempotencyKey: z
+    .string()
+    .optional()
+    .describe("D-f: a retried POST with the same key returns the original spawn instead of creating a second child."),
 });
 export type SpawnAgentBody = z.infer<typeof SpawnAgentBody>;
 
-export const SpawnAgentResponse = z.object({ agentId: z.string() });
+export const SpawnAgentResponse = z.object({
+  agentId: z.string(),
+  state: z.string().describe('"spawning" if waitFor is set, else "provisioning" — poll for the real state.'),
+});
 
 // ── agent / tree views ───────────────────────────────────────────────────────
 
@@ -119,6 +127,10 @@ export const AlineodEvent = z.discriminatedUnion("event", [
     to: z.string(),
     reason: z.string().optional(),
   }),
+  EventBase.extend({
+    event: z.literal("agent_provisioned"),
+    sandboxId: z.string(),
+  }).describe("The sandbox now exists and the bridge is up — backfills what agent_spawned couldn't know yet."),
   EventBase.extend({
     event: z.literal("agent_ended"),
     outcome: z.string(),

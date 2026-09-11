@@ -23,6 +23,10 @@ const setAgentState = db.query(
   `UPDATE agents SET state = $state WHERE agent_id = $agentId`,
 );
 
+const setAgentSandbox = db.query(
+  `UPDATE agents SET sandbox_id = $sandboxId WHERE agent_id = $agentId`,
+);
+
 const endAgentRow = db.query(
   `UPDATE agents SET state = $state, outcome = $outcome, ended_at = $endedAt WHERE agent_id = $agentId`,
 );
@@ -67,6 +71,9 @@ export function apply(row: LedgerRow): void {
     }
     case "agent_state_changed":
       setAgentState.run({ $agentId: row.agent_id, $state: p.to as string });
+      break;
+    case "agent_provisioned":
+      setAgentSandbox.run({ $agentId: row.agent_id, $sandboxId: p.sandboxId as string });
       break;
     case "handle_settled":
       settleHandleRow.run({

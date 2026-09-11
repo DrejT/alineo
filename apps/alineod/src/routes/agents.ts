@@ -10,7 +10,8 @@ import { getAgentView } from "../state/projection";
 import { HttpError } from "../engine/errors";
 
 export const agentsRoutes = new Elysia()
-  .post("/runs/:runId/agents", async ({ params, body }) => {
+  .post("/runs/:runId/agents", ({ params, body, set }) => {
+    set.status = 202; // async — the fork (and any waitFor hold) happens in the background
     return spawnAgent(params.runId, parseBody(SpawnAgentBody, body));
   })
 

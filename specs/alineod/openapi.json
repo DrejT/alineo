@@ -64,11 +64,16 @@
                     },
                     "rootAgentId": {
                       "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "description": "Always \"provisioning\" at return time (the route is async) — poll for the real state."
                     }
                   },
                   "required": [
                     "runId",
-                    "rootAgentId"
+                    "rootAgentId",
+                    "state"
                   ],
                   "additionalProperties": false
                 }
@@ -287,6 +292,10 @@
                     },
                     "additionalProperties": false,
                     "description": "Overrides the spec's own spawnDepth / maxAgents (flag-beats-config)."
+                  },
+                  "idempotencyKey": {
+                    "description": "D-f: a retried POST with the same key returns the original spawn instead of creating a second child.",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -308,10 +317,15 @@
                   "properties": {
                     "agentId": {
                       "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "description": "\"spawning\" if waitFor is set, else \"provisioning\" — poll for the real state."
                     }
                   },
                   "required": [
-                    "agentId"
+                    "agentId",
+                    "state"
                   ],
                   "additionalProperties": false
                 }
