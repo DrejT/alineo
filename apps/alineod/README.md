@@ -95,8 +95,8 @@ restart does not disturb a running swarm.
   results are then written into its sandbox as `/inputs/<agentId>.txt` + `/inputs.json` (D-c).
 - **Budget enforcement is the SDK's.** `Alineo.spawn()` throws when `spawnDepth` / `maxAgents`
   are exhausted; alineod catches it and emits `budget_denied` + 409.
-- **`Alineo.resume` on rehydrate restarts the bridge** (drops an in-flight turn). The real
-  fix is an SDK "attach from control plane" path (D-a).
+- **Rehydrate tries `Alineo.reattach()` first**, falling back to `Alineo.resume()` (which
+  restarts the bridge, dropping an in-flight turn) only if the bridge doesn't answer (D-a).
 
 ## Not in v0
 
@@ -108,10 +108,14 @@ Selectors beyond one agent / subtree · checkpoint & rollback · `steer` / `inte
 
 - **Some NIM models stall mid-turn** on multi-tool-call turns; `driveTurn` bounds this with
   `inactivityTimeoutMs` (default 180s) and settles with partial text.
-- **D-a still open**: crash-only rehydrate uses `Alineo.resume()`, which restarts the bridge and
-  drops an in-flight turn. Needs an "attach from control plane" path in the SDK.
 
-Resolved (2026-09-11, Track A hardening — commit `5727a81`):
+Resolved (2026-09-11):
+- ~~D-a: crash-only rehydrate restarted the bridge~~ — `Alineo.reattach()` (new SDK method,
+  `alineo@minor`) rebinds to the bridge already running inside the sandbox with zero side
+  effects (`sb.proxy()` is a pure URL lookup); `rehydrate()` tries it first and only falls
+  back to `Alineo.resume()` (which does restart the bridge) if reattach fails within 5s.
+
+Resolved (Track A hardening, commit `5727a81`):
 - ~~`POST /runs` / `POST /runs/:id/agents` are synchronous~~ — both are now async: everything
   synchronous happens in the request tick, then 202 returns immediately (verified ~20-30ms on
   the VPS); provisioning runs in the background, poll `GET /runs/:id`/`GET /agents/:id` or watch
