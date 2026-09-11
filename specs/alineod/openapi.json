@@ -463,6 +463,54 @@
         }
       }
     },
+    "/agents/{agentId}/steer": {
+      "post": {
+        "summary": "Redirect the agent's current turn",
+        "description": "The named agent only — steer never cascades to a subtree (research/swarm-control.md §8a).",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "message"
+                ],
+                "additionalProperties": false,
+                "description": "Injected into the agent's current turn (research/swarm-control.md §8) — the named agent only, never a subtree."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "409": {
+            "description": "Agent not live"
+          },
+          "502": {
+            "description": "The bridge rejected the steer"
+          }
+        }
+      }
+    },
     "/agents/{agentId}/stop": {
       "post": {
         "summary": "Abort + close an agent",

@@ -23,6 +23,7 @@ import {
   AgentDetail,
   StopAgentBody,
   PromptBody,
+  SteerBody,
   ResultResponse,
   AlineodEvent,
 } from "../src/schema";
@@ -98,6 +99,20 @@ const openapi = {
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
         requestBody: { required: true, content: { "application/json": { schema: json(PromptBody) } } },
         responses: { "202": { description: "Accepted" } },
+      },
+    },
+    "/agents/{agentId}/steer": {
+      post: {
+        summary: "Redirect the agent's current turn",
+        description:
+          "The named agent only — steer never cascades to a subtree (research/swarm-control.md §8a).",
+        parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: { required: true, content: { "application/json": { schema: json(SteerBody) } } },
+        responses: {
+          "202": { description: "Accepted" },
+          "409": { description: "Agent not live" },
+          "502": { description: "The bridge rejected the steer" },
+        },
       },
     },
     "/agents/{agentId}/stop": {
