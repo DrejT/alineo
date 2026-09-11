@@ -120,6 +120,12 @@ export const AlineodEvent = z.discriminatedUnion("event", [
     depth: z.number().int(),
     spawnIndex: z.number().int(),
     sandboxId: z.string().nullable(),
+    waitFor: z
+      .array(z.string())
+      .nullable()
+      .optional()
+      .describe("Persisted (not just the spec) so rehydrate() can retry a still-pending spawn instead of losing it."),
+    prompt: z.string().nullable().optional(),
   }),
   EventBase.extend({
     event: z.literal("agent_state_changed"),
