@@ -15,7 +15,7 @@
  *      1 (or is itself a retried root); anything else really is unrecoverable.
  */
 import { Alineo } from "alineo";
-import { rebuild, liveAgents, type AgentRow } from "../state/projection";
+import { rebuild, liveAgents, getAgentRow, type AgentRow } from "../state/projection";
 import { sdkAdapter, register, get } from "./registry";
 import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
@@ -32,13 +32,24 @@ export async function rehydrate(): Promise<void> {
   const withSandbox = live.filter((a) => a.sandbox_id);
   const preFork = live.filter((a) => !a.sandbox_id).sort((a, b) => a.depth - b.depth);
 
+  // A pre-fork agent's parent may have already finished its OWN turn by crash time (a
+  // terminal outcome, e.g. "done" — so absent from liveAgents()) while its sandbox is still
+  // sitting there, needed as pass 2's fork source. Nothing here ever closes a sandbox just
+  // because its own turn ended, so pull in any such parent explicitly.
+  const reattachSet = new Map(withSandbox.map((a) => [a.agent_id, a]));
+  for (const a of preFork) {
+    if (!a.parent_agent_id || reattachSet.has(a.parent_agent_id)) continue;
+    const parentRow = getAgentRow(a.parent_agent_id);
+    if (parentRow?.sandbox_id) reattachSet.set(parentRow.agent_id, parentRow);
+  }
+
   console.log(
-    `[alineod] rehydrating ${live.length} live agent(s) — ${withSandbox.length} with a sandbox, ${preFork.length} still pre-fork...`,
+    `[alineod] rehydrating ${live.length} live agent(s) — ${reattachSet.size} with a sandbox to reconnect, ${preFork.length} still pre-fork...`,
   );
 
   // Pass 1 — awaited: fast (~100-200ms each, verified live), and pass 2 needs these parents
   // registered before it can retry a spawn under them.
-  for (const a of withSandbox) await reattachOne(a);
+  for (const a of reattachSet.values()) await reattachOne(a);
 
   // Pass 2 — fire-and-backgrounded, same as a fresh spawn: the slow part (an optional waitFor
   // hold, then the fork) shouldn't block the daemon from coming back up and serving requests.
