@@ -47,6 +47,21 @@ def spec(name, **extra):
     }
 
 
+def wait_live(agent_id, timeout_s=180):
+    """POST /runs and POST /agents are async (202, provisioning in the background) — an agent
+    can only be used as a spawn parent once its sandbox exists. Poll until `sandboxId` is set
+    (the agent_provisioned event has landed) or it ends in failure."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        st, a = call("GET", f"/agents/{agent_id}", timeout=10)
+        if a and a.get("sandboxId"):
+            return a
+        if a and a.get("outcome") in ("failed", "aborted", "budget-exceeded", "lost"):
+            raise RuntimeError(f"{agent_id} ended before becoming live: {a}")
+        time.sleep(2)
+    raise TimeoutError(f"{agent_id} never became live within {timeout_s}s")
+
+
 print(f"→ {BASE}")
 
 print("[1] POST /runs  (root: coordinator, spawnDepth 2)")
@@ -56,6 +71,10 @@ st, run = call("POST", "/runs", {
 })
 print("   ", st, run)
 rid, root = run["runId"], run["rootAgentId"]
+
+print(f"    waiting for {root} to become live (sandbox provisioned)...")
+wait_live(root)
+print(f"    {root} is live")
 
 workers = []
 for topic in ("the ocean", "mountains", "the desert"):
