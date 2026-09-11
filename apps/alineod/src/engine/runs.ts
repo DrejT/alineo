@@ -46,6 +46,8 @@ export function createRun(body: CreateRunBody): CreateRunResult {
     sandboxId: null,
     spawnBudget: body.budget?.spawnDepth ?? specDepth ?? null,
     maxAgentsBudget: body.budget?.maxAgents ?? specMax ?? null,
+    // Persisted so rehydrate() can retry Alineo.load() if alineod crashes before it resolves.
+    prompt: body.prompt ?? null,
   });
 
   void provisionRoot(runId, rootAgentId, body);
@@ -53,7 +55,11 @@ export function createRun(body: CreateRunBody): CreateRunResult {
   return { runId, rootAgentId, state: "provisioning" };
 }
 
-async function provisionRoot(runId: string, rootAgentId: string, body: CreateRunBody): Promise<void> {
+/**
+ * The slow half of creating a run: `Alineo.load()`. Exported so `rehydrate()` can re-run it
+ * verbatim for a root that was still stuck here (no sandbox yet) when alineod crashed.
+ */
+export async function provisionRoot(runId: string, rootAgentId: string, body: CreateRunBody): Promise<void> {
   try {
     const agent = await Alineo.load(body.spec, {
       adapter: sdkAdapter,

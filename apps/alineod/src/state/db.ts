@@ -47,6 +47,11 @@ CREATE TABLE IF NOT EXISTS agents (
   -- from its spec / the run budget; each child gets parent - 1. NULL means spawning disabled.
   spawn_budget      INTEGER,
   max_agents_budget INTEGER,
+  -- Persisted so a spawn that's still pre-fork (waiting on waitFor, or -- for a root --
+  -- still inside Alineo.load()) at crash time can be RETRIED on rehydrate instead of just
+  -- marked lost. Before this, that intent only ever lived in the dead process's closure.
+  wait_for        TEXT,                   -- JSON array of agentIds, or NULL
+  prompt          TEXT,
   created_at      INTEGER NOT NULL,
   ended_at        INTEGER,
   outcome         TEXT                    -- success|failed|aborted|budget-exceeded|lost
@@ -77,6 +82,8 @@ CREATE TABLE IF NOT EXISTS spawn_idempotency (
 for (const alter of [
   "ALTER TABLE agents ADD COLUMN spawn_budget INTEGER",
   "ALTER TABLE agents ADD COLUMN max_agents_budget INTEGER",
+  "ALTER TABLE agents ADD COLUMN wait_for TEXT",
+  "ALTER TABLE agents ADD COLUMN prompt TEXT",
 ]) {
   try {
     db.exec(alter);

@@ -79,6 +79,10 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
     sandboxId: null,
     spawnBudget: spawnBudget !== undefined ? spawnBudget - 1 : null,
     maxAgentsBudget: maxAgentsBudget !== undefined ? maxAgentsBudget - 1 : null,
+    // Persisted so rehydrate() can retry this spawn if alineod crashes before it forks —
+    // otherwise a still-pending waitFor hold only ever lived in this process's memory.
+    waitFor: body.waitFor ?? null,
+    prompt: body.prompt ?? null,
   });
   if (hasWaitFor) {
     emit(runId, childId, "agent_state_changed", { from: "provisioning", to: "spawning", reason: "waitFor" });
@@ -90,7 +94,12 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
   return { agentId: childId, state: hasWaitFor ? "spawning" : "provisioning" };
 }
 
-async function provisionChild(
+/**
+ * The slow half of a spawn: optional `waitFor` hold, then the actual `parent.spawn()` fork.
+ * Exported so `rehydrate()` can re-run it verbatim for an agent that was still stuck here
+ * (no sandbox yet) when alineod crashed — see db.ts's `wait_for`/`prompt` columns.
+ */
+export async function provisionChild(
   runId: string,
   childId: string,
   parentAgentId: string,

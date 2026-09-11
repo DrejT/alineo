@@ -55,6 +55,18 @@
         "sandboxId": {
           "nullable": true,
           "type": "string"
+        },
+        "waitFor": {
+          "description": "Persisted (not just the spec) so rehydrate() can retry a still-pending spawn instead of losing it.",
+          "nullable": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prompt": {
+          "nullable": true,
+          "type": "string"
         }
       },
       "required": [
