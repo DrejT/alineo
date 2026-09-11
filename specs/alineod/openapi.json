@@ -511,6 +511,58 @@
         }
       }
     },
+    "/agents/{agentId}/pause": {
+      "post": {
+        "summary": "Freeze the agent's sandbox container",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "409": {
+            "description": "Agent not live"
+          },
+          "502": {
+            "description": "The sandbox rejected the pause"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/resume": {
+      "post": {
+        "summary": "Unfreeze the agent's sandbox container",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "409": {
+            "description": "Agent not paused, or not live"
+          },
+          "502": {
+            "description": "The sandbox rejected the resume"
+          }
+        }
+      }
+    },
     "/agents/{agentId}/stop": {
       "post": {
         "summary": "Abort + close an agent",
