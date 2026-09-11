@@ -43,6 +43,8 @@ export const ALLOWED_ORIGINS: readonly string[] = [
   "http://localhost:3001",
   "http://localhost:3002",
   "http://localhost:4321",
-  ...(process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ?? []),
+  ...(process.env.ALLOWED_ORIGINS?.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean) ?? []),
   ...(process.env.ALLOWED_ORIGIN ? [process.env.ALLOWED_ORIGIN.trim()] : []),
 ];

@@ -49,9 +49,7 @@ export function WorkflowRunner({ workflow: slug }: { workflow: string }) {
     const ids = (stateRef.current.__cleanup as string[] | undefined) ?? [];
     stateRef.current.__cleanup = [];
     await Promise.all(
-      ids.map((id) =>
-        client.deleteSandbox(id).catch(() => client.deleteAgent(id).catch(() => {})),
-      ),
+      ids.map((id) => client.deleteSandbox(id).catch(() => client.deleteAgent(id).catch(() => {}))),
     );
   }, [client]);
 
@@ -212,7 +210,11 @@ export function WorkflowRunner({ workflow: slug }: { workflow: string }) {
             Connect to a sandbox server above to run this.
           </span>
         )}
-        <StatusLabel phase={phase} done={views.filter((v) => v.status === "done").length} total={stepCount} />
+        <StatusLabel
+          phase={phase}
+          done={views.filter((v) => v.status === "done").length}
+          total={stepCount}
+        />
       </div>
 
       <ol className="flex flex-col gap-2">

@@ -74,10 +74,7 @@ export class PlaygroundClient {
     }
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new PlaygroundApiError(
-        body.error ?? `${res.status} ${res.statusText}`,
-        res.status,
-      );
+      throw new PlaygroundApiError(body.error ?? `${res.status} ${res.statusText}`, res.status);
     }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;

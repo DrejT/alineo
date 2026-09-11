@@ -582,7 +582,11 @@ const agentBugfix: PlaygroundWorkflow = {
       run: async (rt) => {
         const id = rt.state.agent as string;
         await run(rt, id, "cd /work && python3 test_fib.py 2>&1 || true");
-        await run(rt, id, 'cd /work && python3 -c "from fib import fib; print(\'fib(15) =\', fib(15))"');
+        await run(
+          rt,
+          id,
+          "cd /work && python3 -c \"from fib import fib; print('fib(15) =', fib(15))\"",
+        );
       },
     },
     {

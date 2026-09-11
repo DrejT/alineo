@@ -9,9 +9,7 @@ import * as config from "./config";
  */
 function headers(req?: Request): Headers {
   const origin = req?.headers.get("origin") ?? "";
-  const allowed = config.ALLOWED_ORIGINS.includes(origin)
-    ? origin
-    : config.ALLOWED_ORIGINS[0];
+  const allowed = config.ALLOWED_ORIGINS.includes(origin) ? origin : config.ALLOWED_ORIGINS[0];
   return new Headers({
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",

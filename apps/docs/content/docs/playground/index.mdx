@@ -61,12 +61,12 @@ code** — it's the shortest.
 The playground drives the HTTP API, but every step corresponds directly to a call you'd make
 from the [Core SDK](/docs/core) or [Agent SDK](/docs/agent):
 
-| Playground step        | SDK call                                   |
-| ---------------------- | ------------------------------------------ |
-| Create sandbox         | `client.sandbox({ image, resources })`     |
-| Write / read a file    | `sb.writeFile(path, content)` / `sb.readFile(path)` |
-| Run a command          | `await sb.exec(cmd)` — streamed            |
-| Checkpoint             | `await sb.checkpoint()`                    |
-| Fork                   | `await sb.fork(tag)`                       |
-| Load an agent          | `Alineo.load(spec, { adapter })`           |
-| Prompt an agent        | `for await (const ev of agent.prompt(text))` |
+| Playground step     | SDK call                                            |
+| ------------------- | --------------------------------------------------- |
+| Create sandbox      | `client.sandbox({ image, resources })`              |
+| Write / read a file | `sb.writeFile(path, content)` / `sb.readFile(path)` |
+| Run a command       | `await sb.exec(cmd)` — streamed                     |
+| Checkpoint          | `await sb.checkpoint()`                             |
+| Fork                | `await sb.fork(tag)`                                |
+| Load an agent       | `Alineo.load(spec, { adapter })`                    |
+| Prompt an agent     | `for await (const ev of agent.prompt(text))`        |

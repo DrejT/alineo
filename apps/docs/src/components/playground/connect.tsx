@@ -165,7 +165,10 @@ export function PlaygroundConnect() {
 
       <p className="text-[13px] text-fd-muted-foreground">
         Every workflow in this section runs against a real{" "}
-        <a href="https://open-sandbox.ai" className="text-fd-primary underline decoration-fd-border">
+        <a
+          href="https://open-sandbox.ai"
+          className="text-fd-primary underline decoration-fd-border"
+        >
           OpenSandbox
         </a>{" "}
         instance through the{" "}
@@ -185,8 +188,8 @@ export function PlaygroundConnect() {
         <span className="text-fd-muted-foreground">
           {status === "online" && capacity ? (
             <>
-              {capacity.sandboxes.used}/{capacity.sandboxes.max} sandboxes ·{" "}
-              {capacity.agents.used}/{capacity.agents.max} agents in use
+              {capacity.sandboxes.used}/{capacity.sandboxes.max} sandboxes · {capacity.agents.used}/
+              {capacity.agents.max} agents in use
             </>
           ) : error ? (
             <span className="text-rose-600 dark:text-rose-400">{error}</span>
@@ -204,8 +207,8 @@ export function PlaygroundConnect() {
         </button>
       </div>
       <p className="text-[11.5px] text-fd-muted-foreground">
-        Endpoint {endpoint} · hard-capped at {capacity?.sandboxes.max ?? 3} sandboxes, auto-expiring.
-        Runs are cleaned up when they finish.
+        Endpoint {endpoint} · hard-capped at {capacity?.sandboxes.max ?? 3} sandboxes,
+        auto-expiring. Runs are cleaned up when they finish.
       </p>
     </div>
   );
