@@ -106,14 +106,19 @@ Selectors beyond one agent / subtree · checkpoint & rollback · `steer` / `inte
 
 ## Known issues
 
-- **`GET /agents/:id/result?wait=` long-poll can hang past settle** in some cases (the held
-  request doesn't always return when the handle settles mid-wait). `?wait=0` polling works
-  reliably — `demo-swarm.py` polls. Under investigation.
-- **`POST /runs` and `POST /runs/:id/agents` are synchronous** — they block for the full
-  sandbox provision (~70s cold, ~12s snapshot-fork). `curl` times out while the server keeps
-  working. Async `202 + provisioning` state is the fix.
 - **Some NIM models stall mid-turn** on multi-tool-call turns; `driveTurn` bounds this with
   `inactivityTimeoutMs` (default 180s) and settles with partial text.
+- **D-a still open**: crash-only rehydrate uses `Alineo.resume()`, which restarts the bridge and
+  drops an in-flight turn. Needs an "attach from control plane" path in the SDK.
+
+Resolved (2026-09-11, Track A hardening — commit `5727a81`):
+- ~~`POST /runs` / `POST /runs/:id/agents` are synchronous~~ — both are now async: everything
+  synchronous happens in the request tick, then 202 returns immediately (verified ~20-30ms on
+  the VPS); provisioning runs in the background, poll `GET /runs/:id`/`GET /agents/:id` or watch
+  the SSE stream. As a side effect this also closed a real concurrent-spawn race (spawnIndex).
+- ~~`result?wait=` long-poll can hang past settle~~ — was the check-then-subscribe race
+  (already fixed) plus Bun's default idleTimeout (already raised); re-verified with a genuinely
+  held 90s wait through a full cold provision — returned the instant the turn settled.
 
 ## No tests yet
 
