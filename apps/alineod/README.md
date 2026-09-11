@@ -108,6 +108,12 @@ Selectors beyond one agent / subtree · checkpoint & rollback · `steer` / `inte
 
 - **Some NIM models stall mid-turn** on multi-tool-call turns; `driveTurn` bounds this with
   `inactivityTimeoutMs` (default 180s) and settles with partial text.
+- **Reattach reconnects the agent, not the turn.** After a mid-turn crash + `reattach()`, the
+  bridge and the underlying Pi turn keep running untouched (verified live), but the *original*
+  `driveTurn`'s SSE-reading loop died with the old process, so alineod's own ledger never
+  learns the turn finished — the projection stays at `state: "running"` forever. Fix: on
+  reattach, check `getSessionStats()`/`getMessages()` for a turn that already completed and
+  settle it manually instead of assuming a live stream is still being read.
 
 Resolved (2026-09-11):
 - ~~D-a: crash-only rehydrate restarted the bridge~~ — `Alineo.reattach()` (new SDK method,
