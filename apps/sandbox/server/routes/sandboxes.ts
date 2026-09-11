@@ -130,6 +130,9 @@ export async function execCommand(id: string, command: string): Promise<Response
   if (typeof command !== "string" || !command.trim()) {
     return Response.json({ error: "missing command" }, { status: 400 });
   }
+  if (!config.ALLOWED_EXEC_COMMANDS.has(command)) {
+    return Response.json({ error: "command not allowed" }, { status: 403 });
+  }
 
   const handle = sb.exec(command, { timeoutMs: config.EXEC_TIMEOUT_MS });
   const encoder = new TextEncoder();
