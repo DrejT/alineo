@@ -1,0 +1,11 @@
+{
+  "title": "Playground",
+  "pages": [
+    "index",
+    "run-untrusted-code",
+    "ci-test-runner",
+    "checkpoint-and-resume",
+    "fork-a-sandbox",
+    "agent-bugfix"
+  ]
+}

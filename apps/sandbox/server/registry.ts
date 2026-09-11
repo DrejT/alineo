@@ -57,6 +57,23 @@ export async function deleteSandbox(id: string): Promise<void> {
   sandboxes.delete(id);
 }
 
+/**
+ * Fork a live sandbox into an independent copy (filesystem + installed packages).
+ * The child counts against `MAX_SANDBOXES` like any other sandbox and is tracked
+ * in the same registry, so it shows up on the dashboard and gets cleaned up the
+ * same way.
+ */
+export async function forkSandbox(id: string, tag?: string): Promise<SandboxHandle> {
+  const parent = sandboxes.get(id);
+  if (!parent) throw new NotFoundError(`Unknown sandbox ${id}`);
+  if (sandboxes.size >= config.MAX_SANDBOXES) {
+    throw new CapacityError(`SandboxHandle limit reached (${config.MAX_SANDBOXES})`);
+  }
+  const child = await parent.fork(tag);
+  sandboxes.set(child.sandboxId, child);
+  return child;
+}
+
 export async function createAgent(specName: string): Promise<Alineo> {
   if (agents.size >= config.MAX_AGENTS) {
     throw new CapacityError(`Alineo limit reached (${config.MAX_AGENTS})`);

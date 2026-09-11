@@ -5,6 +5,7 @@ import {
   alineoSource,
   agentSource,
   examplesSource,
+  playgroundSource,
 } from "@/lib/source";
 
 export const dynamic = "force-static";
@@ -15,6 +16,7 @@ const allPages = [
   ...alineoSource.getPages(),
   ...agentSource.getPages(),
   ...examplesSource.getPages(),
+  ...playgroundSource.getPages(),
 ];
 
 export const { staticGET: GET } = createSearchAPI("advanced", {

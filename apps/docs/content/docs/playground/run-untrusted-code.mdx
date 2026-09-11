@@ -1,0 +1,29 @@
+---
+title: Run untrusted code
+description: Execute an arbitrary Python snippet in a disposable, resource-capped container — and prove it's isolated.
+---
+
+The canonical sandbox use case: you have code you didn't write — an LLM generated it, or a user
+submitted it — and you need to run it without trusting it. Each snippet gets its own throwaway
+container with a hard CPU and memory cap, a wall-clock timeout, and a filesystem that shares
+nothing with the host or any other sandbox.
+
+Edit the snippet, hit **Run workflow**, and watch it happen against a live sandbox.
+
+<WorkflowRunner workflow="run-untrusted-code" />
+
+## What just happened
+
+1. **Create** — `client.sandbox({ image: "node:22", resources: { cpu, memory } })` spun up a
+   fresh container. Resources are required; the server rejects an unbounded sandbox.
+2. **Write** — `sb.writeFile("/work/snippet.py", …)` put your code inside it. `sb.readFile`
+   read it straight back.
+3. **Run** — `sb.exec("timeout 20 python3 snippet.py")` streamed stdout as it was produced. A
+   `timeout` exit code of `124` means the guard fired.
+4. **Isolation** — a different hostname and a filesystem that doesn't contain the host's files.
+   Nothing the snippet does escapes the container.
+5. **Destroy** — `sb.close()` deletes the container. The safety-net auto-expiry would have done
+   it anyway.
+
+For the batch version — many snippets, failures captured as data instead of crashing the run —
+see the [Untrusted Code Execution](/docs/cookbooks/untrusted-code-execution) cookbook.

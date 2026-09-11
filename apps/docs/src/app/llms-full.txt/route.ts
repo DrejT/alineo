@@ -5,6 +5,7 @@ import {
   alineoSource,
   examplesSource,
   cookbooksSource,
+  playgroundSource,
 } from "@/lib/source";
 import { getLLMText } from "@/lib/get-llm-text";
 
@@ -18,6 +19,7 @@ export async function GET() {
     ...alineoSource.getPages(),
     ...examplesSource.getPages(),
     ...cookbooksSource.getPages(),
+    ...playgroundSource.getPages(),
   ];
   const scanned = await Promise.all(allPages.map(getLLMText));
   return new Response(scanned.join("\n\n---\n\n"));

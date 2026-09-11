@@ -52,10 +52,28 @@ const server = Bun.serve({
         return sandboxRoutes.writeFile(req.params.id, path, content);
       },
     }),
-    "/api/sandboxes/:id/metrics": cors({
-      GET: (req: Bun.BunRequest<"/api/sandboxes/:id/metrics">) =>
-        sandboxRoutes.getMetrics(req.params.id),
+    "/api/sandboxes/:id/exec": cors({
+      POST: async (req: Bun.BunRequest<"/api/sandboxes/:id/exec">) => {
+        const body = (await req.json().catch(() => ({}))) as { command?: string };
+        return sandboxRoutes.execCommand(req.params.id, body.command ?? "");
+      },
     }),
+    "/api/sandboxes/:id/fork": cors({
+      POST: async (req: Bun.BunRequest<"/api/sandboxes/:id/fork">) => {
+        const body = (await req.json().catch(() => ({}))) as { tag?: string };
+        return sandboxRoutes.forkSandbox(req.params.id, body.tag);
+      },
+    }),
+    // Dashboard-only routes below (sandbox.alineo.tech's metrics charts / preview /
+    // terminal / agent-detail panel), not called by the docs playground client
+    // (apps/docs/src/lib/playground/client.ts). Commented out to expose only what
+    // the playground actually uses — uncomment (and re-add the matching ws dispatch
+    // cases in the `websocket` block below, for the ws routes) to restore dashboard
+    // functionality.
+    // "/api/sandboxes/:id/metrics": cors({
+    //   GET: (req: Bun.BunRequest<"/api/sandboxes/:id/metrics">) =>
+    //     sandboxRoutes.getMetrics(req.params.id),
+    // }),
     "/api/sandboxes/:id/checkpoints": cors({
       GET: (req: Bun.BunRequest<"/api/sandboxes/:id/checkpoints">) =>
         sandboxRoutes.listCheckpoints(req.params.id),
@@ -64,13 +82,13 @@ const server = Bun.serve({
       POST: (req: Bun.BunRequest<"/api/sandboxes/:id/checkpoint">) =>
         sandboxRoutes.createCheckpoint(req.params.id),
     }),
-    "/api/sandboxes/:id/preview": cors({
-      GET: (req: Bun.BunRequest<"/api/sandboxes/:id/preview">) => {
-        const port = Number(new URL(req.url).searchParams.get("port"));
-        if (!port) return Response.json({ error: "missing ?port=" }, { status: 400 });
-        return sandboxRoutes.getPreview(req.params.id, port);
-      },
-    }),
+    // "/api/sandboxes/:id/preview": cors({
+    //   GET: (req: Bun.BunRequest<"/api/sandboxes/:id/preview">) => {
+    //     const port = Number(new URL(req.url).searchParams.get("port"));
+    //     if (!port) return Response.json({ error: "missing ?port=" }, { status: 400 });
+    //     return sandboxRoutes.getPreview(req.params.id, port);
+    //   },
+    // }),
     "/api/agents": cors({
       GET: () => agentRoutes.listAgents(),
       POST: async (req: Request) => {
@@ -82,34 +100,34 @@ const server = Bun.serve({
     "/api/agents/:id": cors({
       DELETE: (req: Bun.BunRequest<"/api/agents/:id">) => agentRoutes.deleteAgent(req.params.id),
     }),
-    "/api/agents/:id/messages": cors({
-      GET: (req: Bun.BunRequest<"/api/agents/:id/messages">) =>
-        agentRoutes.getMessages(req.params.id),
-    }),
-    "/api/agents/:id/state": cors({
-      GET: (req: Bun.BunRequest<"/api/agents/:id/state">) => agentRoutes.getState(req.params.id),
-    }),
-    "/api/agents/:id/stats": cors({
-      GET: (req: Bun.BunRequest<"/api/agents/:id/stats">) => agentRoutes.getStats(req.params.id),
-    }),
-    "/api/agents/:id/models": cors({
-      GET: (req: Bun.BunRequest<"/api/agents/:id/models">) => agentRoutes.getModels(req.params.id),
-    }),
-    "/api/agents/:id/fork-points": cors({
-      GET: (req: Bun.BunRequest<"/api/agents/:id/fork-points">) =>
-        agentRoutes.getForkPoints(req.params.id),
-    }),
-    "/api/agents/:id/export": cors({
-      GET: (req: Bun.BunRequest<"/api/agents/:id/export">) => {
-        const path = new URL(req.url).searchParams.get("path");
-        if (!path) return Response.json({ error: "missing ?path=" }, { status: 400 });
-        return agentRoutes.getExport(req.params.id, path);
-      },
-    }),
-    "/ws/sandboxes/:id/terminal": (req, srv) => terminal.upgradeTerminal(req, srv, req.params.id),
-    "/ws/sandboxes/:id/metrics": (req, srv) => metrics.upgradeMetrics(req, srv, req.params.id),
+    // "/api/agents/:id/messages": cors({
+    //   GET: (req: Bun.BunRequest<"/api/agents/:id/messages">) =>
+    //     agentRoutes.getMessages(req.params.id),
+    // }),
+    // "/api/agents/:id/state": cors({
+    //   GET: (req: Bun.BunRequest<"/api/agents/:id/state">) => agentRoutes.getState(req.params.id),
+    // }),
+    // "/api/agents/:id/stats": cors({
+    //   GET: (req: Bun.BunRequest<"/api/agents/:id/stats">) => agentRoutes.getStats(req.params.id),
+    // }),
+    // "/api/agents/:id/models": cors({
+    //   GET: (req: Bun.BunRequest<"/api/agents/:id/models">) => agentRoutes.getModels(req.params.id),
+    // }),
+    // "/api/agents/:id/fork-points": cors({
+    //   GET: (req: Bun.BunRequest<"/api/agents/:id/fork-points">) =>
+    //     agentRoutes.getForkPoints(req.params.id),
+    // }),
+    // "/api/agents/:id/export": cors({
+    //   GET: (req: Bun.BunRequest<"/api/agents/:id/export">) => {
+    //     const path = new URL(req.url).searchParams.get("path");
+    //     if (!path) return Response.json({ error: "missing ?path=" }, { status: 400 });
+    //     return agentRoutes.getExport(req.params.id, path);
+    //   },
+    // }),
+    // "/ws/sandboxes/:id/terminal": (req, srv) => terminal.upgradeTerminal(req, srv, req.params.id),
+    // "/ws/sandboxes/:id/metrics": (req, srv) => metrics.upgradeMetrics(req, srv, req.params.id),
     "/ws/agents/:id/chat": (req, srv) => chat.upgradeChat(req, srv, req.params.id),
-    "/ws/agents/:id/shell": (req, srv) => terminal.upgradeAgentShell(req, srv, req.params.id),
+    // "/ws/agents/:id/shell": (req, srv) => terminal.upgradeAgentShell(req, srv, req.params.id),
   },
   websocket: {
     data: {} as WSData,

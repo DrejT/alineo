@@ -1,0 +1,30 @@
+---
+title: Fork a sandbox
+description: Do the expensive setup once, then fork the live container into independent children.
+---
+
+`sb.fork()` copies a running container — filesystem, installed packages, everything currently on
+disk — into a new sandbox that runs independently. Pay a slow `npm ci` or model download once on
+a base sandbox, then fork it N ways to parallelize the work that follows.
+
+This workflow builds a shared baseline, forks it twice, has each child modify the same file, and
+shows that neither child can see the other's changes.
+
+<WorkflowRunner workflow="fork-a-sandbox" />
+
+## What just happened
+
+- The base sandbox wrote `/work/base.txt` — stand-in for expensive setup.
+- `sb.fork("child-a")` and `sb.fork("child-b")` each produced a full, independent copy of the
+  base container at that moment.
+- Child A appended `"A was here"`; child B appended `"B was here"`. The final step `cat`s the
+  file in each: A's copy has only A's line, B's has only B's. The fork is a copy, not a shared
+  mount.
+
+<Callout type="info">
+  The hosted endpoint caps total sandboxes at 3 (base + 2 forks = the whole budget). If a fork step
+  reports a capacity error, another reader is using the endpoint — retry in a moment, or [run
+  locally](/docs/playground).
+</Callout>
+
+See also the [Parallel Test Shards](/docs/cookbooks/parallel-test-shards) cookbook.

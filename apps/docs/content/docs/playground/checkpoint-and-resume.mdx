@@ -1,0 +1,27 @@
+---
+title: Checkpoint a pipeline
+description: Run an extract → transform → load pipeline that snapshots the container after every stage.
+---
+
+Long pipelines fail partway through. `sb.checkpoint()` takes a restorable snapshot of the
+container's filesystem, so a crash in stage 3 resumes from the stage-2 snapshot instead of
+re-running extract and transform from scratch.
+
+This workflow runs a small ETL pipeline end-to-end and checkpoints after each stage, then lists
+the snapshot chain it left behind.
+
+<WorkflowRunner workflow="checkpoint-and-resume" />
+
+## What just happened
+
+- **Extract** wrote 5,000 rows to `/data/raw.jsonl`, then `sb.checkpoint()` snapshotted.
+- **Transform** aggregated them into `/data/agg.json`, then checkpointed again.
+- **Load** wrote the final artifact.
+- The last step called `sb.listCheckpoints()` — the two snapshot IDs, newest first.
+
+`Sandbox.resume(sandboxId)` restores the container from the newest snapshot. Execs that
+completed _before_ that snapshot replay their recorded output from the ledger instantly rather
+than running again; anything after runs live. The reader never sees the difference.
+
+Full worked version: the [Resumable ETL Pipeline](/docs/cookbooks/resumable-etl-pipeline)
+cookbook.
