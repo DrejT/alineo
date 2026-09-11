@@ -309,6 +309,11 @@ export async function resumeAgent(
   const t1 = Date.now();
   const sb = await client.connect(sandboxId, spec.name, {
     runId,
+    // client.connect()'s `fork` dependency is only wired up when `resources` is passed
+    // (see its own comment) -- omit this and a resumed/reattached agent's .spawn() throws
+    // "fork() is not supported on this sandbox". Reuse the spec's own sizing so a resumed
+    // agent can keep spawning children exactly as it could before the restart.
+    resources: spec.resources ?? config.defaults.resources,
     // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment for
     // why this matters (episodicRecall() enforces teamId strictly). Unlike `sandbox()`/
     // `restoreSnapshot()`, `connect()` can't discover a running sandbox's *original*
@@ -435,6 +440,10 @@ export async function reattachAgent(
     runId,
     resourceId: spec.resourceId ?? spec.name,
     teamId: spec.teamId,
+    // Same reason as resumeAgent() — client.connect() only wires up the `fork` dependency
+    // when `resources` is passed, so a reattached agent needs this too if it's going to
+    // keep spawning children.
+    resources: spec.resources ?? config.defaults.resources,
   });
   console.log(`[agent] connected       ${elapsed(t1)}`);
 
