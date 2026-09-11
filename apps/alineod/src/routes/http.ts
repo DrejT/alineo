@@ -14,6 +14,18 @@ export function parseBody<T>(schema: ZodType<T>, value: unknown): T {
   return r.data;
 }
 
+/**
+ * Race a promise against a timeout, returning `undefined` instead of hanging or throwing.
+ * For best-effort live-agent calls (e.g. `getSessionStats()`) where a paused/unresponsive
+ * bridge would otherwise leave the whole request hanging — see `routes/agents.ts`'s GET.
+ */
+export async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | undefined> {
+  return Promise.race([
+    p,
+    new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), ms)),
+  ]).catch(() => undefined);
+}
+
 /** Map a thrown error to an Elysia response. Wired as `.onError` in server.ts. */
 export function toErrorResponse(err: unknown): Response {
   if (err instanceof HttpError) {

@@ -1,7 +1,7 @@
 /** Agent routes: spawn under a run, inspect, prompt, steer, pause/resume, stop. */
 import { Elysia } from "elysia";
 import { SpawnAgentBody, StopAgentBody, PromptBody, SteerBody } from "../schema";
-import { parseBody } from "./http";
+import { parseBody, withTimeout } from "./http";
 import { spawnAgent } from "../engine/spawn";
 import { stopAgent } from "../engine/lifecycle";
 import { steerAgent } from "../engine/steer";
@@ -21,14 +21,10 @@ export const agentsRoutes = new Elysia()
     const view = getAgentView(params.agentId);
     if (!view) throw new HttpError(404, `no agent ${params.agentId}`);
     const agent = get(params.agentId);
-    let sessionStats: unknown;
-    if (agent) {
-      try {
-        sessionStats = await agent.getSessionStats();
-      } catch {
-        /* bridge may be gone */
-      }
-    }
+    // Skip the live fetch outright while paused (the bridge is frozen, this would just burn
+    // the timeout below every time) — and bound it regardless, since "container reports
+    // running" doesn't guarantee the bridge inside it is actually still responsive.
+    const sessionStats = agent && view.state !== "paused" ? await withTimeout(agent.getSessionStats(), 2_000) : undefined;
     return { ...view, sessionStats };
   })
 
