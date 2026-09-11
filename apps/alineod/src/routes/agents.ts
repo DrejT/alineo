@@ -1,10 +1,11 @@
-/** Agent routes: spawn under a run, inspect, prompt, steer, stop. */
+/** Agent routes: spawn under a run, inspect, prompt, steer, pause/resume, stop. */
 import { Elysia } from "elysia";
 import { SpawnAgentBody, StopAgentBody, PromptBody, SteerBody } from "../schema";
 import { parseBody } from "./http";
 import { spawnAgent } from "../engine/spawn";
 import { stopAgent } from "../engine/lifecycle";
 import { steerAgent } from "../engine/steer";
+import { pauseAgent, resumeAgent } from "../engine/pause";
 import { driveTurn } from "../engine/stream";
 import { get } from "../engine/registry";
 import { getAgentView } from "../state/projection";
@@ -41,6 +42,16 @@ export const agentsRoutes = new Elysia()
   .post("/agents/:agentId/steer", async ({ params, body }) => {
     const { message } = parseBody(SteerBody, body);
     await steerAgent(params.agentId, message);
+    return new Response(null, { status: 202 });
+  })
+
+  .post("/agents/:agentId/pause", async ({ params }) => {
+    await pauseAgent(params.agentId);
+    return new Response(null, { status: 202 });
+  })
+
+  .post("/agents/:agentId/resume", async ({ params }) => {
+    await resumeAgent(params.agentId);
     return new Response(null, { status: 202 });
   })
 
