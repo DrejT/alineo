@@ -51,6 +51,8 @@ try {
 
     for (const e of events.slice(0, 3)) console.log(`  [${e.type}] ${e.message}`);
   } catch (e) {
+    // SAFETY: display-only -- if `e` isn't actually an Error, `.message` just reads
+    // as `undefined` here, which is a harmless fallback in a demo log line.
     console.log(`  diagnostics not available on this server: ${(e as Error).message}`);
   }
 
@@ -63,6 +65,8 @@ try {
       `  metrics() → cpu=${snap.cpu?.toFixed(3) ?? "n/a"}  mem=${snap.memory?.toFixed(3) ?? "n/a"}`,
     );
   } catch (e) {
+    // SAFETY: display-only -- if `e` isn't actually an Error, `.message` just reads
+    // as `undefined` here, which is a harmless fallback in a demo log line.
     console.log(`  metrics() not available on this server: ${(e as Error).message}`);
   }
 
@@ -94,6 +98,8 @@ try {
     await sb.exec("echo should-not-run");
     console.log("ERROR: exec should have thrown on paused sandbox");
   } catch (e) {
+    // SAFETY: display-only -- if `e` isn't actually an Error, `.message` just reads
+    // as `undefined` here, which is a harmless fallback in a demo log line.
     console.log(`  Got expected error: ${(e as Error).message}`);
   }
 

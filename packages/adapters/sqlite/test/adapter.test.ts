@@ -104,6 +104,9 @@ describe("SQLiteAdapter", () => {
       const cp = await db.lastCheckpoint("test-session", "session-1");
 
       if (!cp) throw new Error("expected a checkpoint");
+
+      // SAFETY: checkpoint_created rows are only ever written with `{ snapshotId, name? }`
+      // (see rowToEntry()/append() in adapter.ts).
       expect((cp.payload as { snapshotId: string }).snapshotId).toBe("snap-2");
     });
 
@@ -171,6 +174,9 @@ describe("SQLiteAdapter", () => {
       expect(d?.sandboxId).toBe("abc-123");
       expect(d?.name).toBe("my-sb");
       expect(d?.runId).toBe("abc-123");
+
+      // SAFETY: proving `workflowName` is genuinely absent from SandboxDetails (not typoed
+      // to `undefined`) requires reading a key the type doesn't declare at all.
       expect((d as { workflowName?: unknown } | null)?.workflowName).toBeUndefined();
     });
   });
@@ -385,8 +391,9 @@ describe("SQLiteAdapter", () => {
         try {
           rmSync(root, { recursive: true, force: true });
         } catch (e) {
-          // Don't throw from a finally block — that would silently replace any real
+          // SAFETY: Don't throw from a finally block — that would silently replace any real
           // assertion failure from the try block above with this cleanup error instead.
+          // Node's fs errors are always Error subclasses carrying an optional `.code`.
           const code = (e as NodeJS.ErrnoException).code;
 
           if (code !== "EBUSY" && code !== "EPERM") {
