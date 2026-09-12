@@ -115,6 +115,20 @@
     },
     {
       "files": [
+        "packages/core/src/logger.ts",
+        "packages/agent/src/types.ts",
+        "packages/agent/src/agent/factory.ts",
+        "packages/agent/src/agent/agent.ts",
+        "examples/memory-basics/index.ts",
+        "packages/sdks/typescript/test/client.test.ts",
+        "packages/adapters/sqlite/test/adapter.test.ts"
+      ],
+      "rules": {
+        "anti-slop/no-unsafe-dictionary-type": "off"
+      }
+    },
+    {
+      "files": [
         "packages/core/src/exec-handle.ts",
         "packages/core/src/sandbox/hooks.ts",
         "packages/core/src/sandbox/internal.ts",

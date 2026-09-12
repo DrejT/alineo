@@ -115,6 +115,10 @@ interface Profile {
 
 const validator: SchemaValidator<Profile> = {
   parse(data) {
+    // `Record<string, unknown>` is correct here, not a lazy dictionary: `parse`'s whole job
+    // is inspecting unparsed `data` field-by-field below (anti-slop/no-unsafe-dictionary-type
+    // is off for this file, see .oxlintrc.json -- same reasoning as schema-working-memory.ts's
+    // own hand-rolled validator).
     const obj = data as Record<string, unknown>;
 
     if (obj.plan !== undefined && obj.plan !== "free" && obj.plan !== "pro") {

@@ -345,6 +345,9 @@ describe("Sandbox._getOrBuildEnvironment concurrency guard", () => {
 // not supported on this sandbox" for any agent loaded via its snapshot fast
 // path, or attached to via `Alineo.attach()`). Regression coverage for both.
 
+// `overrides`/`payload` here and below are genuinely generic test-mock shapes (anti-slop/
+// no-unsafe-dictionary-type is off for this file, see .oxlintrc.json): a partial mock's
+// field set varies per test, and LedgerEntry.payload's real shape varies per LedgerEvent kind.
 function makeFakeControl(overrides: Record<string, unknown> = {}) {
   return {
     createSandbox: vi.fn().mockResolvedValue({ id: "new-id" }),

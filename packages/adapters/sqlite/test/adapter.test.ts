@@ -115,6 +115,8 @@ describe("SQLiteAdapter", () => {
 
   // ── session details ─────────────────────────────────────────────────────────
 
+  // `payload?: Record<string, unknown>` mirrors LedgerEntry.payload's own field (shape varies
+  // per LedgerEvent kind; anti-slop/no-unsafe-dictionary-type is off for this file).
   async function seedSession(
     name: string,
     sandboxId: string,

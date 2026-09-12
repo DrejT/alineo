@@ -158,6 +158,10 @@ export type PromptStream = AsyncIterable<string>;
  * A Pi model as returned by `getAvailableModels`, `setModel`, and (nested in
  * `{ model, thinkingLevel, isScoped } | null`) `cycleModel`.
  */
+// `[key: string]: unknown` here and on PiMessage below (anti-slop/no-unsafe-dictionary-type is
+// off for this file): a deliberate open extension point for whatever extra fields Pi's wire
+// protocol carries beyond the named ones -- forward-compat with a real API this package doesn't
+// control, not a lazily-typed dictionary.
 export interface PiModel {
   id: string;
   api: string;

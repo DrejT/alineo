@@ -8,7 +8,7 @@ import type {
   ExecResult,
 } from "@alineo-labs/core";
 import { PromptTimeoutError } from "../errors";
-import { normalizePermissions } from "../permissions";
+import { normalizePermissions, type NormalizedPermissionPolicy } from "../permissions";
 import type { AgentSpec, CredentialEnvBinding } from "../schema";
 import type { PendingPermission, PermissionDecision } from "../types";
 import type {
@@ -33,6 +33,14 @@ export interface PiSandbox {
   exec(cmd: string, opts?: ExecOptions): PromiseLike<ExecResult>;
   proxy: SandboxHandle["proxy"];
   writeFile: SandboxHandle["writeFile"];
+}
+
+/** Written to `/etc/alineo-pi.json` -- what the bridge/permission-gate extension reads back. */
+interface PiConfigFile {
+  provider?: string;
+  model?: string;
+  resume?: boolean;
+  permissions?: NormalizedPermissionPolicy;
 }
 
 // Node.js CJS bridge script — written into the sandbox at /alineo-bridge.js and run with `node`.
@@ -225,7 +233,7 @@ export class PiAdapter {
     resolvedEnv: Record<string, string>,
     opts?: { resume?: boolean },
   ): Promise<void> {
-    const piConfig: Record<string, unknown> = {};
+    const piConfig: PiConfigFile = {};
 
     if (spec.provider) piConfig.provider = spec.provider;
 

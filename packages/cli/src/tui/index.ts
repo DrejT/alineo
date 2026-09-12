@@ -92,7 +92,7 @@ export async function launchTui(): Promise<void> {
 
     try {
       // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
-      const spec = (await Bun.file(specPath).json()) as Record<string, unknown>;
+      const spec = await Bun.file(specPath).json();
       const agent = await Alineo.load(spec, { adapter });
       mount(
         createChatView(renderer, agent, () => {

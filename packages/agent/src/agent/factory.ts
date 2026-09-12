@@ -42,7 +42,11 @@ export interface AgentConstructorArgs {
 
 /**
  * Validate `specInput` and return everything needed to construct a fully initialised `Alineo`.
- * See `Alineo.load()` for the public-facing docs.
+ * See `Alineo.load()` for the public-facing docs. `AgentSpec | Record<string, unknown>` (here
+ * and on `resumeAgent()`'s `opts.spec` below; anti-slop/no-unsafe-dictionary-type is off for
+ * this file) documents the two things a caller can actually pass -- an already-typed spec, or
+ * raw JSON -- immediately before `validateAgentSpec()` (which genuinely takes `unknown`) is the
+ * boundary parse.
  */
 export async function loadAgent(
   specInput: AgentSpec | Record<string, unknown>,

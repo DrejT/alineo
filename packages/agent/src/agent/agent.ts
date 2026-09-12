@@ -172,6 +172,8 @@ export class Alineo {
    *
    * Logs timing for each phase to stdout via `[agent]` prefixed lines.
    */
+  // `AgentSpec | Record<string, unknown>` (here and on `resume()`'s `opts.spec` below; see
+  // factory.ts's loadAgent() for the full rationale) -- caller passes a typed spec or raw JSON.
   static async load(
     spec: AgentSpec | Record<string, unknown>,
     opts: {

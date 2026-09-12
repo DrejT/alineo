@@ -6,6 +6,9 @@ export enum LogLevel {
   Silent = 4,
 }
 
+// `meta?: Record<string, unknown>` throughout this file (anti-slop/no-unsafe-dictionary-type is
+// off, see .oxlintrc.json): structured logging metadata is open-ended by design, same
+// convention as pino/winston/console -- there's no fixed schema to derive a value type from.
 export interface ILogger {
   debug(msg: string, meta?: Record<string, unknown>): void;
   info(msg: string, meta?: Record<string, unknown>): void;
