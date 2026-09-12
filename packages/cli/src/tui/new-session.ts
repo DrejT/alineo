@@ -54,7 +54,9 @@ async function listLocalSpecs(
   for (const f of readdirSync(config.agentsDir).filter((f) => f.endsWith(".json"))) {
     try {
       const specPath = join(config.agentsDir, f);
-      const spec: Partial<AgentSpec> = await Bun.file(specPath).json();
+      // SAFETY: Bun's `.json()` returns `any`; specs on disk are user-authored JSON that may
+      // be missing any field, hence `Partial` rather than trusting it as a full AgentSpec.
+      const spec = (await Bun.file(specPath).json()) as Partial<AgentSpec>;
       const name = spec.name ?? f.replace(/\.json$/, "");
       out.push({ name, specPath, title: spec.title ?? name, description: spec.description ?? "" });
     } catch {

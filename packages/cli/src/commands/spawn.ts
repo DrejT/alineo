@@ -1,4 +1,4 @@
-import { Alineo } from "alineo";
+import { Alineo, type AgentSpec } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { collectReply } from "../agent-prompt.js";
@@ -34,7 +34,9 @@ export async function spawn(
   const adapter = new SQLiteAdapter(config.adapterPath);
   // Alineo.load() no longer does its own file I/O (see #184) -- read the spec file ourselves.
   // load() validates it internally regardless, so no need to call validateAgentSpec() here too.
-  const spec = await Bun.file(specPath).json();
+  // SAFETY: Bun's `.json()` returns `any`; the cast documents the shape load() itself expects
+  // and accepts either a typed spec or raw JSON (see Alineo.load()'s own parameter comment).
+  const spec = (await Bun.file(specPath).json()) as AgentSpec | Record<string, unknown>;
 
   const agent = await Alineo.load(spec, {
     adapter,

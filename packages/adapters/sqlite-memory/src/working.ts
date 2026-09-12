@@ -19,7 +19,11 @@ export class SQLiteWorkingMemoryProvider<V = unknown> implements IWorkingMemoryP
     try {
       mkdirSync(dirname(path), { recursive: true });
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      // SAFETY: mkdirSync only ever throws Node fs errors, which are always
+      // ErrnoException-shaped (optional `.code`).
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw e;
+      }
     }
 
     this.db = new Database(path, { create: true });
@@ -34,7 +38,9 @@ export class SQLiteWorkingMemoryProvider<V = unknown> implements IWorkingMemoryP
       )
       .get(scopeKey(ref), key);
 
-    return row ? JSON.parse(row.value) : undefined;
+    // SAFETY: values are only ever written by this class's own `set()`, which
+    // JSON.stringifies a `V`, so parsing a stored row back yields a `V`.
+    return row ? (JSON.parse(row.value) as V) : undefined;
   }
 
   async set(ref: ResourceRef, key: string, value: V): Promise<void> {
@@ -53,7 +59,8 @@ export class SQLiteWorkingMemoryProvider<V = unknown> implements IWorkingMemoryP
       )
       .all(scopeKey(ref));
 
-    return Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value)]));
+    // SAFETY: same set()-writes-this-class's-own-rows invariant as get() above.
+    return Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value) as V]));
   }
 
   async delete(ref: ResourceRef, key: string): Promise<void> {

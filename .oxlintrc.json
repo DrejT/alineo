@@ -122,7 +122,9 @@
         "packages/agent/src/agent/agent.ts",
         "examples/memory-basics/index.ts",
         "packages/sdks/typescript/test/client.test.ts",
-        "packages/adapters/sqlite/test/adapter.test.ts"
+        "packages/adapters/sqlite/test/adapter.test.ts",
+        "packages/cli/src/commands/spawn.ts",
+        "packages/cli/src/tui/index.ts"
       ],
       "rules": {
         "anti-slop/no-unsafe-dictionary-type": "off"

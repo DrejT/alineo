@@ -1,6 +1,6 @@
 import { createCliRenderer, BoxRenderable } from "@opentui/core";
 import type { SandboxDetails } from "@alineo-labs/sandbox";
-import { Alineo } from "alineo";
+import { Alineo, type AgentSpec } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "../config.js";
 import { createDashboardView, type DashboardView } from "./dashboard.js";
@@ -92,7 +92,8 @@ export async function launchTui(): Promise<void> {
 
     try {
       // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
-      const spec = await Bun.file(specPath).json();
+      // SAFETY: Bun's `.json()` returns `any`; see spawn.ts's identical cast for the rationale.
+      const spec = (await Bun.file(specPath).json()) as AgentSpec | Record<string, unknown>;
       const agent = await Alineo.load(spec, { adapter });
       mount(
         createChatView(renderer, agent, () => {

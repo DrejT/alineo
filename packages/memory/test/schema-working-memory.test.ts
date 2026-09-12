@@ -77,10 +77,11 @@ describe("SchemaWorkingMemory", () => {
 
     await profile.update(ref, { name: "Ada" });
 
-    // Simulates a caller passing unparsed external input: real JSON, so no assertion is needed
-    // to get an invalid `age` past `Partial<Profile>` — this is exactly what update() must reject.
+    // SAFETY: simulates a caller passing unparsed external input past the type system --
+    // the cast doesn't claim `age` is really a number, it's exactly the bad shape update()'s
+    // own runtime validator (profileValidator() above) must catch and reject.
     await expect(
-      profile.update(ref, JSON.parse('{"age":"not a number"}')),
+      profile.update(ref, JSON.parse('{"age":"not a number"}') as Partial<Profile>),
     ).rejects.toThrow("age must be a number");
     expect(await profile.get(ref)).toEqual({ name: "Ada" });
   });
