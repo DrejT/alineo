@@ -82,6 +82,8 @@ export function createDashboardView(
   }
 
   async function killSelected(): Promise<void> {
+    // SAFETY: every option this select renders was built with `value: s` (a SandboxDetails)
+    // or `value: null` -- see the select's own options construction above.
     const session = select.getSelectedOption()?.value as SandboxDetails | null;
 
     if (!session) return;
@@ -106,7 +108,10 @@ export function createDashboardView(
   }
 
   select.on(SelectRenderableEvents.ITEM_SELECTED, (_index: number, option: SelectOption) => {
-    if (option.value) onOpen(option.value as SandboxDetails);
+    if (option.value) {
+      // SAFETY: same option-value invariant as killSelected() above.
+      onOpen(option.value as SandboxDetails);
+    }
   });
 
   const onKeypress = (event: { name: string }) => {
@@ -115,6 +120,7 @@ export function createDashboardView(
     else if (event.name === "n") onNew();
     else if (event.name === "k") void killSelected();
     else if (event.name === "l") {
+      // SAFETY: same option-value invariant as killSelected() above.
       const session = select.getSelectedOption()?.value as SandboxDetails | null;
 
       if (session) onLogs(session);

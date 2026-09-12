@@ -41,6 +41,7 @@ async function fetchRegistryItems(): Promise<RegistryItem[]> {
 
   if (!res.ok) throw new Error(`registry returned ${res.status}`);
 
+  // SAFETY: the alineo registry index endpoint's own documented response contract.
   return (await res.json()) as RegistryItem[];
 }
 
@@ -53,7 +54,7 @@ async function listLocalSpecs(
   for (const f of readdirSync(config.agentsDir).filter((f) => f.endsWith(".json"))) {
     try {
       const specPath = join(config.agentsDir, f);
-      const spec = (await Bun.file(specPath).json()) as Partial<AgentSpec>;
+      const spec: Partial<AgentSpec> = await Bun.file(specPath).json();
       const name = spec.name ?? f.replace(/\.json$/, "");
       out.push({ name, specPath, title: spec.title ?? name, description: spec.description ?? "" });
     } catch {
@@ -168,6 +169,8 @@ export function createNewSessionView(
   }
 
   select.on(SelectRenderableEvents.ITEM_SELECTED, (_index: number, option: SelectOption) => {
+    // SAFETY: every option this select renders was built from `options: LaunchOption[]`
+    // above; SelectOption.value is just typed loosely by the TUI framework itself.
     const entry = option.value as LaunchOption | null;
 
     if (entry) void launch(entry);
