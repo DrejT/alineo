@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { stubFetch } from "./fetch-stub";
 import type * as GroqModule from "../src/groq";
 
 let originalFetch: typeof fetch;
@@ -47,11 +48,11 @@ describe("groqProvider", () => {
   it("listModels returns [] without fetching when GROQ_API_KEY is unset", async () => {
     delete process.env.GROQ_API_KEY;
 
-    const fetchSpy = mock(() => {
+    const fetchSpy = stubFetch(() => {
       throw new Error("should not be called");
     });
 
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    globalThis.fetch = fetchSpy;
     const { groqProvider } = await freshModule();
     expect(await groqProvider.listModels()).toEqual([]);
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -59,9 +60,7 @@ describe("groqProvider", () => {
 
   it("listModels returns [] on a non-OK response", async () => {
     process.env.GROQ_API_KEY = "test-key";
-    globalThis.fetch = mock(() =>
-      Promise.resolve(new Response("nope", { status: 500 })),
-    ) as unknown as typeof fetch;
+    globalThis.fetch = stubFetch(() => Promise.resolve(new Response("nope", { status: 500 })));
     const { groqProvider } = await freshModule();
     expect(await groqProvider.listModels()).toEqual([]);
   });
@@ -69,7 +68,7 @@ describe("groqProvider", () => {
   it("listModels returns the provider's model list on success, and caches it", async () => {
     process.env.GROQ_API_KEY = "test-key";
 
-    const fetchSpy = mock(() =>
+    const fetchSpy = stubFetch(() =>
       Promise.resolve(
         new Response(JSON.stringify({ data: [{ id: "llama-3.3-70b-versatile" }] }), {
           status: 200,
@@ -77,7 +76,7 @@ describe("groqProvider", () => {
       ),
     );
 
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    globalThis.fetch = fetchSpy;
     const { groqProvider } = await freshModule();
     expect(await groqProvider.listModels()).toEqual([{ id: "llama-3.3-70b-versatile" }]);
     await groqProvider.listModels();

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { stubFetch } from "./fetch-stub";
 import type * as NvidiaEmbeddingsModule from "../src/nvidia-embeddings";
 
 let originalFetch: typeof fetch;
@@ -38,11 +39,11 @@ describe("createNvidiaEmbeddingProvider", () => {
   });
 
   it("embed([]) returns [] without fetching", async () => {
-    const fetchSpy = mock(() => {
+    const fetchSpy = stubFetch(() => {
       throw new Error("should not be called");
     });
 
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    globalThis.fetch = fetchSpy;
     const { createNvidiaEmbeddingProvider } = await freshModule();
 
     expect(await createNvidiaEmbeddingProvider().embed([])).toEqual([]);
@@ -63,9 +64,7 @@ describe("createNvidiaEmbeddingProvider", () => {
 
   it("throws with status and body on a non-OK response", async () => {
     process.env.NVIDIA_API_KEY = "test-key";
-    globalThis.fetch = mock(() =>
-      Promise.resolve(new Response("bad request", { status: 400 })),
-    ) as unknown as typeof fetch;
+    globalThis.fetch = stubFetch(() => Promise.resolve(new Response("bad request", { status: 400 })));
     const { createNvidiaEmbeddingProvider } = await freshModule();
 
     // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- see comment on the earlier .rejects. usage above
@@ -75,8 +74,8 @@ describe("createNvidiaEmbeddingProvider", () => {
   it("returns embeddings re-sorted by the response's index field", async () => {
     process.env.NVIDIA_API_KEY = "test-key";
     let capturedBody: { input: string[]; model: string; input_type: string } | undefined;
-    globalThis.fetch = mock((_url: string, init: RequestInit) => {
-      capturedBody = JSON.parse(init.body as string) as {
+    globalThis.fetch = stubFetch((_url, init) => {
+      capturedBody = JSON.parse(init?.body as string) as {
         input: string[];
         model: string;
         input_type: string;
@@ -93,7 +92,7 @@ describe("createNvidiaEmbeddingProvider", () => {
           { status: 200 },
         ),
       );
-    }) as unknown as typeof fetch;
+    });
     const { createNvidiaEmbeddingProvider } = await freshModule();
 
     const result = await createNvidiaEmbeddingProvider({ inputType: "passage" }).embed([
@@ -115,9 +114,9 @@ describe("createNvidiaEmbeddingProvider", () => {
   it("a per-call opts.type overrides the constructor-time default", async () => {
     process.env.NVIDIA_API_KEY = "test-key";
     const capturedInputTypes: string[] = [];
-    globalThis.fetch = mock((_url: string, init: RequestInit) => {
+    globalThis.fetch = stubFetch((_url, init) => {
       capturedInputTypes.push(
-        (JSON.parse(init.body as string) as { input_type: string }).input_type,
+        (JSON.parse(init?.body as string) as { input_type: string }).input_type,
       );
 
       return Promise.resolve(
@@ -125,7 +124,7 @@ describe("createNvidiaEmbeddingProvider", () => {
           status: 200,
         }),
       );
-    }) as unknown as typeof fetch;
+    });
     const { createNvidiaEmbeddingProvider } = await freshModule();
     // Constructed with the "query" default (the module's own fallback).
     const provider = createNvidiaEmbeddingProvider();
