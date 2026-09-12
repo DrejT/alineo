@@ -55,12 +55,7 @@ export interface MemoryOptions {
  * snapshot restore, no bridge process) that would need a factory to hide.
  */
 export class Memory {
-  readonly workingMemory: {
-    get(ref: ResourceRef, key: string): Promise<unknown | undefined>;
-    set(ref: ResourceRef, key: string, value: unknown): Promise<void>;
-    list(ref: ResourceRef): Promise<Record<string, unknown>>;
-    delete(ref: ResourceRef, key: string): Promise<void>;
-  };
+  readonly workingMemory: IWorkingMemoryProvider;
 
   private readonly semanticProvider: ISemanticMemoryProvider | undefined;
   private readonly autoCompact: AutoCompactOptions | undefined;
@@ -69,6 +64,10 @@ export class Memory {
 
   constructor(opts: MemoryOptions) {
     const working = opts.workingMemory;
+
+    // Re-wrapped (not just assigned) so `Memory.workingMemory`'s public surface is exactly
+    // `IWorkingMemoryProvider` -- narrower than whatever extra methods the concrete provider
+    // instance passed in might otherwise expose.
     this.workingMemory = {
       get: (ref, key) => working.get(ref, key),
       set: (ref, key, value) => working.set(ref, key, value),

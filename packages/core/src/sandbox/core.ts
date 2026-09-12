@@ -168,6 +168,7 @@ export class SandboxCore implements SandboxInternal {
     );
   }
 
+  // `payload?: unknown` -- shape genuinely varies per LedgerEvent kind (see SandboxInternal.emit).
   emit(event: LedgerEvent, stepIndex: number, payload?: unknown): Promise<void> {
     // Captured synchronously so the recorded timestamp reflects when this was called,
     // not whenever the queue below gets around to actually writing it.

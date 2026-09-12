@@ -115,6 +115,41 @@
     },
     {
       "files": [
+        "packages/core/src/exec-handle.ts",
+        "packages/core/src/sandbox/hooks.ts",
+        "packages/core/src/sandbox/internal.ts",
+        "packages/core/src/sandbox/core.ts",
+        "packages/cli/src/telemetry.ts",
+        "packages/memory/src/lifecycle-hooks.ts",
+        "packages/memory/src/schema-working-memory.ts",
+        "packages/memory/src/tools.ts",
+        "packages/agent/src/schema.ts",
+        "packages/agent/src/adapters/pi.ts",
+        "packages/core/test/exec-handle-interactive.test.ts",
+        "packages/core/test/egress-reconstruct.test.ts",
+        "packages/agent/test/egress-approval.test.ts",
+        "packages/memory/test/access-control.test.ts",
+        "packages/opensandbox/test/egress.test.ts"
+      ],
+      "rules": {
+        "anti-slop/no-unknown-parameters": "off",
+        "anti-slop/no-unknown-returns": "off"
+      }
+    },
+    {
+      "files": ["packages/agent/src/schema.ts"],
+      "rules": {
+        "anti-slop/no-runtime-typeof": "off"
+      }
+    },
+    {
+      "files": ["packages/memory/src/tools.ts"],
+      "rules": {
+        "anti-slop/no-unsafe-dictionary-type": "off"
+      }
+    },
+    {
+      "files": [
         "**/core/test/sandbox-close.test.ts",
         "**/core/test/sandbox-replay.test.ts",
         "**/sdks/typescript/test/client.test.ts",

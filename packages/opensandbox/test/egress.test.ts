@@ -67,6 +67,7 @@ describe("EgressClient", () => {
   it("throws EgressClientError with the status on a non-2xx response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse("bad rule", false, 400)));
 
+    // `e: unknown` matches Promise.prototype.catch's own rejection-reason contract.
     const err = await new EgressClient(fakeControl())
       .patchRules("sb-1", [{ action: "allow", target: "x" }])
       .catch((e: unknown) => e);

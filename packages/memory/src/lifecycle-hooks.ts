@@ -10,7 +10,8 @@ export interface MemoryLifecycleHooksOptions {
   /** Called when a working-memory write triggered by a hook fails. Hooks (per
    *  `@alineo-labs/core`'s own `composeHooks` convention) must never throw or reject
    *  unhandled — one broken write here must not break the sandbox operation that
-   *  triggered it. Defaults to a no-op; the write is simply dropped. */
+   *  triggered it. Defaults to a no-op; the write is simply dropped. `error: unknown` because
+   *  JS can throw anything (anti-slop/no-unknown-parameters is off for this file). */
   onError?: (error: unknown) => void;
 }
 

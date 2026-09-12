@@ -11,6 +11,10 @@ import type { ResourceRef } from "./types";
  * What this gives you today is the tool *definitions* ready to adapt into whatever surface —
  * Pi once it supports it, a different agent framework, or a manual dispatch loop.
  */
+// `Record<string, unknown>`/`unknown` throughout this interface (anti-slop/no-unsafe-dictionary-type
+// and no-unknown-returns are off for this file, see .oxlintrc.json): a generic tool-calling
+// plugin contract has no single fixed argument/return shape by design, same as MCP/OpenAI's
+// own tool-call JSON Schema conventions.
 export interface MemoryTool {
   name: string;
   description: string;

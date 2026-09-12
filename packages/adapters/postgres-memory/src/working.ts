@@ -13,18 +13,18 @@ import { PostgresMemoryConnection } from "./shared";
  * test environment, so this ships type-checked, not integration-tested against a real
  * Postgres instance.
  */
-export class PostgresWorkingMemoryProvider implements IWorkingMemoryProvider {
+export class PostgresWorkingMemoryProvider<V = unknown> implements IWorkingMemoryProvider<V> {
   private readonly conn: PostgresMemoryConnection;
 
   constructor(connectionString: string) {
     this.conn = new PostgresMemoryConnection(connectionString);
   }
 
-  async get(ref: ResourceRef, key: string): Promise<unknown | undefined> {
+  async get(ref: ResourceRef, key: string): Promise<V | undefined> {
     const rows = await this.conn.withTeamContext(
       ref,
       (tx) =>
-        tx<{ value: unknown }[]>`
+        tx<{ value: V }[]>`
           SELECT value FROM alineo_working_memory WHERE scope = ${scopeKey(ref)} AND key = ${key}
         `,
     );
@@ -32,7 +32,7 @@ export class PostgresWorkingMemoryProvider implements IWorkingMemoryProvider {
     return rows.length ? rows[0].value : undefined;
   }
 
-  async set(ref: ResourceRef, key: string, value: unknown): Promise<void> {
+  async set(ref: ResourceRef, key: string, value: V): Promise<void> {
     await this.conn.withTeamContext(
       ref,
       (tx) => tx`
@@ -43,11 +43,11 @@ export class PostgresWorkingMemoryProvider implements IWorkingMemoryProvider {
     );
   }
 
-  async list(ref: ResourceRef): Promise<Record<string, unknown>> {
+  async list(ref: ResourceRef): Promise<Record<string, V>> {
     const rows = await this.conn.withTeamContext(
       ref,
       (tx) =>
-        tx<{ key: string; value: unknown }[]>`
+        tx<{ key: string; value: V }[]>`
           SELECT key, value FROM alineo_working_memory WHERE scope = ${scopeKey(ref)}
         `,
     );

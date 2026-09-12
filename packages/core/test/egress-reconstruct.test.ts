@@ -3,6 +3,7 @@ import { reconstructEgressRules } from "../src/egress.ts";
 import { LedgerEvent } from "../src/ledger.ts";
 import type { LedgerEntry } from "../src/ledger.ts";
 
+// `payload: unknown` mirrors LedgerEntry's own field (shape varies per LedgerEvent kind).
 function entry(event: LedgerEvent, payload: unknown): LedgerEntry {
   return { ts: 0, name: "s", sandboxId: "sb", stepIndex: -1, event, payload };
 }

@@ -5,10 +5,10 @@ import { type ResourceRef, scopeKey } from "./types";
  * capability (Phase 0 of the exploration research). Every deployment needs at least this;
  * it's the only required provider on `MemoryOptions`.
  */
-export interface IWorkingMemoryProvider {
-  get(ref: ResourceRef, key: string): Promise<unknown | undefined>;
-  set(ref: ResourceRef, key: string, value: unknown): Promise<void>;
-  list(ref: ResourceRef): Promise<Record<string, unknown>>;
+export interface IWorkingMemoryProvider<V = unknown> {
+  get(ref: ResourceRef, key: string): Promise<V | undefined>;
+  set(ref: ResourceRef, key: string, value: V): Promise<void>;
+  list(ref: ResourceRef): Promise<Record<string, V>>;
   delete(ref: ResourceRef, key: string): Promise<void>;
 }
 
@@ -20,10 +20,10 @@ export interface IWorkingMemoryProvider {
  * Not a production recommendation — the same relationship `InMemoryStore` has to LangGraph's
  * real backends.
  */
-export class InMemoryWorkingMemoryProvider implements IWorkingMemoryProvider {
-  private readonly buckets = new Map<string, Map<string, unknown>>();
+export class InMemoryWorkingMemoryProvider<V = unknown> implements IWorkingMemoryProvider<V> {
+  private readonly buckets = new Map<string, Map<string, V>>();
 
-  private bucketFor(ref: ResourceRef): Map<string, unknown> {
+  private bucketFor(ref: ResourceRef): Map<string, V> {
     const key = scopeKey(ref);
     let bucket = this.buckets.get(key);
 
@@ -35,15 +35,15 @@ export class InMemoryWorkingMemoryProvider implements IWorkingMemoryProvider {
     return bucket;
   }
 
-  async get(ref: ResourceRef, key: string): Promise<unknown | undefined> {
+  async get(ref: ResourceRef, key: string): Promise<V | undefined> {
     return this.buckets.get(scopeKey(ref))?.get(key);
   }
 
-  async set(ref: ResourceRef, key: string, value: unknown): Promise<void> {
+  async set(ref: ResourceRef, key: string, value: V): Promise<void> {
     this.bucketFor(ref).set(key, value);
   }
 
-  async list(ref: ResourceRef): Promise<Record<string, unknown>> {
+  async list(ref: ResourceRef): Promise<Record<string, V>> {
     const bucket = this.buckets.get(scopeKey(ref));
 
     return bucket ? Object.fromEntries(bucket) : {};

@@ -16,6 +16,8 @@ export interface SandboxInternal {
   readonly deps: SandboxDeps;
   readonly openSessionClosers: Set<() => Promise<void>>;
   getExecClient(): Promise<ExecClient>;
+  /** `payload?: unknown` -- shape genuinely varies per LedgerEvent kind, like an EventEmitter
+   * (anti-slop/no-unknown-parameters is off for this file, see .oxlintrc.json). */
   emit(event: LedgerEvent, stepIndex: number, payload?: unknown): Promise<void>;
   waitForRunning(timeoutMs?: number): Promise<void>;
   waitForSnapshot(snapshotId: string, timeoutMs?: number): Promise<void>;

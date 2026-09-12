@@ -10,6 +10,7 @@ function makePtyDriver(
 
   let finish: (exitCode: number) => void = () => {};
 
+  // `err: unknown` mirrors ExecDriver's own `fail` signature (see exec-handle.ts).
   let fail: (err: unknown) => void = () => {};
 
   const driver: ExecDriver = {

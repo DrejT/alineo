@@ -73,6 +73,7 @@ describe("withTeamAccessControl (working memory)", () => {
   it("MemoryAccessDeniedError carries the denied teamId", async () => {
     const provider = withTeamAccessControl(new InMemoryWorkingMemoryProvider(), allowOnly([]));
 
+    // `e: unknown` matches Promise.prototype.catch's own rejection-reason contract.
     const error: unknown = await provider
       .get({ resourceId: "user-1", teamId: "secret-team" }, "key")
       .catch((e: unknown) => e);

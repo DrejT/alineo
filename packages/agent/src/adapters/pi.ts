@@ -474,6 +474,12 @@ export class PiAdapter {
 
 // --- HTTP helpers ---
 
+// `body: unknown` (anti-slop/no-unknown-parameters is off for this file): callers mix explicit
+// `rpcPost<SomeReturnType>(...)` with body-argument-only calls, and TS only infers omitted
+// trailing type parameters when none of the earlier ones are given explicitly -- adding a
+// second type parameter for the body broke every `rpcPost<T>(url, path, body)` call site's
+// inference of `body`'s real type. Reordering params to put the body's type parameter first
+// would fix inference but churn every call site's established convention for one lint rule.
 async function rpcPost<T = null>(bridgeUrl: string, path: string, body: unknown = {}): Promise<T> {
   const res = await fetch(`${bridgeUrl}${path}`, {
     method: "POST",

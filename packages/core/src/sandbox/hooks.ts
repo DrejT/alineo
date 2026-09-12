@@ -4,7 +4,8 @@ export interface ComposeHooksOptions {
   /**
    * Called when an individual hook throws. The error is otherwise swallowed — hooks are
    * observability callbacks, so one broken adapter must not break sibling hooks or the
-   * sandbox operation that triggered them.
+   * sandbox operation that triggered them. `error: unknown` because JS can throw anything
+   * (anti-slop/no-unknown-parameters is off for this file, see .oxlintrc.json).
    */
   onHookError?: (error: unknown, hookIndex: number, method: keyof SandboxHooks) => void;
 }

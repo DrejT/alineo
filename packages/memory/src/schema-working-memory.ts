@@ -8,6 +8,9 @@ import type { IWorkingMemoryProvider } from "./working";
  * on invalid input; the exact error type is whatever the underlying library throws.
  */
 export interface SchemaValidator<T> {
+  /** `data: unknown` is correct, not unparsed input leaking through -- parsing unparsed data
+   * into `T` is this method's entire job (anti-slop/no-unknown-parameters is off for this
+   * file, see .oxlintrc.json). */
   parse(data: unknown): T;
 }
 

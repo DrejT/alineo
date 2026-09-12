@@ -2,6 +2,10 @@ import * as z from "zod";
 import { AgentSpecValidationError } from "./errors";
 import type { PermissionMode, PermissionPolicy } from "./permissions";
 
+// `value: unknown` and the `typeof` checks below are correct here, not unparsed input leaking
+// through: this utility's entire job is safely rendering an arbitrary, already-known-invalid
+// value for a message -- there's no schema to parse it against (anti-slop/no-unknown-parameters
+// and no-runtime-typeof are off for this file, see .oxlintrc.json).
 /** Renders an arbitrary invalid field value for an error message without risking "[object Object]". */
 function describeValue(value: unknown): string {
   if (typeof value === "string") return value;
@@ -322,6 +326,8 @@ const AgentSpecSchema = z
  * Throws `AgentSpecValidationError` (with a pre-formatted `.message` and a structured
  * `.issues` array) rather than a bare `Error` — see #185.
  */
+// `data: unknown` is correct, not unparsed input leaking through -- validating unparsed data
+// into `AgentSpec` is this function's entire job.
 export function validateAgentSpec(data: unknown): AgentSpec {
   const result = AgentSpecSchema.safeParse(data);
 

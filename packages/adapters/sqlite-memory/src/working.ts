@@ -12,7 +12,7 @@ type Row = { value: string };
  * zero external services, same "just a file" story as `@alineo-labs/sqlite`'s ledger adapter.
  * Survives process restarts, unlike `InMemoryWorkingMemoryProvider`.
  */
-export class SQLiteWorkingMemoryProvider implements IWorkingMemoryProvider {
+export class SQLiteWorkingMemoryProvider<V = unknown> implements IWorkingMemoryProvider<V> {
   private readonly db: Database;
 
   constructor(path: string) {
@@ -27,17 +27,17 @@ export class SQLiteWorkingMemoryProvider implements IWorkingMemoryProvider {
     this.db.exec("PRAGMA journal_mode = WAL;");
   }
 
-  async get(ref: ResourceRef, key: string): Promise<unknown | undefined> {
+  async get(ref: ResourceRef, key: string): Promise<V | undefined> {
     const row = this.db
       .prepare<Row, [string, string]>(
         "SELECT value FROM alineo_working_memory WHERE scope = ? AND key = ?",
       )
       .get(scopeKey(ref), key);
 
-    return row ? (JSON.parse(row.value) as unknown) : undefined;
+    return row ? JSON.parse(row.value) : undefined;
   }
 
-  async set(ref: ResourceRef, key: string, value: unknown): Promise<void> {
+  async set(ref: ResourceRef, key: string, value: V): Promise<void> {
     this.db
       .prepare(
         `INSERT INTO alineo_working_memory (scope, key, value) VALUES (?, ?, ?)
@@ -46,14 +46,14 @@ export class SQLiteWorkingMemoryProvider implements IWorkingMemoryProvider {
       .run(scopeKey(ref), key, JSON.stringify(value));
   }
 
-  async list(ref: ResourceRef): Promise<Record<string, unknown>> {
+  async list(ref: ResourceRef): Promise<Record<string, V>> {
     const rows = this.db
       .prepare<{ key: string; value: string }, [string]>(
         "SELECT key, value FROM alineo_working_memory WHERE scope = ?",
       )
       .all(scopeKey(ref));
 
-    return Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value) as unknown]));
+    return Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value)]));
   }
 
   async delete(ref: ResourceRef, key: string): Promise<void> {

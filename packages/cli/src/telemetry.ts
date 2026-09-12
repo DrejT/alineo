@@ -179,6 +179,8 @@ async function extractSpecProvider(
   }
 }
 
+// `err: unknown` because JS can throw anything (anti-slop/no-unknown-parameters is off for
+// this file, see .oxlintrc.json).
 function errorClassOf(err: unknown): string {
   return err instanceof Error ? err.constructor.name : "UnknownError";
 }

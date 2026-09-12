@@ -39,6 +39,7 @@ function fakeSandbox(): FakeSandbox {
       },
       listBindings: async () => [],
     },
+    // `payload: unknown` mirrors SandboxHandle.emit's own signature (varies per LedgerEvent kind).
     emit: async (event: string, _step: number, payload: unknown) => {
       emits.push({ event, payload });
     },

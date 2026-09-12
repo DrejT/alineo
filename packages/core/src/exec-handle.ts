@@ -14,7 +14,10 @@ export type ExecDriver =
       type: "pty";
       /** Output already recorded before this handle was created (e.g. resumed from ledger) — shown as scrollback before live output resumes. */
       seedStdout?: string;
-      /** Wire up push-based output/exit/failure callbacks. Called once, synchronously. */
+      /** Wire up push-based output/exit/failure callbacks. Called once, synchronously.
+       * `fail`'s `err` is `unknown` deliberately (anti-slop/no-unknown-parameters is off for
+       * this file, see .oxlintrc.json) -- JS can throw anything, matching
+       * `Promise.prototype.catch`'s own convention; there's no schema to parse it against. */
       attach: (
         push: (chunk: string) => void,
         finish: (exitCode: number) => void,
@@ -156,6 +159,7 @@ export class ExecHandle implements PromiseLike<ExecResult> {
     fn?.();
   }
 
+  /** `reason: unknown` matches `Promise.prototype.then`'s own onrejected contract exactly. */
   then<T, E>(
     onfulfilled?: ((value: ExecResult) => T | PromiseLike<T>) | null,
     onrejected?: ((reason: unknown) => E | PromiseLike<E>) | null,
@@ -187,15 +191,15 @@ export class ExecHandle implements PromiseLike<ExecResult> {
   }
 
   /** Pipe stdout to any writable with a `write(chunk: string)` method. */
-  async pipe(writable: { write(chunk: string): unknown }): Promise<void> {
+  async pipe(writable: { write(chunk: string): void }): Promise<void> {
     for await (const chunk of this.stdout()) writable.write(chunk);
   }
 }
 
 /** Minimal structural readable — matches `process.stdin` without depending on `@types/node`. */
 export interface AttachableSource {
-  on(event: "data", listener: (chunk: Buffer | string) => void): unknown;
-  off(event: "data", listener: (chunk: Buffer | string) => void): unknown;
+  on(event: "data", listener: (chunk: Buffer | string) => void): void;
+  off(event: "data", listener: (chunk: Buffer | string) => void): void;
 }
 
 /**
@@ -258,7 +262,7 @@ export class InteractiveExecHandle extends ExecHandle {
    */
   async attach(
     readable: AttachableSource,
-    writable: { write(chunk: string): unknown },
+    writable: { write(chunk: string): void },
   ): Promise<void> {
     const onData = (chunk: Buffer | string) => {
       this.write(chunk.toString());
