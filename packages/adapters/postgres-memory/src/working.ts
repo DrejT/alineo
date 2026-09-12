@@ -28,7 +28,8 @@ export class PostgresWorkingMemoryProvider implements IWorkingMemoryProvider {
           SELECT value FROM alineo_working_memory WHERE scope = ${scopeKey(ref)} AND key = ${key}
         `,
     );
-    return rows.length ? rows[0]!.value : undefined;
+
+    return rows.length ? rows[0].value : undefined;
   }
 
   async set(ref: ResourceRef, key: string, value: unknown): Promise<void> {
@@ -50,6 +51,7 @@ export class PostgresWorkingMemoryProvider implements IWorkingMemoryProvider {
           SELECT key, value FROM alineo_working_memory WHERE scope = ${scopeKey(ref)}
         `,
     );
+
     return Object.fromEntries(rows.map((r) => [r.key, r.value]));
   }
 

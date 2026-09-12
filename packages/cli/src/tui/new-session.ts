@@ -38,7 +38,9 @@ export interface NewSessionView {
 
 async function fetchRegistryItems(): Promise<RegistryItem[]> {
   const res = await fetch(REGISTRY_INDEX_URL, { signal: AbortSignal.timeout(5000) });
+
   if (!res.ok) throw new Error(`registry returned ${res.status}`);
+
   return (await res.json()) as RegistryItem[];
 }
 
@@ -47,6 +49,7 @@ async function listLocalSpecs(
 ): Promise<{ name: string; specPath: string; title: string; description: string }[]> {
   if (!existsSync(config.agentsDir)) return [];
   const out: { name: string; specPath: string; title: string; description: string }[] = [];
+
   for (const f of readdirSync(config.agentsDir).filter((f) => f.endsWith(".json"))) {
     try {
       const specPath = join(config.agentsDir, f);
@@ -57,6 +60,7 @@ async function listLocalSpecs(
       // skip unreadable specs — same tolerance as `alineo list`
     }
   }
+
   return out;
 }
 
@@ -92,6 +96,7 @@ export function createNewSessionView(
     height: "100%",
     options: [{ name: "loading...", description: "", value: null }],
   });
+
   box.add(select);
   select.focus();
 
@@ -112,6 +117,7 @@ export function createNewSessionView(
 
     try {
       const registryItems = await fetchRegistryItems();
+
       for (const item of registryItems) {
         if (localNames.has(item.name)) continue; // already added locally
         options.push({
@@ -143,14 +149,17 @@ export function createNewSessionView(
 
   async function launch(entry: LaunchOption): Promise<void> {
     status.content = `starting ${entry.name}...`;
+
     try {
       let specPath = entry.specPath;
+
       if (!specPath && entry.registryUrl) {
         const { add } = await import("../commands/add.js");
         await add(entry.registryUrl, { log: (msg) => (status.content = msg) });
         const config = await readConfig();
         specPath = join(config.agentsDir, `${entry.name}.json`);
       }
+
       if (!specPath) throw new Error("no spec path resolved");
       onLaunch(specPath);
     } catch (err) {
@@ -160,12 +169,14 @@ export function createNewSessionView(
 
   select.on(SelectRenderableEvents.ITEM_SELECTED, (_index: number, option: SelectOption) => {
     const entry = option.value as LaunchOption | null;
+
     if (entry) void launch(entry);
   });
 
   const onKeypress = (event: { name: string }) => {
     if (event.name === "escape") onCancel();
   };
+
   renderer.keyInput.on("keypress", onKeypress);
 
   void load();

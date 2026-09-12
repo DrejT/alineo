@@ -49,6 +49,7 @@ describe("normalizePermissions", () => {
       disabledTools: ["bash"],
       restrictToTools: ["read", "grep"],
     });
+
     expect(p).toEqual({
       default: "allow",
       rules: [],
@@ -85,6 +86,7 @@ describe("evaluatePolicy", () => {
         { tool: "bash", pattern: "git *", action: "allow" },
       ],
     });
+
     expect(evaluatePolicy(p, "bash", "git status").action).toBe("allow");
     expect(evaluatePolicy(p, "bash", "rm -rf /").action).toBe("deny");
   });
@@ -116,6 +118,7 @@ describe("evaluatePolicy", () => {
       action: "rate_limit" as const,
       limit: { count: 3, windowMs: 1000 },
     };
+
     expect(evaluatePolicy(P({ rules: [rule] }), "bash", "x").rule).toEqual(rule);
   });
 

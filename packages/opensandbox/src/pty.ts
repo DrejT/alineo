@@ -6,6 +6,7 @@ import type {
 } from "./types";
 
 export type PtyOutputListener = (chunk: string) => void;
+
 export type PtyExitListener = (exitCode: number) => void;
 
 /**
@@ -35,11 +36,14 @@ export class PtyClient {
       },
       body: JSON.stringify(opts),
     });
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(text || `execd error ${res.status}`);
     }
+
     const { session_id } = (await res.json()) as CreatePtyResponse;
+
     return session_id;
   }
 
@@ -62,21 +66,27 @@ export class PtyClient {
       ws.onopen = () => {
         resolve();
       };
+
       ws.onerror = (ev) => {
         reject(new Error(`pty websocket error: ${ev.type}`));
       };
+
       ws.onclose = () => {
         if (!gotExitFrame) onExit(-1);
       };
+
       ws.onmessage = (ev) => {
         if (typeof ev.data === "string") {
           const msg = JSON.parse(ev.data) as PtyServerMessage;
+
           if (msg.type === "exit") {
             gotExitFrame = true;
             onExit(msg.exit_code);
           }
+
           return;
         }
+
         // First byte is a channel marker (stdout/stderr in pipe mode, multiplexed in PTY mode).
         const bytes = new Uint8Array(ev.data as ArrayBuffer);
         onOutput(decoder.decode(bytes.slice(1)));

@@ -35,15 +35,18 @@ async function runUntrusted(label: string, code: string): Promise<RunResult> {
 
   try {
     await sb.writeFile("/tmp/snippet.py", code);
+
     const { stdout, stderr, exitCode } = await sb.exec("python3 /tmp/snippet.py", {
       strict: false, // never throw — a non-zero exit is just a result
       timeoutMs: 5_000, // kill a runaway loop after 5s instead of hanging the batch
     });
+
     return { label, ok: exitCode === 0, stdout, stderr };
   } catch (e) {
     // Only connection-level failures land here — strict: false already turns
     // ordinary non-zero exits into data, but a timed-out exec still throws.
     const message = e instanceof CommandError ? e.message : (e as Error).message;
+
     return { label, ok: false, stdout: "", stderr: "", error: message };
   } finally {
     await sb.close();
@@ -64,10 +67,14 @@ const results = await Promise.all(
 
 for (const r of results) {
   console.log(`[${r.label}] ${r.ok ? "OK" : "FAILED"}`);
+
   if (r.stdout.trim()) console.log(`  stdout: ${r.stdout.trim()}`);
+
   if (r.stderr.trim()) console.log(`  stderr: ${r.stderr.trim().split("\n").pop()}`);
+
   if (r.error) console.log(`  error:  ${r.error}`);
 }
 
 const anyFailed = results.some((r) => !r.ok);
+
 console.log(`\n${anyFailed ? "Some" : "All"} snippets handled without crashing the runner.`);

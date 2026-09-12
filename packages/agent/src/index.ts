@@ -1,6 +1,9 @@
 export { Alineo } from "./agent";
+
 export type { PermissionHandler } from "./agent";
+
 export { EgressApprovalGate } from "./agent";
+
 export type {
   EgressDecision,
   EgressRequest,
@@ -8,15 +11,20 @@ export type {
   EgressApprovalGateOptions,
   HeldCredential,
 } from "./agent";
+
 export type { AgentSpec, SetupStep } from "./schema";
+
 export { validateAgentSpec } from "./schema";
+
 export type {
   PermissionMode,
   PermissionAction,
   PermissionRule,
   PermissionPolicy,
 } from "./permissions";
+
 export { isReadOnlyBashCommand } from "./permissions";
+
 export type {
   AgentEvent,
   AgentStream,
@@ -33,7 +41,11 @@ export type {
   PiSlashCommand,
   PiSessionState,
 } from "./types";
+
 export { textOnly } from "./types";
+
 export type { AgentSnapshotRecord } from "./snapshots";
+
 export { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "./snapshots";
+
 export { PromptTimeoutError, AgentSpecValidationError } from "./errors";

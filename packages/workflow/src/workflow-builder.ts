@@ -56,6 +56,7 @@ export class WorkflowBuilder {
    */
   sandbox(opts: SandboxOptions, fn: (sb: SandboxBuilder) => void): this {
     this._stages.push({ type: "sandbox", opts, fn });
+
     return this;
   }
 
@@ -75,6 +76,7 @@ export class WorkflowBuilder {
    */
   parallel(configs: SandboxOptions[], fn: (sb: SandboxBuilder) => void): this {
     this._stages.push({ type: "parallel", configs, fn });
+
     return this;
   }
 
@@ -93,6 +95,7 @@ export class WorkflowBuilder {
    */
   sequence(steps: SequenceStep[]): this {
     this._stages.push({ type: "sequence", steps });
+
     return this;
   }
 
@@ -118,6 +121,7 @@ export class WorkflowBuilder {
         Object.assign(combined.vars, result.vars);
       } else if (stage.type === "parallel") {
         const results = await this._runParallel(stage.configs, stage.fn, sink);
+
         for (const r of results) {
           combined.stdout += r.stdout;
           Object.assign(combined.vars, r.vars);
@@ -141,9 +145,11 @@ export class WorkflowBuilder {
     fn(sb);
 
     const sandbox = await this._client.sandbox(opts);
+
     try {
       const ctx: FlushContext = { stdout: "", exitCode: 0, vars: {}, sink };
       await flushOps(sandbox, sb._ops, ctx);
+
       return { stdout: ctx.stdout, vars: ctx.vars };
     } finally {
       await sandbox.close();
@@ -173,6 +179,7 @@ export class WorkflowBuilder {
         timeout: step.timeout,
         name: step.name,
       };
+
       const result = await this._runSandbox(
         opts,
         (sb) => {
@@ -180,6 +187,7 @@ export class WorkflowBuilder {
         },
         sink,
       );
+
       combined.stdout += result.stdout;
       Object.assign(combined.vars, result.vars);
       prev = result;

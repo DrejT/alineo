@@ -47,12 +47,17 @@ if (!process.env.NVIDIA_API_KEY) {
 }
 
 process.env.MASTER_AGENT_OPENSANDBOX_DOMAIN ??= "172.17.0.1:8080";
+
 const SECRET = `rlm-fanout-secret-${randomBytes(8).toString("hex")}`;
+
 process.env.RLM_FANOUT_SECRET = SECRET;
 
 const MASTER_SPEC = "./agents/master.json";
+
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+
 const baseUrl = process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080";
+
 const apiKey = process.env.OPEN_SANDBOX_API_KEY ?? "";
 
 // `alineo fork` (run FROM INSIDE the master's own sandbox) opens its own
@@ -69,29 +74,37 @@ interface RawSandbox {
   status: { state: string };
   createdAt: string;
 }
+
 async function listRunningSandboxes(): Promise<RawSandbox[]> {
   const res = await fetch(`${baseUrl}/v1/sandboxes?state=Running`, {
     headers: { "OPEN-SANDBOX-API-KEY": apiKey },
   });
+
   if (!res.ok) throw new Error(`control-plane list failed: ${res.status}`);
   const data = (await res.json()) as { items: RawSandbox[] };
+
   return data.items;
 }
 
 const checks: { name: string; pass: boolean; detail?: string }[] = [];
+
 function check(name: string, pass: boolean, detail?: string) {
   checks.push({ name, pass, detail });
   console.log(`  [${pass ? "PASS" : "FAIL"}] ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
 const testStart = Date.now();
+
 console.log("=== Loading master (spawnDepth: 1) ===\n");
+
 // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const masterSpec = await Bun.file(MASTER_SPEC).json();
+
 const master = await Alineo.load(masterSpec, {
   adapter,
   rebuild: process.env.REBUILD === "1",
 });
+
 console.log(
   `\nmaster: ${master.name}  sandbox: ${master.sandboxId}  fromSnapshot: ${master.fromSnapshot}\n`,
 );
@@ -101,6 +114,7 @@ const spawnedChildren: Alineo[] = [];
 try {
   console.log("=== Prompting master (goal lives in TASK.md, not in this prompt) ===\n");
   let reply = "";
+
   try {
     for await (const ev of master.prompt(
       "Read ./TASK.md in your working directory and complete the task described there. " +
@@ -113,19 +127,23 @@ try {
         console.log(`\n[tool_start] ${ev.toolName} ${JSON.stringify(ev.args).slice(0, 400)}`);
       } else if (ev.type === "tool_end") {
         console.log(`[tool_end]   ${ev.toolName} isError=${ev.isError}`);
+
         if (ev.isError) console.log(`  result: ${JSON.stringify(ev.result).slice(0, 500)}`);
       }
     }
   } catch (err) {
     console.log(`\nprompt failed: ${err instanceof Error ? err.message : String(err)}`);
     const logs = await master.getLogs().catch(() => "");
+
     const filtered = logs
       .split("\n")
       .filter((l) => /error|exit|ready|429|quota|exception/i.test(l))
       .join("\n");
+
     console.log(`--- filtered bridge logs ---\n${filtered}\n--- end filtered logs ---`);
     throw err;
   }
+
   console.log("\n\n" + "─".repeat(60));
 
   // ── Independent verification ────────────────────────────────────────────
@@ -147,9 +165,11 @@ try {
   );
 
   const running = await listRunningSandboxes();
+
   const childSandboxes = running.filter(
     (s) => s.id !== master.sandboxId && new Date(s.createdAt).getTime() >= testStart,
   );
+
   check(
     "at least one child was spawned",
     childSandboxes.length > 0,
@@ -172,6 +192,7 @@ try {
     const { stdout: probeOut } = await child.sandbox.exec(
       `sh -c '. /etc/alineo-env 2>/dev/null; echo "SECRET=[$RLM_FANOUT_SECRET]"; echo "DEPTH=[$ALINEO_SPAWN_DEPTH]"; which alineo > /dev/null 2>&1; echo "ALINEO_FOUND=[$?]"'`,
     );
+
     check(
       `${name}: master's secret is absent`,
       probeOut.includes("SECRET=[]") && !probeOut.includes(SECRET),
@@ -185,6 +206,7 @@ try {
 
   console.log(`\n=== ${checks.filter((c) => c.pass).length}/${checks.length} checks passed ===`);
   console.log(checks.every((c) => c.pass) ? "\n✓ PASS" : "\n✗ FAIL — see checks above");
+
   if (!checks.every((c) => c.pass)) process.exitCode = 1;
 } finally {
   await Promise.all(spawnedChildren.map((c) => c.close()));

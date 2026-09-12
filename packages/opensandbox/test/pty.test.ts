@@ -45,6 +45,7 @@ function binaryFrame(channel: number, text: string): ArrayBuffer {
   const bytes = new Uint8Array(body.length + 1);
   bytes[0] = channel;
   bytes.set(body, 1);
+
   return bytes.buffer;
 }
 
@@ -53,9 +54,11 @@ async function connectFakeSocket(client: PtyClient, sessionId = "session-1") {
   const onExit = vi.fn();
   const connectPromise = client.connect(sessionId, onOutput, onExit);
   const ws = FakeWebSocket.instances.at(-1);
+
   if (!ws) throw new Error("expected a FakeWebSocket instance");
   ws.triggerOpen();
   await connectPromise;
+
   return { ws, onOutput, onExit };
 }
 
@@ -74,6 +77,7 @@ describe("PtyClient", () => {
       ok: true,
       json: async () => ({ session_id: "abc-123" }),
     });
+
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new PtyClient({ baseUrl: "http://localhost:8080", accessToken: "tok" });

@@ -8,13 +8,17 @@ export async function telemetry(argv: string[]): Promise<void> {
   if (sub === "enable") {
     await writeTelemetryConfig({ ...config, enabled: true });
     console.log("[alineo] telemetry enabled");
+
     return;
   }
+
   if (sub === "disable") {
     await writeTelemetryConfig({ ...config, enabled: false });
     console.log("[alineo] telemetry disabled");
+
     return;
   }
+
   if (sub === "status" || !sub) {
     if (envDisabled()) {
       console.log(
@@ -23,9 +27,12 @@ export async function telemetry(argv: string[]): Promise<void> {
     } else {
       console.log(`[alineo] telemetry: ${config.enabled ? "enabled" : "disabled"}`);
     }
+
     console.log(`  anonymous id: ${config.anonymousId}`);
+
     return;
   }
+
   throw new Error("Usage: alineo telemetry status|enable|disable");
 }
 

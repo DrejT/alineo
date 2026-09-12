@@ -28,6 +28,7 @@ describe("toWireBinding", () => {
       pathPrefix: "/repos/",
       injection: { type: "header", name: "Authorization" },
     };
+
     expect(toWireBinding("gh", binding)).toEqual({
       name: "gh",
       match: { hosts: ["api.github.com"], paths: ["/repos/*"] },
@@ -42,10 +43,12 @@ describe("fromWireBindingMetadata", () => {
       host: "api.github.com",
       injection: { type: "header", name: "Authorization" },
     };
+
     const meta = {
       match: toWireBinding("gh", binding).match,
       auth: { type: "apiKey", name: "Authorization" },
     };
+
     expect(fromWireBindingMetadata(meta)).toEqual(binding);
   });
 

@@ -5,9 +5,11 @@ import { join } from "node:path";
 import { harness } from "../src/index";
 
 const tmpDirs: string[] = [];
+
 async function tmpPath(name: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "harness-test-"));
   tmpDirs.push(dir);
+
   return join(dir, name);
 }
 
@@ -65,11 +67,13 @@ describe("log()", () => {
     const calls: unknown[][] = [];
     const original = console.log;
     console.log = (...args: unknown[]) => calls.push(args);
+
     try {
       h.log();
     } finally {
       console.log = original;
     }
+
     expect(calls).toHaveLength(1);
     expect(calls[0]?.[0]).toBe("## role\n\nbe helpful");
     expect(calls[0]?.[0]).not.toContain("<role>");
@@ -79,11 +83,13 @@ describe("log()", () => {
 describe("dumps() / load() round trip", () => {
   test("load() after dumps() produces an equivalent render()", async () => {
     const path = await tmpPath("harness.md");
+
     const original = harness()
       .role("be helpful")
       .context("fact one")
       .context("fact two")
       .guardrail("no leaks");
+
     await original.dumps(path);
 
     const reloaded = await harness().load(path);

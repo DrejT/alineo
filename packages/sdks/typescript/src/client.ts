@@ -37,6 +37,7 @@ import {
 } from "./environment";
 
 export { SandboxHandle, BashSession } from "@alineo-labs/core";
+
 export type {
   ExecHandle,
   InteractiveExecHandle,
@@ -45,6 +46,7 @@ export type {
   ExecCodeOptions,
   PendingInteractiveExec,
 } from "@alineo-labs/core";
+
 export {
   LedgerEvent,
   SandboxStatus,
@@ -53,6 +55,7 @@ export {
   CommandError,
   StepTimeoutError,
 } from "@alineo-labs/core";
+
 export type {
   IStorageAdapter,
   SandboxDetails,
@@ -66,15 +69,20 @@ export type {
   CredentialBroker,
   CredentialBinding,
 } from "@alineo-labs/core";
+
 export type { NetworkPolicy, NetworkRule, CredentialProxyConfig } from "@alineo-labs/opensandbox";
+
 export { OpenSandboxCredentialBroker } from "@alineo-labs/vault";
+
 export {
   SandboxClientError,
   type SandboxClientOptions,
   type SandboxOptions,
   type ResumeOptions,
 } from "./types";
+
 export type { CheckpointInfo } from "@alineo-labs/core";
+
 export {
   Environment,
   type EnvironmentOptions,
@@ -87,6 +95,7 @@ export {
  */
 function assertValidNetworkPolicy(policy: NetworkPolicy | undefined): void {
   if (!policy) return;
+
   for (const rule of policy.egress ?? []) {
     if (!isValidEgressTarget(rule.target)) {
       throw new SandboxClientError(
@@ -157,6 +166,7 @@ export class Sandbox {
   /** Lazily initialises the adapter on first use. Concurrent callers share the same promise. */
   private _ensureConnected(): Promise<void> {
     this._connectPromise ??= this._adapter.connect?.() ?? Promise.resolve();
+
     return this._connectPromise;
   }
 
@@ -188,6 +198,7 @@ export class Sandbox {
     const teamId = opts.teamId;
 
     let sandboxId: string;
+
     try {
       const rawSb = await this._control.createSandbox({
         image,
@@ -204,6 +215,7 @@ export class Sandbox {
         networkPolicy: opts.networkPolicy,
         credentialProxy: opts.credentialProxy ? { enabled: true } : undefined,
       });
+
       sandboxId = rawSb.id;
 
       await this._waitForRunning(sandboxId);
@@ -249,7 +261,9 @@ export class Sandbox {
           ),
         useServerProxy: this._useServerProxy,
       });
+
       opts.hooks?.onSandboxCreated?.(sandboxId, name);
+
       return sb;
     } catch (err) {
       this._releaseSlot();
@@ -284,6 +298,7 @@ export class Sandbox {
     await this._ensureConnected();
     const allSessions = await this._adapter.listAllSandboxDetails();
     const session = allSessions.find((s) => s.sandboxId === sandboxId);
+
     if (!session) throw new SandboxClientError(`Session ${sandboxId} not found`, 404);
 
     return this._resumeSession(session.name, sandboxId, opts?.tag, opts?.resolveCredential);
@@ -298,12 +313,14 @@ export class Sandbox {
     const entries = await this._adapter.readAll(name, sandboxId);
 
     let checkpointIdx: number;
+
     if (tag) {
       checkpointIdx = entries.findIndex(
         (e) =>
           e.event === LedgerEvent.CheckpointCreated &&
           (e.payload as { name?: string } | undefined)?.name === tag,
       );
+
       if (checkpointIdx === -1)
         throw new SandboxClientError(
           `No checkpoint with tag '${tag}' found for session ${sandboxId}`,
@@ -311,6 +328,7 @@ export class Sandbox {
         );
     } else {
       checkpointIdx = entries.map((e) => e.event).lastIndexOf(LedgerEvent.CheckpointCreated);
+
       if (checkpointIdx === -1)
         throw new SandboxClientError(`No checkpoint found for session ${sandboxId}`, 404);
     }
@@ -318,6 +336,7 @@ export class Sandbox {
     const { snapshotId } = entries[checkpointIdx].payload as { snapshotId: string };
 
     const createdEntry = entries.find((e) => e.event === LedgerEvent.SandboxCreated);
+
     const createdPayload = createdEntry?.payload as
       | {
           resources?: { cpu?: string; memory?: string; gpu?: string };
@@ -328,6 +347,7 @@ export class Sandbox {
           credentialProxy?: boolean;
         }
       | undefined;
+
     const resources = createdPayload?.resources;
     // Inherit the original sandbox's runId — a resumed sandbox is a continuation of the
     // same run, not a new one. Falls back to a fresh UUID only for ledger data written
@@ -349,9 +369,11 @@ export class Sandbox {
     // post-start `sb.egress.patch()` avoids a race with the sidecar still wiring up nft/DNS.
     const originalNetworkPolicy = createdPayload?.networkPolicy;
     const credentialProxy = createdPayload?.credentialProxy;
+
     const replayedEgress = originalNetworkPolicy
       ? reconstructEgressRules(entries)
       : { apply: [], remove: [] };
+
     const networkPolicy = originalNetworkPolicy
       ? {
           ...originalNetworkPolicy,
@@ -375,6 +397,7 @@ export class Sandbox {
     const pendingStdout = new Map<number, string[]>();
     const pendingStderr = new Map<number, string[]>();
     const pendingStdin = new Map<number, string[]>();
+
     const interactiveMeta = new Map<
       number,
       { cmd: string; cwd?: string; env?: Record<string, string> }
@@ -389,14 +412,17 @@ export class Sandbox {
           cwd?: string;
           env?: Record<string, string>;
         };
+
         pendingStdout.set(seq, []);
         pendingStderr.set(seq, []);
+
         if (interactive) {
           pendingStdin.set(seq, []);
           interactiveMeta.set(seq, { cmd, cwd, env });
         }
       } else if (entry.event === LedgerEvent.ExecEvent) {
         const { seq, type, text } = entry.payload as { seq: number; type: string; text?: string };
+
         if (text) {
           if (type === "stdout") pendingStdout.get(seq)?.push(text);
           else if (type === "stderr") pendingStderr.get(seq)?.push(text);
@@ -416,6 +442,7 @@ export class Sandbox {
     // still open (a human mid-conversation) — reconstruct them by replaying stdin, not by
     // dropping them like a finished/never-started plain exec would be.
     const pendingInteractive = new Map<number, PendingInteractiveExec>();
+
     for (const [seq, meta] of interactiveMeta) {
       if (replayCache.has(seq)) continue;
       pendingInteractive.set(seq, {
@@ -426,6 +453,7 @@ export class Sandbox {
     }
 
     await this._acquireSlot();
+
     try {
       const rawSb = await this._control.createSandbox({
         snapshotId,
@@ -434,6 +462,7 @@ export class Sandbox {
         networkPolicy,
         credentialProxy: credentialProxy ? { enabled: true } : undefined,
       });
+
       const newSessionId = rawSb.id;
       await this._waitForRunning(newSessionId);
 
@@ -497,6 +526,7 @@ export class Sandbox {
           resolveCredential,
           newSessionId,
         );
+
         await sb.credentials.set(credName, value, binding, source);
       }
 
@@ -557,14 +587,17 @@ export class Sandbox {
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
     const info = await this._control.getSandbox(sandboxId);
+
     if (info.status.state !== SandboxState.Running) {
       throw new SandboxClientError(
         `SandboxHandle ${sandboxId} is ${info.status.state} — can only connect to Running sandboxes`,
         409,
       );
     }
+
     await this._acquireSlot();
     const resources = opts?.resources;
+
     return new SandboxHandle(sandboxId, name, {
       control: this._control,
       adapter: this._adapter,
@@ -642,8 +675,10 @@ export class Sandbox {
     assertValidNetworkPolicy(opts?.networkPolicy);
     await this._ensureConnected();
     await this._acquireSlot();
+
     try {
       const finalRunId = runId ?? crypto.randomUUID();
+
       const rawSb = await this._control.createSandbox({
         snapshotId,
         env: opts?.env,
@@ -652,6 +687,7 @@ export class Sandbox {
         networkPolicy: opts?.networkPolicy,
         credentialProxy: opts?.credentialProxy ? { enabled: true } : undefined,
       });
+
       const newId = rawSb.id;
       await this._waitForRunning(newId);
       await this._adapter.append({
@@ -670,6 +706,7 @@ export class Sandbox {
           credentialProxy: opts?.credentialProxy,
         },
       });
+
       return new SandboxHandle(newId, name, {
         control: this._control,
         adapter: this._adapter,
@@ -711,24 +748,28 @@ export class Sandbox {
     /** List all sandbox records across all names, newest first. */
     list: async (opts?: ListSandboxOptions): Promise<SandboxDetails[]> => {
       await this._ensureConnected();
+
       return this._adapter.listAllSandboxDetails(opts);
     },
 
     /** List sandbox records for a specific name, newest first. */
     listByName: async (name: string, opts?: ListSandboxOptions): Promise<SandboxDetails[]> => {
       await this._ensureConnected();
+
       return this._adapter.listSandboxDetails(name, opts);
     },
 
     /** Return details for a single sandbox record. Returns `null` if not found. */
     get: async (name: string, sandboxId: string): Promise<SandboxDetails | null> => {
       await this._ensureConnected();
+
       return this._adapter.getSandboxDetails(name, sandboxId);
     },
 
     /** Delete all ledger events for a sandbox. */
     delete: async (name: string, sandboxId: string): Promise<void> => {
       await this._ensureConnected();
+
       return this._adapter.deleteSandbox(name, sandboxId);
     },
   };
@@ -776,11 +817,13 @@ export class Sandbox {
     /** Return all environment records, newest first. */
     list: async (): Promise<EnvironmentRecord[]> => {
       await this._ensureConnected();
+
       return this._adapter.listEnvironments();
     },
     /** Remove the ledger record for a named environment. Does not delete the server-side snapshot. */
     delete: async (name: string): Promise<void> => {
       await this._ensureConnected();
+
       return this._adapter.deleteEnvironment(name);
     },
   };
@@ -791,6 +834,7 @@ export class Sandbox {
 
   async _envInfo(name: string): Promise<EnvironmentRecord | null> {
     await this._ensureConnected();
+
     return this._adapter.getEnvironment(name);
   }
 
@@ -807,8 +851,10 @@ export class Sandbox {
     await this._ensureConnected();
 
     const record = await this._adapter.getEnvironment(name);
+
     if (record) {
       const snap = await this._control.getSnapshot(record.snapshotId).catch(() => null);
+
       if (snap?.state === SnapshotState.Ready) {
         return this._createFromSnapshot(record.snapshotId, opts.resources, name, opts.shell, extra);
       }
@@ -816,14 +862,17 @@ export class Sandbox {
     }
 
     const snapshotId = await this._getOrBuildEnvironment(name, opts);
+
     return this._createFromSnapshot(snapshotId, opts.resources, name, opts.shell, extra);
   }
 
   _getOrBuildEnvironment(name: string, opts: EnvironmentOptions): Promise<string> {
     const inflight = this._envBuilds.get(name);
+
     if (inflight) return inflight;
     const build = this._buildEnvironment(name, opts).finally(() => this._envBuilds.delete(name));
     this._envBuilds.set(name, build);
+
     return build;
   }
 
@@ -837,6 +886,7 @@ export class Sandbox {
       name: buildName,
       shell: opts.shell,
     });
+
     try {
       await opts.setup(sb);
       await sb.checkpoint(`env:${name}`);
@@ -845,11 +895,13 @@ export class Sandbox {
     }
 
     const checkpoint = await this._adapter.lastCheckpoint(buildName, sb.sandboxId);
+
     if (!checkpoint)
       throw new SandboxClientError(`Environment build for '${name}' produced no checkpoint`, 500);
     const { snapshotId } = checkpoint.payload as { snapshotId: string };
 
     await this._adapter.saveEnvironment({ name, snapshotId, image, builtAt: Date.now() });
+
     return snapshotId;
   }
 
@@ -861,14 +913,17 @@ export class Sandbox {
     extra?: EnvironmentSandboxOptions,
   ): Promise<SandboxHandle> {
     await this._acquireSlot();
+
     try {
       const runId = crypto.randomUUID();
+
       const rawSb = await this._control.createSandbox({
         snapshotId,
         resourceLimits: resources,
         env: extra?.env,
         metadata: { runId },
       });
+
       const newId = rawSb.id;
       await this._waitForRunning(newId);
 
@@ -917,7 +972,9 @@ export class Sandbox {
           ),
         useServerProxy: this._useServerProxy,
       });
+
       extra?.hooks?.onSandboxCreated?.(newId, sessionName);
+
       return sb;
     } catch (err) {
       this._releaseSlot();
@@ -942,6 +999,7 @@ export class Sandbox {
     },
   ): Promise<SandboxHandle> {
     await this._acquireSlot();
+
     try {
       // Resolved once here, not left to the control-plane call, the ledger write, and
       // the child's own fork closure to each fall back independently — they'd otherwise
@@ -954,6 +1012,7 @@ export class Sandbox {
       // closure agree on one value, not two independently-defaulted ones.
       const finalResourceId = forkOpts?.resourceId ?? resourceId;
       const finalTeamId = forkOpts?.teamId ?? teamId;
+
       const rawSb = await this._control.createSandbox({
         snapshotId,
         resourceLimits: resources,
@@ -961,6 +1020,7 @@ export class Sandbox {
         networkPolicy: forkOpts?.networkPolicy,
         credentialProxy: forkOpts?.credentialProxy ? { enabled: true } : undefined,
       });
+
       const newId = rawSb.id;
       await this._waitForRunning(newId);
 
@@ -1023,18 +1083,23 @@ export class Sandbox {
     // Starts fast and backs off to 1s — most containers are Running well under
     // one fixed-interval tick, so a flat 1s poll was pure waste in the common case.
     let delay = 100;
+
     while (Date.now() < deadline) {
       const s = await this._control.getSandbox(sandboxId);
+
       if (s.status.state === SandboxState.Running) return;
+
       if (s.status.state === SandboxState.Failed || s.status.state === SandboxState.Terminated) {
         throw new SandboxClientError(
           `SandboxHandle ${sandboxId} entered state ${s.status.state}: ${s.status.message ?? ""}`,
           500,
         );
       }
+
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, 1_000);
     }
+
     throw new SandboxClientError(
       `SandboxHandle ${sandboxId} did not reach Running within ${timeoutMs}ms`,
       408,
@@ -1044,8 +1109,10 @@ export class Sandbox {
   private async _acquireSlot(): Promise<void> {
     if (!this._maxConcurrency || this._activeCount < this._maxConcurrency) {
       this._activeCount++;
+
       return;
     }
+
     await new Promise<void>((resolve) => this._waiters.push(resolve));
     this._activeCount++;
   }

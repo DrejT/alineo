@@ -33,14 +33,17 @@ describe("composeHooks", () => {
 
   it("isolates a throwing hook — siblings and the caller are unaffected", () => {
     const calls: string[] = [];
+
     const broken: SandboxHooks = {
       onExecComplete: () => {
         throw new Error("boom");
       },
     };
+
     const fine: SandboxHooks = { onExecComplete: () => calls.push("fine") };
 
     const errors: { hookIndex: number; method: string }[] = [];
+
     const hooks = composeHooks([broken, fine], {
       onHookError: (error, hookIndex, method) => {
         expect((error as Error).message).toBe("boom");

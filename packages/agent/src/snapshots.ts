@@ -58,15 +58,18 @@ export class AgentSnapshotStore {
 
   async get(specName: string, setupHash: string): Promise<AgentSnapshotRecord | null> {
     const data = await this._read();
+
     return data[this._key(specName, setupHash)] ?? null;
   }
 
   async save(record: AgentSnapshotRecord): Promise<void> {
     const data = await this._read();
+
     // Remove stale records for the same spec (different hash = old packages).
     for (const k of Object.keys(data)) {
       if (data[k].specName === record.specName) delete data[k];
     }
+
     data[this._key(record.specName, record.setupHash)] = record;
     await this._write(data);
   }
@@ -74,9 +77,11 @@ export class AgentSnapshotStore {
   /** Remove all snapshot records for the given spec name. */
   async delete(specName: string): Promise<void> {
     const data = await this._read();
+
     for (const k of Object.keys(data)) {
       if (data[k].specName === specName) delete data[k];
     }
+
     await this._write(data);
   }
 

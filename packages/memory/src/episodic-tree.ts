@@ -47,15 +47,18 @@ export async function episodicTree(
   const sessions = await withAncestors(adapter, resolved);
 
   const allDetails = await adapter.listAllSandboxDetails();
+
   const parentBySandboxId = new Map(
     allDetails.map((d) => [d.sandboxId, d.parentSandboxId] as const),
   );
 
   const branches = new Map<string, EpisodicBranch>();
+
   for (const session of sessions) {
     const entries = (await adapter.readAll(session.name, session.sandboxId)).sort(
       (a, b) => a.ts - b.ts,
     );
+
     branches.set(session.sandboxId, {
       sandboxId: session.sandboxId,
       name: session.name,
@@ -66,8 +69,10 @@ export async function episodicTree(
   }
 
   const roots: EpisodicBranch[] = [];
+
   for (const branch of branches.values()) {
     const parent = branch.parentSandboxId ? branches.get(branch.parentSandboxId) : undefined;
+
     if (parent) {
       parent.children.push(branch);
     } else {
@@ -82,10 +87,13 @@ export async function episodicTree(
   }
 
   const firstTs = (b: EpisodicBranch) => b.entries[0]?.ts ?? 0;
+
   const sortRecursively = (list: EpisodicBranch[]): void => {
     list.sort((a, b) => firstTs(a) - firstTs(b));
+
     for (const branch of list) sortRecursively(branch.children);
   };
+
   sortRecursively(roots);
 
   return roots;

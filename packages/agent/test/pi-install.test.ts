@@ -5,13 +5,16 @@ import type { AgentSpec } from "../src/schema";
 
 function fakeSandbox() {
   const commands: string[] = [];
+
   const sb = {
     exec: (cmd: string) => {
       commands.push(cmd);
+
       return Promise.resolve({ stdout: "", stderr: "", exitCode: 0 });
     },
     proxy: (_port: number) => Promise.resolve({ url: "http://fake-proxy", headers: {} }),
   } as unknown as SandboxHandle;
+
   return { sb, commands };
 }
 

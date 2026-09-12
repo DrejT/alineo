@@ -25,6 +25,7 @@ export interface SessionSnapshot {
 export async function getSessions(config?: AlineoConfig): Promise<SessionSnapshot> {
   const cfg = config ?? (await readConfig());
   const adapter = new SQLiteAdapter(cfg.adapterPath);
+
   const client = new Sandbox({
     baseUrl: cfg.serverUrl,
     apiKey: cfg.apiKey,
@@ -36,6 +37,7 @@ export async function getSessions(config?: AlineoConfig): Promise<SessionSnapsho
 
   const control = new ControlClient({ baseUrl: cfg.serverUrl, apiKey: cfg.apiKey });
   let liveIds: Set<string> | null = null;
+
   try {
     const raw = await control.listSandboxes({ state: SandboxState.Running });
     liveIds = new Set(raw.map((s) => s.id));
@@ -45,6 +47,7 @@ export async function getSessions(config?: AlineoConfig): Promise<SessionSnapsho
   }
 
   let tracked = ledgerRunning;
+
   if (liveIds) {
     const ids = liveIds;
     tracked = ledgerRunning.filter((s) => ids.has(s.sandboxId));
@@ -59,9 +62,13 @@ export async function getSessions(config?: AlineoConfig): Promise<SessionSnapsho
 export function formatAge(startedAt: number): string {
   const ms = Date.now() - startedAt;
   const mins = Math.floor(ms / 60_000);
+
   if (mins < 1) return "just now";
+
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
+
   if (hours < 24) return `${hours}h ago`;
+
   return `${Math.floor(hours / 24)}d ago`;
 }

@@ -1,7 +1,9 @@
 import { requireApiKey } from "./types";
 
 const BASE_URL = "https://integrate.api.nvidia.com/v1";
+
 const ENV_VAR = "NVIDIA_API_KEY";
+
 const DEFAULT_MODEL = "nvidia/nemotron-3-embed-1b";
 
 /**
@@ -46,12 +48,14 @@ export function createNvidiaEmbeddingProvider(
 ): NvidiaEmbeddingProvider {
   const model = opts.model ?? DEFAULT_MODEL;
   const defaultInputType = opts.inputType ?? "query";
+
   return {
     id: `nvidia:${model}`,
     async embed(texts: string[], callOpts?: { type?: "query" | "passage" }): Promise<number[][]> {
       if (texts.length === 0) return [];
       const inputType = callOpts?.type ?? defaultInputType;
       const apiKey = requireApiKey(ENV_VAR);
+
       const res = await fetch(`${BASE_URL}/embeddings`, {
         method: "POST",
         headers: {
@@ -60,12 +64,15 @@ export function createNvidiaEmbeddingProvider(
         },
         body: JSON.stringify({ input: texts, model, input_type: inputType }),
       });
+
       if (!res.ok) {
         throw new Error(
           `NVIDIA NIM embeddings request failed: ${res.status} ${await res.text().catch(() => "")}`,
         );
       }
+
       const body = (await res.json()) as { data: { embedding: number[]; index: number }[] };
+
       // NIM (like OpenAI) doesn't guarantee response order matches request order — sort by
       // the returned index rather than trusting array position.
       return body.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);

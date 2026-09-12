@@ -72,6 +72,7 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
       `corrupt ledger: aggregated row for ${row.name}/${row.sandbox_id} has no started_at`,
     );
   }
+
   return {
     name: row.name,
     sandboxId: row.sandbox_id,
@@ -91,15 +92,22 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
 
 function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): SandboxDetails[] {
   let result = details;
+
   if (opts?.before != null) {
     const before = opts.before;
     result = result.filter((d) => d.startedAt < before);
   }
+
   if (opts?.status != null) result = result.filter((d) => d.status === opts.status);
+
   if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
+
   if (opts?.resourceId != null) result = result.filter((d) => d.resourceId === opts.resourceId);
+
   if (opts?.teamId != null) result = result.filter((d) => d.teamId === opts.teamId);
+
   if (opts?.limit != null) result = result.slice(0, opts.limit);
+
   return result;
 }
 
@@ -130,6 +138,7 @@ export class SQLiteAdapter implements IStorageAdapter {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
+
     this.db = new Database(path, { create: true });
   }
 
@@ -170,6 +179,7 @@ export class SQLiteAdapter implements IStorageAdapter {
          ORDER BY ts ASC`,
       )
       .all(name, sandboxId);
+
     return rows.map(rowToEntry);
   }
 
@@ -183,16 +193,19 @@ export class SQLiteAdapter implements IStorageAdapter {
          LIMIT 1`,
       )
       .get(name, sandboxId);
+
     return row ? rowToEntry(row) : null;
   }
 
   async listSandboxDetails(name: string, opts?: ListSandboxOptions): Promise<SandboxDetails[]> {
     const rows = this.db.prepare<AggRow, [string]>(AGG_SQL("WHERE name = ?")).all(name);
+
     return applyOpts(rows.map(aggRowToDetails), opts);
   }
 
   async listAllSandboxDetails(opts?: ListSandboxOptions): Promise<SandboxDetails[]> {
     const rows = this.db.prepare<AggRow, []>(AGG_SQL("")).all();
+
     return applyOpts(rows.map(aggRowToDetails), opts);
   }
 
@@ -200,6 +213,7 @@ export class SQLiteAdapter implements IStorageAdapter {
     const row = this.db
       .prepare<AggRow, [string, string]>(AGG_SQL("WHERE name = ? AND sandbox_id = ?"))
       .get(name, sandboxId);
+
     return row ? aggRowToDetails(row) : null;
   }
 
@@ -220,11 +234,13 @@ export class SQLiteAdapter implements IStorageAdapter {
          ORDER BY ts ASC`,
       )
       .all(name, sandboxId);
+
     return rows.map((r) => {
       const p =
         r.payload !== null
           ? (JSON.parse(r.payload) as { snapshotId: string; name?: string })
           : { snapshotId: "" };
+
       return { snapshotId: p.snapshotId, tag: p.name, createdAt: r.ts };
     });
   }
@@ -235,6 +251,7 @@ export class SQLiteAdapter implements IStorageAdapter {
         "SELECT name, snapshot_id, image, built_at FROM alineo_environments WHERE name = ?",
       )
       .get(name);
+
     return row
       ? { name: row.name, snapshotId: row.snapshot_id, image: row.image, builtAt: row.built_at }
       : null;
@@ -259,6 +276,7 @@ export class SQLiteAdapter implements IStorageAdapter {
         "SELECT name, snapshot_id, image, built_at FROM alineo_environments ORDER BY built_at DESC",
       )
       .all();
+
     return rows.map((r) => ({
       name: r.name,
       snapshotId: r.snapshot_id,

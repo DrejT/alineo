@@ -23,6 +23,7 @@ export interface LastCheckpointRecord {
 }
 
 const DEFAULT_CHECKPOINT_KEY = "__alineo_memory_lastCheckpoint";
+
 const DEFAULT_SESSION_KEY = "__alineo_memory_lastSessionId";
 
 /**

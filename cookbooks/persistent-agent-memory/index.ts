@@ -49,8 +49,10 @@ function nvidiaEmbeddings(): EmbeddingProvider {
           input_type: opts?.type ?? "query",
         }),
       });
+
       if (!res.ok) throw new Error(`embeddings request failed: ${res.status} ${await res.text()}`);
       const body = (await res.json()) as { data: { embedding: number[]; index: number }[] };
+
       return body.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);
     },
   };
@@ -64,22 +66,28 @@ const memory = new Memory({
 });
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+
 const spec = await Bun.file("./agents/support-agent.json").json();
 
 // ── Session 1 — a customer's first conversation ────────────────────────────────
 section("Session 1 — first contact");
 
 let agent = await Alineo.load(spec, { adapter, memory });
+
 console.log(`sandbox: ${agent.sandboxId}  |  resourceRef: ${JSON.stringify(agent.resourceRef)}`);
 
 await agent.sandbox.exec("mkdir -p /workspace");
+
 await agent.memory!.workingMemory.set(agent.resourceRef, "plan", "pro");
+
 await agent.memory!.workingMemory.set(agent.resourceRef, "name", "Ada");
 
 // Tie the fact to the ledger entry the exec below actually produces — reading the real
 // index back afterward, not guessing one, so `verified` means what it claims to.
 await agent.sandbox.exec("echo 'customer reported a billing issue'").pipe(process.stdout);
+
 const entries = await adapter.readAll(agent.name, agent.sandboxId);
+
 await agent.memory!.remember(agent.resourceRef, {
   content: "customer reported a billing issue and was told a refund was in progress",
   sourceRef: { sandboxId: agent.sandboxId, entryIndex: entries.length - 1 },
@@ -96,21 +104,26 @@ for await (const chunk of textOnly(
 )) {
   process.stdout.write(chunk);
 }
+
 console.log("\n");
 
 await agent.close();
+
 console.log("(session 1 ended — sandbox closed, memory file remains)");
 
 // ── Session 2 — a new sandbox, days later, same customer ───────────────────────
 section("Session 2 — same customer, brand-new sandbox");
 
 agent = await Alineo.load(spec, { adapter, memory });
+
 console.log(`sandbox: ${agent.sandboxId}  (different from session 1's)`);
 
 // Nothing about this sandbox knows anything yet — everything below comes back purely because
 // `agent.resourceRef` (= this agent's spec `name`) is the same resource as session 1's.
 console.log("working memory:", await agent.memory!.workingMemory.list(agent.resourceRef));
+
 const recalled = await agent.memory!.recall(agent.resourceRef, "billing", { topK: 3 });
+
 for (const fact of recalled) {
   console.log(`- "${fact.content}" (verified: ${fact.verified})`);
 }
@@ -118,6 +131,7 @@ for (const fact of recalled) {
 const context = await buildContextSnippet(agent.memory!, agent.resourceRef, {
   query: "what does this customer need help with?",
 });
+
 console.log("\n--- context assembled for the prompt ---\n" + context + "\n");
 
 for await (const chunk of textOnly(
@@ -125,6 +139,7 @@ for await (const chunk of textOnly(
 )) {
   process.stdout.write(chunk);
 }
+
 console.log("\n");
 
 await agent.close();

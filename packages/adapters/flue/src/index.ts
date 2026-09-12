@@ -18,7 +18,9 @@ function rejectAfter(ms: number): Promise<never> {
 // Encode Uint8Array → base64 string without using Buffer (portable Web API).
 function uint8ToBase64(buf: Uint8Array): string {
   let binary = "";
+
   for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
+
   return btoa(binary);
 }
 
@@ -26,7 +28,9 @@ function uint8ToBase64(buf: Uint8Array): string {
 function base64ToUint8(b64: string): Uint8Array {
   const binary = atob(b64);
   const buf = new Uint8Array(binary.length);
+
   for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
+
   return buf;
 }
 
@@ -44,7 +48,9 @@ class AlineoSandboxApi implements SandboxApi {
     const run = Promise.resolve(
       this.sb.exec(command, { cwd: opts?.cwd, env: opts?.env, strict: false }),
     );
+
     if (opts?.timeoutMs == null) return run;
+
     return Promise.race([run, rejectAfter(Math.ceil(opts.timeoutMs))]);
   }
 
@@ -56,6 +62,7 @@ class AlineoSandboxApi implements SandboxApi {
     // sb.readFile() decodes bytes as UTF-8 which is lossy for binary files;
     // base64 round-trip via exec preserves arbitrary byte sequences.
     const { stdout } = await this.sb.exec(`base64 -w0 ${esc(path)}`);
+
     return base64ToUint8(stdout.trim());
   }
 
@@ -70,8 +77,10 @@ class AlineoSandboxApi implements SandboxApi {
   async writeFile(path: string, content: string | Uint8Array): Promise<void> {
     if (typeof content === "string") {
       await this.sb.writeFile(path, content);
+
       return;
     }
+
     const b64 = uint8ToBase64(content);
     await this.sb.exec(`echo '${b64}' | base64 -d > ${esc(path)}`);
   }
@@ -80,8 +89,10 @@ class AlineoSandboxApi implements SandboxApi {
     const { stdout, exitCode } = await this.sb.exec(`stat -c '%F|%s|%Y' ${esc(path)}`, {
       strict: false,
     });
+
     if (exitCode !== 0) throw new Error(`stat: cannot stat '${path}': No such file or directory`);
     const [typeStr, sizeStr, mtimeStr] = stdout.trim().split("|");
+
     return {
       isFile: typeStr === "regular file",
       isDirectory: typeStr === "directory",
@@ -96,6 +107,7 @@ class AlineoSandboxApi implements SandboxApi {
     // FileInfo has `path` (full path) but no `name` field; extract the final segment.
     const norm = path.endsWith("/") ? path.slice(0, -1) : path;
     const prefix = norm + "/";
+
     return entries
       .filter((e) => e.path.startsWith(prefix) && !e.path.slice(prefix.length).includes("/"))
       .map((e) => e.path.slice(prefix.length))
@@ -104,6 +116,7 @@ class AlineoSandboxApi implements SandboxApi {
 
   async exists(path: string): Promise<boolean> {
     const { exitCode } = await this.sb.exec(`test -e ${esc(path)}`, { strict: false });
+
     return exitCode === 0;
   }
 

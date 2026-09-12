@@ -53,6 +53,7 @@ export function otelHooks(tracer: Tracer, opts: OtelHooksOptions = {}): SandboxH
     onExecStart(sandboxId: string, seq: number, cmd: string) {
       if (!rootSpan || !rootCtx) return;
       const spanCtx = trace.setSpan(rootCtx, rootSpan);
+
       const span = tracer.startSpan(
         "sandbox.exec",
         {
@@ -64,12 +65,15 @@ export function otelHooks(tracer: Tracer, opts: OtelHooksOptions = {}): SandboxH
         },
         spanCtx,
       );
+
       execSpans.set(seq, span);
     },
 
     onExecComplete(_sandboxId: string, seq: number, result: ExecResult) {
       const span = execSpans.get(seq);
+
       if (!span) return;
+
       if (recordExitCode) span.setAttribute("process.exit_code", result.exitCode);
       span.setStatus({ code: result.exitCode === 0 ? StatusCode.OK : StatusCode.ERROR });
       span.end();
@@ -79,6 +83,7 @@ export function otelHooks(tracer: Tracer, opts: OtelHooksOptions = {}): SandboxH
     onCheckpoint(sandboxId: string, snapshotId: string, name?: string) {
       if (!rootSpan || !rootCtx) return;
       const spanCtx = trace.setSpan(rootCtx, rootSpan);
+
       const span = tracer.startSpan(
         "sandbox.checkpoint",
         {
@@ -90,6 +95,7 @@ export function otelHooks(tracer: Tracer, opts: OtelHooksOptions = {}): SandboxH
         },
         spanCtx,
       );
+
       span.setStatus({ code: StatusCode.OK });
       span.end();
     },

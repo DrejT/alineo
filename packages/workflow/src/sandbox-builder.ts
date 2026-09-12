@@ -62,42 +62,49 @@ export class SandboxBuilder {
   /** Queue a shell command. */
   exec(cmd: string, opts: ExecOptions = {}): this {
     this._ops.push({ kind: "exec", cmd, opts });
+
     return this;
   }
 
   /** Queue a code execution (Python/JS/TS via execd code interpreter). */
   execCode(code: string, opts: ExecCodeOptions = {}): this {
     this._ops.push({ kind: "execCode", code, opts });
+
     return this;
   }
 
   /** Queue a file write into the sandbox. */
   writeFile(path: string, content: string): this {
     this._ops.push({ kind: "writeFile", path, content });
+
     return this;
   }
 
   /** Queue a file read from the sandbox, stored in `vars[as]`. */
   readFile(path: string, as: string): this {
     this._ops.push({ kind: "readFile", path, as });
+
     return this;
   }
 
   /** Queue a file deletion inside the sandbox. */
   deleteFile(path: string): this {
     this._ops.push({ kind: "deleteFile", path });
+
     return this;
   }
 
   /** Queue a file move/rename inside the sandbox. */
   moveFile(from: string, to: string): this {
     this._ops.push({ kind: "moveFile", from, to });
+
     return this;
   }
 
   /** Queue a checkpoint (snapshot). */
   checkpoint(name?: string): this {
     this._ops.push({ kind: "checkpoint", name });
+
     return this;
   }
 
@@ -111,6 +118,7 @@ export class SandboxBuilder {
    */
   retry(maxAttempts: number, fn: (sb: SandboxBuilder) => void, opts: RetryOptions = {}): this {
     this._ops.push({ kind: "retry", maxAttempts, fn, opts });
+
     return this;
   }
 
@@ -136,6 +144,7 @@ export class SandboxBuilder {
     otherwise?: (sb: SandboxBuilder) => void,
   ): this {
     this._ops.push({ kind: "when", pred, then, else: otherwise });
+
     return this;
   }
 
@@ -153,6 +162,7 @@ export class SandboxBuilder {
     opts: ForEachOptions = {},
   ): this {
     this._ops.push({ kind: "forEach", items, fn, opts });
+
     return this;
   }
 }
@@ -186,11 +196,13 @@ export async function flushOps(
     switch (op.kind) {
       case "exec": {
         const handle = sandbox.exec(op.cmd, op.opts);
+
         if (ctx.sink) {
           for await (const chunk of handle.stdout()) {
             ctx.stdout += chunk;
             ctx.sink.write(chunk);
           }
+
           const result = await handle.result();
           ctx.exitCode = result.exitCode;
         } else {
@@ -198,16 +210,19 @@ export async function flushOps(
           ctx.stdout += result.stdout;
           ctx.exitCode = result.exitCode;
         }
+
         break;
       }
 
       case "execCode": {
         const handle = sandbox.execCode(op.code, op.opts);
+
         if (ctx.sink) {
           for await (const chunk of handle.stdout()) {
             ctx.stdout += chunk;
             ctx.sink.write(chunk);
           }
+
           const result = await handle.result();
           ctx.exitCode = result.exitCode;
         } else {
@@ -215,6 +230,7 @@ export async function flushOps(
           ctx.stdout += result.stdout;
           ctx.exitCode = result.exitCode;
         }
+
         break;
       }
 
@@ -246,11 +262,13 @@ export async function flushOps(
 
       case "when": {
         const branch = op.pred(ctx) ? op.then : op["else"];
+
         if (branch) {
           const inner = new SandboxBuilder();
           branch(inner);
           await flushOps(sandbox, inner._ops, ctx);
         }
+
         break;
       }
 
@@ -269,21 +287,25 @@ async function flushRetry(
   ctx: FlushContext,
 ): Promise<void> {
   let lastErr: unknown;
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) {
       const base = opts.delayMs ?? 1_000;
       const delay = opts.backoff === "exponential" ? base * 2 ** (attempt - 1) : base;
       await new Promise<void>((r) => setTimeout(r, delay));
     }
+
     try {
       const inner = new SandboxBuilder();
       fn(inner);
       await flushOps(sandbox, inner._ops, ctx);
+
       return;
     } catch (err) {
       lastErr = err;
     }
   }
+
   throw lastErr;
 }
 
@@ -295,6 +317,7 @@ async function flushForEach(
   ctx: FlushContext,
 ): Promise<void> {
   const concurrency = opts.concurrency ?? 1;
+
   if (concurrency <= 1) {
     // Sequential
     for (let i = 0; i < items.length; i++) {
@@ -305,6 +328,7 @@ async function flushForEach(
   } else {
     // Parallel with concurrency cap
     let idx = 0;
+
     async function worker(): Promise<void> {
       while (idx < items.length) {
         const i = idx++;
@@ -313,6 +337,7 @@ async function flushForEach(
         await flushOps(sandbox, inner._ops, { ...ctx });
       }
     }
+
     const workers = Array.from({ length: Math.min(concurrency, items.length) }, worker);
     await Promise.all(workers);
   }

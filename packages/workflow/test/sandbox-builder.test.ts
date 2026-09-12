@@ -10,6 +10,7 @@ function makeSandbox(execResults: Record<string, string> = {}) {
   return {
     exec: vi.fn().mockImplementation((cmd: string) => {
       const stdout = execResults[cmd] ?? `output of: ${cmd}`;
+
       return {
         [Symbol.asyncIterator]: async function* () {
           yield stdout;
@@ -190,9 +191,11 @@ describe("flushOps — retry primitive", () => {
 
   it("retries on failure and succeeds", async () => {
     let attempts = 0;
+
     const sandbox = {
       exec: vi.fn().mockImplementation(() => {
         attempts++;
+
         if (attempts < 3) {
           return {
             stdout: async function* () {},
@@ -206,6 +209,7 @@ describe("flushOps — retry primitive", () => {
             },
           };
         }
+
         return {
           stdout: async function* () {
             yield "success";

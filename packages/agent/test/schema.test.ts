@@ -26,6 +26,7 @@ describe("validateAgentSpec", () => {
       teamId: "acme",
       resourceId: "billing-resource",
     });
+
     expect(spec.title).toBe("Full Agent");
     expect(spec.packages).toEqual(["nodejs_22", "git", "ripgrep"]);
     expect(spec.registryDependencies).toEqual(["https://example.com/base.json"]);
@@ -190,6 +191,7 @@ describe("validateAgentSpec", () => {
         restrictToTools: ["read", "grep", "bash"],
       },
     });
+
     expect(spec.permissions).toMatchObject({
       default: "deny",
       disabledTools: ["powershell"],
@@ -220,6 +222,7 @@ describe("validateAgentSpec", () => {
       cli: "pi",
       someFutureField: "kept, not stripped",
     }) as AgentSpec & { someFutureField: string };
+
     expect(spec.someFutureField).toBe("kept, not stripped");
   });
 });

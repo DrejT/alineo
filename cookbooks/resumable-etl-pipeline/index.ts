@@ -39,7 +39,9 @@ const transformScript = [
 console.log("=== Original run ===\n");
 
 const sb = await client.sandbox(sandboxOpts);
+
 const sandboxId = sb.sandboxId;
+
 console.log(`SandboxHandle ID: ${sandboxId}`);
 
 try {

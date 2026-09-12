@@ -22,6 +22,7 @@ export async function launchTui(): Promise<void> {
       root.remove(current.box);
       current.dispose();
     }
+
     current = view;
     root.add(view.box);
   }
@@ -45,7 +46,9 @@ export async function launchTui(): Promise<void> {
         );
       },
     );
+
     mount(view);
+
     if (initialStatus) view.setStatus(initialStatus);
   }
 
@@ -64,11 +67,13 @@ export async function launchTui(): Promise<void> {
   async function openSession(session: SandboxDetails): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
+
     try {
       const agent = await Alineo.resume(session.sandboxId, {
         adapter,
         specPath: `${config.agentsDir}/${session.name}.json`,
       });
+
       mount(
         createChatView(renderer, agent, () => {
           showDashboard();
@@ -84,6 +89,7 @@ export async function launchTui(): Promise<void> {
   async function launchNewAgent(specPath: string): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
+
     try {
       // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
       const spec = (await Bun.file(specPath).json()) as Record<string, unknown>;

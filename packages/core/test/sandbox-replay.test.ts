@@ -76,10 +76,12 @@ describe("SandboxHandle replay mode", () => {
 
   it("plays back multiple cached execs in sequence", async () => {
     const adapter = makeAdapter();
+
     const replayCache = new Map<number, ExecResult>([
       [1, { stdout: "install done\n", stderr: "", exitCode: 0 }],
       [2, { stdout: "build done\n", stderr: "", exitCode: 0 }],
     ]);
+
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
     setExecClient(sb, makeExecClient());
 
@@ -92,6 +94,7 @@ describe("SandboxHandle replay mode", () => {
 
   it("executes normally after the replay cache is exhausted", async () => {
     const adapter = makeAdapter();
+
     const replayCache = new Map<number, ExecResult>([
       [1, { stdout: "cached\n", stderr: "", exitCode: 0 }],
     ]);
@@ -100,6 +103,7 @@ describe("SandboxHandle replay mode", () => {
       { type: SSEEventType.Stdout, text: "live output\n", timestamp: 0 },
       { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
     ];
+
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
@@ -115,10 +119,12 @@ describe("SandboxHandle replay mode", () => {
 
   it("seq counter increments across cached and live execs", async () => {
     const adapter = makeAdapter();
+
     const replayCache = new Map<number, ExecResult>([
       [1, { stdout: "a\n", stderr: "", exitCode: 0 }],
       [2, { stdout: "b\n", stderr: "", exitCode: 0 }],
     ]);
+
     const execClient = makeExecClient([
       { type: SSEEventType.Stdout, text: "c\n", timestamp: 0 },
       { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
@@ -142,10 +148,12 @@ describe("SandboxHandle replay mode", () => {
 describe("SandboxHandle live mode", () => {
   it("logs exec_start and exec_complete to adapter", async () => {
     const adapter = makeAdapter();
+
     const liveEvents: SSEEvent[] = [
       { type: SSEEventType.Stdout, text: "hi\n", timestamp: 0 },
       { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
     ];
+
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
@@ -161,9 +169,11 @@ describe("SandboxHandle live mode", () => {
 
   it("ledger entries use sandboxId, not runId", async () => {
     const adapter = makeAdapter();
+
     const liveEvents: SSEEvent[] = [
       { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
     ];
+
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("session-abc", "test", makeDeps(adapter));
@@ -179,9 +189,11 @@ describe("SandboxHandle live mode", () => {
 
   it("calls CommandError on non-zero exit with strict:true (default)", async () => {
     const adapter = makeAdapter();
+
     const liveEvents: SSEEvent[] = [
       { type: SSEEventType.Error, error: { message: "exit", evalue: "1" }, timestamp: 0 },
     ];
+
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
@@ -192,9 +204,11 @@ describe("SandboxHandle live mode", () => {
 
   it("does not throw on non-zero exit with strict:false", async () => {
     const adapter = makeAdapter();
+
     const liveEvents: SSEEvent[] = [
       { type: SSEEventType.Error, error: { message: "exit", evalue: "1" }, timestamp: 0 },
     ];
+
     const execClient = makeExecClient(liveEvents);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));

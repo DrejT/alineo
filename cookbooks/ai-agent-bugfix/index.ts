@@ -11,8 +11,10 @@ import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+
 // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const spec = await Bun.file("./agents/bugfix-agent.json").json();
+
 const agent = await Alineo.load(spec, { adapter });
 
 console.log(`SandboxHandle: ${agent.sandboxId}\n`);
@@ -41,12 +43,14 @@ try {
   await agent.sandbox.exec("cd /workspace && pip install --quiet --break-system-packages pytest");
 
   console.log("=== Before: failing test ===\n");
+
   for await (const chunk of textOnly(agent.bash("cd /workspace && pytest -q || true"))) {
     process.stdout.write(chunk);
   }
 
   // ── 2. Ask the agent to find and fix the bug ────────────────────────────────
   console.log("\n=== Alineo fixing the bug ===\n");
+
   for await (const chunk of textOnly(
     agent.prompt(
       "There's a failing test in /workspace. Run pytest to see the failure, find the bug in " +
@@ -58,9 +62,11 @@ try {
 
   // ── 3. Verify independently ──────────────────────────────────────────────────
   console.log("\n\n=== After: verifying independently ===\n");
+
   const { stdout, exitCode } = await agent.sandbox.exec("cd /workspace && pytest -q", {
     strict: false,
   });
+
   console.log(stdout.trim());
   console.log(exitCode === 0 ? "\nAgent fixed the bug." : "\nStill failing.");
 } finally {

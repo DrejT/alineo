@@ -16,13 +16,16 @@ function profileValidator(): SchemaValidator<Profile> {
   return {
     parse(data) {
       const obj = data as Record<string, unknown>;
+
       if (obj.name !== undefined && typeof obj.name !== "string") {
         throw new Error("name must be a string");
       }
+
       if (obj.age !== undefined && typeof obj.age !== "number") {
         throw new Error("age must be a number");
       }
-      return obj as Profile;
+
+      return obj;
     },
   };
 }
@@ -35,6 +38,7 @@ describe("SchemaWorkingMemory", () => {
       new InMemoryWorkingMemoryProvider(),
       profileValidator(),
     );
+
     expect(await profile.get(ref)).toEqual({});
   });
 
@@ -55,6 +59,7 @@ describe("SchemaWorkingMemory", () => {
       new InMemoryWorkingMemoryProvider(),
       profileValidator(),
     );
+
     await profile.update(ref, { name: "Ada" });
 
     await profile.update(ref, { preferredLanguage: "TypeScript" });
@@ -67,9 +72,10 @@ describe("SchemaWorkingMemory", () => {
       new InMemoryWorkingMemoryProvider(),
       profileValidator(),
     );
+
     await profile.update(ref, { name: "Ada" });
 
-    await expect(profile.update(ref, { age: "not a number" as unknown as number })).rejects.toThrow(
+    await expect(profile.update(ref, { age: "not a number" as unknown })).rejects.toThrow(
       "age must be a number",
     );
     expect(await profile.get(ref)).toEqual({ name: "Ada" });
@@ -80,6 +86,7 @@ describe("SchemaWorkingMemory", () => {
       new InMemoryWorkingMemoryProvider(),
       profileValidator(),
     );
+
     await profile.update({ resourceId: "user-1" }, { name: "Ada" });
     await profile.update({ resourceId: "user-2" }, { name: "Grace" });
 
@@ -92,6 +99,7 @@ describe("SchemaWorkingMemory", () => {
       new InMemoryWorkingMemoryProvider(),
       profileValidator(),
     );
+
     await profile.update(ref, { name: "Ada" });
 
     await profile.clear(ref);

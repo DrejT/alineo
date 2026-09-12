@@ -10,6 +10,7 @@ export async function list(): Promise<void> {
 
   if (!existsSync(dir)) {
     console.log(`No agents dir found at '${dir}'. Run 'alineo add <url>' to add an agent spec.`);
+
     return;
   }
 
@@ -17,6 +18,7 @@ export async function list(): Promise<void> {
 
   if (files.length === 0) {
     console.log("No agent specs found. Run 'alineo add <url>' to add one.");
+
     return;
   }
 

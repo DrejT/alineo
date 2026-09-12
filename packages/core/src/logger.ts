@@ -19,6 +19,7 @@ export class ConsoleLogger implements ILogger {
   private log(level: LogLevel, prefix: string, msg: string, meta?: Record<string, unknown>): void {
     if (level < this.minLevel) return;
     const out = meta ? `${prefix} ${msg} ${JSON.stringify(meta)}` : `${prefix} ${msg}`;
+
     if (level >= LogLevel.Error) console.error(out);
     else console.log(out);
   }

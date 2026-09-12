@@ -153,9 +153,11 @@ async function ensureAlineoReady(pi: ExtensionAPI, ctx: ExtensionContext): Promi
   bootstrapped = true;
 
   const check = await execOk(pi, "alineo", ["--version"]);
+
   if (check?.code !== 0) {
     ctx.ui.notify("Installing alineo...", "info");
     const install = await execOk(pi, "npm", ["install", "-g", "alineo-cli"]);
+
     if (install?.code !== 0) {
       ctx.ui.notify(
         `Failed to install alineo: ${install?.stderr ?? "npm not available"}. ` +
@@ -163,11 +165,13 @@ async function ensureAlineoReady(pi: ExtensionAPI, ctx: ExtensionContext): Promi
         "error",
       );
       bootstrapped = false;
+
       return;
     }
   }
 
   const init = await execOk(pi, "alineo", ["init"]);
+
   if (init?.code !== 0) {
     ctx.ui.notify(
       `"alineo init" failed: ${init?.stderr ?? "unknown error"}. ` +

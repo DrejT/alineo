@@ -32,12 +32,16 @@ class HarnessImpl implements Harness {
 
   section(name: string, text: string): this {
     let fragments = this.sections.get(name);
+
     if (!fragments) {
       fragments = [];
       this.sections.set(name, fragments);
+
       if (!BUILTIN_SECTION_ORDER.includes(name)) this.customOrder.push(name);
     }
+
     fragments.push(text);
+
     return this;
   }
 
@@ -95,11 +99,14 @@ class HarnessImpl implements Harness {
     // String#split with a capturing regex interleaves the captures into the result, so
     // splitting on the header pattern (global) yields [preamble, name, body, name, body, ...].
     const parts = content.split(new RegExp(SECTION_HEADER.source, "gm"));
+
     for (let i = 1; i < parts.length; i += 2) {
       const name = parts[i].trim();
       const body = (parts[i + 1] ?? "").trim();
+
       if (body) this.section(name, body);
     }
+
     return this;
   }
 }

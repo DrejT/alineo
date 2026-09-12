@@ -4,6 +4,7 @@ import type { CacheEntry, ModelProvider, ProviderModel } from "./types";
 import { CACHE_TTL_MS, fetchProviderModels, requireApiKey } from "./types";
 
 const MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/openai/models";
+
 const ENV_VAR = "GEMINI_API_KEY";
 
 let cache: CacheEntry<ProviderModel[]> | null = null;
@@ -24,12 +25,14 @@ export const googleProvider: ModelProvider = {
   languageModel(modelId: string): LanguageModel {
     const apiKey = requireApiKey(ENV_VAR);
     const google = createGoogleGenerativeAI({ apiKey });
+
     return google(modelId);
   },
   async listModels(): Promise<ProviderModel[]> {
     if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.value;
     const models = await fetchProviderModels("Gemini", MODELS_URL, process.env[ENV_VAR]);
     cache = { at: Date.now(), value: models };
+
     return models;
   },
 };

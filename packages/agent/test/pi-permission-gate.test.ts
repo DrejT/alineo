@@ -7,7 +7,9 @@ import { join } from "node:path";
 // /etc/alineo-pi.json). Point it at a temp file we rewrite per-case, then import the
 // extension once — loadPolicy() re-reads the file on every gate(pi) call.
 const dir = mkdtempSync(join(tmpdir(), "alineo-gate-"));
+
 const configPath = join(dir, "alineo-pi.json");
+
 process.env.ALINEO_PI_CONFIG = configPath;
 
 type GateResult = { block: true; reason: string } | undefined;
@@ -20,6 +22,7 @@ beforeAll(async () => {
   const mod = (await import(modPath)) as { default: (pi: unknown) => void };
   gate = mod.default;
 });
+
 afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
@@ -29,6 +32,7 @@ function setPolicy(permissions: unknown) {
 }
 
 type Fn = (...a: unknown[]) => unknown;
+
 type ToolCallFn = (
   event: { toolName: string; input: unknown },
   ctx: unknown,
@@ -36,6 +40,7 @@ type ToolCallFn = (
 
 function makePi(activeTools = ["read", "write", "edit", "bash", "grep", "find", "ls"]) {
   const handlers: Record<string, Fn[]> = {};
+
   const pi = {
     handlers,
     active: [...activeTools] as string[],
@@ -49,6 +54,7 @@ function makePi(activeTools = ["read", "write", "edit", "bash", "grep", "find", 
       pi.active = tools;
     },
   };
+
   return pi;
 }
 
@@ -60,24 +66,29 @@ async function call(
   select?: (title: string) => unknown,
 ): Promise<{ result: GateResult; selectCalls: string[] }> {
   const selectCalls: string[] = [];
+
   const ctx = {
     hasUI: true,
     ui: {
       // eslint-disable-next-line typescript/require-await
       select: async (title: string) => {
         selectCalls.push(title);
+
         return select ? select(title) : undefined;
       },
     },
   };
+
   const handler = pi.handlers.tool_call[0] as ToolCallFn;
   const result = await handler({ toolName, input }, ctx);
+
   return { result, selectCalls };
 }
 
 /** Fire the lifecycle hooks the gate registers to apply the toolset (it can't at load time). */
 function boot(pi: ReturnType<typeof makePi>) {
   for (const fn of pi.handlers.session_start ?? []) fn();
+
   for (const fn of pi.handlers.before_agent_start ?? []) fn();
 }
 
@@ -114,6 +125,7 @@ describe("pi-permission-gate — toolset", () => {
     boot(pi);
     expect(pi.active).toEqual(["read"]);
     pi.active = ["read", "write", "bash"]; // Pi re-registers tools mid-session
+
     for (const fn of pi.handlers.before_agent_start ?? []) fn();
     expect(pi.active).toEqual(["read"]); // re-filtered
   });
@@ -149,9 +161,11 @@ describe("pi-permission-gate — decisions", () => {
     setPolicy({ default: "ask", rules: [{ tool: "bash", action: "classify" }] });
     const pi = makePi();
     gate(pi);
+
     const { result, selectCalls } = await call(pi, "bash", { command: "npm install" }, () =>
       JSON.stringify({ verdict: "reject", feedback: "no" }),
     );
+
     expect(result?.block).toBe(true);
     expect(result?.reason).toContain("no");
     expect(selectCalls[0]).toStartWith("ALINEO_PERM ");
@@ -161,9 +175,11 @@ describe("pi-permission-gate — decisions", () => {
     setPolicy({ default: "ask", rules: [] });
     const pi = makePi();
     gate(pi);
+
     const ok = await call(pi, "write", { path: "/a" }, () =>
       JSON.stringify({ verdict: "allow", scope: "once" }),
     );
+
     expect(ok.result).toBeUndefined();
     const no = await call(pi, "write", { path: "/b" }, () => JSON.stringify({ verdict: "reject" }));
     expect(no.result).toMatchObject({ block: true });
@@ -173,9 +189,11 @@ describe("pi-permission-gate — decisions", () => {
     setPolicy({ default: "ask", rules: [] });
     const pi = makePi();
     gate(pi);
+
     const first = await call(pi, "bash", { command: "make" }, () =>
       JSON.stringify({ verdict: "allow", scope: "always" }),
     );
+
     expect(first.result).toBeUndefined();
     const second = await call(pi, "bash", { command: "make" });
     expect(second.result).toBeUndefined();

@@ -40,6 +40,7 @@ const sb = await client.sandbox({
 });
 
 let forkA: Awaited<ReturnType<typeof sb.fork>> | undefined;
+
 let forkB: Awaited<ReturnType<typeof sb.fork>> | undefined;
 
 try {
@@ -53,9 +54,12 @@ try {
   // succeeded server-side. allSettled lets us capture whichever handle(s) actually came back
   // (so `finally` below closes them, not orphans them) before surfacing the failure.
   const forkResults = await Promise.allSettled([sb.fork("track-a"), sb.fork("track-b")]);
+
   if (forkResults[0].status === "fulfilled") forkA = forkResults[0].value;
+
   if (forkResults[1].status === "fulfilled") forkB = forkResults[1].value;
   const forkFailures = forkResults.filter((r) => r.status === "rejected");
+
   if (forkFailures.length > 0) {
     throw new Error(
       `${forkFailures.length}/2 fork() calls failed: ` +
@@ -64,10 +68,12 @@ try {
           .join("; "),
     );
   }
+
   // No failures above means both fork() calls fulfilled, so both handles were assigned.
   if (!forkA || !forkB) {
     throw new Error("internal error: fork() succeeded but a handle is missing");
   }
+
   const a = forkA;
   const b = forkB;
 
@@ -91,6 +97,7 @@ try {
 
   const checkpoints = await sb.listCheckpoints();
   console.log(`\nCheckpoints on original sandbox: ${checkpoints.length}`);
+
   for (const cp of checkpoints) {
     console.log(`  ${cp.tag} → ${cp.snapshotId}`);
   }

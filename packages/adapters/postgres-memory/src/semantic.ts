@@ -125,13 +125,16 @@ export class PostgresSemanticMemoryProvider
           throw err;
         },
       );
+
     return this.ensureVecTablePromise;
   }
 
   async remember(ref: ResourceRef, fact: MemoryFact): Promise<void> {
     const [vector] = await this.embeddings.embed([fact.content], { type: "passage" });
+
     if (!vector) return;
     const usePgvector = await this.conn.ensurePgvectorExtension();
+
     if (usePgvector) await this.ensureVecTable(vector.length);
 
     const id = crypto.randomUUID();
@@ -154,6 +157,7 @@ export class PostgresSemanticMemoryProvider
           ${Date.now()}
         )
       `;
+
       if (usePgvector && this.hasVectorIndex) {
         await tx`
           INSERT INTO alineo_semantic_vec (id, scope, team_id, embedding)
@@ -169,21 +173,25 @@ export class PostgresSemanticMemoryProvider
    *  `IBulkSemanticMemoryProvider`. */
   async rememberMany(ref: ResourceRef, facts: MemoryFact[]): Promise<void> {
     if (facts.length === 0) return;
+
     const vectors = await this.embeddings.embed(
       facts.map((f) => f.content),
       { type: "passage" },
     );
 
     const usePgvector = await this.conn.ensurePgvectorExtension();
+
     if (usePgvector) {
       const firstVector = vectors.find((v): v is number[] => v != null);
+
       if (firstVector) await this.ensureVecTable(firstVector.length);
     }
 
     await this.conn.withTeamContext(ref, async (tx) => {
       for (let i = 0; i < facts.length; i++) {
         const vector = vectors[i];
-        const fact = facts[i]!;
+        const fact = facts[i];
+
         if (!vector) continue;
         const id = crypto.randomUUID();
         await tx`
@@ -200,6 +208,7 @@ export class PostgresSemanticMemoryProvider
             ${Date.now()}
           )
         `;
+
         if (usePgvector && this.hasVectorIndex) {
           await tx`
             INSERT INTO alineo_semantic_vec (id, scope, team_id, embedding)
@@ -217,6 +226,7 @@ export class PostgresSemanticMemoryProvider
   ): Promise<MemoryFact[]> {
     const topK = opts.topK ?? 5;
     const [queryVector] = await this.embeddings.embed([query], { type: "query" });
+
     if (!queryVector) return [];
 
     if (this.hasVectorIndex) {
@@ -231,6 +241,7 @@ export class PostgresSemanticMemoryProvider
           LIMIT ${topK}
         `,
       );
+
       return rows.map((row) => factFromRow(toSharedRow(row)));
     }
 
@@ -240,7 +251,9 @@ export class PostgresSemanticMemoryProvider
       ref,
       (tx) => tx<Row[]>`SELECT * FROM alineo_semantic_memory WHERE scope = ${scopeKey(ref)}`,
     );
+
     if (rows.length === 0) return [];
+
     return rows
       .map((row) => ({ row, score: cosineSimilarity(queryVector, row.vector) }))
       .sort((a, b) => b.score - a.score)
@@ -253,17 +266,20 @@ export class PostgresSemanticMemoryProvider
       ref,
       (tx) => tx<Row[]>`SELECT * FROM alineo_semantic_memory WHERE scope = ${scopeKey(ref)}`,
     );
+
     return rows.map((row) => factFromRow(toSharedRow(row)));
   }
 
   async forget(ref: ResourceRef, ids: string[]): Promise<number> {
     if (ids.length === 0) return 0;
+
     const result = await this.conn.withTeamContext(
       ref,
       (tx) => tx`
         DELETE FROM alineo_semantic_memory WHERE scope = ${scopeKey(ref)} AND id IN ${tx(ids)}
       `,
     );
+
     return result.count;
   }
 

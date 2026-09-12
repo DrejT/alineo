@@ -31,6 +31,7 @@ describe("createMemoryLifecycleHooks", () => {
     const stored = (await memory.workingMemory.get(ref, "__alineo_memory_lastCheckpoint")) as
       | { sandboxId: string; snapshotId: string; name?: string; at: number }
       | undefined;
+
     expect(stored?.sandboxId).toBe("sb-1");
     expect(stored?.snapshotId).toBe("snap-1");
     expect(stored?.name).toBe("my-tag");

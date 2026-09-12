@@ -9,12 +9,14 @@ import { SSEEventType } from "../src/types.ts";
  */
 function sseResponse(events: object[], cancel: () => void) {
   const encoder = new TextEncoder();
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       for (const ev of events) controller.enqueue(encoder.encode(`${JSON.stringify(ev)}\n\n`));
     },
     cancel,
   });
+
   return { ok: true, status: 200, body: stream, text: async () => "" };
 }
 
@@ -25,13 +27,16 @@ describe("ExecClient exec streams", () => {
 
   it("executeCommand() resolves on the terminal event without cancelling the stream", async () => {
     const cancel = vi.fn();
+
     const fetchMock = vi
       .fn()
       .mockResolvedValue(sseResponse([{ type: SSEEventType.ExecutionComplete }], cancel));
+
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new ExecClient({ baseUrl: "http://localhost:44772", accessToken: "" });
     const events = [];
+
     for await (const ev of client.executeCommand({ command: "true" })) events.push(ev);
 
     expect(events).toEqual([{ type: SSEEventType.ExecutionComplete }]);
@@ -42,15 +47,19 @@ describe("ExecClient exec streams", () => {
 
   it("disposeConnections() force-cancels a stream left dangling by the terminal-event early return", async () => {
     const cancel = vi.fn();
+
     const fetchMock = vi
       .fn()
       .mockResolvedValue(sseResponse([{ type: SSEEventType.ExecutionComplete }], cancel));
+
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new ExecClient({ baseUrl: "http://localhost:44772", accessToken: "" });
+
     for await (const _ev of client.executeCommand({ command: "true" })) {
       // drain
     }
+
     expect(cancel).not.toHaveBeenCalled();
 
     client.disposeConnections();
@@ -61,6 +70,7 @@ describe("ExecClient exec streams", () => {
   it("disposeConnections() is a no-op for a stream that already reached natural EOF", async () => {
     const cancel = vi.fn();
     const encoder = new TextEncoder();
+
     // watchMetrics() passes no isTerminal predicate, so parseSSE only stops via `done` —
     // simulate the server actually closing the connection this time.
     const stream = new ReadableStream<Uint8Array>({
@@ -70,13 +80,16 @@ describe("ExecClient exec streams", () => {
       },
       cancel,
     });
+
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, status: 200, body: stream, text: async () => "" });
+
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new ExecClient({ baseUrl: "http://localhost:44772", accessToken: "" });
     const events = [];
+
     for await (const ev of client.watchMetrics()) events.push(ev);
     expect(events).toEqual([{ type: SSEEventType.Status }]);
 

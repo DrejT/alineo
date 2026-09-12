@@ -135,6 +135,7 @@ export class VaultClient {
   ): Promise<T> {
     const ep = await this.control.getEndpoint(sandboxId, VaultClient.PORT, useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
+
     const res = await fetch(`${baseUrl}/credential-vault`, {
       method,
       headers: {
@@ -143,11 +144,14 @@ export class VaultClient {
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new VaultClientError(text || "Credential Vault API error", res.status);
     }
+
     if (res.status === 204) return undefined as T;
+
     return res.json() as Promise<T>;
   }
 
@@ -191,8 +195,10 @@ export class VaultClient {
     useServerProxy?: boolean,
   ): Promise<VaultState> {
     const delaysMs = [0, 300, 600, 1200, 2400];
+
     for (let attempt = 0; attempt < delaysMs.length; attempt++) {
       if (delaysMs[attempt] > 0) await new Promise((r) => setTimeout(r, delaysMs[attempt]));
+
       try {
         return await this.create(
           sandboxId,
@@ -203,15 +209,19 @@ export class VaultClient {
         const retryable =
           err instanceof VaultClientError &&
           (err.status === 500 || err.status === 502 || err.status === 412);
+
         const isLastAttempt = attempt === delaysMs.length - 1;
+
         if (!retryable || isLastAttempt) {
           if (!(err instanceof VaultClientError) || err.status !== 409) throw err;
           break; // 409: vault already exists — fall through to the patch path below.
         }
       }
     }
+
     const state = await this.get(sandboxId, useServerProxy);
     const exists = state.credentials.some((c) => c.name === credential.name);
+
     return this.patch(
       sandboxId,
       exists

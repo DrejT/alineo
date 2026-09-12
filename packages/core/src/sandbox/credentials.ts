@@ -5,6 +5,7 @@ import type { SandboxInternal } from "./internal";
 
 function requireBroker(sb: SandboxInternal) {
   const broker = sb.deps.credentialBroker;
+
   if (!broker) {
     throw new SandboxError(
       "No CredentialBroker configured — pass credentialProxy: true to client.sandbox() " +
@@ -12,6 +13,7 @@ function requireBroker(sb: SandboxInternal) {
       sb.sandboxId,
     );
   }
+
   return broker;
 }
 
@@ -53,6 +55,7 @@ export async function patch(
 ): Promise<void> {
   const broker = requireBroker(sb);
   await broker.patch(sb.sandboxId, name, { value: changes.value, binding: changes.binding });
+
   if (changes.binding) {
     await sb.emit(LedgerEvent.CredentialBound, -1, {
       name,
@@ -75,5 +78,6 @@ export async function listBindings(
   sb: SandboxInternal,
 ): Promise<Array<{ name: string; binding: CredentialBinding }>> {
   const broker = requireBroker(sb);
+
   return broker.listBindings(sb.sandboxId);
 }

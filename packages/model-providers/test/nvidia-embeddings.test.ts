@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import type * as NvidiaEmbeddingsModule from "../src/nvidia-embeddings";
 
 let originalFetch: typeof fetch;
+
 let originalKey: string | undefined;
 
 beforeEach(() => {
@@ -11,6 +12,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+
   if (originalKey === undefined) delete process.env.NVIDIA_API_KEY;
   else process.env.NVIDIA_API_KEY = originalKey;
   mock.restore();
@@ -39,6 +41,7 @@ describe("createNvidiaEmbeddingProvider", () => {
     const fetchSpy = mock(() => {
       throw new Error("should not be called");
     });
+
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     const { createNvidiaEmbeddingProvider } = await freshModule();
 
@@ -78,6 +81,7 @@ describe("createNvidiaEmbeddingProvider", () => {
         model: string;
         input_type: string;
       };
+
       return Promise.resolve(
         new Response(
           JSON.stringify({
@@ -115,6 +119,7 @@ describe("createNvidiaEmbeddingProvider", () => {
       capturedInputTypes.push(
         (JSON.parse(init.body as string) as { input_type: string }).input_type,
       );
+
       return Promise.resolve(
         new Response(JSON.stringify({ data: [{ index: 0, embedding: [1, 0] }] }), {
           status: 200,

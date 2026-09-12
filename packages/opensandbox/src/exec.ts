@@ -42,14 +42,18 @@ async function* parseSSE(
   try {
     while (true) {
       const { done, value } = await reader.read();
+
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       const blocks = buffer.split("\n\n");
       buffer = blocks.pop() ?? "";
+
       for (const block of blocks) {
         const trimmed = block.trim();
+
         if (!trimmed) continue;
         let event: SSEEvent | undefined;
+
         if (trimmed.startsWith("{")) {
           // execd sends raw JSON lines, not data:-prefixed SSE
           try {
@@ -60,10 +64,12 @@ async function* parseSSE(
         } else {
           let type: string | undefined;
           let data: string | undefined;
+
           for (const line of block.split("\n")) {
             if (line.startsWith("event:")) type = line.slice(6).trim();
             else if (line.startsWith("data:")) data = line.slice(5).trim();
           }
+
           if (data !== undefined) {
             event = {
               type: (type ?? SSEEventType.Message) as SSEEventType,
@@ -71,8 +77,10 @@ async function* parseSSE(
             };
           }
         }
+
         if (!event) continue;
         yield event;
+
         if (isTerminal?.(event)) {
           // Deliberately don't reader.cancel() here — that aborts the connection
           // immediately, and some server-side proxies (e.g. OpenSandbox's Python
@@ -88,6 +96,7 @@ async function* parseSSE(
           // the underlying connection shut once nobody cares if the proxy's relay
           // of execd's still-open response errors out.
           terminatedEarly = true;
+
           return;
         }
       }
@@ -149,11 +158,14 @@ export class ExecClient {
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: this.signal,
     });
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(text || `execd error ${res.status}`);
     }
+
     if (res.status === 204) return undefined as T;
+
     return res.json() as Promise<T>;
   }
 
@@ -172,10 +184,12 @@ export class ExecClient {
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: this.signal,
     });
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(text || `execd error ${res.status}`);
     }
+
     if (!res.body) return;
     yield* parseSSE(res.body, this.pendingReaders, isTerminal);
   }
@@ -186,11 +200,13 @@ export class ExecClient {
 
   listContexts(language?: string): Promise<CodeContext[]> {
     const qs = language ? `?language=${encodeURIComponent(language)}` : "";
+
     return this.request("GET", `/code/contexts${qs}`);
   }
 
   clearContexts(language?: string): Promise<void> {
     const qs = language ? `?language=${encodeURIComponent(language)}` : "";
+
     return this.request("DELETE", `/code/contexts${qs}`);
   }
 
@@ -231,8 +247,11 @@ export class ExecClient {
       "GET",
       `/files/info?path=${encodeURIComponent(path)}`,
     );
+
     const entry = map[path];
+
     if (!entry) throw new Error(`getFileInfo: no entry for path ${path}`);
+
     return entry;
   }
 
@@ -251,12 +270,15 @@ export class ExecClient {
   async searchFiles(pattern: string, path: string = "/"): Promise<string[]> {
     const params = new URLSearchParams({ path, pattern });
     const entries = await this.request<FileInfo[]>("GET", `/files/search?${params}`);
+
     return entries.map((e) => e.path);
   }
 
   replaceInFiles(replacements: FileReplacement[]): Promise<void> {
     const body: Record<string, { old: string; new: string }> = {};
+
     for (const r of replacements) body[r.path] = { old: r.old, new: r.new };
+
     return this.request("POST", "/files/replace", body);
   }
 
@@ -271,12 +293,14 @@ export class ExecClient {
       "file",
       new File([content], path.split("/").pop() ?? "file", { type: "application/octet-stream" }),
     );
+
     const res = await fetch(`${this.baseUrl}/files/upload`, {
       method: "POST",
       headers: this.authHeader,
       body: formData,
       signal: this.signal,
     });
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(text || `execd error ${res.status}`);
@@ -288,14 +312,19 @@ export class ExecClient {
       headers: this.authHeader,
       signal: this.signal,
     });
+
     if (!res.ok) throw new Error(`execd error ${res.status}`);
+
     if (!res.body) throw new Error("empty response body");
+
     return res.body;
   }
 
   listDirectory(path: string, depth?: number): Promise<FileInfo[]> {
     const params = new URLSearchParams({ path });
+
     if (depth !== undefined) params.set("depth", String(depth));
+
     return this.request("GET", `/directories/list?${params}`);
   }
 

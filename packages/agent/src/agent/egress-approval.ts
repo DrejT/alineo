@@ -91,10 +91,12 @@ export class EgressApprovalGate {
   constructor(opts: EgressApprovalGateOptions) {
     this.handler = opts.handler;
     this.webhookHost = opts.webhookHost ?? process.env.ALINEO_EGRESS_APPROVAL_HOST ?? "172.17.0.1";
+
     for (const held of opts.heldCredentials) {
       const host = normalizeHost(held.binding.host);
       this.held.add(host);
       const list = this.byHost.get(host);
+
       if (list) list.push(held);
       else this.byHost.set(host, [held]);
     }
@@ -107,32 +109,40 @@ export class EgressApprovalGate {
 
   private sb(): SandboxHandle {
     if (!this.sandbox) throw new Error("EgressApprovalGate.bind() has not been called");
+
     return this.sandbox;
   }
 
   /** Start the listener. Idempotent. */
   async start(): Promise<void> {
     if (this.server) return;
+
     const server = createServer((req, res) => {
       if (req.method !== "POST" || (req.url ?? "").split("?")[0] !== "/egress-deny") {
         res.writeHead(404).end();
+
         return;
       }
+
       let raw = "";
       req.on("data", (c) => (raw += c));
       req.on("end", () => {
         // Answer 200 immediately — the sidecar retries on non-2xx and fires per DNS query.
         res.writeHead(200).end("ok");
         let body: DenyWebhookBody | null = null;
+
         try {
           body = JSON.parse(raw) as DenyWebhookBody;
         } catch {
           return;
         }
+
         const host = body?.hostname ? normalizeHost(body.hostname) : undefined;
+
         if (host) void this.onDenied(host);
       });
     });
+
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
       server.listen(0, "0.0.0.0", () => {
@@ -152,13 +162,15 @@ export class EgressApprovalGate {
   async stop(): Promise<void> {
     const server = this.server;
     this.server = undefined;
+
     if (!server) return;
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => server.close(() =>{  resolve(); }));
   }
 
   /** The `OPENSANDBOX_EGRESS_DENY_WEBHOOK` value to put in the sandbox's env. */
   get webhookUrl(): string {
     if (!this.server) throw new Error("EgressApprovalGate.start() has not been called");
+
     return `http://${this.webhookHost}:${this.port}/egress-deny`;
   }
 
@@ -174,6 +186,7 @@ export class EgressApprovalGate {
   async endTurn(): Promise<void> {
     const toRevert = [...this.onceApproved].filter((h) => this.held.has(h));
     this.onceApproved.clear();
+
     for (const host of toRevert) {
       // Credential first (while the host is still allowed), then re-deny.
       for (const held of this.byHost.get(host) ?? []) {
@@ -182,6 +195,7 @@ export class EgressApprovalGate {
             .credentials.remove(held.name)
             .catch(() => {});
       }
+
       await this.sb().egress.patch([{ action: "deny", target: host }]);
       // Clear the dedup timestamp so the next turn's request re-prompts instead of being
       // swallowed for the rest of DEDUP_TTL_MS.
@@ -193,7 +207,9 @@ export class EgressApprovalGate {
     if (!this.held.has(host)) return; // not a gated host
     const now = Date.now();
     const last = this.seen.get(host);
+
     if (last !== undefined && now - last < DEDUP_TTL_MS) return;
+
     if (this.inFlight.has(host)) return;
     this.seen.set(host, now);
     this.inFlight.add(host);
@@ -205,6 +221,7 @@ export class EgressApprovalGate {
     });
 
     let decision: EgressDecision = "deny";
+
     try {
       decision = await this.handler({ host, since: now });
     } catch {
@@ -216,11 +233,13 @@ export class EgressApprovalGate {
         // Order matters: the vault refuses a binding whose host isn't allowed, so open the
         // egress rule first, then register the credential(s).
         await this.sb().egress.patch([{ action: "allow", target: host }]);
+
         for (const held of this.byHost.get(host) ?? []) {
           if (held.value !== "") {
             await this.sb().credentials.set(held.name, held.value, held.binding, held.source);
           }
         }
+
         if (decision === "allow-once") this.onceApproved.add(host);
         else this.held.delete(host);
       }

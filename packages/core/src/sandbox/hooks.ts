@@ -53,6 +53,7 @@ export function composeHooks(
         // `h.onSandboxCreated(...)` call would have, while still giving us a
         // capturable reference the closure below can call after a null check.
         const fn = h.onSandboxCreated?.bind(h);
+
         if (fn) {
           call("onSandboxCreated", i, () => {
             fn(sandboxId, name);
@@ -63,6 +64,7 @@ export function composeHooks(
     onExecStart(sandboxId, seq, cmd) {
       active.forEach((h, i) => {
         const fn = h.onExecStart?.bind(h);
+
         if (fn) {
           call("onExecStart", i, () => {
             fn(sandboxId, seq, cmd);
@@ -73,6 +75,7 @@ export function composeHooks(
     onExecComplete(sandboxId, seq, result) {
       active.forEach((h, i) => {
         const fn = h.onExecComplete?.bind(h);
+
         if (fn) {
           call("onExecComplete", i, () => {
             fn(sandboxId, seq, result);
@@ -83,6 +86,7 @@ export function composeHooks(
     onCheckpoint(sandboxId, snapshotId, name) {
       active.forEach((h, i) => {
         const fn = h.onCheckpoint?.bind(h);
+
         if (fn) {
           call("onCheckpoint", i, () => {
             fn(sandboxId, snapshotId, name);
@@ -93,6 +97,7 @@ export function composeHooks(
     onSandboxClosed(sandboxId) {
       active.forEach((h, i) => {
         const fn = h.onSandboxClosed?.bind(h);
+
         if (fn) {
           call("onSandboxClosed", i, () => {
             fn(sandboxId);
@@ -103,6 +108,7 @@ export function composeHooks(
     onSandboxFailed(sandboxId, error) {
       active.forEach((h, i) => {
         const fn = h.onSandboxFailed?.bind(h);
+
         if (fn) {
           call("onSandboxFailed", i, () => {
             fn(sandboxId, error);
@@ -113,6 +119,7 @@ export function composeHooks(
     onSandboxPaused(sandboxId) {
       active.forEach((h, i) => {
         const fn = h.onSandboxPaused?.bind(h);
+
         if (fn) {
           call("onSandboxPaused", i, () => {
             fn(sandboxId);
@@ -123,6 +130,7 @@ export function composeHooks(
     onSandboxResumed(sandboxId) {
       active.forEach((h, i) => {
         const fn = h.onSandboxResumed?.bind(h);
+
         if (fn) {
           call("onSandboxResumed", i, () => {
             fn(sandboxId);
@@ -133,6 +141,7 @@ export function composeHooks(
     onCredentialInjected(sandboxId, name, binding) {
       active.forEach((h, i) => {
         const fn = h.onCredentialInjected?.bind(h);
+
         if (fn) {
           call("onCredentialInjected", i, () => {
             fn(sandboxId, name, binding);

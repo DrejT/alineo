@@ -23,6 +23,7 @@ function assertEqual(actual: string, expected: string, label: string) {
       `FAILED: ${label}\n  expected: ${JSON.stringify(expected)}\n  actual:   ${JSON.stringify(actual)}`,
     );
   }
+
   console.log(`  ok — ${label}`);
 }
 
@@ -79,9 +80,11 @@ try {
 
   console.log("\n=== Verifying reconstructed shell state ===\n");
   const match = result.stdout.match(/DIAG_START:(.*?):DIAG_END/s);
+
   if (!match) {
     throw new Error(`FAILED: diagnostic marker not found in output:\n${result.stdout}`);
   }
+
   const [pwdVal, fileVal, secretVal] = match[1].split("|").map((s) => s.replace(/\r/g, "").trim());
 
   assertEqual(

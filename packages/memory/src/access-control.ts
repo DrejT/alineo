@@ -52,18 +52,22 @@ export function withTeamAccessControl(
   return {
     async get(ref, key) {
       await assertAccess(ref, checker);
+
       return provider.get(ref, key);
     },
     async set(ref, key, value) {
       await assertAccess(ref, checker);
+
       return provider.set(ref, key, value);
     },
     async list(ref) {
       await assertAccess(ref, checker);
+
       return provider.list(ref);
     },
     async delete(ref, key) {
       await assertAccess(ref, checker);
+
       return provider.delete(ref, key);
     },
   };
@@ -106,10 +110,12 @@ export function withTeamAccessControlSemantic<T extends ISemanticMemoryProvider>
     Partial<IBulkSemanticMemoryProvider> = {
     async remember(ref: ResourceRef, fact: MemoryFact) {
       await assertAccess(ref, checker);
+
       return provider.remember(ref, fact);
     },
     async recall(ref: ResourceRef, query: string, opts?: { topK?: number }) {
       await assertAccess(ref, checker);
+
       return provider.recall(ref, query, opts);
     },
   };
@@ -119,10 +125,12 @@ export function withTeamAccessControlSemantic<T extends ISemanticMemoryProvider>
       ...result,
       async listAll(ref: ResourceRef) {
         await assertAccess(ref, checker);
+
         return provider.listAll(ref);
       },
       async forget(ref: ResourceRef, ids: string[]) {
         await assertAccess(ref, checker);
+
         return provider.forget(ref, ids);
       },
     };
@@ -133,6 +141,7 @@ export function withTeamAccessControlSemantic<T extends ISemanticMemoryProvider>
       ...result,
       async rememberMany(ref: ResourceRef, facts: MemoryFact[]) {
         await assertAccess(ref, checker);
+
         return provider.rememberMany(ref, facts);
       },
     };

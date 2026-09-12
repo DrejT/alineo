@@ -23,7 +23,9 @@ export interface ModelProvider {
 
 export function requireApiKey(envVar: string): string {
   const key = process.env[envVar];
+
   if (!key) throw new Error(`${envVar} is not set on the dashboard server`);
+
   return key;
 }
 
@@ -46,12 +48,16 @@ export async function fetchProviderModels(
 ): Promise<ProviderModel[]> {
   if (!apiKey) return [];
   const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+
   if (!res.ok) {
     console.error(
       `${label} models request failed: ${res.status} ${await res.text().catch(() => "")}`,
     );
+
     return [];
   }
+
   const data = (await res.json()) as { data: ProviderModel[] };
+
   return data.data;
 }

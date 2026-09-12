@@ -15,6 +15,7 @@ describe("ControlClient", () => {
       { id: "a", status: { state: "Running" }, createdAt: "2026-01-01T00:00:00Z" },
       { id: "b", status: { state: "Terminated" }, createdAt: "2026-01-02T00:00:00Z" },
     ];
+
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: sandboxes }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -37,6 +38,7 @@ describe("ControlClient", () => {
         createdAt: "2026-01-01T00:00:00Z",
       },
     ];
+
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: rawSnapshots }));
     vi.stubGlobal("fetch", fetchMock);
 

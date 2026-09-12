@@ -55,15 +55,22 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
 
 function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): SandboxDetails[] {
   let result = details;
+
   if (opts?.before != null) {
     const before = opts.before;
     result = result.filter((d) => d.startedAt < before);
   }
+
   if (opts?.status != null) result = result.filter((d) => d.status === opts.status);
+
   if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
+
   if (opts?.resourceId != null) result = result.filter((d) => d.resourceId === opts.resourceId);
+
   if (opts?.teamId != null) result = result.filter((d) => d.teamId === opts.teamId);
+
   if (opts?.limit != null) result = result.slice(0, opts.limit);
+
   return result;
 }
 
@@ -118,6 +125,7 @@ export class PostgresAdapter implements IStorageAdapter {
       WHERE name = ${name} AND sandbox_id = ${sandboxId}
       ORDER BY ts ASC
     `;
+
     return rows.map(rowToEntry);
   }
 
@@ -129,6 +137,7 @@ export class PostgresAdapter implements IStorageAdapter {
       ORDER BY ts DESC
       LIMIT 1
     `;
+
     return rows.length ? rowToEntry(rows[0]) : null;
   }
 
@@ -157,16 +166,19 @@ export class PostgresAdapter implements IStorageAdapter {
 
   async listSandboxDetails(name: string, opts?: ListSandboxOptions): Promise<SandboxDetails[]> {
     const rows = await this._aggQuery("WHERE name = $1", [name]);
+
     return applyOpts(rows.map(aggRowToDetails), opts);
   }
 
   async listAllSandboxDetails(opts?: ListSandboxOptions): Promise<SandboxDetails[]> {
     const rows = await this._aggQuery("", []);
+
     return applyOpts(rows.map(aggRowToDetails), opts);
   }
 
   async getSandboxDetails(name: string, sandboxId: string): Promise<SandboxDetails | null> {
     const rows = await this._aggQuery("WHERE name = $1 AND sandbox_id = $2", [name, sandboxId]);
+
     return rows.length ? aggRowToDetails(rows[0]) : null;
   }
 
@@ -181,8 +193,10 @@ export class PostgresAdapter implements IStorageAdapter {
       WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'checkpoint_created'
       ORDER BY ts ASC
     `;
+
     return rows.map((r) => {
       const p = (r.payload ?? {}) as { snapshotId: string; name?: string };
+
       return { snapshotId: p.snapshotId, tag: p.name, createdAt: Number(r.ts) };
     });
   }
@@ -193,8 +207,10 @@ export class PostgresAdapter implements IStorageAdapter {
     >`
       SELECT name, snapshot_id, image, built_at FROM alineo_environments WHERE name = ${name}
     `;
+
     if (!rows.length) return null;
     const r = rows[0];
+
     return { name: r.name, snapshotId: r.snapshot_id, image: r.image, builtAt: Number(r.built_at) };
   }
 
@@ -219,6 +235,7 @@ export class PostgresAdapter implements IStorageAdapter {
     >`
       SELECT name, snapshot_id, image, built_at FROM alineo_environments ORDER BY built_at DESC
     `;
+
     return rows.map((r) => ({
       name: r.name,
       snapshotId: r.snapshot_id,

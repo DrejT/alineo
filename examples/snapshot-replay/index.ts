@@ -37,6 +37,7 @@ print("requests is already installed — no pip install needed")
 console.log("=== Original run ===\n");
 
 const sb = await client.sandbox(sandboxOpts);
+
 let originalSandboxId: string | undefined;
 
 try {
@@ -60,6 +61,7 @@ console.log("\n=== Resumed run ===\n");
 // The try block above always assigns originalSandboxId before completing without
 // throwing — if it threw, we wouldn't reach here at all.
 if (!originalSandboxId) throw new Error("internal error: originalSandboxId was never set");
+
 const sbResume = await client.resume(originalSandboxId);
 
 try {

@@ -35,7 +35,9 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const args = ["open", ...(params.url ? [params.url] : []), "--json"];
       const res = await pi.exec("agent-browser", args, { cwd: ctx.cwd, signal });
+
       if (res.code !== 0) throw new Error(res.stderr || `agent-browser open exited ${res.code}`);
+
       return { content: [{ type: "text", text: res.stdout }], details: { raw: res.stdout } };
     },
   });
@@ -64,10 +66,13 @@ export default function (pi: ExtensionAPI) {
         ...(params.depth !== undefined ? ["-d", String(params.depth)] : []),
         "--json",
       ];
+
       const res = await pi.exec("agent-browser", args, { cwd: ctx.cwd, signal });
+
       if (res.code !== 0) {
         throw new Error(res.stderr || `agent-browser snapshot exited ${res.code}`);
       }
+
       return { content: [{ type: "text", text: res.stdout }], details: { raw: res.stdout } };
     },
   });
@@ -87,7 +92,9 @@ export default function (pi: ExtensionAPI) {
         cwd: ctx.cwd,
         signal,
       });
+
       if (res.code !== 0) throw new Error(res.stderr || `agent-browser click exited ${res.code}`);
+
       return { content: [{ type: "text", text: res.stdout }], details: { raw: res.stdout } };
     },
   });
@@ -117,21 +124,28 @@ export default function (pi: ExtensionAPI) {
       if (Boolean(params.text) === Boolean(params.envVar)) {
         throw new Error("browser_fill requires exactly one of `text` or `envVar`");
       }
+
       let value: string;
+
       if (params.envVar) {
         const envValue = process.env[params.envVar];
+
         if (envValue === undefined) {
           throw new Error(`"${params.envVar}" is not set in this sandbox's environment`);
         }
+
         value = envValue;
       } else {
         value = params.text ?? "";
       }
+
       const res = await pi.exec("agent-browser", ["fill", params.ref, value, "--json"], {
         cwd: ctx.cwd,
         signal,
       });
+
       if (res.code !== 0) throw new Error(res.stderr || `agent-browser fill exited ${res.code}`);
+
       return { content: [{ type: "text", text: res.stdout }], details: { raw: res.stdout } };
     },
   });
@@ -152,17 +166,22 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(toolCallId, params, signal, _onUpdate, ctx) {
       const path = `/tmp/agent-browser-shot-${toolCallId}.png`;
+
       const args = [
         "screenshot",
         path,
         ...(params.annotate ? ["--annotate"] : []),
         ...(params.fullPage ? ["--full"] : []),
       ];
+
       const res = await pi.exec("agent-browser", args, { cwd: ctx.cwd, signal });
+
       if (res.code !== 0) {
         throw new Error(res.stderr || `agent-browser screenshot exited ${res.code}`);
       }
+
       const data = await readFile(path);
+
       return {
         content: [
           { type: "text", text: res.stdout.trim() || `Screenshot saved to ${path}` },

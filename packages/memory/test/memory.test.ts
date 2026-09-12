@@ -54,6 +54,7 @@ describe("Memory", () => {
       workingMemory: new InMemoryWorkingMemoryProvider(),
       semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
     });
+
     const ref = { resourceId: "user-1" };
 
     expect(memory.hasSemanticMemory).toBe(true);
@@ -66,11 +67,13 @@ describe("Memory", () => {
   describe("autoCompact", () => {
     it("runs a compaction check after every remember() by default", async () => {
       const semantic = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+
       const memory = new Memory({
         workingMemory: new InMemoryWorkingMemoryProvider(),
         semantic,
         autoCompact: { maxFacts: 1 },
       });
+
       const ref = { resourceId: "user-1" };
 
       await memory.remember(ref, { content: "first" });
@@ -81,11 +84,13 @@ describe("Memory", () => {
 
     it("only checks every Nth remember() call when checkEvery is set", async () => {
       const semantic = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+
       const memory = new Memory({
         workingMemory: new InMemoryWorkingMemoryProvider(),
         semantic,
         autoCompact: { maxFacts: 1, checkEvery: 3 },
       });
+
       const ref = { resourceId: "user-1" };
 
       await memory.remember(ref, { content: "a" });
@@ -102,6 +107,7 @@ describe("Memory", () => {
         remember: async () => {},
         recall: async () => [],
       };
+
       const memory = new Memory({
         workingMemory: new InMemoryWorkingMemoryProvider(),
         semantic: notPrunable,
@@ -117,11 +123,13 @@ describe("Memory", () => {
       // `count % 0` is NaN, never `=== 0` — without the fix, this configuration would never
       // trigger a compaction check at all, for the life of the Memory instance.
       const semantic = new InMemorySemanticMemoryProvider(fakeEmbeddings());
+
       const memory = new Memory({
         workingMemory: new InMemoryWorkingMemoryProvider(),
         semantic,
         autoCompact: { maxFacts: 1, checkEvery: 0 },
       });
+
       const ref = { resourceId: "user-1" };
 
       await memory.remember(ref, { content: "first" });
@@ -198,6 +206,7 @@ describe("Memory", () => {
         workingMemory: new InMemoryWorkingMemoryProvider(),
         semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
       });
+
       const parentRef = { resourceId: "parent" };
       await memory.remember(parentRef, { content: "the sky is blue" });
 
@@ -213,6 +222,7 @@ describe("Memory", () => {
         workingMemory: new InMemoryWorkingMemoryProvider(),
         semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
       });
+
       const parentRef = { resourceId: "parent" };
       await memory.remember(parentRef, { content: "shared fact" });
 
@@ -241,10 +251,12 @@ describe("Memory", () => {
           ) as number[][];
         },
       };
+
       const memory = new Memory({
         workingMemory: new InMemoryWorkingMemoryProvider(),
         semantic: new InMemorySemanticMemoryProvider(flaky),
       });
+
       const parentRef = { resourceId: "parent" };
       await memory.remember(parentRef, { content: "fine" });
       await memory.remember(parentRef, { content: "shaky" });
@@ -265,6 +277,7 @@ describe("Memory", () => {
 
     it("skips semantic copying when the configured provider doesn't support pruning", async () => {
       const notPrunable = { remember: async () => {}, recall: async () => [] };
+
       const memory = new Memory({
         workingMemory: new InMemoryWorkingMemoryProvider(),
         semantic: notPrunable,

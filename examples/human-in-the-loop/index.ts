@@ -19,15 +19,18 @@ import { Alineo, type PermissionDecision, type PermissionRequest } from "alineo"
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+
 const rule = (s: string) => console.log(`\n${"─".repeat(72)}\n${s}\n${"─".repeat(72)}`);
 
 // ── 1. read-only agent: the toolset itself is restricted ───────────────────────
 rule('1 · permissions: "readonly" — write/edit/bash are not in the model\'s toolset');
 
 const ro = await Alineo.load(await Bun.file("./agents/readonly-agent.json").json(), { adapter });
+
 try {
   console.log('prompt: "Create a file notes.txt containing the word hello."\n');
   process.stdout.write("> ");
+
   for await (const ev of ro.prompt(
     "Create a file called notes.txt in the current directory containing the word hello. " +
       "If you cannot, say so in one sentence and explain why.",
@@ -37,9 +40,11 @@ try {
     else if (ev.type === "permission_request")
       await ro.resolvePermission(ev.requestId, { kind: "reject" });
   }
+
   const { stdout } = await ro.sandbox.exec(
     "cat notes.txt 2>/dev/null || echo '(no file — read-only held)'",
   );
+
   console.log(`\n\ncheck: ${stdout.trim()}`);
 } finally {
   await ro.close();
@@ -61,6 +66,7 @@ async function onPermission(req: PermissionRequest): Promise<PermissionDecision>
       `\n     listPendingPermissions() → ${pending.length}` +
       `\n     → ${install ? "DENY with feedback" : "allow once"}`,
   );
+
   return install
     ? {
         kind: "reject",
@@ -81,6 +87,7 @@ try {
 
   console.log(`${prompt}\n`);
   process.stdout.write("> ");
+
   for await (const ev of agent.prompt(prompt, { onPermission })) {
     if (ev.type === "text") process.stdout.write(ev.text);
     else if (ev.type === "tool_start") {
@@ -95,6 +102,7 @@ try {
       process.stdout.write(`  → ${ev.decision.kind}`);
     } else if (ev.type === "tool_end" && ev.isError) {
       const c = toolCalls.get(ev.toolCallId);
+
       if (c) c.blocked = true;
       process.stdout.write(`\n[blocked: ${JSON.stringify(ev.result).slice(0, 140)}]`);
     }
@@ -129,14 +137,17 @@ try {
   console.log(`  ${JSON.stringify(await agent.listPendingPermissions())}`);
 
   rule("6 · ledger audit trail (read back from the storage adapter)");
+
   for (const e of await adapter.readAll(agent.name, agent.sandboxId)) {
     if (e.event !== "permission_requested" && e.event !== "permission_resolved") continue;
+
     const p = e.payload as {
       requestId: string;
       tool?: string;
       target?: string;
       decision?: { kind: string };
     };
+
     const tag = e.event === "permission_requested" ? "REQUESTED" : "RESOLVED ";
     const detail = e.event === "permission_requested" ? `${p.tool}: ${p.target}` : p.decision?.kind;
     console.log(`  ${new Date(e.ts).toISOString()}  ${tag}  ${p.requestId.slice(0, 8)}  ${detail}`);
@@ -145,6 +156,7 @@ try {
   const { stdout } = await agent.sandbox.exec(
     "cat hello.py 2>/dev/null || echo '(hello.py not created)'",
   );
+
   console.log(`\nhello.py in the sandbox:\n${stdout.trim()}`);
 } finally {
   await agent.close();

@@ -7,7 +7,9 @@ function makePtyDriver(
   onDone: (r: ExecResult) => Promise<void> = async () => {},
 ) {
   let push: (chunk: string) => void = () => {};
+
   let finish: (exitCode: number) => void = () => {};
+
   let fail: (err: unknown) => void = () => {};
 
   const driver: ExecDriver = {
@@ -50,9 +52,11 @@ describe("InteractiveExecHandle — pty driver", () => {
     const { driver, emitOutput, emitExit } = makePtyDriver();
     const handle = new InteractiveExecHandle(driver);
     const chunks: string[] = [];
+
     const collect = (async () => {
       for await (const chunk of handle.stdout()) chunks.push(chunk);
     })();
+
     emitOutput("a");
     emitOutput("b");
     emitExit(0);
@@ -71,6 +75,7 @@ describe("InteractiveExecHandle — pty driver", () => {
       // eslint-disable-next-line typescript/require-await -- must match ExecDriver's Promise-returning onDone signature; nothing here needs to await
       onDone: async () => {},
     };
+
     const handle = new InteractiveExecHandle(driver);
     const result = await handle;
     expect(result.stdout).toBe("recorded before resume\nlive output\n");
@@ -78,12 +83,14 @@ describe("InteractiveExecHandle — pty driver", () => {
 
   it("write()/resize()/signal()/close() forward to controls", () => {
     const { driver } = makePtyDriver();
+
     const controls: PtyControls = {
       write: vi.fn(),
       resize: vi.fn(),
       signal: vi.fn(),
       close: vi.fn(),
     };
+
     const handle = new InteractiveExecHandle(driver, controls);
 
     handle.write("whoami\n");
@@ -123,12 +130,14 @@ describe("InteractiveExecHandle — pty driver", () => {
 
   it("calls onDone with the completed result", async () => {
     let captured: unknown;
+
     const { driver, emitExit } = makePtyDriver(
       // eslint-disable-next-line typescript/require-await -- onDone must match ExecDriver's Promise-returning signature; nothing here needs to await
       async (r) => {
         captured = r;
       },
     );
+
     const handle = new InteractiveExecHandle(driver);
     emitExit(3);
     await handle;
@@ -142,6 +151,7 @@ describe("InteractiveExecHandle — replay driver (already finished before check
       type: "replay",
       result: { stdout: "cached\n", stderr: "", exitCode: 0 },
     });
+
     const result = await handle;
     expect(result.stdout).toBe("cached\n");
   });
@@ -152,6 +162,7 @@ describe("InteractiveExecHandle — replay driver (already finished before check
       type: "replay",
       result: { stdout: "", stderr: "", exitCode: 0 },
     });
+
     expect(() => {
       handle.write("too late");
     }).not.toThrow();

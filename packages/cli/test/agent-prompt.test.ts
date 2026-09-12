@@ -17,6 +17,7 @@ describe("collectReply", () => {
       { type: "text", text: "Hello, " },
       { type: "text", text: "world." },
     ]);
+
     const result = await collectReply(agent, "hi");
     expect(result.text).toBe("Hello, world.");
     expect(result.toolCalls).toEqual([]);
@@ -27,6 +28,7 @@ describe("collectReply", () => {
       { type: "tool_start", toolCallId: "1", toolName: "browser_open", args: {} },
       { type: "tool_end", toolCallId: "1", toolName: "browser_open", result: {}, isError: false },
     ]);
+
     const result = await collectReply(agent, "log in");
     expect(result.text).toBe("");
     expect(result.toolCalls).toEqual([{ name: "browser_open", isError: false }]);
@@ -42,6 +44,7 @@ describe("collectReply", () => {
         isError: true,
       },
     ]);
+
     const result = await collectReply(agent, "click it");
     expect(result.toolCalls).toEqual([{ name: "browser_click", isError: true }]);
   });

@@ -35,12 +35,14 @@ export function assertValidMaxAgents(value: number, context: string): void {
  */
 export function resolveParentSpawnDepth(envValue: string | undefined, override?: number): number {
   const raw = override ?? (envValue !== undefined ? Number(envValue) : undefined);
+
   if (raw === undefined || !Number.isInteger(raw) || raw <= 0) {
     throw new Error(
       `Alineo.spawn() refused: spawn depth must be a positive integer (got ${envValue ?? "unset"}). ` +
         `Set "spawnDepth" in this agent's spec, or pass { spawnDepth } explicitly.`,
     );
   }
+
   return raw;
 }
 
@@ -57,11 +59,14 @@ export function resolveParentMaxAgents(
   override?: number,
 ): number | undefined {
   const raw = override ?? (envValue !== undefined ? Number(envValue) : undefined);
+
   if (raw === undefined) return undefined;
+
   if (!Number.isInteger(raw) || raw < 0) {
     throw new Error(
       `Alineo.spawn() refused: maxAgents must be a non-negative integer (got ${raw}).`,
     );
   }
+
   return raw;
 }

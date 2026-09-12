@@ -102,6 +102,7 @@ describe("SQLiteAdapter", () => {
         }),
       );
       const cp = await db.lastCheckpoint("test-session", "session-1");
+
       if (!cp) throw new Error("expected a checkpoint");
       expect((cp.payload as { snapshotId: string }).snapshotId).toBe("snap-2");
     });
@@ -130,11 +131,13 @@ describe("SQLiteAdapter", () => {
         payload: opts.payload,
       }),
     );
+
     for (let i = 0; i < (opts.execCount ?? 1); i++) {
       await db.append(
         entry({ name, sandboxId, ts: ts + i + 1, stepIndex: i, event: LedgerEvent.ExecComplete }),
       );
     }
+
     if (opts.close) {
       await db.append(
         entry({ name, sandboxId, ts: ts + 100, stepIndex: -1, event: LedgerEvent.SandboxClosed }),
@@ -368,6 +371,7 @@ describe("SQLiteAdapter", () => {
       expect(existsSync(dir)).toBe(false);
 
       const nested = new SQLiteAdapter(dbPath);
+
       try {
         await nested.connect();
         await nested.append(entry());
@@ -375,12 +379,14 @@ describe("SQLiteAdapter", () => {
         expect(existsSync(dbPath)).toBe(true);
       } finally {
         await nested.close();
+
         try {
           rmSync(root, { recursive: true, force: true });
         } catch (e) {
           // Don't throw from a finally block — that would silently replace any real
           // assertion failure from the try block above with this cleanup error instead.
           const code = (e as NodeJS.ErrnoException).code;
+
           if (code !== "EBUSY" && code !== "EPERM") {
             console.error("temp dir cleanup failed:", e);
           }

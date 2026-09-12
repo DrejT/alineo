@@ -51,6 +51,7 @@ export async function resolveSessionsByResourceId(
   ref: ResourceRef,
 ): Promise<SandboxSessionRef[]> {
   const details = await adapter.listAllSandboxDetails();
+
   return details
     .filter(
       (d) =>
@@ -71,19 +72,24 @@ export async function withAncestors(
   const bySandboxId = new Map<string, SandboxDetails>(allDetails.map((d) => [d.sandboxId, d]));
 
   const seen = new Map<string, SandboxSessionRef>();
+
   for (const session of sessions) {
     let current: SandboxSessionRef | undefined = session;
+
     while (current && !seen.has(current.sandboxId)) {
       seen.set(current.sandboxId, current);
       const parentId: string | undefined = bySandboxId.get(current.sandboxId)?.parentSandboxId;
+
       const parentDetails: SandboxDetails | undefined = parentId
         ? bySandboxId.get(parentId)
         : undefined;
+
       current = parentDetails
         ? { name: parentDetails.name, sandboxId: parentDetails.sandboxId }
         : undefined;
     }
   }
+
   return [...seen.values()];
 }
 
@@ -109,9 +115,11 @@ export async function episodicRecall(
   const perSession = await Promise.all(
     sessions.map((session) => adapter.readAll(session.name, session.sandboxId)),
   );
+
   const entries = perSession.flat().sort((a, b) => a.ts - b.ts);
 
   if (opts.limit == null) return entries;
+
   // `entries.slice(-0)` is `entries.slice(0)` — the whole array, not nothing — so `limit: 0`
   // needs its own branch rather than falling into the general negative-index slice below.
   return opts.limit <= 0 ? [] : entries.slice(-opts.limit);

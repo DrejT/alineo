@@ -25,6 +25,7 @@ function makeAdapter(): IStorageAdapter {
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   const control = { deleteSandbox: vi.fn().mockResolvedValue(undefined) };
+
   return {
     control: control as unknown as SandboxDeps["control"],
     adapter,
@@ -34,7 +35,9 @@ function makeDeps(adapter: IStorageAdapter): SandboxDeps {
 /** A controllable fake PtyClient — connect() resolves without ending the session until emitExit() is called. */
 function makeFakePty() {
   let onOutputCb: PtyOutputListener = () => {};
+
   let onExitCb: PtyExitListener = () => {};
+
   const pty = {
     create: vi.fn().mockResolvedValue("session-1"),
     connect: vi.fn().mockImplementation(
@@ -50,6 +53,7 @@ function makeFakePty() {
     signal: vi.fn(),
     close: vi.fn(),
   };
+
   return {
     pty,
     emitOutput: (chunk: string) => {
@@ -102,6 +106,7 @@ describe("SandboxHandle interactive exec", () => {
         e.event === LedgerEvent.ExecEvent &&
         (e.payload as { type?: string } | undefined)?.type === "stdin",
     );
+
     expect(stdinEvents.map((e) => (e.payload as { text: string }).text)).toEqual(["whoami\n"]);
   });
 
@@ -123,6 +128,7 @@ describe("SandboxHandle interactive exec", () => {
           e.event === LedgerEvent.ExecEvent &&
           (e.payload as { type?: string } | undefined)?.type === "stdout",
       );
+
       // "$ " is the fake's simulated initial prompt (the readiness signal exec() waits for)
       expect(stdoutEvents.map((e) => (e.payload as { text: string }).text)).toEqual([
         "$ ",
@@ -214,6 +220,7 @@ describe("SandboxHandle interactive exec", () => {
 
   it("resume: replays recorded stdin in order before any new write reaches the pty", async () => {
     const adapter = makeAdapter();
+
     const pendingInteractive = new Map<number, PendingInteractiveExec>([
       [
         1,
@@ -224,6 +231,7 @@ describe("SandboxHandle interactive exec", () => {
         },
       ],
     ]);
+
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), new Map(), pendingInteractive);
     const { pty } = makeFakePty();
     sb.resolvePtyClient = vi.fn().mockResolvedValue(pty);

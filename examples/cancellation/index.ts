@@ -15,6 +15,7 @@ const client = new Sandbox({
 });
 
 const image = "ubuntu:22.04";
+
 const resources = { cpu: "500m", memory: "256Mi" };
 
 // ── Pattern A: try/finally for cleanup ───────────────────────────────────────
@@ -22,6 +23,7 @@ const resources = { cpu: "500m", memory: "256Mi" };
 console.log("=== Pattern A: try/finally ===");
 
 const sbA = await client.sandbox({ image, resources, name: "cancellation-a" });
+
 try {
   await sbA.exec("echo 'starting...'").pipe(process.stdout);
   await sbA.exec("echo 'done'").pipe(process.stdout);
@@ -35,6 +37,7 @@ try {
 console.log("=== Pattern B: bash timeout command ===");
 
 const sbB = await client.sandbox({ image, resources, name: "cancellation-b" });
+
 try {
   // timeout(1) wraps sleep(30) — exits after 1 second
   const { exitCode } = await sbB.exec("timeout 1 sleep 30 || echo 'timed out'", { strict: false });
@@ -48,6 +51,7 @@ try {
 console.log("\n=== Pattern C: CommandError ===");
 
 const sbC = await client.sandbox({ image, resources, name: "cancellation-c" });
+
 try {
   await sbC.exec("echo 'step 1'").pipe(process.stdout);
   await sbC.exec("exit 1"); // throws CommandError

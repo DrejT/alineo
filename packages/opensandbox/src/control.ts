@@ -64,11 +64,14 @@ export class ControlClient {
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: this.signal,
     });
+
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new OpenSandboxError(text || "OpenSandbox API error", res.status);
     }
+
     if (res.status === 204) return undefined as T;
+
     return res.json() as Promise<T>;
   }
 
@@ -78,14 +81,19 @@ export class ControlClient {
 
   async listSandboxes(options: ListSandboxesOptions = {}): Promise<Sandbox[]> {
     const params = new URLSearchParams();
+
     if (options.state) params.set("state", options.state);
+
     if (options.limit !== undefined) params.set("limit", String(options.limit));
+
     if (options.offset !== undefined) params.set("offset", String(options.offset));
     const qs = params.toString();
+
     const res = await this.request<{ items: Sandbox[] }>(
       "GET",
       `/v1/sandboxes${qs ? `?${qs}` : ""}`,
     );
+
     return res.items;
   }
 
@@ -112,6 +120,7 @@ export class ControlClient {
   // Returns { endpoint, headers: { "X-EXECD-ACCESS-TOKEN": "..." } }
   getEndpoint(sandboxId: string, port: number, useServerProxy?: boolean): Promise<SandboxEndpoint> {
     const qs = useServerProxy ? "?use_server_proxy=true" : "";
+
     return this.request("GET", `/v1/sandboxes/${sandboxId}/endpoints/${port}${qs}`);
   }
 
@@ -125,24 +134,31 @@ export class ControlClient {
 
   async createSnapshot(sandboxId: string): Promise<Snapshot> {
     const raw = await this.request<RawSnapshot>("POST", `/v1/sandboxes/${sandboxId}/snapshots`);
+
     return flattenSnapshot(raw);
   }
 
   async listSnapshots(options: ListSnapshotsOptions = {}): Promise<Snapshot[]> {
     const params = new URLSearchParams();
+
     if (options.sandboxId) params.set("sandboxId", options.sandboxId);
+
     if (options.limit !== undefined) params.set("limit", String(options.limit));
+
     if (options.offset !== undefined) params.set("offset", String(options.offset));
     const qs = params.toString();
+
     const res = await this.request<{ items: RawSnapshot[] }>(
       "GET",
       `/v1/snapshots${qs ? `?${qs}` : ""}`,
     );
+
     return res.items.map(flattenSnapshot);
   }
 
   async getSnapshot(id: string): Promise<Snapshot> {
     const raw = await this.request<RawSnapshot>("GET", `/v1/snapshots/${id}`);
+
     return flattenSnapshot(raw);
   }
 

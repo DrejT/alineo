@@ -61,6 +61,7 @@ export async function checkpoint(sb: SandboxInternal, name?: string): Promise<st
   await sb.waitForSnapshot(snap.id);
   await sb.emit(LedgerEvent.CheckpointCreated, -1, { snapshotId: snap.id, name });
   sb.deps.hooks?.onCheckpoint?.(sb.sandboxId, snap.id, name);
+
   return snap.id;
 }
 
@@ -118,6 +119,7 @@ export async function fork(
   const entries = await sb.deps.adapter.readAll(sb.name, sb.sandboxId);
   const boundCredentials = reconstructBoundCredentials(entries);
   const needsCredentialProxy = boundCredentials.size > 0 || opts?.credentialProxy === true;
+
   // Same "wide open, not lockdown" default as the agent layer (packages/agent) — this only
   // exists to make the bound host(s) reachable through the sidecar, not to restrict anything.
   const networkPolicy = needsCredentialProxy
@@ -156,6 +158,7 @@ export async function close(sb: SandboxInternal): Promise<void> {
   // ESTABLISHED until execd's own post-completion sleep elapses, which can outlive
   // this call and leave the host process's event loop alive with nothing left to do.
   sb.disposeExecClient();
+
   try {
     await sb.deps.control.deleteSandbox(sb.sandboxId);
   } finally {

@@ -44,6 +44,7 @@ export async function fork(
   const adapter = new SQLiteAdapter(config.adapterPath);
 
   let selfSandboxId = process.env.ALINEO_SANDBOX_ID;
+
   if (!selfSandboxId) {
     const client = new Sandbox({
       baseUrl: config.serverUrl,
@@ -51,13 +52,16 @@ export async function fork(
       adapter,
       useServerProxy: config.useServerProxy,
     });
+
     const sessions = await client.sandboxes.list({ status: SandboxStatus.Running });
     const session = sessions.find((s) => s.name === name);
+
     if (!session) {
       throw new Error(
         `No running session named '${name}'. Run 'alineo agents' to see running sessions.`,
       );
     }
+
     selfSandboxId = session.sandboxId;
   }
 
@@ -84,10 +88,12 @@ export async function fork(
         2,
       ),
     );
+
     return;
   }
 
   console.log(`\n[alineo] forked: ${child.name}  sandbox: ${child.sandboxId}`);
+
   if (collected) {
     if (collected.text) {
       console.log(`\n${collected.text}`);

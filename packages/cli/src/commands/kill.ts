@@ -14,6 +14,7 @@ export async function kill(sandboxId: string): Promise<void> {
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
+
   const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,

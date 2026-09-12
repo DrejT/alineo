@@ -73,6 +73,7 @@ export class ExecHandle implements PromiseLike<ExecResult> {
 
   private _drainPty(driver: Extract<ExecDriver, { type: "pty" }>): Promise<ExecResult> {
     if (driver.seedStdout) this._chunks.push(driver.seedStdout);
+
     return new Promise((resolve, reject) => {
       driver.attach(
         (chunk) => {
@@ -111,17 +112,21 @@ export class ExecHandle implements PromiseLike<ExecResult> {
   ): Promise<ExecResult> {
     const stderr: string[] = [];
     let exitCode = 0;
+
     try {
       for await (const ev of gen) {
         if (ev.type === SSEEventType.Stdout && ev.text) {
           this._chunks.push(ev.text);
           this._notify();
         }
+
         if (ev.type === SSEEventType.Stderr && ev.text) {
           stderr.push(ev.text);
         }
+
         if (ev.type === SSEEventType.Error && ev.error?.evalue !== undefined) {
           const code = Number(ev.error.evalue);
+
           if (!isNaN(code)) exitCode = code;
         }
       }
@@ -139,7 +144,9 @@ export class ExecHandle implements PromiseLike<ExecResult> {
       stderr: stderr.join(""),
       exitCode,
     };
+
     await onDone(result);
+
     return result;
   }
 
@@ -164,14 +171,18 @@ export class ExecHandle implements PromiseLike<ExecResult> {
   /** Async generator yielding stdout chunks as they arrive. */
   async *stdout(): AsyncGenerator<string> {
     let pos = 0;
+
     while (true) {
       while (pos < this._chunks.length) yield this._chunks[pos++];
+
       if (this._done) break;
       await new Promise<void>((r) => {
         this._wakeup = r;
       });
     }
+
     while (pos < this._chunks.length) yield this._chunks[pos++];
+
     if (this._hasErr) throw this._err;
   }
 
@@ -252,7 +263,9 @@ export class InteractiveExecHandle extends ExecHandle {
     const onData = (chunk: Buffer | string) => {
       this.write(chunk.toString());
     };
+
     readable.on("data", onData);
+
     try {
       await this.pipe(writable);
     } finally {

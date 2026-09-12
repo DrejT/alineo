@@ -27,9 +27,12 @@ function printHelp(): void {
 
   for (const { key, label } of GROUPS) {
     const groupCommands = commands.filter((c) => c.group === key);
+
     const width =
       Math.max(...groupCommands.flatMap((c) => c.variants.map((v) => v.usage.length))) + 2;
+
     console.log(`\n${label}`);
+
     for (const c of groupCommands) {
       for (const v of c.variants) {
         console.log(`  ${v.usage.padEnd(width)}${v.summary}`);
@@ -47,16 +50,19 @@ async function main(): Promise<void> {
     await recordTuiLaunch();
     const { launchTui } = await import("./tui/index.js");
     await launchTui();
+
     return;
   }
 
   if (cmd === "--version" || cmd === "-v" || cmd === "version") {
     const { version } = await import("../package.json");
     console.log(version);
+
     return;
   }
 
   const found = commands.find((c) => c.name === cmd);
+
   if (found) {
     await withTelemetry(found.name, argv, () => found.run(argv));
     // spawn/fork/prompt deliberately leave their sandbox running (that's the whole point --
@@ -70,6 +76,7 @@ async function main(): Promise<void> {
   }
 
   printHelp();
+
   if (cmd) process.exit(1);
 }
 

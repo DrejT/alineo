@@ -33,6 +33,7 @@ describe("ExecHandle — streaming mode", () => {
       gen: makeStream([stdout("hello\n"), error(0)]),
       onDone: async () => {},
     });
+
     const result = await handle;
     expect(result.stdout).toBe("hello\n");
     expect(result.exitCode).toBe(0);
@@ -44,6 +45,7 @@ describe("ExecHandle — streaming mode", () => {
       gen: makeStream([stdout("hi"), error(0)]),
       onDone: async () => {},
     });
+
     const result = await handle.result();
     expect(result.stdout).toBe("hi");
   });
@@ -54,6 +56,7 @@ describe("ExecHandle — streaming mode", () => {
       gen: makeStream([stderr("err\n"), error(1)]),
       onDone: async () => {},
     });
+
     const result = await handle;
     expect(result.stderr).toBe("err\n");
     expect(result.exitCode).toBe(1);
@@ -65,7 +68,9 @@ describe("ExecHandle — streaming mode", () => {
       gen: makeStream([stdout("a"), stdout("b"), stdout("c"), error(0)]),
       onDone: async () => {},
     });
+
     const chunks: string[] = [];
+
     for await (const chunk of handle.stdout()) chunks.push(chunk);
     expect(chunks).toEqual(["a", "b", "c"]);
   });
@@ -76,6 +81,7 @@ describe("ExecHandle — streaming mode", () => {
       gen: makeStream([stdout("x"), stdout("y"), error(0)]),
       onDone: async () => {},
     });
+
     const written: string[] = [];
     await handle.pipe({ write: (c) => written.push(c) });
     expect(written).toEqual(["x", "y"]);
@@ -83,6 +89,7 @@ describe("ExecHandle — streaming mode", () => {
 
   it("calls onDone with the completed result", async () => {
     let capturedResult: unknown;
+
     const handle = new ExecHandle({
       type: "stream",
       gen: makeStream([stdout("out"), error(42)]),
@@ -91,6 +98,7 @@ describe("ExecHandle — streaming mode", () => {
         capturedResult = r;
       },
     });
+
     await handle;
     expect((capturedResult as { exitCode: number }).exitCode).toBe(42);
     expect((capturedResult as { stdout: string }).stdout).toBe("out");
@@ -110,7 +118,9 @@ describe("ExecHandle — replay mode", () => {
       type: "replay",
       result: { stdout: "hello", stderr: "", exitCode: 0 },
     });
+
     const chunks: string[] = [];
+
     for await (const chunk of handle.stdout()) chunks.push(chunk);
     expect(chunks.join("")).toBe("hello");
   });
@@ -120,6 +130,7 @@ describe("ExecHandle — replay mode", () => {
       type: "replay",
       result: { stdout: "piped", stderr: "", exitCode: 0 },
     });
+
     const written: string[] = [];
     await handle.pipe({ write: (c) => written.push(c) });
     expect(written.join("")).toBe("piped");
@@ -130,6 +141,7 @@ describe("ExecHandle — replay mode", () => {
       type: "replay",
       result: { stdout: "x", stderr: "", exitCode: 5 },
     });
+
     const result = await handle.result();
     expect(result.exitCode).toBe(5);
   });

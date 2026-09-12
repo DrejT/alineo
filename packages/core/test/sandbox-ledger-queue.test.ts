@@ -33,6 +33,7 @@ describe("SandboxHandle — ledger write ordering (emit queue)", () => {
 
     vi.mocked(adapter.append).mockImplementation((entry: LedgerEntry) => {
       const id = (entry.payload as { id: string }).id;
+
       if (id === "slow") {
         return new Promise<void>((resolve) => {
           resolveSlow = () => {
@@ -41,7 +42,9 @@ describe("SandboxHandle — ledger write ordering (emit queue)", () => {
           };
         });
       }
+
       appendOrder.push(id);
+
       return Promise.resolve();
     });
 
@@ -95,6 +98,7 @@ describe("SandboxHandle — ledger write ordering (emit queue)", () => {
     // TS's array indexing types this as always-defined; widen it so the guard below
     // (real if append() is never called) is meaningful instead of dead code to the checker.
     const entryAtCallTime = vi.mocked(adapter.append).mock.calls[0]?.[0] as LedgerEntry | undefined;
+
     if (!entryAtCallTime) throw new Error("expected append() to have been called");
 
     await new Promise((r) => setTimeout(r, 50));

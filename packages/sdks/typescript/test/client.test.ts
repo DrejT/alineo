@@ -95,6 +95,7 @@ describe("Sandbox.sandboxes", () => {
         execCount: 2,
       },
     ];
+
     (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue(details);
 
     const result = await client.sandboxes.list();
@@ -129,6 +130,7 @@ describe("Sandbox.sandboxes", () => {
       startedAt: 1000,
       execCount: 1,
     };
+
     (adapter.getSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue(details);
 
     const result = await client.sandboxes.get("ci", "s1");
@@ -172,6 +174,7 @@ describe("Sandbox concurrency slot", () => {
     await internals(client)._acquireSlot();
 
     let resolved = false;
+
     const pending = internals(client)
       ._acquireSlot()
       .then(() => {
@@ -195,6 +198,7 @@ describe("Sandbox concurrency slot", () => {
     for (let i = 0; i < 10; i++) {
       await internals(client)._acquireSlot();
     }
+
     expect(internals(client)._activeCount).toBe(10);
   });
 });
@@ -204,11 +208,13 @@ describe("Sandbox concurrency slot", () => {
 describe("Sandbox.environment()", () => {
   it("returns an Environment instance with the given name", () => {
     const client = makeClient(makeAdapter());
+
     const env = client.environment("py", {
       image: "debian:slim",
       resources: { cpu: "500m", memory: "256Mi" },
       setup: async () => {},
     });
+
     expect(env).toBeInstanceOf(Environment);
     expect(env.name).toBe("py");
   });
@@ -221,6 +227,7 @@ describe("Environment.info()", () => {
     const record = { name: "py", snapshotId: "snap-1", image: "debian:slim", builtAt: 1000 };
     const adapter = makeAdapter({ getEnvironment: vi.fn().mockResolvedValue(record) });
     const client = makeClient(adapter);
+
     const env = client.environment("py", {
       image: "debian:slim",
       resources: { cpu: "500m", memory: "256Mi" },
@@ -235,6 +242,7 @@ describe("Environment.info()", () => {
   it("returns null when no record exists", async () => {
     const adapter = makeAdapter({ getEnvironment: vi.fn().mockResolvedValue(null) });
     const client = makeClient(adapter);
+
     const env = client.environment("py", {
       image: "debian:slim",
       resources: { cpu: "500m", memory: "256Mi" },
@@ -253,6 +261,7 @@ describe("Sandbox.environments", () => {
       { name: "py", snapshotId: "snap-1", image: "debian:slim", builtAt: 2000 },
       { name: "node", snapshotId: "snap-2", image: "node:22", builtAt: 1000 },
     ];
+
     const adapter = makeAdapter({ listEnvironments: vi.fn().mockResolvedValue(records) });
     const client = makeClient(adapter);
 
@@ -278,9 +287,11 @@ describe("Sandbox._getOrBuildEnvironment concurrency guard", () => {
     const client = makeClient(adapter);
 
     let resolveBuild!: (id: string) => void;
+
     const buildPromise = new Promise<string>((r) => {
       resolveBuild = r;
     });
+
     const buildSpy = vi.fn().mockReturnValue(buildPromise);
     client._buildEnvironment = buildSpy;
 
@@ -390,6 +401,7 @@ function createdPayload(adapter: IStorageAdapter): Record<string, unknown> | und
   const call = vi
     .mocked(adapter.append)
     .mock.calls.find(([entry]) => entry.event === "sandbox_created");
+
   return call?.[0].payload as Record<string, unknown> | undefined;
 }
 
@@ -405,6 +417,7 @@ describe("Sandbox.sandbox() resourceId/teamId threading", () => {
       resourceId: "user-1",
       teamId: "acme",
     });
+
     expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
 
     (adapter.append as ReturnType<typeof vi.fn>).mockClear();
@@ -467,6 +480,7 @@ describe("Sandbox.restoreSnapshot() resourceId/teamId threading", () => {
         teamId: "acme",
       },
     );
+
     expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
 
     (adapter.append as ReturnType<typeof vi.fn>).mockClear();
@@ -536,6 +550,7 @@ describe("fork closure resourceId/teamId override", () => {
       resources: { cpu: "500m", memory: "256Mi" },
       resourceId: "grandparent-resource",
     });
+
     const child = await parent.deps.fork!("snap-child", undefined, undefined, {
       resourceId: "child-resource",
     });

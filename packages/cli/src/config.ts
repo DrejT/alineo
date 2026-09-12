@@ -15,6 +15,7 @@ export interface AlineoConfig {
 }
 
 const CONFIG_DIR = ".alineo";
+
 const CONFIG_FILE = "alineo.config.json";
 
 export function configPath(): string {
@@ -49,18 +50,22 @@ function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
  */
 export async function readConfig(): Promise<AlineoConfig> {
   const localFile = Bun.file(configPath());
+
   if (await localFile.exists()) {
     return fillDefaults((await localFile.json()) as Partial<AlineoConfig>);
   }
 
   const globalPath = globalConfigPath();
   const globalFile = Bun.file(globalPath);
+
   if (await globalFile.exists()) {
     return fillDefaults((await globalFile.json()) as Partial<AlineoConfig>);
   }
 
   const dir = serverConfigDir();
+
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
+
   const config: AlineoConfig = {
     serverUrl: "http://127.0.0.1:8080",
     useServerProxy: true,
@@ -69,7 +74,9 @@ export async function readConfig(): Promise<AlineoConfig> {
     agentsDir: join(dir, "agents"),
     defaults: { resources: { cpu: "1000m", memory: "1Gi" } },
   };
+
   await Bun.write(globalPath, JSON.stringify(config, null, 2) + "\n");
+
   return config;
 }
 

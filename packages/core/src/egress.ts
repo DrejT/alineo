@@ -30,20 +30,24 @@ export interface ReconstructedEgress {
 export function reconstructEgressRules(entries: LedgerEntry[]): ReconstructedEgress {
   const byTarget = new Map<string, NetworkRule>();
   const removed = new Set<string>();
+
   for (const entry of entries) {
     if (entry.event === LedgerEvent.EgressRuleAdded) {
       const { rules } = entry.payload as { rules: NetworkRule[] };
+
       for (const rule of rules) {
         byTarget.set(rule.target, rule);
         removed.delete(rule.target);
       }
     } else if (entry.event === LedgerEvent.EgressRuleRemoved) {
       const { targets } = entry.payload as { targets: string[] };
+
       for (const target of targets) {
         byTarget.delete(target);
         removed.add(target);
       }
     }
   }
+
   return { apply: [...byTarget.values()], remove: [...removed] };
 }

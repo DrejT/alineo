@@ -62,15 +62,19 @@ export async function loadAgent(
   const config = await readProjectConfig();
   const resolvedEnv = resolveEnv(spec.env ?? {});
   const effectiveSpawnDepth = opts.spawnDepth ?? spec.spawnDepth;
+
   if (effectiveSpawnDepth !== undefined) {
     assertValidSpawnDepth(effectiveSpawnDepth, "Alineo.load()");
     resolvedEnv.ALINEO_SPAWN_DEPTH = String(effectiveSpawnDepth);
   }
+
   const effectiveMaxAgents = opts.maxAgents ?? spec.maxAgents;
+
   if (effectiveMaxAgents !== undefined) {
     assertValidMaxAgents(effectiveMaxAgents, "Alineo.load()");
     resolvedEnv.ALINEO_MAX_AGENTS = String(effectiveMaxAgents);
   }
+
   // Unlike spawnDepth/maxAgents (which stay unset unless the spec/caller opts in), runId is
   // always present — call-time only, never a spec field: a run identity is inherently
   // per-invocation.
@@ -85,11 +89,13 @@ export async function loadAgent(
   // denied at the sidecar and the credential is NOT registered — the gate does both on
   // approval (the vault refuses a binding whose host isn't allowed).
   const heldCredentials = credentialBindings.filter((b) => b.approval === "hold");
+
   // Normalize the same way `EgressApprovalGate` does, so the `deny` rule created here and the
   // `allow` rule the gate patches on approval name the exact same target.
   const heldHosts = [
     ...new Set(heldCredentials.map((b) => b.binding.host.trim().replace(/\.$/, "").toLowerCase())),
   ];
+
   if (heldCredentials.length > 0 && !opts.onEgressRequest) {
     throw new Error(
       `AgentSpec.env has ${heldCredentials.length} credential binding(s) with approval: "hold" ` +
@@ -123,7 +129,9 @@ export async function loadAgent(
           handler: opts.onEgressRequest,
         })
       : undefined;
+
   const egressEnv: Record<string, string> = {};
+
   if (egressGate) {
     await egressGate.start();
     egressEnv.OPENSANDBOX_EGRESS_DENY_WEBHOOK = egressGate.webhookUrl;
@@ -146,6 +154,7 @@ export async function loadAgent(
   // ── Snapshot fast path ────────────────────────────────────────────────────
   if (!opts.rebuild) {
     const record = await store.get(spec.name, setupHash);
+
     if (record) {
       try {
         console.log(`[agent] restoring from snapshot...`);
@@ -276,6 +285,7 @@ export async function resumeAgent(
   // sandbox's name (see #184 -- unlike load(), resume() has no spec object to fall back to
   // when the caller genuinely doesn't have one on hand, so this guess stays load-bearing).
   let spec: AgentSpec;
+
   if (opts.spec) {
     spec = validateAgentSpec(opts.spec);
   } else if (opts.specPath) {
@@ -283,6 +293,7 @@ export async function resumeAgent(
   } else {
     const sessions = await client.sandboxes.list();
     const session = sessions.find((s) => s.sandboxId === sandboxId);
+
     if (!session)
       throw new Error(
         `No ledger record for sandbox ${sandboxId} — pass opts.spec or opts.specPath explicitly`,
@@ -291,14 +302,17 @@ export async function resumeAgent(
   }
 
   const resolvedEnv = resolveEnv(spec.env ?? {});
+
   if (spec.maxAgents !== undefined) {
     assertValidMaxAgents(spec.maxAgents, "Alineo.resume()");
     resolvedEnv.ALINEO_MAX_AGENTS = String(spec.maxAgents);
   }
+
   if (spec.spawnDepth !== undefined) {
     assertValidSpawnDepth(spec.spawnDepth, "Alineo.resume()");
     resolvedEnv.ALINEO_SPAWN_DEPTH = String(spec.spawnDepth);
   }
+
   // Same "recompute, don't preserve" convention as spawnDepth/maxAgents above: a resumed
   // agent that doesn't get an explicit override starts a fresh run identity rather than
   // trying to recover the original invocation's exact value.
@@ -307,6 +321,7 @@ export async function resumeAgent(
 
   console.log(`[agent] reconnecting to ${sandboxId}...`);
   const t1 = Date.now();
+
   const sb = await client.connect(sandboxId, spec.name, {
     runId,
     // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment for
@@ -317,6 +332,7 @@ export async function resumeAgent(
     resourceId: spec.resourceId ?? spec.name,
     teamId: spec.teamId,
   });
+
   console.log(`[agent] connected       ${elapsed(t1)}`);
 
   // Kill any stale bridge process before starting a fresh one.
@@ -353,15 +369,19 @@ async function reconcileDroppedPermissions(
   try {
     const events = await adapter.readAll(name, sandboxId);
     const resolved = new Set<string>();
+
     for (const e of events) {
       if (e.event === LedgerEvent.PermissionResolved) {
         const rid = (e.payload as { requestId?: string } | undefined)?.requestId;
+
         if (rid) resolved.add(rid);
       }
     }
+
     for (const e of events) {
       if (e.event !== LedgerEvent.PermissionRequested) continue;
       const rid = (e.payload as { requestId?: string } | undefined)?.requestId;
+
       if (rid && !resolved.has(rid)) {
         await sb.emit(LedgerEvent.PermissionResolved, -1, {
           requestId: rid,
@@ -388,15 +408,18 @@ export async function attachAgent(
   },
 ): Promise<AgentConstructorArgs> {
   const config = await readProjectConfig();
+
   const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
     adapter: opts.adapter,
     useServerProxy: config.useServerProxy,
   });
+
   const resources = opts.resources ?? config.defaults.resources;
   const sb = await client.connect(sandboxId, opts.name, { resources });
   let envFile: string;
+
   try {
     envFile =
       sandboxId === process.env.ALINEO_SANDBOX_ID
@@ -405,6 +428,7 @@ export async function attachAgent(
   } catch {
     envFile = "";
   }
+
   const env = parseShellExports(envFile);
   // Falls back to a fresh UUID only when attaching to a sandbox created before this
   // field existed — every sandbox created going forward always has ALINEO_RUN_ID baked in.
@@ -412,6 +436,7 @@ export async function attachAgent(
   // actually present; this specific key genuinely may be missing.
   const runId = (env.ALINEO_RUN_ID as string | undefined) ?? crypto.randomUUID();
   const stubSpec: AgentSpec = { name: opts.name, cli: "pi" };
+
   return {
     sandbox: sb,
     spec: stubSpec,
@@ -433,6 +458,7 @@ export async function spawnChild(
 ): Promise<AgentConstructorArgs> {
   const parentDepth = resolveParentSpawnDepth(process.env.ALINEO_SPAWN_DEPTH, opts.spawnDepth);
   const parentMax = resolveParentMaxAgents(process.env.ALINEO_MAX_AGENTS, opts.maxAgents);
+
   if (parentMax !== undefined && parentMax <= 0) {
     throw new Error(`Alineo.spawn() refused: max-agents budget exhausted (0 remaining).`);
   }
@@ -440,6 +466,7 @@ export async function spawnChild(
   const childSpec = validateAgentSpec(await Bun.file(childSpecPath).json());
   const childEnv = resolveEnv(childSpec.env ?? {});
   childEnv.ALINEO_SPAWN_DEPTH = String(parentDepth - 1);
+
   if (parentMax !== undefined) childEnv.ALINEO_MAX_AGENTS = String(parentMax - 1);
   // Resolved once and used for both the child's own env AND the fork call's ledger
   // record — read from process.env, not self.env, since this code runs as a real CLI
@@ -453,6 +480,7 @@ export async function spawnChild(
   // parent's own bound credentials over on its own; this is for bindings that only exist in
   // the *child's* spec, which `fork()` has no way to know about on its own.
   const childCredentialBindings = extractCredentialBindings(childSpec.env ?? {});
+
   if (childCredentialBindings.some((b) => b.approval === "hold")) {
     throw new Error(
       `Spawned agent "${childSpec.name}" has a credential binding with approval: "hold" — ` +
@@ -465,11 +493,13 @@ export async function spawnChild(
 
   console.log(`[agent] forking sandbox for spawn (${childSpec.name})...`);
   const t0 = Date.now();
+
   const forkedSb = await self.sandbox.fork(childSpec.name, runId, {
     credentialProxy: childCredentialBindings.length > 0,
     resourceId: childResourceId,
     teamId: childSpec.teamId,
   });
+
   console.log(`[agent] fork ready      ${elapsed(t0)} (${forkedSb.sandboxId})`);
 
   for (const { name, value, binding, source } of childCredentialBindings) {
@@ -498,6 +528,7 @@ export async function spawnChild(
     name: forkedSb.name,
     resourceId: childResourceId,
   };
+
   return {
     sandbox: forkedSb,
     spec: namedChildSpec,
@@ -529,6 +560,7 @@ export async function forkChildMemory(
   child: { resourceRef: ResourceRef; close: () => Promise<void> },
 ): Promise<void> {
   if (!parentMemory) return;
+
   try {
     await parentMemory.fork(parentRef, child.resourceRef.resourceId);
   } catch (err) {

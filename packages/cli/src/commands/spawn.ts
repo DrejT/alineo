@@ -35,6 +35,7 @@ export async function spawn(
   // Alineo.load() no longer does its own file I/O (see #184) -- read the spec file ourselves.
   // load() validates it internally regardless, so no need to call validateAgentSpec() here too.
   const spec = (await Bun.file(specPath).json()) as Record<string, unknown>;
+
   const agent = await Alineo.load(spec, {
     adapter,
     rebuild: opts.rebuild,
@@ -63,10 +64,12 @@ export async function spawn(
         2,
       ),
     );
+
     return;
   }
 
   console.log(`\n[alineo] session: ${agent.name}  sandbox: ${agent.sandboxId}`);
+
   if (collected) {
     if (collected.text) {
       console.log(`\n${collected.text}`);

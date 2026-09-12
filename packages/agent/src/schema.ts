@@ -5,14 +5,17 @@ import type { PermissionMode, PermissionPolicy } from "./permissions";
 /** Renders an arbitrary invalid field value for an error message without risking "[object Object]". */
 function describeValue(value: unknown): string {
   if (typeof value === "string") return value;
+
   try {
     // JSON.stringify's type says it always returns string, but at runtime it returns
     // undefined for values it can't represent (function, symbol, undefined itself).
     const json = JSON.stringify(value) as string | undefined;
+
     if (json !== undefined) return json;
   } catch {
     // circular reference or similar -- fall through to the primitive-safe rendering below
   }
+
   return typeof value === "object" && value !== null
     ? Object.prototype.toString.call(value)
     : String(value);
@@ -321,6 +324,7 @@ const AgentSpecSchema = z
  */
 export function validateAgentSpec(data: unknown): AgentSpec {
   const result = AgentSpecSchema.safeParse(data);
+
   if (!result.success) {
     throw new AgentSpecValidationError(
       `Invalid agent spec:\n${z.prettifyError(result.error)}`,
@@ -331,5 +335,6 @@ export function validateAgentSpec(data: unknown): AgentSpec {
       })),
     );
   }
+
   return result.data;
 }

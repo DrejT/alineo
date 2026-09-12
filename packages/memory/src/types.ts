@@ -27,5 +27,6 @@ export interface ResourceRef {
  */
 export function scopeKey(ref: ResourceRef): string {
   const escape = (part: string) => part.replace(/\\/g, "\\\\").replace(/:/g, "\\:");
+
   return ref.teamId ? `${escape(ref.teamId)}:${escape(ref.resourceId)}` : escape(ref.resourceId);
 }

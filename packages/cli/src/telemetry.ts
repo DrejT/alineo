@@ -38,6 +38,7 @@ export interface CliTelemetryEvent {
  * convention `@alineo-labs/otel`'s own collector URL uses -- useful for pointing at a local
  * `apps/telemetry` instance during development instead. */
 const DEFAULT_TELEMETRY_ENDPOINT = "https://telemetry.alineo.tech/v1/events";
+
 const SEND_TIMEOUT_MS = 500;
 
 /** `ALINEO_TELEMETRY_CONFIG_PATH` is an internal test seam, not a documented user-facing setting
@@ -54,14 +55,17 @@ function newAnonymousId(): string {
 
 export async function readTelemetryConfig(): Promise<TelemetryConfig> {
   const file = Bun.file(telemetryConfigPath());
+
   if (await file.exists()) {
     const data = (await file.json()) as Partial<TelemetryConfig>;
+
     return {
       enabled: data.enabled ?? true,
       anonymousId: data.anonymousId ?? newAnonymousId(),
       notifiedAt: data.notifiedAt ?? null,
     };
   }
+
   return { enabled: true, anonymousId: newAnonymousId(), notifiedAt: null };
 }
 
@@ -81,6 +85,7 @@ export function envDisabled(): boolean {
 export async function isTelemetryDisabled(): Promise<boolean> {
   if (envDisabled()) return true;
   const config = await readTelemetryConfig();
+
   return !config.enabled;
 }
 
@@ -136,9 +141,11 @@ const FLAG_ALLOWLIST: Record<string, string[]> = {
 function extractAllowedFlags(commandName: string, argv: string[]): Record<string, boolean> {
   const allowed = FLAG_ALLOWLIST[commandName] ?? [];
   const flags: Record<string, boolean> = {};
+
   for (const flagName of allowed) {
     flags[flagName.replace(/^--/, "")] = argv.includes(flagName);
   }
+
   return flags;
 }
 
@@ -153,9 +160,12 @@ async function extractSpecProvider(
 ): Promise<string | undefined> {
   if (commandName !== "spawn" && commandName !== "fork") return undefined;
   const specPath = (commandName === "fork" ? argv.slice(1) : argv).find((a) => !a.startsWith("--"));
+
   if (!specPath) return undefined;
+
   try {
     const spec = (await Bun.file(specPath).json()) as { provider?: unknown };
+
     return typeof spec.provider === "string" ? spec.provider : undefined;
   } catch {
     return undefined;
@@ -180,12 +190,15 @@ export async function withTelemetry(
 ): Promise<void> {
   if (envDisabled()) {
     await run();
+
     return;
   }
 
   const config = await readTelemetryConfig();
+
   if (!config.enabled) {
     await run();
+
     return;
   }
 
@@ -196,6 +209,7 @@ export async function withTelemetry(
   const start = performance.now();
   let outcome: "success" | "error" = "success";
   let errorClass: string | undefined;
+
   try {
     await run();
   } catch (err) {
@@ -227,6 +241,7 @@ export async function withTelemetry(
 export async function recordTuiLaunch(): Promise<void> {
   if (envDisabled()) return;
   const config = await readTelemetryConfig();
+
   if (!config.enabled) return;
   await maybePrintFirstRunNotice(config);
   const { version } = await import("../package.json");

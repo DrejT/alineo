@@ -23,6 +23,7 @@ describe("validateAgentSpec", () => {
       metadata: { team: "infra" },
       registryDependencies: ["https://example.com/base.json"],
     });
+
     expect(spec.title).toBe("Full Agent");
     expect(spec.packages).toEqual(["nodejs_22", "git"]);
     expect(spec.registryDependencies).toEqual(["https://example.com/base.json"]);

@@ -30,6 +30,7 @@ describe("createMemoryTools", () => {
       workingMemory: new InMemoryWorkingMemoryProvider(),
       semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
     });
+
     const tools = createMemoryTools(memory, ref);
 
     expect(tools.map((t) => t.name)).toEqual([
@@ -57,8 +58,8 @@ describe("createMemoryTools", () => {
     const memory = new Memory({ workingMemory: new InMemoryWorkingMemoryProvider() });
     const [set, get] = createMemoryTools(memory, ref);
 
-    await set!.execute({ key: "favoriteColor", value: "blue" });
-    const result = await get!.execute({});
+    await set.execute({ key: "favoriteColor", value: "blue" });
+    const result = await get.execute({});
 
     expect(result).toEqual({ favoriteColor: "blue" });
   });
@@ -68,10 +69,11 @@ describe("createMemoryTools", () => {
       workingMemory: new InMemoryWorkingMemoryProvider(),
       semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
     });
+
     const [, , remember, recall] = createMemoryTools(memory, ref);
 
-    await remember!.execute({ content: "the sky is blue" });
-    const result = (await recall!.execute({ query: "sky" })) as { facts: string[] };
+    await remember.execute({ content: "the sky is blue" });
+    const result = (await recall.execute({ query: "sky" })) as { facts: string[] };
 
     expect(result.facts).toEqual(["the sky is blue"]);
   });

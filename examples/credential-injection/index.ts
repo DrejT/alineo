@@ -90,6 +90,7 @@ try {
 
   // ── Part 3: fork() carries bound credentials to the child automatically ────
   console.log("\n--- forking: the child inherits the 'github' credential too ---");
+
   // `resolveCredential` re-supplies each bound credential's value on the child. A real
   // GH_TOKEN in the environment makes the `github` binding's `{ type: "env" }` source
   // auto-resolve; the `echo-key` binding has no source, so the callback is what carries it.
@@ -101,6 +102,7 @@ try {
           ? "s3cr3t-substituted-value"
           : undefined,
   });
+
   try {
     await child
       .exec('curl -s -o /dev/null -w "HTTP %{http_code}\\n" https://api.github.com/user')

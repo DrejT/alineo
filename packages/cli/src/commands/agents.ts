@@ -6,6 +6,7 @@ export async function agents(opts: { json?: boolean } = {}): Promise<void> {
 
   if (opts.json) {
     console.log(JSON.stringify(tracked, null, 2));
+
     return;
   }
 
@@ -24,12 +25,14 @@ export async function agents(opts: { json?: boolean } = {}): Promise<void> {
       ].join("  "),
     );
   }
+
   if (tracked.length === 0) {
     console.log("(no running alineo-tracked sessions — run 'alineo spawn <spec>' to start one)");
   }
 
   if (untracked.length > 0) {
     console.log(`\nUntracked (not created by alineo, e.g. agent-spawned children):`);
+
     for (const id of untracked) console.log(`  ${id}`);
   }
 }

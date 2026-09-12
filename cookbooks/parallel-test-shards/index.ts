@@ -53,6 +53,7 @@ let forks: Awaited<ReturnType<typeof base.fork>>[] = [];
 try {
   await base.createDirectory("/workspace");
   await base.exec("pip install --quiet pytest").pipe(process.stdout);
+
   for (const [path, content] of Object.entries(TEST_FILES)) {
     await base.writeFile(`/workspace/${path}`, content);
   }
@@ -66,6 +67,7 @@ try {
   const forkResults = await Promise.allSettled(shardNames.map((_, i) => base.fork(`shard-${i}`)));
   forks = forkResults.filter((r) => r.status === "fulfilled").map((r) => r.value);
   const forkFailures = forkResults.filter((r) => r.status === "rejected");
+
   if (forkFailures.length > 0) {
     throw new Error(
       `${forkFailures.length}/${shardNames.length} fork() calls failed: ` +
@@ -74,6 +76,7 @@ try {
           .join("; "),
     );
   }
+
   for (const [i, f] of forks.entries()) console.log(`  shard-${i} → ${f.sandboxId}`);
 
   console.log("\n=== Running shards in parallel ===\n");
@@ -82,9 +85,11 @@ try {
     shardNames.map(async (path, i) => {
       const sb = forks[i];
       const t0 = Date.now();
+
       const { stdout, exitCode } = await sb.exec(`cd /workspace && pytest -q ${path}`, {
         strict: false,
       });
+
       return {
         path,
         exitCode,
@@ -96,11 +101,14 @@ try {
 
   console.log("=== Shard results ===");
   let allPassed = true;
+
   for (const r of shardResults) {
     allPassed = allPassed && r.exitCode === 0;
     console.log(`  [${r.path}] ${r.exitCode === 0 ? "PASS" : "FAIL"} (${r.ms}ms) — ${r.summary}`);
   }
+
   console.log(`\nOverall: ${allPassed ? "PASS" : "FAIL"}`);
+
   if (!allPassed) process.exitCode = 1;
 } finally {
   await Promise.all([...forks.map((f) => f.close()), base.close()]);

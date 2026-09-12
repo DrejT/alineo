@@ -129,6 +129,7 @@ describe("compactSemanticMemory", () => {
         maxFacts: 0,
         summarize: async (facts) => {
           seen = facts;
+
           return [];
         },
       });
@@ -144,6 +145,7 @@ describe("compactSemanticMemory", () => {
       const result = await compactSemanticMemory(provider, ref, {
         summarize: async () => {
           called = true;
+
           return [];
         },
       });
@@ -176,15 +178,18 @@ describe("compactSemanticMemory", () => {
       { id: "f3", content: "c", rememberedAt: 3 },
       { id: "f4", content: "d", rememberedAt: 4 },
     ];
+
     // What's actually left in the store after the concurrent run already deleted f1/f2.
     const trueRemaining: RememberedFact[] = staleSnapshot.slice(2);
 
     let listAllCallCount = 0;
+
     const provider: IPrunableSemanticMemoryProvider = {
       remember: async () => {},
       recall: async () => [],
       listAll: async () => {
         listAllCallCount++;
+
         // 1st call: this compaction's own pre-decision snapshot — stale, still shows all 4.
         // 2nd call: the fix's post-forget() re-query — reflects the real current state.
         return listAllCallCount === 1 ? staleSnapshot : trueRemaining;

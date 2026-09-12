@@ -23,7 +23,9 @@ describe("resolveExecClient", () => {
       "fetch",
       vi.fn().mockImplementation(() => {
         calls++;
+
         if (calls <= 2) return Promise.reject(new Error("ECONNREFUSED"));
+
         // eslint-disable-next-line typescript/require-await -- must match fetch's Response.json() signature; nothing here needs to await
         return Promise.resolve({ ok: true, status: 200, json: async () => [] });
       }),
@@ -55,7 +57,9 @@ describe("resolveExecClient", () => {
       "fetch",
       vi.fn().mockImplementation(() => {
         calls++;
+
         if (calls < 40) return Promise.reject(new Error("ECONNREFUSED"));
+
         // eslint-disable-next-line typescript/require-await -- must match fetch's Response.json() signature; nothing here needs to await
         return Promise.resolve({ ok: true, status: 200, json: async () => [] });
       }),

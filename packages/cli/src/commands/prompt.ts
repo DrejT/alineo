@@ -51,8 +51,10 @@ export async function prompt(
         2,
       ),
     );
+
     return;
   }
+
   if (collected.text) {
     console.log(collected.text);
   } else if (collected.toolCalls.length > 0) {

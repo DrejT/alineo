@@ -14,11 +14,14 @@ import { Alineo, type AgentEvent } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
+
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const spec = await Bun.file(SPEC).json();
+
 const agent = await Alineo.load(spec, { adapter });
+
 console.log(
   `\nSandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}\n${"─".repeat(60)}\n`,
 );
@@ -38,6 +41,7 @@ const prompt =
 console.log(`Prompt: "${prompt}"\n`);
 
 const toolEvents: AgentEvent[] = [];
+
 let textOutput = "";
 
 for await (const ev of agent.prompt(prompt)) {
@@ -69,21 +73,28 @@ for await (const ev of agent.prompt(prompt)) {
 }
 
 console.log("\n\n" + "─".repeat(60));
+
 console.log("=== Summary ===\n");
 
 const starts = toolEvents.filter((e) => e.type === "tool_start");
+
 const ends = toolEvents.filter((e) => e.type === "tool_end");
+
 const updates = toolEvents.filter((e) => e.type === "tool_update");
 
 console.log(`tool_start  events: ${starts.length}`);
+
 console.log(`tool_update events: ${updates.length}`);
+
 console.log(`tool_end    events: ${ends.length}`);
+
 console.log(`text output length: ${textOutput.length} chars`);
 
 // Tool names seen
 const toolNames = [
   ...new Set(starts.map((e) => (e as Extract<AgentEvent, { type: "tool_start" }>).toolName)),
 ];
+
 console.log(`tools used: ${toolNames.join(", ") || "(none)"}`);
 
 if (starts.length > 0 && ends.length > 0 && textOutput.length > 0) {
@@ -98,4 +109,5 @@ if (starts.length > 0 && ends.length > 0 && textOutput.length > 0) {
 }
 
 await agent.close();
+
 console.log("Alineo closed.");

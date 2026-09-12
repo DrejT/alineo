@@ -4,6 +4,7 @@ import type { SandboxInternal } from "./internal";
 /** Return current CPU and memory usage for this sandbox. */
 export async function metrics(sb: SandboxInternal): Promise<Metrics> {
   const ec = await sb.getExecClient();
+
   return ec.getMetrics();
 }
 
@@ -16,8 +17,10 @@ export async function metrics(sb: SandboxInternal): Promise<Metrics> {
  */
 export async function* watchMetrics(sb: SandboxInternal): AsyncGenerator<Metrics> {
   const ec = await sb.getExecClient();
+
   for await (const ev of ec.watchMetrics()) {
     const m = ev as unknown as Metrics;
+
     if (typeof m.cpu === "number" && typeof m.memory === "number") yield m;
   }
 }
@@ -43,5 +46,6 @@ export async function proxy(
 ): Promise<{ url: string; headers: Record<string, string> }> {
   const ep = await sb.deps.control.getEndpoint(sb.sandboxId, port, sb.deps.useServerProxy);
   const url = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
+
   return { url, headers: ep.headers ?? {} };
 }

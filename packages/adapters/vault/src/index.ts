@@ -1,5 +1,7 @@
 export { OpenSandboxCredentialBroker, UnsupportedInjectionError } from "./broker";
+
 export { VaultClient, VaultClientError } from "./vault-client";
+
 export type {
   VaultState,
   WireCredential,

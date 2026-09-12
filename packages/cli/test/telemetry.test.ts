@@ -13,9 +13,13 @@ import {
 } from "../src/telemetry.js";
 
 let originalConfigPath: string | undefined;
+
 let originalDisabled: string | undefined;
+
 let originalDoNotTrack: string | undefined;
+
 let originalFetch: typeof fetch;
+
 let tempDir: string;
 
 beforeEach(async () => {
@@ -35,8 +39,10 @@ beforeEach(async () => {
 afterEach(async () => {
   if (originalConfigPath === undefined) delete process.env.ALINEO_TELEMETRY_CONFIG_PATH;
   else process.env.ALINEO_TELEMETRY_CONFIG_PATH = originalConfigPath;
+
   if (originalDisabled === undefined) delete process.env.ALINEO_TELEMETRY_DISABLED;
   else process.env.ALINEO_TELEMETRY_DISABLED = originalDisabled;
+
   if (originalDoNotTrack === undefined) delete process.env.DO_NOT_TRACK;
   else process.env.DO_NOT_TRACK = originalDoNotTrack;
   globalThis.fetch = originalFetch;
@@ -139,6 +145,7 @@ describe("sendTelemetryEvent", () => {
     globalThis.fetch = mock((url: string, init?: RequestInit) => {
       capturedUrl = String(url);
       capturedBody = init?.body as string;
+
       return Promise.resolve(new Response(null, { status: 204 }));
     }) as unknown as typeof fetch;
     await sendTelemetryEvent(event, "http://example.invalid/v1/events");
@@ -150,9 +157,11 @@ describe("sendTelemetryEvent", () => {
 describe("withTelemetry", () => {
   it("calls run() directly when telemetry is disabled, without ever touching fetch", async () => {
     await writeTelemetryConfig({ enabled: false, anonymousId: "x", notifiedAt: Date.now() });
+
     const fetchSpy = mock(() => {
       throw new Error("should not be called");
     });
+
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     let ran = false;
     // eslint-disable-next-line typescript/require-await -- run must return a Promise per withTelemetry's signature; nothing here needs to await
@@ -168,6 +177,7 @@ describe("withTelemetry", () => {
     let capturedBody: string | undefined;
     globalThis.fetch = mock((_url: string, init?: RequestInit) => {
       capturedBody = init?.body as string;
+
       return Promise.resolve(new Response(null, { status: 204 }));
     }) as unknown as typeof fetch;
 
@@ -190,6 +200,7 @@ describe("withTelemetry", () => {
     let capturedBody: string | undefined;
     globalThis.fetch = mock((_url: string, init?: RequestInit) => {
       capturedBody = init?.body as string;
+
       return Promise.resolve(new Response(null, { status: 204 }));
     }) as unknown as typeof fetch;
 
@@ -209,6 +220,7 @@ describe("withTelemetry", () => {
     const originalError = console.error;
     const messages: unknown[] = [];
     console.error = (...args: unknown[]) => messages.push(args);
+
     try {
       await withTelemetry("agents", [], async () => {});
       await withTelemetry("agents", [], async () => {});
@@ -219,6 +231,7 @@ describe("withTelemetry", () => {
     const noticeCount = messages.filter((m) =>
       String(m).includes("Anonymous usage telemetry"),
     ).length;
+
     expect(noticeCount).toBe(1);
 
     const config = await readTelemetryConfig();

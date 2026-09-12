@@ -41,6 +41,7 @@ export function createLogsView(
     stickyScroll: true,
     stickyStart: "top",
   });
+
   box.add(scroll);
   scroll.focus();
 
@@ -49,22 +50,27 @@ export function createLogsView(
   async function load(): Promise<void> {
     const config = await readConfig();
     const adapter = new SQLiteAdapter(config.adapterPath);
+
     const client = new Sandbox({
       baseUrl: config.serverUrl,
       apiKey: config.apiKey,
       adapter,
       useServerProxy: config.useServerProxy,
     });
+
     // Ensures the adapter is connected before the direct readAll() call below.
     await client.sandboxes.list();
 
     for (const child of scroll.getChildren()) scroll.remove(child);
 
     const entries = await adapter.readAll(session.name, session.sandboxId);
+
     if (entries.length === 0) {
       scroll.add(new TextRenderable(renderer, { id: "logs-empty", content: "(no events)" }));
+
       return;
     }
+
     entries.forEach((entry, i) => {
       const ts = new Date(entry.ts).toISOString();
       const suffix = entry.error ? ` error=${entry.error}` : "";
@@ -80,6 +86,7 @@ export function createLogsView(
   const onKeypress = (event: { name: string }) => {
     if (event.name === "escape") onBack();
   };
+
   renderer.keyInput.on("keypress", onKeypress);
 
   void load();

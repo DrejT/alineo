@@ -4,6 +4,7 @@ import type { CacheEntry, ModelProvider, ProviderModel } from "./types";
 import { CACHE_TTL_MS, fetchProviderModels, requireApiKey } from "./types";
 
 const MODELS_URL = "https://api.groq.com/openai/v1/models";
+
 const ENV_VAR = "GROQ_API_KEY";
 
 let cache: CacheEntry<ProviderModel[]> | null = null;
@@ -22,12 +23,14 @@ export const groqProvider: ModelProvider = {
   languageModel(modelId: string): LanguageModel {
     const apiKey = requireApiKey(ENV_VAR);
     const groq = createGroq({ apiKey });
+
     return groq(modelId);
   },
   async listModels(): Promise<ProviderModel[]> {
     if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.value;
     const models = await fetchProviderModels("Groq", MODELS_URL, process.env[ENV_VAR]);
     cache = { at: Date.now(), value: models };
+
     return models;
   },
 };

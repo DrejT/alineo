@@ -5,6 +5,7 @@
 // and a false rejection here is worse than the round-trip the guard exists to save.
 
 const IPV4_OCTET = "(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
+
 const ipv4Re = new RegExp(`^${IPV4_OCTET}(\\.${IPV4_OCTET}){3}$`);
 
 // Permissive IPv6: anything made of hex groups + colons, optionally with a trailing
@@ -15,6 +16,7 @@ const ipv6Re =
 
 /** A single DNS label: alphanumeric plus internal hyphens, 1–63 chars. */
 const LABEL = "(?!-)[A-Za-z0-9-]{1,63}(?<!-)";
+
 // A domain, optionally with a single leading `*.` wildcard (the sidecar's only wildcard form).
 const domainRe = new RegExp(`^(\\*\\.)?(${LABEL}\\.)*${LABEL}\\.?$`);
 
@@ -28,13 +30,18 @@ function isIpAddress(s: string): boolean {
 
 function isCidr(s: string): boolean {
   const slash = s.lastIndexOf("/");
+
   if (slash === -1) return false;
   const addr = s.slice(0, slash);
   const bits = s.slice(slash + 1);
+
   if (!/^\d{1,3}$/.test(bits)) return false;
   const n = Number(bits);
+
   if (ipv4Re.test(addr)) return n <= 32;
+
   if (isIpv6(addr)) return n <= 128;
+
   return false;
 }
 
@@ -45,8 +52,12 @@ function isCidr(s: string): boolean {
  */
 export function isValidEgressTarget(target: string): boolean {
   const t = target.trim(); // the sidecar trims too (policy.go normalizePolicy)
+
   if (t === "" || /\s/.test(t) || t.includes("/") !== isCidr(t)) return false;
+
   if (isIpAddress(t)) return true;
+
   if (isCidr(t)) return true;
+
   return domainRe.test(t);
 }

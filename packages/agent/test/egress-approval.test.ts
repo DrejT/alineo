@@ -19,6 +19,7 @@ function fakeSandbox(): FakeSandbox {
   const credsSet: string[] = [];
   const credsRemoved: string[] = [];
   const emits: FakeSandbox["emits"] = [];
+
   const handle = {
     egress: {
       patch: async (rules: Array<{ action: string; target: string }>) => {
@@ -37,11 +38,13 @@ function fakeSandbox(): FakeSandbox {
       emits.push({ event, payload });
     },
   } as unknown as SandboxHandle;
+
   return { handle, patches, credsSet, credsRemoved, emits };
 }
 
 function cred(name: string, host: string): HeldCredential {
   const binding: CredentialBinding = { host, injection: { type: "header", name: "Authorization" } };
+
   return { name, value: `${name}-value`, binding };
 }
 
@@ -59,15 +62,19 @@ describe("EgressApprovalGate", () => {
   it("on approval: opens the host first, then registers the credential", async () => {
     const sb = fakeSandbox();
     const seen: string[] = [];
+
     const gate = new EgressApprovalGate({
       heldCredentials: [cred("gh", "api.github.com")],
       handler: (req): EgressDecision => {
         seen.push(req.host);
+
         return "allow-always";
       },
     });
+
     await gate.start();
     gate.bind(sb.handle);
+
     try {
       await fireWebhook(gate, "api.github.com");
       expect(seen).toEqual(["api.github.com"]);
@@ -82,15 +89,19 @@ describe("EgressApprovalGate", () => {
   it("ignores a host it is not holding", async () => {
     const sb = fakeSandbox();
     let called = false;
+
     const gate = new EgressApprovalGate({
       heldCredentials: [cred("gh", "api.github.com")],
       handler: () => {
         called = true;
+
         return "allow-once";
       },
     });
+
     await gate.start();
     gate.bind(sb.handle);
+
     try {
       await fireWebhook(gate, "other.example.com");
       expect(called).toBe(false);
@@ -103,12 +114,15 @@ describe("EgressApprovalGate", () => {
 
   it("on deny: neither opens the host nor registers the credential", async () => {
     const sb = fakeSandbox();
+
     const gate = new EgressApprovalGate({
       heldCredentials: [cred("gh", "held.example.com")],
       handler: () => "deny",
     });
+
     await gate.start();
     gate.bind(sb.handle);
+
     try {
       await fireWebhook(gate, "held.example.com.");
       expect(sb.patches).toEqual([]);
@@ -123,15 +137,19 @@ describe("EgressApprovalGate", () => {
   it("dedupes repeated denials of the same host within the TTL", async () => {
     const sb = fakeSandbox();
     let calls = 0;
+
     const gate = new EgressApprovalGate({
       heldCredentials: [cred("gh", "held.example.com")],
       handler: () => {
         calls++;
+
         return "allow-always";
       },
     });
+
     await gate.start();
     gate.bind(sb.handle);
+
     try {
       await fireWebhook(gate, "held.example.com");
       await fireWebhook(gate, "held.example.com");
@@ -144,12 +162,15 @@ describe("EgressApprovalGate", () => {
 
   it("endTurn() reverses an allow-once grant: removes the credential, re-denies the host", async () => {
     const sb = fakeSandbox();
+
     const gate = new EgressApprovalGate({
       heldCredentials: [cred("gh", "held.example.com")],
       handler: () => "allow-once",
     });
+
     await gate.start();
     gate.bind(sb.handle);
+
     try {
       await fireWebhook(gate, "held.example.com");
       expect(sb.patches).toEqual([[{ action: "allow", target: "held.example.com" }]]);
@@ -169,15 +190,19 @@ describe("EgressApprovalGate", () => {
   it("re-prompts on the next turn after an allow-once is reverted (dedup is cleared)", async () => {
     const sb = fakeSandbox();
     let calls = 0;
+
     const gate = new EgressApprovalGate({
       heldCredentials: [cred("gh", "held.example.com")],
       handler: () => {
         calls++;
+
         return "allow-once";
       },
     });
+
     await gate.start();
     gate.bind(sb.handle);
+
     try {
       await fireWebhook(gate, "held.example.com");
       expect(calls).toBe(1);
@@ -194,12 +219,15 @@ describe("EgressApprovalGate", () => {
 
   it("endTurn() leaves an allow-always grant in place", async () => {
     const sb = fakeSandbox();
+
     const gate = new EgressApprovalGate({
       heldCredentials: [cred("gh", "held.example.com")],
       handler: () => "allow-always",
     });
+
     await gate.start();
     gate.bind(sb.handle);
+
     try {
       await fireWebhook(gate, "held.example.com");
       await gate.endTurn();

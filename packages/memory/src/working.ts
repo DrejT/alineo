@@ -26,10 +26,12 @@ export class InMemoryWorkingMemoryProvider implements IWorkingMemoryProvider {
   private bucketFor(ref: ResourceRef): Map<string, unknown> {
     const key = scopeKey(ref);
     let bucket = this.buckets.get(key);
+
     if (!bucket) {
       bucket = new Map();
       this.buckets.set(key, bucket);
     }
+
     return bucket;
   }
 
@@ -43,6 +45,7 @@ export class InMemoryWorkingMemoryProvider implements IWorkingMemoryProvider {
 
   async list(ref: ResourceRef): Promise<Record<string, unknown>> {
     const bucket = this.buckets.get(scopeKey(ref));
+
     return bucket ? Object.fromEntries(bucket) : {};
   }
 

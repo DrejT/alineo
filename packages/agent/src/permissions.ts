@@ -192,7 +192,9 @@ export function normalizePermissions(
   input: PermissionMode | PermissionPolicy | undefined,
 ): NormalizedPermissionPolicy | undefined {
   if (input === undefined) return undefined;
+
   if (typeof input === "string") return expandMode(input);
+
   return {
     default: input.default ?? "ask",
     rules: input.rules ?? [],
@@ -213,9 +215,12 @@ function hasOutputRedirect(seg: string): boolean {
     if (seg[i] !== ">") continue;
     const next = seg[i + 1];
     const prev = seg[i - 1];
+
     if (next === "&" || prev === "&" || (prev >= "0" && prev <= "9")) continue;
+
     return true;
   }
+
   return false;
 }
 
@@ -229,24 +234,33 @@ export function isReadOnlyBashCommand(command: string): boolean {
     .split(/&&|\|\||[;\n|]/)
     .map((s) => s.trim())
     .filter(Boolean);
+
   if (segments.length === 0) return false;
+
   return segments.every((seg) => {
     if (hasOutputRedirect(seg)) return false;
     // Strip leading `VAR=val` assignments and benign wrappers.
     let tokens = seg.split(/\s+/).filter(Boolean);
+
     while (tokens.length > 0 && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) {
       tokens = tokens.slice(1);
     }
+
     while (tokens.length > 1 && WRAPPER_COMMANDS.has(tokens[0])) tokens = tokens.slice(1);
+
     if (tokens[0] === "timeout" && tokens.length > 2) tokens = tokens.slice(2);
     const first = tokens[0] ?? "";
     const slash = first.lastIndexOf("/");
     const cmd = slash === -1 ? first : first.slice(slash + 1);
+
     if (!cmd) return false;
+
     if ((SAFE_BASH_COMMANDS as readonly string[]).includes(cmd)) return true;
+
     if (cmd === "git" && (SAFE_GIT_SUBCOMMANDS as readonly string[]).includes(tokens[1] ?? "")) {
       return true;
     }
+
     return false;
   });
 }
@@ -257,12 +271,15 @@ function globToRegExp(glob: string): RegExp {
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     .replace(/\*/g, ".*")
     .replace(/\?/g, ".");
+
   return new RegExp(`^${body}$`, "s");
 }
 
 function ruleMatches(rule: PermissionRule, tool: string, target: string): boolean {
   if (!globToRegExp(rule.tool).test(tool)) return false;
+
   if (rule.pattern !== undefined && !globToRegExp(rule.pattern).test(target)) return false;
+
   return true;
 }
 
@@ -278,13 +295,18 @@ export function evaluatePolicy(
 ): { action: PermissionAction; rule?: PermissionRule } {
   if (policy.disabledTools.includes(tool)) return { action: "deny" };
   let match: PermissionRule | undefined;
+
   for (const rule of policy.rules) {
     if (ruleMatches(rule, tool, target)) match = rule;
   }
+
   const action = match ? match.action : policy.default;
+
   if (action === "classify") {
     const resolved = tool === "bash" && isReadOnlyBashCommand(target) ? "allow" : "ask";
+
     return { action: resolved, rule: match };
   }
+
   return match ? { action: match.action, rule: match } : { action: policy.default };
 }

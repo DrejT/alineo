@@ -21,6 +21,7 @@ export class SQLiteWorkingMemoryProvider implements IWorkingMemoryProvider {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
+
     this.db = new Database(path, { create: true });
     this.db.exec(WORKING_MEMORY_MIGRATION_SQL);
     this.db.exec("PRAGMA journal_mode = WAL;");
@@ -32,6 +33,7 @@ export class SQLiteWorkingMemoryProvider implements IWorkingMemoryProvider {
         "SELECT value FROM alineo_working_memory WHERE scope = ? AND key = ?",
       )
       .get(scopeKey(ref), key);
+
     return row ? (JSON.parse(row.value) as unknown) : undefined;
   }
 
@@ -50,6 +52,7 @@ export class SQLiteWorkingMemoryProvider implements IWorkingMemoryProvider {
         "SELECT key, value FROM alineo_working_memory WHERE scope = ?",
       )
       .all(scopeKey(ref));
+
     return Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value) as unknown]));
   }
 

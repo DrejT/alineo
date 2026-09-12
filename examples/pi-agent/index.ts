@@ -23,10 +23,14 @@ function section(label: string) {
 }
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+
 // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const spec = await Bun.file("./agents/hello-agent.json").json();
+
 const agent = await Alineo.load(spec, { adapter });
+
 console.log(`\nSandbox: ${agent.sandboxId}\n${"─".repeat(60)}`);
+
 await agent.sandbox.exec("mkdir -p /workspace");
 
 try {
@@ -37,6 +41,7 @@ try {
     "/workspace/data.csv",
     ["date,temp_c", "2024-01-15,22.3", "2024-01-16,19.8", "2024-01-17,25.1"].join("\n") + "\n",
   );
+
   for await (const chunk of textOnly(
     agent.prompt(
       "Here is some CSV data:\ndate,temp_c\n2024-01-15,22.3\n2024-01-16,19.8\n2024-01-17,25.1\nTell me the min and max temp_c in one sentence.",
@@ -44,16 +49,19 @@ try {
   )) {
     process.stdout.write(chunk);
   }
+
   console.log("\n");
 
   // ── 2. bash ───────────────────────────────────────────────────────────────────
   // Runs a shell command inside Pi's working context and streams stdout.
   section("2. bash — run shell command via Pi");
+
   for await (const chunk of textOnly(
     agent.bash("ls -1 /workspace && echo '---' && python3 --version"),
   )) {
     process.stdout.write(chunk);
   }
+
   console.log("\n");
 
   // ── 3. getMessages ────────────────────────────────────────────────────────────
@@ -67,12 +75,14 @@ try {
   section("4. getAvailableModels — list configured models");
   const models = await agent.getAvailableModels();
   console.log(`${models.length} model(s) available:`);
+
   for (const m of models) console.log(`  ${m.api}/${m.id}`);
   console.log();
 
   // ── 5. setModel / cycleModel ──────────────────────────────────────────────────
   // setModel only works with models in Pi's config (not just the full provider list).
   section("5. setModel + cycleModel — switch models at runtime");
+
   if (models.length > 0) {
     try {
       const set = await agent.setModel(models[0].api as string, models[0].id);
@@ -81,7 +91,9 @@ try {
       console.log(`setModel(${models[0].id}) → not in Pi config: ${(e as Error).message}`);
     }
   }
+
   const cycled = await agent.cycleModel();
+
   if (cycled) {
     console.log(
       `cycleModel → ${cycled.model.api}/${cycled.model.id} (thinking: ${cycled.thinkingLevel})`,
@@ -89,10 +101,12 @@ try {
   } else {
     console.log("cycleModel → only one model configured, no change");
   }
+
   console.log();
 
   // ── 6. setThinkingLevel / cycleThinkingLevel ──────────────────────────────────
   section("6. setThinkingLevel + cycleThinkingLevel");
+
   try {
     await agent.setThinkingLevel("low");
     console.log("setThinkingLevel(low) → ok");
@@ -101,6 +115,7 @@ try {
   } catch (e) {
     console.log(`thinking not supported by current model: ${(e as Error).message}`);
   }
+
   console.log();
 
   // ── 7. setAutoCompaction ─────────────────────────────────────────────────────
@@ -112,11 +127,13 @@ try {
 
   // ── 8. steer mid-flight ───────────────────────────────────────────────────────
   section("8. steer — redirect Pi mid-response");
+
   const longStream = textOnly(
     agent.prompt(
       "Write a detailed essay on every sorting algorithm ever invented with pseudocode.",
     ),
   );
+
   const steerTimer = setTimeout(async () => {
     try {
       await agent.steer("Stop — give me just 3 bullet points instead.");
@@ -125,9 +142,11 @@ try {
       // Pi may have already finished
     }
   }, 1500);
+
   for await (const chunk of longStream) {
     process.stdout.write(chunk);
   }
+
   clearTimeout(steerTimer);
   console.log("\n");
 
@@ -136,15 +155,19 @@ try {
   section("9. followUp — queue message for after current task");
   const followStream = textOnly(agent.prompt("Count from 1 to 5, one number per line."));
   await agent.followUp("Now count backwards from 5 to 1, one number per line.");
+
   for await (const chunk of followStream) {
     process.stdout.write(chunk);
   }
+
   console.log("\n");
   // The followUp was queued inside Pi — send an empty prompt to drain it.
   section("9b. drain the followUp turn");
+
   for await (const chunk of textOnly(agent.prompt("(continue)"))) {
     process.stdout.write(chunk);
   }
+
   console.log("\n");
 
   // ── 10. clone ─────────────────────────────────────────────────────────────────
@@ -158,8 +181,10 @@ try {
   section("11. fork — branch from a specific history entry");
   const history = await agent.getMessages();
   const forkableMsg = history.find((m) => m.role === "user" && (m.id ?? m.entryId));
+
   if (forkableMsg) {
     const entryId = (forkableMsg.id ?? forkableMsg.entryId) as string;
+
     try {
       const forked = await agent.fork(entryId);
       console.log(`fork(${entryId.slice(0, 12)}…) → cancelled: ${forked.cancelled}`);
@@ -170,10 +195,12 @@ try {
   } else {
     console.log("no forkable message found (id field not exposed for this model)");
   }
+
   console.log();
 
   // ── 12. compact + newSession + final task ────────────────────────────────────
   section("12. compact — session now has many messages, should succeed");
+
   try {
     const compacted = await agent.compact();
     console.log(
@@ -182,6 +209,7 @@ try {
   } catch (e) {
     console.log(`compact → skipped: ${(e as Error).message}`);
   }
+
   console.log();
 
   section("12b. newSession — clear context, filesystem unchanged");
@@ -189,11 +217,13 @@ try {
   console.log("Session reset.\n");
 
   await agent.sandbox.writeFile("/workspace/hello.py", 'print("hello from Pi sandbox")\n');
+
   for await (const chunk of textOnly(
     agent.prompt("Run /workspace/hello.py with python3 and tell me what it prints."),
   )) {
     process.stdout.write(chunk);
   }
+
   console.log("\n");
 
   // ── 13. setAutoRetry — toggle Pi's built-in transient-error retry ────────────
@@ -239,16 +269,19 @@ try {
     `tokens:           ${stats.tokens.input} in, ${stats.tokens.output} out, ${stats.tokens.total} total`,
   );
   console.log(`cost:             $${stats.cost.toFixed(6)}`);
+
   if (stats.contextUsage) {
     console.log(
       `contextUsage:     ${stats.contextUsage.percent.toFixed(1)}% (${stats.contextUsage.tokens}/${stats.contextUsage.contextWindow})`,
     );
   }
+
   console.log();
 
   // ── 17. getLastAssistantText ──────────────────────────────────────────────────
   section("17. getLastAssistantText — last Pi response (no stream needed)");
   const lastText = await agent.getLastAssistantText();
+
   if (lastText) {
     console.log(
       `Last response (first 120 chars): "${lastText.slice(0, 120).replace(/\n/g, " ")}…"`,
@@ -256,17 +289,20 @@ try {
   } else {
     console.log("No assistant response yet.");
   }
+
   console.log();
 
   // ── 18. getForkMessages — list fork entry points in current session ───────────
   section("18. getForkMessages — list fork entry points");
   const forkMessages = await agent.getForkMessages();
   console.log(`${forkMessages.length} fork point(s) available:`);
+
   for (const m of forkMessages.slice(0, 3)) {
     console.log(
       `  ${m.entryId.slice(0, 12)}… "${String(m.text).slice(0, 60).replace(/\n/g, " ")}"`,
     );
   }
+
   if (forkMessages.length > 3) console.log(`  … and ${forkMessages.length - 3} more`);
   console.log();
 
@@ -274,10 +310,12 @@ try {
   section("19. getCommands — available slash commands");
   const commands = await agent.getCommands();
   console.log(`${commands.length} command(s) available:`);
+
   for (const cmd of commands.slice(0, 8)) {
     const desc = cmd.description ? ` — ${cmd.description.slice(0, 50)}` : "";
     console.log(`  /${cmd.name} [${cmd.source}]${desc}`);
   }
+
   if (commands.length > 8) console.log(`  … and ${commands.length - 8} more`);
   console.log();
 
@@ -303,10 +341,12 @@ try {
   section("22. exportHtml — write HTML transcript to sandbox");
   const exported = await agent.exportHtml();
   console.log(`exportHtml() → ${exported.path}`);
+
   // Verify the file exists in the sandbox.
   const { stdout: htmlSize } = await agent.sandbox.exec(
     `wc -c < "${exported.path}" 2>/dev/null || echo 0`,
   );
+
   console.log(`file size: ${htmlSize.trim()} bytes\n`);
 
   // ── 23. event coverage — observe all new event types in a real stream ─────────
@@ -315,9 +355,11 @@ try {
   // message_end, turn_end, agent_end — all in a single short response.
   section("23. event coverage — observe all event types in raw stream");
   const seenTypes = new Set<string>();
+
   for await (const ev of agent.prompt("Reply with exactly: 'event coverage ok'")) {
     seenTypes.add(ev.type);
   }
+
   console.log(`Event types seen: ${[...seenTypes].sort().join(", ")}\n`);
 
   // ── 24. getLogs ───────────────────────────────────────────────────────────────
@@ -325,6 +367,7 @@ try {
   const logs = await agent.getLogs();
   const logLines = logs.trim().split("\n");
   console.log(`${logLines.length} log entries total. Last 5:`);
+
   for (const line of logLines.slice(-5)) console.log(" ", line);
   console.log();
 } finally {

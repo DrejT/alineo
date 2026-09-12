@@ -39,6 +39,7 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 process.env.MASTER_AGENT_OPENSANDBOX_DOMAIN ??= "172.17.0.1:8080";
 
 const SPEC = "./agents/master-agent.json";
+
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // Raw OpenSandbox client, independent of alineo's ledger — used only to verify
@@ -47,11 +48,14 @@ const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const control = new ControlClient({ baseUrl: "http://127.0.0.1:8080", apiKey: "" });
 
 const before = await control.listSandboxes();
+
 console.log(`Sandboxes before: ${before.length}`);
 
 // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const spec = await Bun.file(SPEC).json();
+
 const agent = await Alineo.load(spec, { adapter });
+
 console.log(`\nMaster sandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}\n`);
 
 const prompt = `
@@ -75,7 +79,9 @@ Report the child sandbox's ID and the exact output of the command you ran inside
 console.log(`Prompt:\n${prompt}\n${"─".repeat(60)}\n`);
 
 let response = "";
+
 let sawToolCall = false;
+
 for await (const ev of agent.prompt(prompt)) {
   if (ev.type === "text") {
     process.stdout.write(ev.text);
@@ -87,13 +93,16 @@ for await (const ev of agent.prompt(prompt)) {
     console.log(`[tool_end]   ${ev.toolName} isError=${ev.isError}`);
   }
 }
+
 console.log("\n\n" + "─".repeat(60));
 
 await agent.close();
+
 console.log("Master agent closed.\n");
 
 // ── Independent verification from the host ─────────────────────────────────
 const childId = response.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)?.[0];
+
 console.log(`Child sandbox ID reported by Pi: ${childId ?? "(not found in response)"}`);
 
 // Never leak a sandbox regardless of whether Pi actually killed it itself.
@@ -107,11 +116,15 @@ if (childId) {
 }
 
 const after = await control.listSandboxes();
+
 console.log(`Sandboxes after cleanup: ${after.length} (started at ${before.length})`);
 
 console.log("\n=== Summary ===");
+
 console.log(`Tool calls observed: ${sawToolCall}`);
+
 console.log(`Child sandbox ID found in response: ${!!childId}`);
+
 if (sawToolCall && childId) {
   console.log("\n✓ Master agent successfully spawned and used a child sandbox");
 } else {

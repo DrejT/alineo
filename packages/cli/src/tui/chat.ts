@@ -44,12 +44,15 @@ export function createChatView(renderer: CliRenderer, agent: Alineo, onBack: () 
     stickyScroll: true,
     stickyStart: "bottom",
   });
+
   box.add(scroll);
 
   let lineCounter = 0;
+
   function appendLine(content: string): TextRenderable {
     const text = new TextRenderable(renderer, { id: `chat-line-${lineCounter++}`, content });
     scroll.add(text);
+
     return text;
   }
 
@@ -58,6 +61,7 @@ export function createChatView(renderer: CliRenderer, agent: Alineo, onBack: () 
     width: "100%",
     placeholder: "Type a prompt and press enter...",
   });
+
   box.add(input);
 
   let busy = false;
@@ -69,11 +73,13 @@ export function createChatView(renderer: CliRenderer, agent: Alineo, onBack: () 
 
     let assistant: TextRenderable | null = null;
     let assistantText = "";
+
     try {
       for await (const ev of agent.prompt(message)) {
         switch (ev.type) {
           case "text":
             assistantText += ev.text;
+
             if (assistant) assistant.content = assistantText;
             else assistant = appendLine(assistantText);
             break;
@@ -109,12 +115,14 @@ export function createChatView(renderer: CliRenderer, agent: Alineo, onBack: () 
     } catch (err) {
       appendLine(`[error] ${err instanceof Error ? err.message : String(err)}`);
     }
+
     busy = false;
   }
 
   input.on(InputRenderableEvents.ENTER, (value: string) => {
     const trimmed = value.trim();
     input.value = "";
+
     if (trimmed) void send(trimmed);
   });
   input.focus();
@@ -122,6 +130,7 @@ export function createChatView(renderer: CliRenderer, agent: Alineo, onBack: () 
   const onKeypress = (event: { name: string }) => {
     if (event.name === "escape") onBack();
   };
+
   renderer.keyInput.on("keypress", onKeypress);
 
   return {

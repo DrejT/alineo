@@ -70,6 +70,7 @@ try {
     resources: { cpu: "500m", memory: "256Mi" },
     name: "file-ops-target",
   });
+
   try {
     await sb.transfer("/workspace/dist/index.ts", sb2);
     const received = await sb2.readFile("/workspace/dist/index.ts");

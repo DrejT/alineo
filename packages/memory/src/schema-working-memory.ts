@@ -51,7 +51,8 @@ export class SchemaWorkingMemory<T extends Record<string, unknown>> {
   /** The stored profile, or `{}` if nothing has been set yet. Not re-validated on read. */
   async get(ref: ResourceRef): Promise<Partial<T>> {
     const raw = await this.provider.get(ref, this.key);
-    return (raw ?? {}) as Partial<T>;
+
+    return (raw ?? {});
   }
 
   /**
@@ -65,6 +66,7 @@ export class SchemaWorkingMemory<T extends Record<string, unknown>> {
     const merged = { ...current, ...patch };
     const validated = this.schema.parse(merged);
     await this.provider.set(ref, this.key, validated);
+
     return validated;
   }
 

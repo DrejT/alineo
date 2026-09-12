@@ -11,8 +11,11 @@ function fakeEmbeddings(): EmbeddingProvider {
     async embed(texts) {
       return texts.map((t) => {
         const lower = t.toLowerCase();
+
         if (lower.includes("cat")) return [1, 0];
+
         if (lower.includes("dog")) return [0, 1];
+
         return [0.5, 0.5];
       });
     },
@@ -98,7 +101,7 @@ describe("InMemorySemanticMemoryProvider", () => {
       const ref: ResourceRef = { resourceId: "user-1" };
 
       // Attempting to lie about verification without a real sourceRef.
-      await provider.remember(ref, { content: "cat fact", verified: true } as never);
+      await provider.remember(ref, { content: "cat fact", verified: true });
 
       const [fact] = await provider.recall(ref, "cat");
 

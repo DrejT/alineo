@@ -38,6 +38,7 @@ describe("buildContextSnippet", () => {
       workingMemory: new InMemoryWorkingMemoryProvider(),
       semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
     });
+
     await memory.remember(ref, { content: "prefers dark mode" });
 
     const snippet = await buildContextSnippet(memory, ref);
@@ -58,6 +59,7 @@ describe("buildContextSnippet", () => {
       workingMemory: new InMemoryWorkingMemoryProvider(),
       semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
     });
+
     await memory.remember(ref, { content: "prefers dark mode" });
 
     const snippet = await buildContextSnippet(memory, ref, { query: "UI preferences" });
@@ -70,6 +72,7 @@ describe("buildContextSnippet", () => {
       workingMemory: new InMemoryWorkingMemoryProvider(),
       semantic: new InMemorySemanticMemoryProvider(fakeEmbeddings()),
     });
+
     await memory.workingMemory.set(ref, "name", "Ada");
     await memory.remember(ref, { content: "prefers dark mode" });
 

@@ -57,10 +57,12 @@ export function resolveEnv(
   env: Record<string, string | CredentialEnvBinding>,
 ): Record<string, string> {
   const result: Record<string, string> = {};
+
   for (const [key, value] of Object.entries(env)) {
     if (typeof value !== "string") continue;
     result[key] = value.replace(/\$\{([^}]+)\}/g, (_, name: string) => process.env[name] ?? "");
   }
+
   return result;
 }
 
@@ -96,6 +98,7 @@ export function extractCredentialBindings(
     source: CredentialSource;
     approval?: "hold";
   }> = [];
+
   for (const [key, value] of Object.entries(env)) {
     if (typeof value === "string") continue;
     const soleRef = value.credential.match(SOLE_ENV_REF);
@@ -110,6 +113,7 @@ export function extractCredentialBindings(
       ...(value.approval ? { approval: value.approval } : {}),
     });
   }
+
   return out;
 }
 
@@ -118,9 +122,11 @@ export function parseShellExports(content: string): Record<string, string> {
   const result: Record<string, string> = {};
   const re = /^export ([A-Za-z_][A-Za-z0-9_]*)="((?:[^"\\]|\\.)*)"$/gm;
   let m: RegExpExecArray | null;
+
   while ((m = re.exec(content))) {
     result[m[1]] = m[2].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   }
+
   return result;
 }
 
@@ -149,6 +155,7 @@ export class PiAdapter {
 
   private get bridgeUrl(): string {
     if (!this._bridgeUrl) throw new Error("PiAdapter: bridge not started");
+
     return this._bridgeUrl;
   }
 
@@ -173,15 +180,19 @@ export class PiAdapter {
     const pkgs = [...new Set(spec.packages ?? [])].filter(
       (p) => p !== "nodejs_22" && p !== "nodejs",
     );
+
     if (pkgs.length > 0) {
       await sb.exec(
         `apt-get update -qq && apt-get install -y --no-install-recommends ${pkgs.join(" ")}`,
       );
     }
+
     const versionSpecifier = spec.cliVersion?.trim();
+
     const pkg = versionSpecifier
       ? `@earendil-works/pi-coding-agent@${versionSpecifier}`
       : "@earendil-works/pi-coding-agent";
+
     await sb.exec(`npm install -g --ignore-scripts ${pkg}`);
   }
 
@@ -196,14 +207,19 @@ export class PiAdapter {
     opts?: { resume?: boolean },
   ): Promise<void> {
     const piConfig: Record<string, unknown> = {};
+
     if (spec.provider) piConfig.provider = spec.provider;
+
     if (spec.model) piConfig.model = spec.model;
+
     if (opts?.resume) piConfig.resume = true;
     const permissions = normalizePermissions(spec.permissions);
+
     if (permissions) piConfig.permissions = permissions;
     await sb.writeFile("/etc/alineo-pi.json", JSON.stringify(piConfig));
     await sb.writeFile("/etc/alineo-env", toShellExports(resolvedEnv));
     await sb.writeFile("/alineo-bridge.js", BRIDGE_SCRIPT);
+
     if (permissions) await sb.writeFile("/alineo-permission-gate.js", PERMISSION_GATE_SCRIPT);
   }
 
@@ -227,18 +243,23 @@ export class PiAdapter {
 
   async waitReady(timeoutMs = 30_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
+
     while (Date.now() < deadline) {
       try {
         const res = await fetch(`${this.bridgeUrl}/health`);
+
         if (res.ok) {
           const body = (await res.json()) as { ok: boolean };
+
           if (body.ok) return;
         }
       } catch {
         // bridge not reachable yet
       }
+
       await new Promise<void>((r) => setTimeout(r, 500));
     }
+
     throw new Error(`alineo-bridge did not become ready within ${timeoutMs / 1_000}s`);
   }
 
@@ -269,6 +290,7 @@ export class PiAdapter {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),
     });
+
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(`steer failed: ${body.error ?? res.status}`);
@@ -290,6 +312,7 @@ export class PiAdapter {
       this.bridgeUrl,
       "/pending-permissions",
     );
+
     return r.pending;
   }
 
@@ -327,6 +350,7 @@ export class PiAdapter {
 
   async getLastAssistantText(): Promise<string | null> {
     const r = await rpcPost<{ text: string | null }>(this.bridgeUrl, "/get-last-assistant-text");
+
     return r.text;
   }
 
@@ -335,11 +359,13 @@ export class PiAdapter {
       this.bridgeUrl,
       "/get-fork-messages",
     );
+
     return r.messages;
   }
 
   async getCommands(): Promise<PiSlashCommand[]> {
     const r = await rpcPost<{ commands: PiSlashCommand[] }>(this.bridgeUrl, "/get-commands");
+
     return r.commands;
   }
 
@@ -399,11 +425,13 @@ export class PiAdapter {
 
   async getMessages(): Promise<PiMessage[]> {
     const data = await rpcGet<{ messages: PiMessage[] }>(this.bridgeUrl, "/messages");
+
     return data.messages;
   }
 
   async getAvailableModels(): Promise<PiModel[]> {
     const data = await rpcGet<{ models: PiModel[] }>(this.bridgeUrl, "/available-models");
+
     return data.models;
   }
 
@@ -420,6 +448,7 @@ export class PiAdapter {
 
   async getLogs(): Promise<string> {
     const res = await fetch(`${this.bridgeUrl}/logs`);
+
     return res.text();
   }
 }
@@ -432,18 +461,23 @@ async function rpcPost<T = null>(bridgeUrl: string, path: string, body: unknown 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(`${path} failed: ${err.error ?? res.status}`);
   }
+
   const payload = (await res.json()) as { ok: boolean; data?: T };
+
   return payload.data as T;
 }
 
 async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
   const res = await fetch(`${bridgeUrl}${path}`);
+
   if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
   const payload = (await res.json()) as { ok: boolean; data?: T };
+
   return payload.data as T;
 }
 
@@ -475,6 +509,7 @@ async function* sseStream(
   inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
 ): AgentStream {
   const controller = new AbortController();
+
   const res = await fetch(`${bridgeUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -486,6 +521,7 @@ async function* sseStream(
     // process alive even after both streams' controllers have been aborted.
     keepalive: false,
   });
+
   if (!res.ok || !res.body) throw new Error(`Bridge ${path} error: ${res.status}`);
 
   pendingStreams.add(controller);
@@ -506,6 +542,7 @@ async function* sseStream(
     while (true) {
       const awaitingHuman = pendingPermissions.size > 0;
       const remainingMs = inactivityTimeoutMs - (Date.now() - lastEventAt);
+
       if (!awaitingHuman && remainingMs <= 0) {
         throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
       }
@@ -521,25 +558,31 @@ async function* sseStream(
           );
         }),
       ]);
+
       if (result === "timeout") {
         if (pendingPermissions.size > 0) {
           lastEventAt = Date.now(); // reset the clock; a human is still deciding
           continue;
         }
+
         throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
       }
 
       const { done, value } = result;
+
       if (done) {
         reachedNaturalEnd = true;
         break;
       }
+
       buf += decoder.decode(value, { stream: true });
       const lines = buf.split("\n");
       buf = lines.pop() ?? ""; // split() on a string always yields at least one element
+
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const payload = line.slice(6).trim();
+
         if (payload === "[DONE]") {
           // Deliberately don't abort the connection here -- same reasoning as ExecClient's
           // parseSSE (packages/opensandbox/src/exec.ts): tearing down mid-stream through the
@@ -548,8 +591,11 @@ async function* sseStream(
           // time instead, once nobody cares if the proxy's relay errors out.
           return;
         }
+
         const raw = JSON.parse(payload) as AgentEvent & { error?: string };
+
         if (raw.error) throw new Error(`Bridge error: ${raw.error}`);
+
         if (raw.type === "permission_request") pendingPermissions.add(raw.requestId);
         else if (raw.type === "permission_resolved") pendingPermissions.delete(raw.requestId);
         lastEventAt = Date.now();

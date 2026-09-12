@@ -141,12 +141,15 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0;
   let normA = 0;
   let normB = 0;
+
   for (let i = 0; i < a.length; i++) {
-    dot += a[i]! * b[i]!;
-    normA += a[i]! * a[i]!;
-    normB += b[i]! * b[i]!;
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
   }
+
   if (normA === 0 || normB === 0) return 0;
+
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
@@ -168,16 +171,20 @@ export class InMemorySemanticMemoryProvider
    *  `IBulkSemanticMemoryProvider`. */
   async rememberMany(ref: ResourceRef, facts: MemoryFact[]): Promise<void> {
     if (facts.length === 0) return;
+
     const vectors = await this.embeddings.embed(
       facts.map((f) => f.content),
       { type: "passage" },
     );
+
     const key = scopeKey(ref);
     const bucket = this.entries.get(key) ?? [];
     const now = Date.now();
+
     for (let i = 0; i < facts.length; i++) {
       const vector = vectors[i];
-      const fact = facts[i]!;
+      const fact = facts[i];
+
       if (!vector) continue;
       bucket.push({
         fact: {
@@ -190,11 +197,13 @@ export class InMemorySemanticMemoryProvider
         vector,
       });
     }
+
     this.entries.set(key, bucket);
   }
 
   async remember(ref: ResourceRef, fact: MemoryFact): Promise<void> {
     const [vector] = await this.embeddings.embed([fact.content], { type: "passage" });
+
     if (!vector) return;
     const key = scopeKey(ref);
     const bucket = this.entries.get(key) ?? [];
@@ -219,12 +228,15 @@ export class InMemorySemanticMemoryProvider
     opts: { topK?: number } = {},
   ): Promise<MemoryFact[]> {
     const bucket = this.entries.get(scopeKey(ref));
+
     if (!bucket || bucket.length === 0) return [];
 
     const [queryVector] = await this.embeddings.embed([query], { type: "query" });
+
     if (!queryVector) return [];
 
     const topK = opts.topK ?? 5;
+
     return bucket
       .map((entry) => ({ fact: entry.fact, score: cosineSimilarity(queryVector, entry.vector) }))
       .sort((a, b) => b.score - a.score)
@@ -239,11 +251,13 @@ export class InMemorySemanticMemoryProvider
   async forget(ref: ResourceRef, ids: string[]): Promise<number> {
     const key = scopeKey(ref);
     const bucket = this.entries.get(key);
+
     if (!bucket) return 0;
     const idSet = new Set(ids);
     const kept = bucket.filter((entry) => !idSet.has(entry.fact.id));
     const removed = bucket.length - kept.length;
     this.entries.set(key, kept);
+
     return removed;
   }
 }

@@ -28,6 +28,7 @@ export function toWireAuth(name: string, injection: CredentialBinding["injection
   if (injection.type === "header") {
     return { type: "apiKey", name: injection.name, credential: name };
   }
+
   // `substitution` → passthrough (no injected auth header) + one substitution entry. The
   // sidecar replaces every literal `placeholder` in the listed surfaces with the value.
   return {
@@ -52,13 +53,16 @@ export function fromWireBindingMetadata(meta: {
   auth: { type: string; name?: string };
 }): CredentialBinding {
   const path = meta.match.paths?.[0];
+
   const base = {
     host: meta.match.hosts[0] ?? "",
     ...(path && path !== "/*" ? { pathPrefix: path.replace(/\*$/, "") } : {}),
   };
+
   if (meta.auth.type === "apiKey" && meta.auth.name) {
     return { ...base, injection: { type: "header", name: meta.auth.name } };
   }
+
   if (meta.auth.type === "passthrough") {
     // `GET /credential-vault` returns only `auth.type` for a passthrough binding — the
     // sidecar never echoes `substitutions` (placeholder / surfaces). `listBindings()` is
@@ -66,6 +70,7 @@ export function fromWireBindingMetadata(meta: {
     // from the ledger `CredentialBound` payload instead.
     return { ...base, injection: { type: "substitution", placeholder: "", in: [] } };
   }
+
   throw new UnsupportedInjectionError(meta.auth.type);
 }
 
@@ -108,6 +113,7 @@ export class OpenSandboxCredentialBroker implements CredentialBroker {
   ): Promise<void> {
     const credential: WireCredential = { name, source: { type: "inline", value } };
     const wireBinding = toWireBinding(name, binding);
+
     try {
       await this.vault.createOrPatch(sandboxId, credential, wireBinding, this.useServerProxy);
     } catch (err) {
@@ -117,6 +123,7 @@ export class OpenSandboxCredentialBroker implements CredentialBroker {
           404,
         );
       }
+
       throw err;
     }
   }
@@ -138,6 +145,7 @@ export class OpenSandboxCredentialBroker implements CredentialBroker {
           "unspecified half.",
       );
     }
+
     await this.vault.patch(
       sandboxId,
       {
@@ -160,6 +168,7 @@ export class OpenSandboxCredentialBroker implements CredentialBroker {
     sandboxId: string,
   ): Promise<Array<{ name: string; binding: CredentialBinding }>> {
     const state = await this.vault.get(sandboxId, this.useServerProxy);
+
     return state.bindings.map((b) => ({ name: b.name, binding: fromWireBindingMetadata(b) }));
   }
 }

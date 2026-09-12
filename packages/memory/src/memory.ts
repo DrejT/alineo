@@ -104,6 +104,7 @@ export class Memory {
       // would otherwise silently disable auto-compaction forever instead of checking every
       // call. `Math.max(1, ...)` clamps 0 and any negative value the same way.
       const checkEvery = Math.max(1, this.autoCompact.checkEvery ?? 1);
+
       if (count % checkEvery === 0) {
         await compactSemanticMemory(this.semanticProvider, ref, this.autoCompact);
       }
@@ -113,6 +114,7 @@ export class Memory {
   /** @throws {MemoryCapabilityError} if no semantic memory provider was configured. */
   async recall(ref: ResourceRef, query: string, opts?: { topK?: number }): Promise<MemoryFact[]> {
     if (!this.semanticProvider) throw new MemoryCapabilityError("semantic");
+
     return this.semanticProvider.recall(ref, query, opts);
   }
 
@@ -129,6 +131,7 @@ export class Memory {
     opts?: CompactionOptions,
   ): Promise<CompactionResult> {
     if (!this.semanticProvider) throw new MemoryCapabilityError("semantic");
+
     return compactSemanticMemory(this.semanticProvider, ref, opts);
   }
 
@@ -173,18 +176,22 @@ export class Memory {
     );
 
     let semanticFactsCopied = 0;
+
     if (this.semanticProvider && isPrunable(this.semanticProvider)) {
       const semanticProvider = this.semanticProvider;
       const facts = await semanticProvider.listAll(parentRef);
+
       const toCopy: MemoryFact[] = facts.map((f) => ({
         content: f.content,
         sourceRef: f.sourceRef,
       }));
+
       if (isBulkRememberable(semanticProvider)) {
         await semanticProvider.rememberMany(childRef, toCopy);
       } else {
         await Promise.all(toCopy.map((f) => semanticProvider.remember(childRef, f)));
       }
+
       // Not `facts.length` — a shipped provider silently skips a fact when its embedding call
       // returns a null/undefined vector (see e.g. `InMemorySemanticMemoryProvider.remember()`),
       // so the number actually written can be lower than the number read. Re-querying the

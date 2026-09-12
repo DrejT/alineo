@@ -70,6 +70,7 @@ describe("EgressClient", () => {
     const err = await new EgressClient(fakeControl())
       .patchRules("sb-1", [{ action: "allow", target: "x" }])
       .catch((e: unknown) => e);
+
     expect(err).toBeInstanceOf(EgressClientError);
     expect((err as EgressClientError).status).toBe(400);
   });

@@ -6,6 +6,7 @@ import type { AgentInternal } from "../src/agent/internal";
 /** An `AgentInternal` just complete enough for `bash()` → `instrument()`. */
 function fakeAgent(events: AgentEvent[]) {
   let endTurnCalls = 0;
+
   const a = {
     adapter: {
       // eslint-disable-next-line require-yield
@@ -21,6 +22,7 @@ function fakeAgent(events: AgentEvent[]) {
       },
     },
   } as unknown as AgentInternal;
+
   return { a, endTurnCalls: () => endTurnCalls };
 }
 
@@ -33,21 +35,25 @@ const events: AgentEvent[] = [
 describe("session-control instrument() — egressGate.endTurn()", () => {
   it("runs on normal completion", async () => {
     const { a, endTurnCalls } = fakeAgent(events);
+
     for await (const _ of bash(a, "x")) void _;
     expect(endTurnCalls()).toBe(1);
   });
 
   it("runs when the consumer breaks out early", async () => {
     const { a, endTurnCalls } = fakeAgent(events);
+
     for await (const ev of bash(a, "x")) {
       if (ev.type === "text") break;
     }
+
     expect(endTurnCalls()).toBe(1);
   });
 
   it("runs when the consumer's loop body throws", async () => {
     const { a, endTurnCalls } = fakeAgent(events);
     let caught: unknown;
+
     try {
       for await (const _ of bash(a, "x")) {
         void _;
@@ -56,6 +62,7 @@ describe("session-control instrument() — egressGate.endTurn()", () => {
     } catch (e) {
       caught = e;
     }
+
     expect((caught as Error).message).toBe("boom");
     expect(endTurnCalls()).toBe(1);
   });

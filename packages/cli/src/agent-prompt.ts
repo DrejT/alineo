@@ -18,9 +18,11 @@ export async function collectReply(
 ): Promise<CollectedReply> {
   let text = "";
   const toolCalls: CollectedReply["toolCalls"] = [];
+
   for await (const ev of agent.prompt(message, opts)) {
     if (ev.type === "text") text += ev.text;
     else if (ev.type === "tool_end") toolCalls.push({ name: ev.toolName, isError: ev.isError });
   }
+
   return { text, toolCalls };
 }

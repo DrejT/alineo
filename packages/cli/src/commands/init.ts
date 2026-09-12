@@ -18,6 +18,7 @@ import {
 import type { CliCommand } from "./types.js";
 
 const CONTAINER_NAME = "alineo-opensandbox";
+
 // 127.0.0.1, not "localhost" — some hosts resolve "localhost" to ::1 first,
 // and OpenSandbox only listens on IPv4.
 const SERVER_URL = "http://127.0.0.1:8080";
@@ -31,6 +32,7 @@ export async function init(): Promise<void> {
   if (state === "running") {
     console.log(`OpenSandbox already running at ${SERVER_URL}`);
     await ensureProjectConfig();
+
     return;
   }
 
@@ -74,8 +76,10 @@ export async function init(): Promise<void> {
 
 async function ensureServerConfig(): Promise<void> {
   const dir = serverConfigDir();
+
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
   const path = serverConfigPath();
+
   if (!existsSync(path)) await Bun.write(path, serverConfigContent());
 }
 
@@ -87,6 +91,7 @@ async function ensureServerConfig(): Promise<void> {
  */
 async function ensureServerDataDir(): Promise<void> {
   const dir = serverDataDir();
+
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
 }
 

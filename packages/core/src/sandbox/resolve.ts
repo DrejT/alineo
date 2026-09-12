@@ -32,9 +32,11 @@ export async function resolveExecClient(
   // Starts fast and backs off to delayMs — execd is usually ready well under one
   // fixed-interval tick, so a flat wait here was pure waste in the common case.
   let delay = Math.min(100, delayMs);
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       await client.listContexts();
+
       return client;
     } catch {
       if (attempt === retries) throw new ExecConnectionError(sandboxId);
@@ -42,5 +44,6 @@ export async function resolveExecClient(
       delay = Math.min(delay * 1.5, delayMs);
     }
   }
+
   throw new Error("unreachable");
 }

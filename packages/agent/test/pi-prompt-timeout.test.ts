@@ -19,16 +19,20 @@ function fakeSandbox(): SandboxHandle {
 async function adapterWithBridge(): Promise<PiAdapter> {
   const adapter = new PiAdapter();
   await adapter.startBridge(fakeSandbox());
+
   return adapter;
 }
 
 function sseResponse(chunks: string[], opts: { intervalMs: number; keepOpenAfter?: boolean }) {
   let stopped = false;
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       let i = 0;
+
       const push = () => {
         if (stopped) return;
+
         if (i < chunks.length) {
           controller.enqueue(new TextEncoder().encode(chunks[i]));
           i++;
@@ -43,16 +47,19 @@ function sseResponse(chunks: string[], opts: { intervalMs: number; keepOpenAfter
           setTimeout(push, opts.intervalMs);
         }
       };
+
       push();
     },
     cancel() {
       stopped = true;
     },
   });
+
   return new Response(stream, { status: 200 });
 }
 
 const originalFetch = globalThis.fetch;
+
 afterEach(() => {
   globalThis.fetch = originalFetch;
 });
@@ -87,6 +94,7 @@ describe("PiAdapter.prompt inactivity timeout", () => {
       'data: {"type":"text","text":"b"}\n\n',
       "data: [DONE]\n\n",
     ];
+
     globalThis.fetch = (() =>
       Promise.resolve(sseResponse(chunks, { intervalMs: 20 }))) as unknown as typeof fetch;
 
@@ -94,9 +102,11 @@ describe("PiAdapter.prompt inactivity timeout", () => {
     const stream = adapter.prompt("hi", { inactivityTimeoutMs: 200 });
 
     const texts: string[] = [];
+
     for await (const ev of stream) {
       if (ev.type === "text") texts.push(ev.text);
     }
+
     expect(texts).toEqual(["a", "b"]);
   });
 });

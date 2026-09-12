@@ -34,6 +34,7 @@ describe("scopeKey", () => {
       { resourceId: "corp", teamId: "acme\\" },
       { resourceId: "plain" },
     ];
+
     const keys = refs.map(scopeKey);
     expect(new Set(keys).size).toBe(keys.length);
   });

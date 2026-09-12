@@ -192,6 +192,7 @@ export class Alineo {
     },
   ): Promise<Alineo> {
     const r = await factory.loadAgent(spec, opts);
+
     const agent = new Alineo(
       r.sandbox,
       r.spec,
@@ -201,7 +202,9 @@ export class Alineo {
       r.runId,
       r.egressGate,
     );
+
     agent.memory = opts.memory;
+
     return agent;
   }
 
@@ -251,6 +254,7 @@ export class Alineo {
     const r = await factory.resumeAgent(sandboxId, opts);
     const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
     agent.memory = opts.memory;
+
     return agent;
   }
 
@@ -297,6 +301,7 @@ export class Alineo {
     const r = await factory.attachAgent(sandboxId, opts);
     const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
     agent.memory = opts.memory;
+
     return agent;
   }
 
@@ -343,6 +348,7 @@ export class Alineo {
     // read back off the child" precedent spawnDepth/maxAgents already set nearby.
     child.memory = this.memory;
     await factory.forkChildMemory(this.memory, this.resourceRef, child);
+
     return child;
   }
 

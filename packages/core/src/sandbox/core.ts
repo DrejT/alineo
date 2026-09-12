@@ -100,6 +100,7 @@ export class SandboxCore implements SandboxInternal {
       this.sandboxId,
       this.deps.useServerProxy,
     );
+
     return this._execClient;
   }
 
@@ -111,6 +112,7 @@ export class SandboxCore implements SandboxInternal {
     const ep = await this.deps.control.getEndpoint(this.sandboxId, 44772, this.deps.useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
     const token = ep.headers?.["X-EXECD-ACCESS-TOKEN"] ?? "";
+
     return new PtyClient({ baseUrl, accessToken: token });
   }
 
@@ -119,18 +121,23 @@ export class SandboxCore implements SandboxInternal {
     // Starts fast and backs off to 1s — most containers are Running well under
     // one fixed-interval tick, so a flat 1s poll was pure waste in the common case.
     let delay = 100;
+
     while (Date.now() < deadline) {
       const s = await this.deps.control.getSandbox(this.sandboxId);
+
       if (s.status.state === SandboxState.Running) return;
+
       if (s.status.state === SandboxState.Failed || s.status.state === SandboxState.Terminated) {
         throw new SandboxError(
           `SandboxHandle entered ${s.status.state}: ${s.status.message ?? ""}`,
           this.sandboxId,
         );
       }
+
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, 1_000);
     }
+
     throw new SandboxError(
       `SandboxHandle did not reach Running within ${timeoutMs}ms`,
       this.sandboxId,
@@ -141,15 +148,20 @@ export class SandboxCore implements SandboxInternal {
     const deadline = Date.now() + timeoutMs;
     // See waitForRunning — same rationale, capped at the original 2s interval.
     let delay = 100;
+
     while (Date.now() < deadline) {
       const snap = await this.deps.control.getSnapshot(snapshotId);
+
       if (snap.state === SnapshotState.Ready) return;
+
       if (snap.state === SnapshotState.Failed) {
         throw new SandboxError(`Snapshot ${snapshotId} failed`, this.sandboxId);
       }
+
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, 2_000);
     }
+
     throw new SandboxError(
       `Snapshot ${snapshotId} did not become ready within ${timeoutMs}ms`,
       this.sandboxId,
@@ -167,11 +179,13 @@ export class SandboxCore implements SandboxInternal {
       event,
       payload,
     };
+
     const result = this._ledgerQueue.then(() => this.deps.adapter.append(entry));
     // Keep the queue alive even if this append fails — otherwise every future emit()
     // on this sandbox would silently stop writing. The real rejection still propagates
     // to whoever awaits `result` (this call's own return value).
     this._ledgerQueue = result.catch(() => {});
+
     return result;
   }
 
@@ -212,12 +226,14 @@ export class SandboxCore implements SandboxInternal {
     const seq = ++this._seq;
 
     const cachedResult = this.replayCache.get(seq);
+
     if (cachedResult) {
       return new ExecHandle({ type: "replay", result: cachedResult });
     }
 
     // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
+
     async function* stream(): AsyncGenerator<SSEEvent> {
       const execClient = await self.getExecClient();
       await self.emit(LedgerEvent.ExecStart, seq, { cmd, seq });
@@ -225,6 +241,7 @@ export class SandboxCore implements SandboxInternal {
       // base64-encode so newlines/special chars survive the JSON boundary
       const sh = opts.shell ?? self.deps.shell ?? "/bin/sh";
       const command = `echo ${Buffer.from(cmd).toString("base64")} | base64 -d | ${sh}`;
+
       for await (const ev of execClient.executeCommand({
         command,
         cwd: opts.cwd,
@@ -242,6 +259,7 @@ export class SandboxCore implements SandboxInternal {
       onDone: async (result) => {
         await self.emit(LedgerEvent.ExecComplete, seq, { exitCode: result.exitCode, seq });
         self.deps.hooks?.onExecComplete?.(self.sandboxId, seq, result);
+
         if (opts.strict !== false && result.exitCode !== 0) {
           throw new CommandError(result.exitCode, cmd, self.sandboxId);
         }
@@ -255,6 +273,7 @@ export class SandboxCore implements SandboxInternal {
 
     // Session had already exited before the last checkpoint — nothing live to attach to.
     const cachedResult = this.replayCache.get(seq);
+
     if (cachedResult) {
       return new InteractiveExecHandle({ type: "replay", result: cachedResult });
     }
@@ -276,6 +295,7 @@ export class SandboxCore implements SandboxInternal {
       cwd: pending?.cwd ?? opts.cwd,
       env: pending?.env ?? opts.env,
     });
+
     self.deps.hooks?.onExecStart?.(self.sandboxId, seq, cmd);
 
     // Resolves only after the PTY is connected and (if resuming) recorded stdin has
@@ -286,6 +306,7 @@ export class SandboxCore implements SandboxInternal {
       const pty = await self.resolvePtyClient();
 
       let onFirstOutput: (() => void) | undefined;
+
       const firstOutput = new Promise<void>((r) => {
         onFirstOutput = r;
       });
@@ -309,6 +330,7 @@ export class SandboxCore implements SandboxInternal {
         if (closer) self.openSessionClosers.delete(closer);
         pty.close();
       };
+
       self.openSessionClosers.add(closer);
 
       // execd reports the pty session as connected before bash has necessarily
@@ -324,9 +346,11 @@ export class SandboxCore implements SandboxInternal {
 
       return pty;
     })();
+
     ptyPromise.catch(() => {}); // surfaced via `fail` below — avoid an unhandled-rejection warning
 
     let push: (chunk: string) => void = () => {};
+
     let finish: (exitCode: number) => void = () => {};
 
     const driver: ExecDriver = {
@@ -341,6 +365,7 @@ export class SandboxCore implements SandboxInternal {
         if (closer) self.openSessionClosers.delete(closer);
         await self.emit(LedgerEvent.ExecComplete, seq, { exitCode: result.exitCode, seq });
         self.deps.hooks?.onExecComplete?.(self.sandboxId, seq, result);
+
         if (opts.strict !== false && result.exitCode !== 0) {
           throw new CommandError(result.exitCode, cmd, self.sandboxId);
         }
@@ -393,6 +418,7 @@ export class SandboxCore implements SandboxInternal {
    */
   async createCodeContext(language: CodeLanguage): Promise<CodeContext> {
     const ec = await this.getExecClient();
+
     return ec.createContext(language);
   }
 
@@ -407,15 +433,18 @@ export class SandboxCore implements SandboxInternal {
     const seq = ++this._seq;
 
     const cachedResult = this.replayCache.get(seq);
+
     if (cachedResult) {
       return new ExecHandle({ type: "replay", result: cachedResult });
     }
 
     // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
+
     async function* stream(): AsyncGenerator<SSEEvent> {
       const execClient = await self.getExecClient();
       await self.emit(LedgerEvent.ExecStart, seq, { code, seq });
+
       for await (const ev of execClient.executeCode({ code, context: opts.context })) {
         await self.emit(LedgerEvent.ExecEvent, seq, { seq, ...ev });
         yield ev;
@@ -463,9 +492,11 @@ export class SandboxCore implements SandboxInternal {
       cmdOpts?: { cwd?: string; timeoutMs?: number },
     ): ExecHandle => {
       const seq = ++self._seq;
+
       async function* stream(): AsyncGenerator<SSEEvent> {
         await self.emit(LedgerEvent.ExecStart, seq, { cmd: command, seq, sessionId });
         self.deps.hooks?.onExecStart?.(self.sandboxId, seq, command);
+
         for await (const ev of ec.runInSession(sessionId, {
           command,
           cwd: cmdOpts?.cwd,
@@ -475,12 +506,14 @@ export class SandboxCore implements SandboxInternal {
           yield ev;
         }
       }
+
       return new ExecHandle({
         type: "stream",
         gen: stream(),
         onDone: async (result) => {
           await self.emit(LedgerEvent.ExecComplete, seq, { exitCode: result.exitCode, seq });
           self.deps.hooks?.onExecComplete?.(self.sandboxId, seq, result);
+
           if (result.exitCode !== 0)
             throw new CommandError(result.exitCode, command, self.sandboxId);
         },
@@ -493,6 +526,7 @@ export class SandboxCore implements SandboxInternal {
     };
 
     this.openSessionClosers.add(closeSession);
+
     return new BashSession(sessionId, execInSession, closeSession);
   }
 }

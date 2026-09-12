@@ -59,6 +59,7 @@ export class SQLiteSemanticMemoryProvider
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
+
     this.db = new Database(path, { create: true });
     this.db.exec(SEMANTIC_MEMORY_MIGRATION_SQL);
     this.db.exec("PRAGMA journal_mode = WAL;");
@@ -100,6 +101,7 @@ export class SQLiteSemanticMemoryProvider
 
   async remember(ref: ResourceRef, fact: MemoryFact): Promise<void> {
     const [vector] = await this.embeddings.embed([fact.content], { type: "passage" });
+
     if (!vector) return;
 
     const result = this.db
@@ -130,6 +132,7 @@ export class SQLiteSemanticMemoryProvider
    *  insert in a single transaction — see `IBulkSemanticMemoryProvider`. */
   async rememberMany(ref: ResourceRef, facts: MemoryFact[]): Promise<void> {
     if (facts.length === 0) return;
+
     const vectors = await this.embeddings.embed(
       facts.map((f) => f.content),
       { type: "passage" },
@@ -140,26 +143,32 @@ export class SQLiteSemanticMemoryProvider
     // immediately, so this must happen before `insertVec` below.
     if (this.vecAvailable) {
       const firstVector = vectors.find((v): v is number[] => v != null);
+
       if (firstVector) this.ensureVecTable(firstVector.length);
     }
 
     const scope = scopeKey(ref);
+
     const insertMeta = this.db.prepare(
       `INSERT INTO alineo_semantic_memory
          (id, scope, content, vector, source_sandbox_id, source_entry_index, remembered_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     );
+
     const insertVec =
       this.vecAvailable && this.vecDimensions != null
         ? this.db.prepare(`INSERT INTO ${VEC_TABLE}(rowid, scope, embedding) VALUES (?, ?, ?)`)
         : null;
+
     const now = Date.now();
 
     const runAll = this.db.transaction(() => {
       for (let i = 0; i < facts.length; i++) {
         const vector = vectors[i];
-        const fact = facts[i]!;
+        const fact = facts[i];
+
         if (!vector) continue;
+
         const result = insertMeta.run(
           crypto.randomUUID(),
           scope,
@@ -169,9 +178,11 @@ export class SQLiteSemanticMemoryProvider
           fact.sourceRef?.entryIndex ?? null,
           now,
         );
+
         insertVec?.run(result.lastInsertRowid, scope, new Float32Array(vector));
       }
     });
+
     runAll();
   }
 
@@ -182,6 +193,7 @@ export class SQLiteSemanticMemoryProvider
   ): Promise<MemoryFact[]> {
     const topK = opts.topK ?? 5;
     const [queryVector] = await this.embeddings.embed([query], { type: "query" });
+
     if (!queryVector) return [];
 
     if (this.hasVectorIndex) {
@@ -199,6 +211,7 @@ export class SQLiteSemanticMemoryProvider
           ORDER BY v.distance
         `)
         .all(new Float32Array(queryVector), scopeKey(ref), topK);
+
       return rows.map(factFromRow);
     }
 
@@ -206,7 +219,9 @@ export class SQLiteSemanticMemoryProvider
     const rows = this.db
       .prepare<Row, [string]>("SELECT * FROM alineo_semantic_memory WHERE scope = ?")
       .all(scopeKey(ref));
+
     if (rows.length === 0) return [];
+
     return rows
       .map((row) => ({
         row,
@@ -221,6 +236,7 @@ export class SQLiteSemanticMemoryProvider
     const rows = this.db
       .prepare<Row, [string]>("SELECT * FROM alineo_semantic_memory WHERE scope = ?")
       .all(scopeKey(ref));
+
     return rows.map(factFromRow);
   }
 
@@ -241,6 +257,7 @@ export class SQLiteSemanticMemoryProvider
     const result = this.db
       .prepare(`DELETE FROM alineo_semantic_memory WHERE scope = ? AND id IN (${placeholders})`)
       .run(scopeKey(ref), ...ids);
+
     return result.changes;
   }
 

@@ -28,6 +28,7 @@ const client = new Sandbox({
 /** `getent hosts` exits 0 iff the name resolves — i.e. the egress policy let the DNS query through. */
 async function canReach(sb: SandboxHandle, host: string): Promise<boolean> {
   const { exitCode } = await sb.exec(`getent hosts ${host}`, { strict: false });
+
   return exitCode === 0;
 }
 
@@ -42,6 +43,7 @@ const sb = await client.sandbox({
   // unrestricted behaviour — no egress sidecar is attached at all.)
   networkPolicy: { defaultAction: "deny", egress: [] },
 });
+
 console.log(`sandbox ${sb.sandboxId}\n`);
 
 try {

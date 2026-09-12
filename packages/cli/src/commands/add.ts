@@ -11,6 +11,7 @@ export async function add(
   opts: { name?: string; log?: (message: string) => void } = {},
 ): Promise<void> {
   const log = opts.log ?? console.log;
+
   if (!url) throw new Error("Usage: alineo add <url>");
 
   const config = await readConfig();
@@ -36,11 +37,16 @@ export async function add(
 async function fetchSpec(url: string): Promise<AgentSpec> {
   if (url.startsWith("http://") || url.startsWith("https://")) {
     const res = await fetch(url);
+
     if (!res.ok) throw new Error(`Failed to fetch spec: ${res.status} ${res.statusText}`);
+
     return validateAgentSpec(await res.json());
   }
+
   const file = Bun.file(url);
+
   if (!(await file.exists())) throw new Error(`File not found: ${url}`);
+
   return validateAgentSpec(await file.json());
 }
 

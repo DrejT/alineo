@@ -55,6 +55,7 @@ export async function compactSemanticMemory(
       "compactSemanticMemory() requires a provider implementing IPrunableSemanticMemoryProvider (listAll/forget) — this provider only implements remember/recall.",
     );
   }
+
   return compactPrunable(provider, ref, opts);
 }
 
@@ -76,26 +77,32 @@ async function compactPrunable(
 
   if (opts.maxFacts != null) {
     const remaining = facts.filter((f) => !toRemove.has(f.id));
+
     if (remaining.length > opts.maxFacts) {
       const oldestFirst = [...remaining].sort((a, b) => a.rememberedAt - b.rememberedAt);
       const excess = oldestFirst.length - opts.maxFacts;
-      for (let i = 0; i < excess; i++) toRemove.add(oldestFirst[i]!.id);
+
+      for (let i = 0; i < excess; i++) toRemove.add(oldestFirst[i].id);
     }
   }
 
   if (toRemove.size === 0) return { removed: 0, remaining: facts.length, summarized: 0 };
 
   let summarized = 0;
+
   if (opts.summarize) {
     // Oldest first — a summarizer condensing "what happened over time" reads better in
     // chronological order than an arbitrary one.
     const removedFacts = facts
       .filter((f) => toRemove.has(f.id))
       .sort((a, b) => a.rememberedAt - b.rememberedAt);
+
     const consolidated = await opts.summarize(removedFacts);
+
     for (const content of consolidated) {
       await provider.remember(ref, { content });
     }
+
     summarized = consolidated.length;
   }
 
@@ -107,5 +114,6 @@ async function compactPrunable(
   // count (accurate for what it actually deleted) gets combined with a now-stale total. A fresh
   // `listAll()` after `forget()` reports the true count regardless of what else ran concurrently.
   const remaining = (await provider.listAll(ref)).length;
+
   return { removed, remaining, summarized };
 }

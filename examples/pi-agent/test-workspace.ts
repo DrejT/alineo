@@ -13,6 +13,7 @@ import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/workspace-agent.json";
+
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
@@ -20,7 +21,9 @@ const spec = await Bun.file(SPEC).json();
 
 // ── Load 1: full install + setup steps + checkpoint ───────────────────────────
 console.log("=== Load 1 — full install ===\n");
+
 const agent1 = await Alineo.load(spec, { adapter });
+
 console.log(`\nSandbox: ${agent1.sandboxId}  fromSnapshot=${agent1.fromSnapshot}\n`);
 
 if (agent1.fromSnapshot) {
@@ -29,8 +32,11 @@ if (agent1.fromSnapshot) {
 
 // Verify workspace files are present after setup steps.
 const indexJs = (await agent1.sandbox.exec("cat /workspace/index.js")).stdout.trim();
+
 const nodeOut = (await agent1.sandbox.exec("node /workspace/index.js")).stdout.trim();
+
 console.log(`/workspace/index.js content: ${indexJs}`);
+
 console.log(`node output: ${nodeOut}`);
 
 if (!nodeOut.includes("workspace ready")) {
@@ -39,21 +45,27 @@ if (!nodeOut.includes("workspace ready")) {
 
 // Ask Pi to list the workspace — it should see the files setup baked in.
 console.log("\nAsking Pi to inspect /workspace...\n");
+
 let response1 = "";
+
 for await (const chunk of textOnly(
   agent1.prompt("List the files in /workspace using bash and tell me what you find."),
 )) {
   process.stdout.write(chunk);
   response1 += chunk;
 }
+
 console.log("\n");
 
 await agent1.close();
+
 console.log("Alineo 1 closed.\n");
 
 // ── Load 2: restore from snapshot — setup steps must NOT re-run ───────────────
 console.log("=== Load 2 — from snapshot ===\n");
+
 const agent2 = await Alineo.load(spec, { adapter });
+
 console.log(`\nSandbox: ${agent2.sandboxId}  fromSnapshot=${agent2.fromSnapshot}\n`);
 
 if (!agent2.fromSnapshot) {
@@ -62,6 +74,7 @@ if (!agent2.fromSnapshot) {
 
 // Workspace files must still be there after restore.
 const nodeOut2 = (await agent2.sandbox.exec("node /workspace/index.js")).stdout.trim();
+
 console.log(`node output after restore: ${nodeOut2}`);
 
 if (!nodeOut2.includes("workspace ready")) {
@@ -69,16 +82,22 @@ if (!nodeOut2.includes("workspace ready")) {
 }
 
 await agent2.close();
+
 console.log("Alineo 2 closed.\n");
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 console.log("─".repeat(60));
+
 console.log("=== Summary ===\n");
+
 console.log(`Load 1 fromSnapshot: ${agent1.fromSnapshot}  (expected: false)`);
+
 console.log(`Load 2 fromSnapshot: ${agent2.fromSnapshot}  (expected: true)`);
+
 console.log(`Workspace survived snapshot: ${nodeOut2.includes("workspace ready")}`);
 
 const pass = !agent1.fromSnapshot && agent2.fromSnapshot && nodeOut2.includes("workspace ready");
+
 console.log(
   pass ? "\n✓ Workspace setup working correctly" : "\n✗ Test failed — check output above",
 );

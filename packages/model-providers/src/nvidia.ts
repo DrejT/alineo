@@ -4,6 +4,7 @@ import type { CacheEntry, ModelProvider, ProviderModel } from "./types";
 import { CACHE_TTL_MS, fetchProviderModels, requireApiKey } from "./types";
 
 const BASE_URL = "https://integrate.api.nvidia.com/v1";
+
 const ENV_VAR = "NVIDIA_API_KEY";
 
 let cache: CacheEntry<ProviderModel[]> | null = null;
@@ -19,16 +20,20 @@ export const nvidiaProvider: ModelProvider = {
   envVar: ENV_VAR,
   languageModel(modelId: string): LanguageModel {
     const apiKey = requireApiKey(ENV_VAR);
+
     return createOpenAI({ apiKey, baseURL: BASE_URL }).chat(modelId);
   },
   async listModels(): Promise<ProviderModel[]> {
     if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.value;
+
     const models = await fetchProviderModels(
       "NVIDIA NIM",
       `${BASE_URL}/models`,
       process.env[ENV_VAR],
     );
+
     cache = { at: Date.now(), value: models };
+
     return models;
   },
 };

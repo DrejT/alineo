@@ -37,6 +37,7 @@ describe("withTeamAccessControl (working memory)", () => {
       new InMemoryWorkingMemoryProvider(),
       allowOnly(["team-a"]),
     );
+
     const ref = { resourceId: "user-1", teamId: "team-a" };
 
     await provider.set(ref, "key", "value");
@@ -49,6 +50,7 @@ describe("withTeamAccessControl (working memory)", () => {
       new InMemoryWorkingMemoryProvider(),
       allowOnly(["team-a"]),
     );
+
     const ref = { resourceId: "user-1", teamId: "team-b" };
 
     await expect(provider.get(ref, "key")).rejects.toThrow(MemoryAccessDeniedError);
@@ -86,6 +88,7 @@ describe("withTeamAccessControlSemantic", () => {
       new InMemorySemanticMemoryProvider(fakeEmbeddings()),
       allowOnly([]),
     );
+
     const ref = { resourceId: "user-1", teamId: "team-b" };
 
     await expect(provider.remember(ref, { content: "fact" })).rejects.toThrow(
@@ -99,6 +102,7 @@ describe("withTeamAccessControlSemantic", () => {
       new InMemorySemanticMemoryProvider(fakeEmbeddings()),
       allowOnly(["team-a"]),
     );
+
     const ref = { resourceId: "user-1", teamId: "team-a" };
 
     await provider.remember(ref, { content: "the sky is blue" });

@@ -58,6 +58,7 @@ try {
   await sb.exec("pip install --quiet pytest");
 
   console.log("Running test suite...\n");
+
   const { stdout, stderr, exitCode } = await sb.exec("cd /workspace && pytest -q", {
     strict: false,
     timeoutMs: 60_000,
@@ -70,6 +71,7 @@ try {
   console.log("=== CI Report ===");
   console.log(`status:  ${passed ? "PASS" : "FAIL"}`);
   console.log(`summary: ${summaryLine}`);
+
   if (!passed) {
     console.log("\n--- pytest output ---");
     console.log(stdout || stderr);

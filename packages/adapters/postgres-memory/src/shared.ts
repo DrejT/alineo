@@ -28,6 +28,7 @@ export class PostgresMemoryConnection {
         throw err;
       },
     );
+
     return this.migratePromise;
   }
 
@@ -57,6 +58,7 @@ export class PostgresMemoryConnection {
           () => false,
         );
     }
+
     return this.pgvectorPromise;
   }
 
@@ -71,6 +73,7 @@ export class PostgresMemoryConnection {
     fn: (tx: postgres.TransactionSql) => Promise<T>,
   ): Promise<T> {
     await this.ensureMigrated();
+
     // `sql.begin()`'s own generic inference doesn't round-trip a caller-supplied `T` cleanly
     // (a `postgres` package typings quirk, not a logic issue) — the explicit cast reflects
     // what's actually true at runtime: this resolves to exactly what `fn` returned.
@@ -78,8 +81,10 @@ export class PostgresMemoryConnection {
       if (ref.teamId) {
         await tx`SELECT set_config('app.team_id', ${ref.teamId}, true)`;
       }
+
       return fn(tx);
     });
+
     return result as T;
   }
 

@@ -31,6 +31,7 @@ function parseStreamResult(stdout: string): StreamStatusJson | null {
   try {
     const parsed = JSON.parse(stdout.trim()) as { data?: Partial<StreamStatusJson> | null };
     const data = parsed.data;
+
     return data && typeof data.port === "number" ? (data as StreamStatusJson) : null;
   } catch {
     return null;
@@ -39,12 +40,15 @@ function parseStreamResult(stdout: string): StreamStatusJson | null {
 
 function toWsUrl(httpUrl: string): string {
   if (httpUrl.startsWith("https://")) return `wss://${httpUrl.slice("https://".length)}`;
+
   if (httpUrl.startsWith("http://")) return `ws://${httpUrl.slice("http://".length)}`;
+
   return httpUrl;
 }
 
 async function proxyStream(sandbox: SandboxHandle, port: number): Promise<BrowserStreamInfo> {
   const { url, headers } = await sandbox.proxy(port);
+
   return { url: toWsUrl(url), headers, port };
 }
 
@@ -83,9 +87,13 @@ const RELAY_SCRIPT = [
 ].join("\n");
 
 const DEFAULT_RELAY_PORT = 19222;
+
 const RELAY_SCRIPT_PATH = "/tmp/alineo-browser-stream-relay.cjs";
+
 const RELAY_PIDFILE = "/tmp/alineo-browser-stream-relay.pid";
+
 const RELAY_TARGETFILE = "/tmp/alineo-browser-stream-relay.target";
+
 const RELAY_LOGFILE = "/tmp/alineo-browser-stream-relay.log";
 
 /**
@@ -110,6 +118,7 @@ async function ensureRelay(
       `[ "$(cat ${RELAY_TARGETFILE})" = "${targetPort}" ] && kill -0 "$(cat ${RELAY_PIDFILE})" 2>/dev/null; ` +
       `then echo ALIVE; else echo DEAD; fi`,
   );
+
   if (check.stdout.trim() === "ALIVE") return;
 
   await sandbox.exec(
@@ -160,9 +169,11 @@ export async function enableBrowserStream(
 
   if (!current?.enabled) {
     const portFlag = opts.port ? ` --port ${opts.port}` : "";
+
     try {
       const enabled = await sandbox.exec(`agent-browser stream enable${portFlag} --json`);
       current = parseStreamResult(enabled.stdout);
+
       if (!current) {
         throw new Error(
           `agent-browser stream enable did not report a bound port: ${enabled.stdout}`,
@@ -172,6 +183,7 @@ export async function enableBrowserStream(
       const recheck = parseStreamResult(
         (await sandbox.exec("agent-browser stream status --json")).stdout,
       );
+
       if (!recheck?.enabled) throw err;
       current = recheck;
     }
@@ -179,6 +191,7 @@ export async function enableBrowserStream(
 
   const relayPort = opts.relayPort ?? DEFAULT_RELAY_PORT;
   await ensureRelay(sandbox, current.port, relayPort);
+
   return proxyStream(sandbox, relayPort);
 }
 

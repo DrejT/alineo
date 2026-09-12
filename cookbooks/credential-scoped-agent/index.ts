@@ -45,6 +45,7 @@ async function runAgentTurn(stream: AgentStream) {
       );
     }
   }
+
   console.log();
 }
 
@@ -54,6 +55,7 @@ if (!process.env.GH_TOKEN) {
 }
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+
 const spec = await Bun.file("./agents/github-agent.json").json();
 
 // `env.GITHUB_TOKEN` in the spec is a credential binding, not a string — so `Alineo.load()`
@@ -92,6 +94,7 @@ try {
     "env | grep -iE 'token|auth|github' || echo '(nothing — as expected)'",
     { strict: false },
   );
+
   console.log("secrets in the environment:", leaked.stdout.trim());
 
   // A bare request with no Authorization header of its own — the sidecar adds it because the
@@ -101,6 +104,7 @@ try {
     'curl -sS -o /dev/null -w "%{http_code}" https://api.github.com/user',
     { strict: false },
   );
+
   console.log(`raw curl to api.github.com, no auth header:  HTTP ${authed.stdout.trim()}`);
 
   // ── 3. Revoke — mid-session, without touching the sandbox ───────────────────
@@ -113,6 +117,7 @@ try {
     'curl -sS -o /dev/null -w "%{http_code}" https://api.github.com/user',
     { strict: false },
   );
+
   console.log(`same request, after revoke:                   HTTP ${afterRevoke.stdout.trim()}`);
   console.log("\nThe agent's own next call to api.github.com would fail the same way.");
 } finally {

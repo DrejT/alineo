@@ -42,6 +42,7 @@ export function createMemoryTools(memory: Memory, ref: ResourceRef): MemoryTool[
       async execute(args) {
         const key = String(args.key ?? "");
         await memory.workingMemory.set(ref, key, args.value);
+
         return { ok: true };
       },
     },
@@ -71,6 +72,7 @@ export function createMemoryTools(memory: Memory, ref: ResourceRef): MemoryTool[
         async execute(args) {
           const content = String(args.content ?? "");
           await memory.remember(ref, { content });
+
           return { ok: true };
         },
       },
@@ -89,6 +91,7 @@ export function createMemoryTools(memory: Memory, ref: ResourceRef): MemoryTool[
           const query = String(args.query ?? "");
           const topK = typeof args.topK === "number" ? args.topK : undefined;
           const facts = await memory.recall(ref, query, { topK });
+
           return { facts: facts.map((f) => f.content) };
         },
       },

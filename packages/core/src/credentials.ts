@@ -98,9 +98,12 @@ export async function resolveBoundCredential(
 ): Promise<string> {
   if (source?.type === "env") {
     const fromEnv = process.env[source.varName];
+
     if (fromEnv !== undefined) return fromEnv;
   }
+
   const fromResolver = await resolver?.(name, source ?? { type: "external" });
+
   if (fromResolver !== undefined) return fromResolver;
   throw new SandboxError(
     `Cannot resolve credential "${name}" for sandbox ${sandboxId}` +
@@ -127,6 +130,7 @@ export interface BoundCredential {
  */
 export function reconstructBoundCredentials(entries: LedgerEntry[]): Map<string, BoundCredential> {
   const result = new Map<string, BoundCredential>();
+
   for (const entry of entries) {
     if (entry.event === LedgerEvent.CredentialBound) {
       const { name, binding, source } = entry.payload as {
@@ -134,11 +138,13 @@ export function reconstructBoundCredentials(entries: LedgerEntry[]): Map<string,
         binding: CredentialBinding;
         source?: CredentialSource;
       };
+
       result.set(name, { binding, source });
     } else if (entry.event === LedgerEvent.CredentialRevoked) {
       const { name } = entry.payload as { name: string };
       result.delete(name);
     }
   }
+
   return result;
 }

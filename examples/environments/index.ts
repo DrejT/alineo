@@ -30,6 +30,7 @@ const env = client.environment("python-data-science", {
 });
 
 const existing = await env.info();
+
 if (existing) {
   console.log(
     `Environment cached (built ${new Date(existing.builtAt).toISOString()}, snapshot ${existing.snapshotId})`,
@@ -39,8 +40,11 @@ if (existing) {
 }
 
 console.log("\nSpawning sandbox from environment...");
+
 const t0 = Date.now();
+
 const sb = await env.sandbox();
+
 console.log(`Ready in ${Date.now() - t0}ms  (sandbox ${sb.sandboxId})`);
 
 try {

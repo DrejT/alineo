@@ -8,8 +8,11 @@ function fakeEmbeddings(): EmbeddingProvider {
     async embed(texts) {
       return texts.map((t) => {
         const lower = t.toLowerCase();
+
         if (lower.includes("cat")) return [1, 0];
+
         if (lower.includes("dog")) return [0, 1];
+
         return [0.5, 0.5];
       });
     },
@@ -27,6 +30,7 @@ describe("SQLiteSemanticMemoryProvider", () => {
 
   it("keeps topK correct when another resource's facts are nearer to the query than this resource's own — the exact bug a naive post-join scope filter would hit under vec0's global top-k KNN", async () => {
     const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+
     // user-2 gets many exact "cat" matches (distance 0) — if scoping were applied AFTER
     // vec0 picks its global nearest neighbors instead of natively via the partition key,
     // these would crowd out user-1's own (less exact) matches and topK would come back
@@ -34,6 +38,7 @@ describe("SQLiteSemanticMemoryProvider", () => {
     for (let i = 0; i < 10; i++) {
       await provider.remember({ resourceId: "user-2" }, { content: `cat fact ${i}` });
     }
+
     await provider.remember({ resourceId: "user-1" }, { content: "cat fact A" });
     await provider.remember({ resourceId: "user-1" }, { content: "cat fact B" });
     await provider.remember({ resourceId: "user-1" }, { content: "cat fact C" });
@@ -61,12 +66,14 @@ describe("SQLiteSemanticMemoryProvider", () => {
       "off-direction": [0.6, 0.8],
       "aligned-large-magnitude": [5, 0],
     };
+
     const fixedEmbeddings: EmbeddingProvider = {
       id: "fixed",
       async embed(texts) {
         return texts.map((t) => vectors[t] ?? [0, 0]);
       },
     };
+
     const provider = new SQLiteSemanticMemoryProvider(":memory:", fixedEmbeddings);
     const ref = { resourceId: "user-1" };
     await provider.remember(ref, { content: "off-direction" });
@@ -151,11 +158,11 @@ describe("SQLiteSemanticMemoryProvider", () => {
     await provider.remember(ref, { content: "forget me" });
     const [keep, drop] = await provider.listAll(ref);
 
-    const removed = await provider.forget(ref, [drop!.id]);
+    const removed = await provider.forget(ref, [drop.id]);
 
     expect(removed).toBe(1);
     const remaining = await provider.listAll(ref);
-    expect(remaining.map((f) => f.id)).toEqual([keep!.id]);
+    expect(remaining.map((f) => f.id)).toEqual([keep.id]);
     provider.close();
   });
 
@@ -193,13 +200,16 @@ describe("SQLiteSemanticMemoryProvider", () => {
   describe("rememberMany", () => {
     it("batches the embedding call into one embed() invocation for all facts", async () => {
       const calls: string[][] = [];
+
       const embeddings: EmbeddingProvider = {
         id: "counting-fake",
         async embed(texts) {
           calls.push(texts);
+
           return texts.map((t) => (t.toLowerCase().includes("cat") ? [1, 0] : [0, 1]));
         },
       };
+
       const provider = new SQLiteSemanticMemoryProvider(":memory:", embeddings);
       const ref = { resourceId: "user-1" };
 

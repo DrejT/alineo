@@ -10,13 +10,19 @@ import { join } from "node:path";
  */
 
 const dir = mkdtempSync(join(tmpdir(), "alineo-bridge-"));
+
 const PORT = 3100 + Math.floor(Math.random() * 800);
+
 const BASE = `http://127.0.0.1:${PORT}`;
+
 const bridgeSrc = fileURLToPath(new URL("../src/adapters/pi-bridge.js", import.meta.url));
+
 const gatePath = fileURLToPath(new URL("../src/adapters/pi-permission-gate.js", import.meta.url));
+
 // The package is `"type": "module"` but pi-bridge.js is CJS (it runs from the sandbox root,
 // outside any package.json). Copy it to a `.cjs` so `node` treats it as CJS here too.
 const bridgePath = join(mkdtempSync(join(tmpdir(), "alineo-bridge-bin-")), "bridge.cjs");
+
 copyFileSync(bridgeSrc, bridgePath);
 
 // Stub Pi: speaks just enough of the RPC line protocol. On `prompt`, emits two
@@ -40,7 +46,9 @@ rl.on("line", (line) => {
   if (m.id) send({ id: m.id, type: "response", success: true, data: null });
 });
 `;
+
 const stubPath = join(dir, "stub-pi");
+
 const configPath = join(dir, "alineo-pi.json");
 
 let proc: ReturnType<typeof Bun.spawn>;
@@ -54,10 +62,13 @@ async function waitForHealth() {
     try {
       const r = await fetch(`${BASE}/health`);
       const body = (await r.json().catch(() => null)) as { ok?: boolean } | null;
+
       if (r.ok && body?.ok) return;
     } catch {}
+
     await Bun.sleep(100);
   }
+
   throw new Error("bridge did not become healthy");
 }
 
@@ -67,17 +78,21 @@ type SseEvent = { type?: string; requestId?: string };
 function openPermissionStream(sink: SseEvent[], signal: AbortSignal) {
   void (async () => {
     const res = await fetch(`${BASE}/permission-stream`, { signal });
+
     if (!res.body) return;
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = "";
+
     try {
       while (true) {
         const { done, value } = await reader.read();
+
         if (done) break;
         buf += dec.decode(value, { stream: true });
         const lines = buf.split("\n");
         buf = lines.pop() ?? "";
+
         for (const l of lines) {
           if (l.startsWith("data: ") && l.slice(6).trim() !== "[DONE]") {
             try {
@@ -92,11 +107,14 @@ function openPermissionStream(sink: SseEvent[], signal: AbortSignal) {
 
 async function until<T>(fn: () => T | undefined, ms = 5000): Promise<T> {
   const deadline = Date.now() + ms;
+
   while (Date.now() < deadline) {
     const v = fn();
+
     if (v !== undefined) return v;
     await Bun.sleep(50);
   }
+
   throw new Error("timeout waiting for condition");
 }
 
@@ -123,6 +141,7 @@ afterAll(() => {
   try {
     proc.kill();
   } catch {}
+
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -148,6 +167,7 @@ describe("pi-bridge permission protocol", () => {
 
     // Both pending, visible via /pending-permissions.
     type PendingBody = { data: { pending: Array<{ requestId: string; tool: string }> } };
+
     const pending = (await getJson<PendingBody>(`${BASE}/pending-permissions`)).data.pending;
     expect(pending.map((p) => p.requestId).sort((a, b) => a.localeCompare(b))).toEqual([
       "perm-1",
@@ -161,6 +181,7 @@ describe("pi-bridge permission protocol", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ requestId: "nope", decision: { kind: "once" } }),
     });
+
     expect(bad.status).toBe(404);
 
     // Resolve perm-1 as always → perm-2 (same tool) batch-clears.
@@ -169,15 +190,18 @@ describe("pi-bridge permission protocol", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ requestId: "perm-1", decision: { kind: "always" } }),
     });
+
     expect(ok.status).toBe(200);
 
     await until(() =>
       events.filter((e) => e.type === "permission_resolved").length === 2 ? true : undefined,
     );
+
     const resolvedIds = events
       .filter((e) => e.type === "permission_resolved")
       .map((e) => e.requestId ?? "")
       .sort((a, b) => a.localeCompare(b));
+
     expect(resolvedIds).toEqual(["perm-1", "perm-2"]);
 
     // Nothing left pending.

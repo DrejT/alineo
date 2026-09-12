@@ -47,6 +47,7 @@ export function createDashboardView(
     height: "100%",
     options: [],
   });
+
   box.add(select);
   select.focus();
 
@@ -62,6 +63,7 @@ export function createDashboardView(
       description: `${formatAge(s.startedAt)} · ${s.execCount} execs`,
       value: s,
     }));
+
     select.options =
       options.length > 0
         ? options
@@ -81,16 +83,20 @@ export function createDashboardView(
 
   async function killSelected(): Promise<void> {
     const session = select.getSelectedOption()?.value as SandboxDetails | null;
+
     if (!session) return;
     status.content = `killing ${session.name}...`;
+
     try {
       const config = await readConfig();
+
       const client = new Sandbox({
         baseUrl: config.serverUrl,
         apiKey: config.apiKey,
         adapter: new SQLiteAdapter(config.adapterPath),
         useServerProxy: config.useServerProxy,
       });
+
       const sb = await client.connect(session.sandboxId, session.name);
       await sb.close();
       await refresh();
@@ -110,9 +116,11 @@ export function createDashboardView(
     else if (event.name === "k") void killSelected();
     else if (event.name === "l") {
       const session = select.getSelectedOption()?.value as SandboxDetails | null;
+
       if (session) onLogs(session);
     }
   };
+
   renderer.keyInput.on("keypress", onKeypress);
 
   void refresh();

@@ -38,6 +38,7 @@ export async function buildContextSnippet(
 
   const working = await memory.workingMemory.list(ref);
   const keys = Object.keys(working).slice(0, opts.maxWorkingMemoryKeys ?? 20);
+
   if (keys.length > 0) {
     sections.push(
       `Known facts about this resource:\n${keys
@@ -48,6 +49,7 @@ export async function buildContextSnippet(
 
   if (opts.query && memory.hasSemanticMemory) {
     const facts = await memory.recall(ref, opts.query, { topK: opts.topK });
+
     if (facts.length > 0) {
       sections.push(`Relevant memories:\n${facts.map((f) => `- ${f.content}`).join("\n")}`);
     }

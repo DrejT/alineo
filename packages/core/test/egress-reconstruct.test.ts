@@ -25,6 +25,7 @@ describe("reconstructEgressRules", () => {
         ],
       }),
     ]);
+
     expect(apply).toEqual([
       { action: "allow", target: "a.com" },
       { action: "allow", target: "b.com" },
@@ -38,6 +39,7 @@ describe("reconstructEgressRules", () => {
       entry(LedgerEvent.EgressRuleAdded, { rules: [{ action: "deny", target: "a.com" }] }),
       entry(LedgerEvent.EgressRuleAdded, { rules: [{ action: "allow", target: "a.com" }] }),
     ]);
+
     expect(apply).toEqual([{ action: "allow", target: "a.com" }]);
   });
 
@@ -51,6 +53,7 @@ describe("reconstructEgressRules", () => {
       }),
       entry(LedgerEvent.EgressRuleRemoved, { targets: ["a.com"] }),
     ]);
+
     expect(apply).toEqual([{ action: "allow", target: "b.com" }]);
     expect(remove).toEqual(["a.com"]);
   });
@@ -59,6 +62,7 @@ describe("reconstructEgressRules", () => {
     const { apply, remove } = reconstructEgressRules([
       entry(LedgerEvent.EgressRuleRemoved, { targets: ["boot.example.com"] }),
     ]);
+
     expect(apply).toEqual([]);
     expect(remove).toEqual(["boot.example.com"]);
   });
@@ -69,6 +73,7 @@ describe("reconstructEgressRules", () => {
       entry(LedgerEvent.EgressRuleRemoved, { targets: ["a.com"] }),
       entry(LedgerEvent.EgressRuleAdded, { rules: [{ action: "allow", target: "a.com" }] }),
     ]);
+
     expect(apply).toEqual([{ action: "allow", target: "a.com" }]);
     expect(remove).toEqual([]);
   });

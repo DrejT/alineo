@@ -34,6 +34,7 @@ async function* instrument(
           tool: ev.tool,
           target: ev.target,
         });
+
         if (onPermission) {
           const req: PermissionRequest = {
             requestId: ev.requestId,
@@ -41,6 +42,7 @@ async function* instrument(
             target: ev.target,
             title: ev.title,
           };
+
           void Promise.resolve(onPermission(req))
             .then((decision) => a.adapter.resolvePermission(ev.requestId, decision))
             .catch(() => {});
@@ -51,6 +53,7 @@ async function* instrument(
           decision: ev.decision,
         });
       }
+
       yield ev;
     }
   } finally {

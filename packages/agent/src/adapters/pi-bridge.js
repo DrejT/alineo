@@ -1,22 +1,31 @@
 "use strict";
+
 var spawn = require("child_process").spawn;
+
 var createInterface = require("readline").createInterface;
+
 var http = require("http");
+
 var fs = require("fs");
 
 // Paths/port are fixed in the sandbox; the env overrides exist only so the bridge can be
 // driven against a stub `pi` in unit tests (test/pi-bridge.test.ts).
 var PORT = Number(process.env.ALINEO_BRIDGE_PORT) || 3001;
+
 var ENV_FILE = process.env.ALINEO_ENV_FILE || "/etc/alineo-env";
+
 var PI_CONFIG_FILE = process.env.ALINEO_PI_CONFIG || "/etc/alineo-pi.json";
+
 var PI_BIN = process.env.ALINEO_PI_BIN || "pi";
 
 // Re-read /etc/alineo-env into process.env on each Pi (re)start so setEnv() changes take effect.
 function loadEnv() {
   if (!fs.existsSync(ENV_FILE)) return;
   var lines = fs.readFileSync(ENV_FILE, "utf8").split("\n");
+
   for (var i = 0; i < lines.length; i++) {
     var m = lines[i].match(/^export ([A-Za-z_][A-Za-z0-9_]*)="((?:[^"\\]|\\.)*)"$/);
+
     if (m) process.env[m[1]] = m[2].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   }
 }
@@ -27,28 +36,38 @@ function loadEnv() {
 // `POLICY_ACTIVE` gates the permission-request routing below and is set here, before Pi
 // is ever spawned, so there is no window where Pi could emit a gate dialog first.
 var POLICY_ACTIVE = false;
+
 var PERMISSION_GATE_PATH = process.env.ALINEO_PERMISSION_GATE_PATH || "/alineo-permission-gate.js";
+
 function buildPiArgs() {
   var args = ["--mode", "rpc", "--approve"];
+
   try {
     if (fs.existsSync(PI_CONFIG_FILE)) {
       var cfg = JSON.parse(fs.readFileSync(PI_CONFIG_FILE, "utf8"));
+
       if (cfg.provider) args.push("--provider", cfg.provider);
+
       if (cfg.model) args.push("--model", cfg.model);
+
       if (cfg.resume) args.push("--continue");
+
       if (cfg.permissions && fs.existsSync(PERMISSION_GATE_PATH)) {
         POLICY_ACTIVE = true;
         args.push("-e", PERMISSION_GATE_PATH);
       }
     }
   } catch {}
+
   return args;
 }
 
 // --- Ring-buffer logger ---
 var logBuf = [];
+
 function log(msg) {
   var entry = "[" + new Date().toISOString() + "] " + msg;
+
   if (logBuf.length >= 200) logBuf.shift();
   logBuf.push(entry);
   process.stderr.write(entry + "\n");
@@ -68,6 +87,7 @@ function startHeartbeat(res) {
     } catch {}
   }, 3000);
 }
+
 function stopHeartbeat(iv) {
   if (iv) clearInterval(iv);
 }
@@ -89,6 +109,7 @@ var state = {
 // Permission-gate dialogs whose title starts with this marker are held + routed to the host
 // instead of auto-cancelled. Must match adapters/pi-permission-gate.js's MARKER.
 var PERM_MARKER = "ALINEO_PERM ";
+
 var PERMISSION_TIMEOUT_MS = 300000; // 5 min, matches Cline's desktop auto-deny
 
 // Push a permission event to every live SSE sink: the active prompt stream (so a caller
@@ -97,6 +118,7 @@ var PERMISSION_TIMEOUT_MS = 300000; // 5 min, matches Cline's desktop auto-deny
 function emitPermission(obj) {
   var line = "data: " + JSON.stringify(obj) + "\n\n";
   var sinks = [state.active, state.permissionChannel];
+
   for (var i = 0; i < sinks.length; i++) {
     if (sinks[i] && sinks[i].res) {
       try {
@@ -119,6 +141,7 @@ function resolveMatchingPending(exceptId, tool, verdict) {
   Object.keys(state.pendingPermissions).forEach(function (pid) {
     if (pid === exceptId) return;
     var p = state.pendingPermissions[pid];
+
     if (p.tool !== tool) return;
     clearTimeout(p.timer);
     delete state.pendingPermissions[pid];
@@ -149,15 +172,18 @@ function expirePermission(pid) {
 function suspendPermissionTimers() {
   Object.keys(state.pendingPermissions).forEach(function (pid) {
     var p = state.pendingPermissions[pid];
+
     if (p.timer) {
       clearTimeout(p.timer);
       p.timer = null;
     }
   });
 }
+
 function resumePermissionTimers() {
   Object.keys(state.pendingPermissions).forEach(function (pid) {
     var p = state.pendingPermissions[pid];
+
     if (!p.timer) {
       p.timer = setTimeout(function () {
         expirePermission(pid);
@@ -182,6 +208,7 @@ function cleanupPendingCmds(reason) {
     var p = state.pendingCmds[id];
     clearTimeout(p.timer);
     stopHeartbeat(p.heartbeat);
+
     if (p.bash) {
       try {
         p.res.write("data: " + JSON.stringify({ error: reason }) + "\n\n");
@@ -202,6 +229,7 @@ function startPi() {
     state.active.res.end();
     state.active = null;
   }
+
   cleanupPendingCmds("pi restarted");
   cancelPendingPermissions();
 
@@ -210,11 +238,13 @@ function startPi() {
       state.rl.close();
     } catch {}
   }
+
   if (state.proc) {
     try {
       state.proc.kill("SIGTERM");
     } catch {}
   }
+
   state.proc = null;
   state.rl = null;
   state.ready = false;
@@ -229,6 +259,7 @@ function startPi() {
     stdio: ["pipe", "pipe", "pipe"],
     env: Object.assign({}, process.env),
   });
+
   state.proc = proc;
 
   proc.stderr.on("data", function (chunk) {
@@ -247,6 +278,7 @@ function startPi() {
     state.ready = false;
     cleanupPendingCmds("pi exited");
     cancelPendingPermissions();
+
     if (state.active) {
       stopHeartbeat(state.active.heartbeat);
       state.active.res.write("data: " + JSON.stringify({ error: "pi exited" }) + "\n\n");
@@ -284,6 +316,7 @@ function rpcWithAck(msg, res) {
 function handleLine(line) {
   if (!line.trim()) return;
   var ev;
+
   try {
     ev = JSON.parse(line);
   } catch {
@@ -295,6 +328,7 @@ function handleLine(line) {
     var m = (ev.data && ev.data.model) || {};
     log("pi ready model=" + m.id + " api=" + m.api);
     flush();
+
     return;
   }
 
@@ -312,6 +346,7 @@ function handleLine(line) {
     state.active.res.end();
     state.active = null;
     flush();
+
     return;
   }
 
@@ -323,12 +358,15 @@ function handleLine(line) {
     clearTimeout(pending.timer);
     stopHeartbeat(pending.heartbeat);
     delete state.pendingCmds[ev.id];
+
     if (pending.bash) {
       var output = (ev.data && ev.data.output) || "";
+
       if (output)
         try {
           pending.res.write("data: " + JSON.stringify({ type: "text", text: output }) + "\n\n");
         } catch {}
+
       try {
         pending.res.write("data: [DONE]\n\n");
         pending.res.end();
@@ -338,6 +376,7 @@ function handleLine(line) {
     } else {
       respond(pending.res, 400, { ok: false, error: ev.error || "unknown" });
     }
+
     return;
   }
 
@@ -354,8 +393,10 @@ function handleLine(line) {
         }) +
         "\n\n",
     );
+
     return;
   }
+
   if (ev.type === "tool_execution_update") {
     if (!state.active) return;
     state.active.res.write(
@@ -368,8 +409,10 @@ function handleLine(line) {
         }) +
         "\n\n",
     );
+
     return;
   }
+
   if (ev.type === "tool_execution_end") {
     if (!state.active) return;
     state.active.res.write(
@@ -383,6 +426,7 @@ function handleLine(line) {
         }) +
         "\n\n",
     );
+
     return;
   }
 
@@ -401,9 +445,11 @@ function handleLine(line) {
       ev.title.indexOf(PERM_MARKER) === 0
     ) {
       var meta = {};
+
       try {
         meta = JSON.parse(ev.title.slice(PERM_MARKER.length));
       } catch {}
+
       var entry = {
         tool: meta.tool || "unknown",
         target: meta.target || "",
@@ -411,12 +457,14 @@ function handleLine(line) {
         since: Date.now(),
         timer: null,
       };
+
       // No auto-deny clock while a human is watching the permission stream.
       if (!state.permissionChannel) {
         entry.timer = setTimeout(function () {
           expirePermission(ev.id);
         }, PERMISSION_TIMEOUT_MS);
       }
+
       state.pendingPermissions[ev.id] = entry;
       emitPermission({
         type: "permission_request",
@@ -425,6 +473,7 @@ function handleLine(line) {
         target: entry.target,
         title: entry.title,
       });
+
       return;
     }
 
@@ -434,6 +483,7 @@ function handleLine(line) {
     Object.keys(ev).forEach(function (k) {
       if (k !== "type" && k !== "id") uiParams[k] = ev[k];
     });
+
     if (state.active) {
       state.active.res.write(
         "data: " +
@@ -447,9 +497,11 @@ function handleLine(line) {
           "\n\n",
       );
     }
+
     if (isDialog && ev.id) {
       rpc({ type: "extension_ui_response", id: ev.id, cancelled: true });
     }
+
     return;
   }
 
@@ -467,6 +519,7 @@ function handleLine(line) {
           "\n\n",
       );
     }
+
     return;
   }
 
@@ -483,6 +536,7 @@ function handleLine(line) {
           "\n\n",
       );
     }
+
     return;
   }
 
@@ -490,8 +544,10 @@ function handleLine(line) {
     if (state.active) {
       state.active.res.write("data: " + JSON.stringify({ type: "agent_start" }) + "\n\n");
     }
+
     return;
   }
+
   if (ev.type === "turn_start") {
     if (state.active) {
       state.active.res.write(
@@ -500,8 +556,10 @@ function handleLine(line) {
           "\n\n",
       );
     }
+
     return;
   }
+
   if (ev.type === "turn_end") {
     if (state.active) {
       state.active.res.write(
@@ -515,24 +573,30 @@ function handleLine(line) {
           "\n\n",
       );
     }
+
     return;
   }
+
   if (ev.type === "message_start") {
     if (state.active) {
       state.active.res.write(
         "data: " + JSON.stringify({ type: "message_start", message: ev.message }) + "\n\n",
       );
     }
+
     return;
   }
+
   if (ev.type === "message_end") {
     if (state.active) {
       state.active.res.write(
         "data: " + JSON.stringify({ type: "message_end", message: ev.message }) + "\n\n",
       );
     }
+
     return;
   }
+
   if (ev.type === "queue_update") {
     if (state.active) {
       state.active.res.write(
@@ -545,16 +609,20 @@ function handleLine(line) {
           "\n\n",
       );
     }
+
     return;
   }
+
   if (ev.type === "compaction_start") {
     if (state.active) {
       state.active.res.write(
         "data: " + JSON.stringify({ type: "compaction_start", reason: ev.reason }) + "\n\n",
       );
     }
+
     return;
   }
+
   if (ev.type === "compaction_end") {
     if (state.active) {
       state.active.res.write(
@@ -569,8 +637,10 @@ function handleLine(line) {
           "\n\n",
       );
     }
+
     return;
   }
+
   if (ev.type === "extension_error") {
     if (state.active) {
       state.active.res.write(
@@ -584,6 +654,7 @@ function handleLine(line) {
           "\n\n",
       );
     }
+
     return;
   }
 
@@ -601,12 +672,15 @@ function handleLine(line) {
         "\n\n",
     );
     var aev = ev.assistantMessageEvent || {};
+
     if (aev.type === "text_delta" && aev.delta) {
       state.active.text += aev.delta;
       state.active.res.write("data: " + JSON.stringify({ type: "text", text: aev.delta }) + "\n\n");
     }
+
     return;
   }
+
   if (ev.type === "agent_end") {
     if (!state.active) return;
     stopHeartbeat(state.active.heartbeat);
@@ -632,11 +706,14 @@ function handleLine(line) {
 function flush() {
   if (!state.ready || !state.queue.length || !state.proc) return;
   var item = state.queue[0];
+
   if (state.active && !item.streamingBehavior) return;
   state.queue.shift();
+
   if (!item.streamingBehavior) state.active = item;
   item.t0 = Date.now();
   var rpcMsg = { id: "p" + item.t0, type: "prompt", message: item.message };
+
   if (item.streamingBehavior) rpcMsg.streamingBehavior = item.streamingBehavior;
   rpc(rpcMsg);
   item.res.writeHead(200, {
@@ -644,7 +721,9 @@ function flush() {
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   });
+
   if (!item.streamingBehavior) item.heartbeat = startHeartbeat(item.res);
+
   // Injections don't produce their own SSE body — their output arrives via the active prompt's stream.
   if (item.streamingBehavior) {
     item.res.write("data: [DONE]\n\n");
@@ -670,13 +749,17 @@ http
     if (req.method === "GET") {
       if (req.url === "/health") {
         respond(res, 200, { ok: state.ready });
+
         return;
       }
+
       if (req.url === "/logs") {
         res.writeHead(200, { "Content-Type": "text/plain" });
         res.end(logBuf.join("\n"));
+
         return;
       }
+
       if (req.url === "/permission-stream") {
         // Long-lived SSE sink so permission_request events surface even when no prompt()
         // stream is open. One at a time — a new subscriber replaces the old.
@@ -685,6 +768,7 @@ http
             state.permissionChannel.res.end();
           } catch {}
         }
+
         res.writeHead(200, {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
@@ -697,6 +781,7 @@ http
         suspendPermissionTimers();
         Object.keys(state.pendingPermissions).forEach(function (pid) {
           var p = state.pendingPermissions[pid];
+
           try {
             res.write(
               "data: " +
@@ -713,16 +798,20 @@ http
         });
         req.on("close", function () {
           stopHeartbeat(pHeartbeat);
+
           if (state.permissionChannel && state.permissionChannel.res === res) {
             state.permissionChannel = null;
             resumePermissionTimers();
           }
         });
+
         return;
       }
+
       if (req.url === "/pending-permissions") {
         var pending = Object.keys(state.pendingPermissions).map(function (pid) {
           var p = state.pendingPermissions[pid];
+
           return {
             requestId: pid,
             tool: p.tool,
@@ -731,29 +820,40 @@ http
             since: p.since || 0,
           };
         });
+
         respond(res, 200, { ok: true, data: { pending: pending } });
+
         return;
       }
+
       if (req.url === "/messages") {
         rpcWithAck({ id: "gm" + Date.now(), type: "get_messages" }, res);
+
         return;
       }
+
       if (req.url === "/available-models") {
         rpcWithAck({ id: "gam" + Date.now(), type: "get_available_models" }, res);
+
         return;
       }
+
       if (req.url === "/state") {
         rpcWithAck({ id: "gs" + Date.now(), type: "get_state" }, res);
+
         return;
       }
+
       res.writeHead(404);
       res.end();
+
       return;
     }
 
     if (req.method !== "POST") {
       res.writeHead(405);
       res.end();
+
       return;
     }
 
@@ -763,11 +863,13 @@ http
     });
     req.on("end", function () {
       var data = {};
+
       try {
         if (body) data = JSON.parse(body);
       } catch {
         res.writeHead(400);
         res.end("bad json");
+
         return;
       }
 
@@ -781,25 +883,31 @@ http
             t0: 0,
           });
           flush();
+
           return;
 
         case "/bash": {
           // Pi returns bash output synchronously in the ack's data.output — no streaming events.
           if (!state.ready || !state.proc) {
             respond(res, 503, { error: "pi not ready" });
+
             return;
           }
+
           var bashId = "b" + Date.now();
+
           var bashTimer = setTimeout(function () {
             if (state.pendingCmds[bashId]) {
               stopHeartbeat(state.pendingCmds[bashId].heartbeat);
               delete state.pendingCmds[bashId];
+
               try {
                 res.write("data: " + JSON.stringify({ error: "bash timeout" }) + "\n\n");
                 res.end();
               } catch {}
             }
           }, 30000);
+
           res.writeHead(200, {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
@@ -812,6 +920,7 @@ http
             heartbeat: startHeartbeat(res),
           };
           rpc({ id: bashId, type: "bash", command: data.command || "" });
+
           return;
         }
 
@@ -821,28 +930,36 @@ http
           // reject each so the abort can actually unwind.
           cancelPendingPermissions();
           state.queue.length = 0;
+
           if (state.active) {
             stopHeartbeat(state.active.heartbeat);
             state.active.res.write("data: [DONE]\n\n");
             state.active.res.end();
             state.active = null;
           }
+
           rpcWithAck({ id: "a" + Date.now(), type: "abort" }, res);
+
           return;
 
         case "/steer":
           rpcWithAck({ id: "s" + Date.now(), type: "steer", message: data.message || "" }, res);
+
           return;
 
         case "/permission-response": {
           var pp = state.pendingPermissions[data.requestId];
+
           if (!pp) {
             respond(res, 404, { ok: false, error: "no such pending permission" });
+
             return;
           }
+
           clearTimeout(pp.timer);
           delete state.pendingPermissions[data.requestId];
           var decision = data.decision || {};
+
           if (decision.kind === "once") {
             answerPermission(data.requestId, JSON.stringify({ verdict: "allow", scope: "once" }));
           } else if (decision.kind === "always") {
@@ -855,12 +972,14 @@ http
             );
             resolveMatchingPending(data.requestId, pp.tool, "reject");
           }
+
           emitPermission({
             type: "permission_resolved",
             requestId: data.requestId,
             decision: decision,
           });
           respond(res, 200, { ok: true });
+
           return;
         }
 
@@ -869,18 +988,22 @@ http
             { id: "fu" + Date.now(), type: "follow_up", message: data.message || "" },
             res,
           );
+
           return;
 
         case "/new-session":
           rpcWithAck({ id: "n" + Date.now(), type: "new_session" }, res);
+
           return;
 
         case "/fork":
           rpcWithAck({ id: "fk" + Date.now(), type: "fork", entryId: data.entryId || "" }, res);
+
           return;
 
         case "/clone":
           rpcWithAck({ id: "cl" + Date.now(), type: "clone" }, res);
+
           return;
 
         case "/switch-session":
@@ -888,6 +1011,7 @@ http
             { id: "ss" + Date.now(), type: "switch_session", sessionPath: data.sessionPath || "" },
             res,
           );
+
           return;
 
         case "/set-model":
@@ -900,10 +1024,12 @@ http
             },
             res,
           );
+
           return;
 
         case "/cycle-model":
           rpcWithAck({ id: "cm" + Date.now(), type: "cycle_model" }, res);
+
           return;
 
         case "/set-thinking-level":
@@ -911,16 +1037,20 @@ http
             { id: "stl" + Date.now(), type: "set_thinking_level", level: data.level || "medium" },
             res,
           );
+
           return;
 
         case "/cycle-thinking-level":
           rpcWithAck({ id: "ctl" + Date.now(), type: "cycle_thinking_level" }, res);
+
           return;
 
         case "/compact": {
           var compactMsg = { id: "co" + Date.now(), type: "compact" };
+
           if (data.customInstructions) compactMsg.customInstructions = data.customInstructions;
           rpcWithAck(compactMsg, res);
+
           return;
         }
 
@@ -929,6 +1059,7 @@ http
             { id: "sac" + Date.now(), type: "set_auto_compaction", enabled: !!data.enabled },
             res,
           );
+
           return;
 
         case "/set-auto-retry":
@@ -936,42 +1067,52 @@ http
             { id: "sar" + Date.now(), type: "set_auto_retry", enabled: !!data.enabled },
             res,
           );
+
           return;
 
         case "/abort-retry":
           rpcWithAck({ id: "ar" + Date.now(), type: "abort_retry" }, res);
+
           return;
 
         case "/abort-bash":
           rpcWithAck({ id: "ab" + Date.now(), type: "abort_bash" }, res);
+
           return;
 
         case "/get-session-stats":
           rpcWithAck({ id: "gss" + Date.now(), type: "get_session_stats" }, res);
+
           return;
 
         case "/get-last-assistant-text":
           rpcWithAck({ id: "glat" + Date.now(), type: "get_last_assistant_text" }, res);
+
           return;
 
         case "/get-fork-messages":
           rpcWithAck({ id: "gfm" + Date.now(), type: "get_fork_messages" }, res);
+
           return;
 
         case "/get-commands":
           rpcWithAck({ id: "gc" + Date.now(), type: "get_commands" }, res);
+
           return;
 
         case "/set-session-name":
           rpcWithAck({ id: "ssn" + Date.now(), type: "set_session_name", name: data.name }, res);
+
           return;
 
         case "/set-steering-mode":
           rpcWithAck({ id: "ssm" + Date.now(), type: "set_steering_mode", mode: data.mode }, res);
+
           return;
 
         case "/set-follow-up-mode":
           rpcWithAck({ id: "sfum" + Date.now(), type: "set_follow_up_mode", mode: data.mode }, res);
+
           return;
 
         case "/export-html":
@@ -979,6 +1120,7 @@ http
             { id: "eh" + Date.now(), type: "export_html", outputPath: data.outputPath },
             res,
           );
+
           return;
 
         case "/reload-env":
@@ -986,6 +1128,7 @@ http
           if (data.env && typeof data.env === "object") Object.assign(process.env, data.env);
           startPi();
           respond(res, 200, { ok: true });
+
           return;
 
         default:

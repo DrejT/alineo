@@ -17,8 +17,11 @@ const client = new Sandbox({
 });
 
 const iterations = Number(process.argv[2] ?? 5);
+
 const image = process.env.BENCH_IMAGE ?? "ubuntu:22.04";
+
 const cpu = process.env.BENCH_CPU ?? "500m";
+
 const memory = process.env.BENCH_MEMORY ?? "512Mi";
 
 interface Row {
@@ -32,11 +35,13 @@ const rows: Row[] = [];
 
 for (let i = 0; i < iterations; i++) {
   const t0 = performance.now();
+
   const sb = await client.sandbox({
     image,
     resources: { cpu, memory },
     name: `bench-${i}`,
   });
+
   const t1 = performance.now();
 
   await sb.exec("true");
@@ -56,6 +61,7 @@ for (let i = 0; i < iterations; i++) {
     warmExecMs: t3 - t2,
     checkpointMs: t4 - t3,
   };
+
   rows.push(row);
 
   console.log(
@@ -69,10 +75,12 @@ function stats(values: number[]): { min: number; max: number; avg: number } {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const avg = values.reduce((a, b) => a + b, 0) / values.length;
+
   return { min, max, avg };
 }
 
 console.log("\n--- summary ---");
+
 for (const key of ["provisionMs", "firstExecMs", "warmExecMs", "checkpointMs"] as const) {
   const { min, max, avg } = stats(rows.map((r) => r[key]));
   console.log(

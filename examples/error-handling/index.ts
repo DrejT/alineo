@@ -23,6 +23,7 @@ console.log("=== Pattern A: non-strict exec with exitCode check ===");
 
 try {
   const { exitCode } = await sbA.exec("exit 1", { strict: false });
+
   if (exitCode === 0) {
     await sbA.exec("echo success").pipe(process.stdout);
   } else {
