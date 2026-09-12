@@ -75,6 +75,8 @@ export interface IPrunableSemanticMemoryProvider extends ISemanticMemoryProvider
 export function isPrunable(
   provider: ISemanticMemoryProvider,
 ): provider is IPrunableSemanticMemoryProvider {
+  // SAFETY: standard capability-detection duck-typing -- widening to `Partial<...>` just lets
+  // us probe for these two optional extra methods without asserting they exist.
   return (
     typeof (provider as Partial<IPrunableSemanticMemoryProvider>).listAll === "function" &&
     typeof (provider as Partial<IPrunableSemanticMemoryProvider>).forget === "function"
@@ -98,6 +100,7 @@ export interface IBulkSemanticMemoryProvider extends ISemanticMemoryProvider {
 export function isBulkRememberable(
   provider: ISemanticMemoryProvider,
 ): provider is IBulkSemanticMemoryProvider {
+  // SAFETY: same capability-detection duck-typing as isPrunable() above.
   return typeof (provider as Partial<IBulkSemanticMemoryProvider>).rememberMany === "function";
 }
 

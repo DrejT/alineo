@@ -57,6 +57,8 @@ export class SQLiteSemanticMemoryProvider
     try {
       mkdirSync(dirname(path), { recursive: true });
     } catch (e) {
+      // SAFETY: mkdirSync only ever throws a Node fs error, which is always an
+      // NodeJS.ErrnoException with a `.code`.
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
 
@@ -222,6 +224,8 @@ export class SQLiteSemanticMemoryProvider
 
     if (rows.length === 0) return [];
 
+    // SAFETY: this table's `vector` column is only ever written by remember() below, which
+    // always stores `JSON.stringify(a number[])`.
     return rows
       .map((row) => ({
         row,

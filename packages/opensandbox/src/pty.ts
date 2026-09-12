@@ -42,6 +42,7 @@ export class PtyClient {
       throw new Error(text || `execd error ${res.status}`);
     }
 
+    // SAFETY: execd's own wire contract for this endpoint -- a 2xx response always has this shape.
     const { session_id } = (await res.json()) as CreatePtyResponse;
 
     return session_id;
@@ -77,6 +78,8 @@ export class PtyClient {
 
       ws.onmessage = (ev) => {
         if (typeof ev.data === "string") {
+          // SAFETY: execd's own wire contract for this WebSocket -- every text frame is a
+          // PtyServerMessage.
           const msg = JSON.parse(ev.data) as PtyServerMessage;
 
           if (msg.type === "exit") {
@@ -88,6 +91,8 @@ export class PtyClient {
         }
 
         // First byte is a channel marker (stdout/stderr in pipe mode, multiplexed in PTY mode).
+        // SAFETY: the string case was handled and returned above; `ev.data`'s only other
+        // possibility (execd never sends Blob frames) is ArrayBuffer.
         const bytes = new Uint8Array(ev.data as ArrayBuffer);
         onOutput(decoder.decode(bytes.slice(1)));
       };
