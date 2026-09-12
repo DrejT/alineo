@@ -112,24 +112,19 @@ try {
   rule("3 · classify let these run with NO prompt");
   console.log(
     calls
-      .filter((c) => !c.asked && !c.blocked)
-      .map((c) => `  • ${c.label}`)
+      .flatMap((c) => (!c.asked && !c.blocked ? [`  • ${c.label}`] : []))
       .join("\n") || "  (none)",
   );
 
   rule("4 · these paused for the operator");
   console.log(
-    calls
-      .filter((c) => c.asked)
-      .map((c) => `  • ${c.label}`)
-      .join("\n") || "  (none)",
+    calls.flatMap((c) => (c.asked ? [`  • ${c.label}`] : [])).join("\n") || "  (none)",
   );
 
   rule("4b · blocked outright by a deny rule (no prompt — nobody was asked)");
   console.log(
     calls
-      .filter((c) => c.blocked && !c.asked)
-      .map((c) => `  • ${c.label}`)
+      .flatMap((c) => (c.blocked && !c.asked ? [`  • ${c.label}`] : []))
       .join("\n") || "  (none)",
   );
 

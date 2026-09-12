@@ -55,12 +55,15 @@ export class EgressClient {
     const ep = await this.control.getEndpoint(sandboxId, EgressClient.PORT, this.useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
 
-    const headers = {
-      ...ep.headers,
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-    };
+    const headers: Record<string, string> = {};
 
-    const init = { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) };
+    Object.assign(headers, ep.headers);
+
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+
+    const init: RequestInit = { method, headers };
+
+    if (body !== undefined) init.body = JSON.stringify(body);
 
     // Right after a sandbox (or fork/resume) is created, the egress sidecar can accept a
     // connection a beat before its request handling is wired up — surfacing as a proxy 500/502

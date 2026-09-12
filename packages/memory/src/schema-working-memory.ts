@@ -40,7 +40,7 @@ export interface SchemaValidator<T> {
  * `update()` should succeed before every field has been filled in — this class imposes no
  * partial/full policy of its own, it only merges and validates with whatever `schema` given.
  */
-export class SchemaWorkingMemory<T extends Record<string, unknown>> {
+export class SchemaWorkingMemory<T extends object> {
   constructor(
     private readonly provider: IWorkingMemoryProvider,
     private readonly schema: SchemaValidator<T>,

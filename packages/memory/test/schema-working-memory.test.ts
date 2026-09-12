@@ -15,6 +15,8 @@ interface Profile {
 function profileValidator(): SchemaValidator<Profile> {
   return {
     parse(data) {
+      // SAFETY: `parse`'s whole job is inspecting unparsed `data` field-by-field below; this
+      // is the validation boundary itself, not a place that assumes shape without checking it.
       const obj = data as Record<string, unknown>;
 
       if (obj.name !== undefined && typeof obj.name !== "string") {
@@ -75,9 +77,11 @@ describe("SchemaWorkingMemory", () => {
 
     await profile.update(ref, { name: "Ada" });
 
-    await expect(profile.update(ref, { age: "not a number" as unknown })).rejects.toThrow(
-      "age must be a number",
-    );
+    // Simulates a caller passing unparsed external input: real JSON, so no assertion is needed
+    // to get an invalid `age` past `Partial<Profile>` — this is exactly what update() must reject.
+    await expect(
+      profile.update(ref, JSON.parse('{"age":"not a number"}')),
+    ).rejects.toThrow("age must be a number");
     expect(await profile.get(ref)).toEqual({ name: "Ada" });
   });
 

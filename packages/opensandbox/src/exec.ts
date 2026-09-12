@@ -144,20 +144,22 @@ export class ExecClient {
     this.pendingReaders.clear();
   }
 
-  private get authHeader(): Record<string, string> {
+  private get authHeader() {
     return { "X-EXECD-ACCESS-TOKEN": this.accessToken };
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        ...this.authHeader,
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      signal: this.signal,
-    });
+    const headers: Record<string, string> = {};
+
+    Object.assign(headers, this.authHeader);
+
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+
+    const init: RequestInit = { method, headers, signal: this.signal };
+
+    if (body !== undefined) init.body = JSON.stringify(body);
+
+    const res = await fetch(`${this.baseUrl}${path}`, init);
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -175,15 +177,17 @@ export class ExecClient {
     body?: unknown,
     isTerminal?: (event: SSEEvent) => boolean,
   ): AsyncGenerator<SSEEvent> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        ...this.authHeader,
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      signal: this.signal,
-    });
+    const headers: Record<string, string> = {};
+
+    Object.assign(headers, this.authHeader);
+
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+
+    const init: RequestInit = { method, headers, signal: this.signal };
+
+    if (body !== undefined) init.body = JSON.stringify(body);
+
+    const res = await fetch(`${this.baseUrl}${path}`, init);
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");

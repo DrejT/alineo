@@ -84,17 +84,14 @@ export function otelHooks(tracer: Tracer, opts: OtelHooksOptions = {}): SandboxH
       if (!rootSpan || !rootCtx) return;
       const spanCtx = trace.setSpan(rootCtx, rootSpan);
 
-      const span = tracer.startSpan(
-        "sandbox.checkpoint",
-        {
-          attributes: {
-            "alineo.sandbox.id": sandboxId,
-            "alineo.snapshot.id": snapshotId,
-            ...(name ? { "alineo.checkpoint.name": name } : {}),
-          },
-        },
-        spanCtx,
-      );
+      const attributes: Record<string, string> = {};
+
+      attributes["alineo.sandbox.id"] = sandboxId;
+      attributes["alineo.snapshot.id"] = snapshotId;
+
+      if (name) attributes["alineo.checkpoint.name"] = name;
+
+      const span = tracer.startSpan("sandbox.checkpoint", { attributes }, spanCtx);
 
       span.setStatus({ code: StatusCode.OK });
       span.end();

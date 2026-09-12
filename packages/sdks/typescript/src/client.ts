@@ -29,6 +29,7 @@ import {
   type SandboxClientOptions,
   type SandboxOptions,
   type ResumeOptions,
+  type RestoreSnapshotOptions,
 } from "./types";
 import {
   Environment,
@@ -79,6 +80,7 @@ export {
   type SandboxClientOptions,
   type SandboxOptions,
   type ResumeOptions,
+  type RestoreSnapshotOptions,
 } from "./types";
 
 export type { CheckpointInfo } from "@alineo-labs/core";
@@ -652,25 +654,7 @@ export class Sandbox {
     name: string,
     resources: { cpu: string; memory: string; gpu?: string },
     runId?: string,
-    opts?: {
-      networkPolicy?: NetworkPolicy;
-      credentialProxy?: boolean;
-      /**
-       * Environment for the restored sandbox — normally omitted (a snapshot already carries
-       * its container env). Use it only for `OPENSANDBOX_EGRESS_*` sidecar vars, which are
-       * process-scoped and must be re-supplied on every restore (the sidecar is not
-       * snapshotted): the server routes those to the sidecar and drops them from the
-       * container.
-       */
-      env?: Record<string, string>;
-      /** Resource scope for the restored sandbox — see `SandboxOptions.resourceId`. Unlike
-       *  `resume()`, `restoreSnapshot()` has no prior ledger session of its own to inherit
-       *  from (the snapshot may have come from anywhere), so this must be passed explicitly. */
-      resourceId?: string;
-      /** Team scope for the restored sandbox — see `SandboxOptions.teamId`. Same rationale as
-       *  `resourceId` above. */
-      teamId?: string;
-    },
+    opts?: RestoreSnapshotOptions,
   ): Promise<SandboxHandle> {
     assertValidNetworkPolicy(opts?.networkPolicy);
     await this._ensureConnected();

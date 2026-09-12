@@ -13,7 +13,7 @@ const client = new Sandbox({
   useServerProxy: process.env.USE_SERVER_PROXY !== "false",
 });
 
-const TEST_FILES: Record<string, string> = {
+const TEST_FILES = {
   "test_shard_a.py": [
     "def test_one():",
     "    assert 1 + 1 == 2",
@@ -38,7 +38,7 @@ const TEST_FILES: Record<string, string> = {
     "    assert {'a': 1}.get('a') == 1",
     "",
   ].join("\n"),
-};
+} satisfies Record<string, string>;
 
 console.log("=== Installing dependencies (once) ===\n");
 

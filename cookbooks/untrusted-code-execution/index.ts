@@ -53,11 +53,11 @@ async function runUntrusted(label: string, code: string): Promise<RunResult> {
   }
 }
 
-const snippets: Record<string, string> = {
+const snippets = {
   "well-behaved": 'print("2 + 2 =", 2 + 2)',
   raises: 'raise ValueError("bad input")',
   "infinite-loop": "while True:\n    pass",
-};
+} satisfies Record<string, string>;
 
 console.log("Running 3 untrusted snippets in parallel, each in its own sandbox...\n");
 

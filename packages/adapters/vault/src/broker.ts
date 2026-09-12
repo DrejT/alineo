@@ -38,14 +38,11 @@ export function toWireAuth(name: string, injection: CredentialBinding["injection
 }
 
 export function toWireBinding(name: string, binding: CredentialBinding): WireBinding {
-  return {
-    name,
-    match: {
-      hosts: [binding.host],
-      ...(binding.pathPrefix ? { paths: [`${binding.pathPrefix}*`] } : {}),
-    },
-    auth: toWireAuth(name, binding.injection),
-  };
+  const match: WireBinding["match"] = { hosts: [binding.host] };
+
+  if (binding.pathPrefix) match.paths = [`${binding.pathPrefix}*`];
+
+  return { name, match, auth: toWireAuth(name, binding.injection) };
 }
 
 export function fromWireBindingMetadata(meta: {
@@ -54,10 +51,11 @@ export function fromWireBindingMetadata(meta: {
 }): CredentialBinding {
   const path = meta.match.paths?.[0];
 
-  const base = {
+  const base: Pick<CredentialBinding, "host" | "pathPrefix"> = {
     host: meta.match.hosts[0] ?? "",
-    ...(path && path !== "/*" ? { pathPrefix: path.replace(/\*$/, "") } : {}),
   };
+
+  if (path && path !== "/*") base.pathPrefix = path.replace(/\*$/, "");
 
   if (meta.auth.type === "apiKey" && meta.auth.name) {
     return { ...base, injection: { type: "header", name: meta.auth.name } };

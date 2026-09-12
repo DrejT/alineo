@@ -136,14 +136,17 @@ export class VaultClient {
     const ep = await this.control.getEndpoint(sandboxId, VaultClient.PORT, useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
 
-    const res = await fetch(`${baseUrl}/credential-vault`, {
-      method,
-      headers: {
-        ...ep.headers,
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    const headers: Record<string, string> = {};
+
+    Object.assign(headers, ep.headers);
+
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+
+    const init: RequestInit = { method, headers };
+
+    if (body !== undefined) init.body = JSON.stringify(body);
+
+    const res = await fetch(`${baseUrl}/credential-vault`, init);
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");

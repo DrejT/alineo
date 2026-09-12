@@ -53,9 +53,7 @@ export function toShellExports(env: Record<string, string>): string {
  * Credential-bound entries (`{ credential, host, injection }`) are deliberately skipped here —
  * see `extractCredentialBindings()` — they never become a container env var at all.
  */
-export function resolveEnv(
-  env: Record<string, string | CredentialEnvBinding>,
-): Record<string, string> {
+export function resolveEnv(env: Record<string, string | CredentialEnvBinding>) {
   const result: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(env)) {
@@ -102,7 +100,8 @@ export function extractCredentialBindings(
   for (const [key, value] of Object.entries(env)) {
     if (typeof value === "string") continue;
     const soleRef = value.credential.match(SOLE_ENV_REF);
-    out.push({
+
+    const entry: (typeof out)[number] = {
       name: key,
       value: value.credential.replace(
         /\$\{([^}]+)\}/g,
@@ -110,15 +109,17 @@ export function extractCredentialBindings(
       ),
       binding: { host: value.host, pathPrefix: value.pathPrefix, injection: value.injection },
       source: soleRef ? { type: "env", varName: soleRef[1] } : { type: "external" },
-      ...(value.approval ? { approval: value.approval } : {}),
-    });
+    };
+
+    if (value.approval) entry.approval = value.approval;
+    out.push(entry);
   }
 
   return out;
 }
 
 /** Inverse of `toShellExports` — parses `/etc/alineo-env`'s content back into a plain object. */
-export function parseShellExports(content: string): Record<string, string> {
+export function parseShellExports(content: string) {
   const result: Record<string, string> = {};
   const re = /^export ([A-Za-z_][A-Za-z0-9_]*)="((?:[^"\\]|\\.)*)"$/gm;
   let m: RegExpExecArray | null;

@@ -61,16 +61,18 @@ describe("SQLiteSemanticMemoryProvider", () => {
     // vector_cosine_ops HNSW index and InMemorySemanticMemoryProvider's cosineSimilarity()
     // would rank it, since every provider in this family must agree on ranking for
     // "provider-agnostic" to mean anything.
-    const vectors: Record<string, number[]> = {
+    const vectors = {
       query: [1, 0],
       "off-direction": [0.6, 0.8],
       "aligned-large-magnitude": [5, 0],
-    };
+    } satisfies Record<string, number[]>;
+
+    const isVectorKey = (k: string): k is keyof typeof vectors => k in vectors;
 
     const fixedEmbeddings: EmbeddingProvider = {
       id: "fixed",
       async embed(texts) {
-        return texts.map((t) => vectors[t] ?? [0, 0]);
+        return texts.map((t) => (isVectorKey(t) ? vectors[t] : [0, 0]));
       },
     };
 

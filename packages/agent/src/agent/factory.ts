@@ -1,4 +1,4 @@
-import { Sandbox } from "@alineo-labs/sandbox";
+import { Sandbox, type RestoreSnapshotOptions } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
 import { LedgerEvent, type IStorageAdapter, type SandboxHandle } from "@alineo-labs/core";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
@@ -159,17 +159,27 @@ export async function loadAgent(
       try {
         console.log(`[agent] restoring from snapshot...`);
         const t1 = Date.now();
-        sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources, runId, {
+
+        const restoreOpts: RestoreSnapshotOptions = {
           networkPolicy,
-          // Sidecar-scoped, process-specific — the sidecar is fresh on every restore, so the
-          // deny-webhook URL must be re-supplied (never stored in the container).
-          ...(egressEnv.OPENSANDBOX_EGRESS_DENY_WEBHOOK ? { env: egressEnv } : {}),
           credentialProxy: needsCredentialProxy,
           // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment
           // for why this matters (episodicRecall() enforces teamId strictly).
           resourceId: spec.resourceId ?? spec.name,
           teamId: spec.teamId,
-        });
+        };
+
+        // Sidecar-scoped, process-specific — the sidecar is fresh on every restore, so the
+        // deny-webhook URL must be re-supplied (never stored in the container).
+        if (egressEnv.OPENSANDBOX_EGRESS_DENY_WEBHOOK) restoreOpts.env = egressEnv;
+
+        sb = await client.restoreSnapshot(
+          record.snapshotId,
+          spec.name,
+          resources,
+          runId,
+          restoreOpts,
+        );
         console.log(`[agent] snapshot ready  ${elapsed(t1)} (${sb.sandboxId})`);
         fromSnapshot = true;
       } catch (err) {

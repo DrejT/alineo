@@ -283,6 +283,12 @@ function ruleMatches(rule: PermissionRule, tool: string, target: string): boolea
   return true;
 }
 
+/** Result of {@link evaluatePolicy}: the resolved action, and the rule that produced it, if any. */
+export interface PolicyDecision {
+  action: PermissionAction;
+  rule?: PermissionRule;
+}
+
 /**
  * Resolve a tool call to an action: the last matching rule's, or the policy default.
  * `disabledTools` short-circuits to `"deny"`. `"classify"` is resolved here to `"allow"`
@@ -292,7 +298,7 @@ export function evaluatePolicy(
   policy: NormalizedPermissionPolicy,
   tool: string,
   target: string,
-): { action: PermissionAction; rule?: PermissionRule } {
+): PolicyDecision {
   if (policy.disabledTools.includes(tool)) return { action: "deny" };
   let match: PermissionRule | undefined;
 

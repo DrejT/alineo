@@ -100,6 +100,13 @@
       }
     },
     {
+      "files": ["**/memory/test/schema-working-memory.test.ts"],
+      "rules": {
+        "anti-slop/no-runtime-typeof": "off",
+        "anti-slop/no-unsafe-dictionary-type": "off"
+      }
+    },
+    {
       "files": ["**/cli/test/docker.test.ts"],
       "rules": {
         "typescript/require-await": "off",

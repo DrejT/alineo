@@ -123,7 +123,7 @@ export async function sendTelemetryEvent(
  * argv. A flag not listed here is invisible to telemetry until someone deliberately adds it;
  * under-collecting is the only failure mode. Keys match each command's own `flag(argv, "--x")`/
  * `argv.includes("--x")` calls (see commands/spawn.ts, fork.ts, prompt.ts, agents.ts, logs.ts). */
-const FLAG_ALLOWLIST: Record<string, string[]> = {
+const FLAG_ALLOWLIST = {
   spawn: ["--prompt", "--rebuild", "--json", "--depth", "--max", "--timeout", "--run-id"],
   fork: ["--prompt", "--json", "--depth", "--max", "--timeout"],
   prompt: ["--json", "--spec", "--timeout"],
@@ -134,12 +134,19 @@ const FLAG_ALLOWLIST: Record<string, string[]> = {
   list: [],
   remove: [],
   kill: [],
-};
+} satisfies Record<string, string[]>;
+
+function isKnownCommand(name: string): name is keyof typeof FLAG_ALLOWLIST {
+  return name in FLAG_ALLOWLIST;
+}
 
 /** Presence-only booleans for whichever flags `commandName`'s own allowlist names -- never the
  * flag's value, never anything not on the list. */
-function extractAllowedFlags(commandName: string, argv: string[]): Record<string, boolean> {
-  const allowed = FLAG_ALLOWLIST[commandName] ?? [];
+function extractAllowedFlags(commandName: string, argv: string[]) {
+  const allowed: readonly string[] = isKnownCommand(commandName)
+    ? FLAG_ALLOWLIST[commandName]
+    : [];
+
   const flags: Record<string, boolean> = {};
 
   for (const flagName of allowed) {

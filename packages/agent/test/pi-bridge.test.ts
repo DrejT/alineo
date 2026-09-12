@@ -198,8 +198,7 @@ describe("pi-bridge permission protocol", () => {
     );
 
     const resolvedIds = events
-      .filter((e) => e.type === "permission_resolved")
-      .map((e) => e.requestId ?? "")
+      .flatMap((e) => (e.type === "permission_resolved" ? [e.requestId ?? ""] : []))
       .sort((a, b) => a.localeCompare(b));
 
     expect(resolvedIds).toEqual(["perm-1", "perm-2"]);
