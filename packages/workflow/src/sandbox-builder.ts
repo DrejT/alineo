@@ -25,8 +25,9 @@ export type SandboxOp =
     }
   | {
       kind: "forEach";
-      items: unknown[];
-      fn: (sb: SandboxBuilder, item: unknown, index: number) => void;
+      /** One bound job per item -- `SandboxBuilder.forEach()` closes over each item and its
+       * index at call time, so the queue never needs to carry the item's (erased) type. */
+      jobs: Array<(sb: SandboxBuilder) => void>;
       opts: ForEachOptions;
     };
 
@@ -38,7 +39,7 @@ export interface RetryOptions {
 export type WhenPredicate = (ctx: {
   stdout: string;
   exitCode: number;
-  vars: Record<string, unknown>;
+  vars: Record<string, string>;
 }) => boolean;
 
 export interface ForEachOptions {
@@ -163,12 +164,14 @@ export class SandboxBuilder {
    * sb.forEach(["a", "b", "c"], (sb, item) => sb.exec(`echo ${item}`))
    * ```
    */
-  forEach(
-    items: unknown[],
-    fn: (sb: SandboxBuilder, item: unknown, index: number) => void,
+  forEach<T>(
+    items: T[],
+    fn: (sb: SandboxBuilder, item: T, index: number) => void,
     opts: ForEachOptions = {},
   ): this {
-    this._ops.push({ kind: "forEach", items, fn, opts });
+    const jobs = items.map((item, index) => (sb: SandboxBuilder) => fn(sb, item, index));
+
+    this._ops.push({ kind: "forEach", jobs, opts });
 
     return this;
   }
@@ -188,9 +191,9 @@ export interface FlushContext {
   /** Exit code of the most recent exec (see limitation above for concurrent forEach). */
   exitCode: number;
   /** Named values captured by `readFile`. */
-  vars: Record<string, unknown>;
+  vars: Record<string, string>;
   /** Live stdout sink (pipe target). */
-  sink?: { write(chunk: string): unknown };
+  sink?: { write(chunk: string): void };
 }
 
 /** Flush a SandboxBuilder's op queue against a live SandboxHandle. */
@@ -280,7 +283,7 @@ export async function flushOps(
       }
 
       case "forEach":
-        await flushForEach(sandbox, op.items, op.fn, op.opts, ctx);
+        await flushForEach(sandbox, op.jobs, op.opts, ctx);
         break;
     }
   }
@@ -318,8 +321,7 @@ async function flushRetry(
 
 async function flushForEach(
   sandbox: SandboxLike,
-  items: unknown[],
-  fn: (sb: SandboxBuilder, item: unknown, index: number) => void,
+  jobs: Array<(sb: SandboxBuilder) => void>,
   opts: ForEachOptions,
   ctx: FlushContext,
 ): Promise<void> {
@@ -327,9 +329,9 @@ async function flushForEach(
 
   if (concurrency <= 1) {
     // Sequential
-    for (let i = 0; i < items.length; i++) {
+    for (const job of jobs) {
       const inner = new SandboxBuilder();
-      fn(inner, items[i], i);
+      job(inner);
       await flushOps(sandbox, inner._ops, ctx);
     }
   } else {
@@ -337,15 +339,15 @@ async function flushForEach(
     let idx = 0;
 
     async function worker(): Promise<void> {
-      while (idx < items.length) {
-        const i = idx++;
+      while (idx < jobs.length) {
+        const job = jobs[idx++];
         const inner = new SandboxBuilder();
-        fn(inner, items[i], i);
+        job(inner);
         await flushOps(sandbox, inner._ops, { ...ctx });
       }
     }
 
-    const workers = Array.from({ length: Math.min(concurrency, items.length) }, worker);
+    const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, worker);
     await Promise.all(workers);
   }
 }

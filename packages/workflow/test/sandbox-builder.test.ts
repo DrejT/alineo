@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ExecResult } from "@alineo-labs/sandbox";
 import { SandboxBuilder, flushOps, type FlushContext } from "../src/sandbox-builder.ts";
 
 function makeCtx(overrides: Partial<FlushContext> = {}): FlushContext {
@@ -30,9 +31,9 @@ function makeSandbox(execResults: Record<string, string> = {}) {
           yield stdout;
         },
         result: async () => ({ stdout, stderr: "", exitCode: 0 }),
-        then: (ok: (r: unknown) => unknown) =>
+        then: <T>(ok: (r: ExecResult) => T) =>
           Promise.resolve(ok({ stdout, stderr: "", exitCode: 0 })),
-        pipe: async (w: { write(s: string): unknown }) => {
+        pipe: async (w: { write(s: string): void }) => {
           w.write(stdout);
         },
       };
@@ -75,7 +76,11 @@ describe("SandboxBuilder — queue construction", () => {
   it("queues forEach op", () => {
     const sb = new SandboxBuilder();
     sb.forEach(["a", "b"], (sb, item) => sb.exec(`echo ${String(item)}`));
-    expect(sb._ops[0]).toMatchObject({ kind: "forEach", items: ["a", "b"] });
+
+    const op = sb._ops[0];
+
+    if (op?.kind !== "forEach") throw new Error("expected a forEach op");
+    expect(op.jobs).toHaveLength(2);
   });
 });
 
@@ -208,7 +213,7 @@ describe("flushOps — retry primitive", () => {
             result: async () => {
               throw new Error("failed");
             },
-            then: (_ok: unknown, reject: (e: Error) => unknown) =>
+            then: <T, E>(_ok: (value: ExecResult) => T, reject: (e: Error) => E) =>
               Promise.resolve(reject(new Error("failed"))),
             pipe: async () => {
               throw new Error("failed");
@@ -221,7 +226,7 @@ describe("flushOps — retry primitive", () => {
             yield "success";
           },
           result: async () => ({ stdout: "success", stderr: "", exitCode: 0 }),
-          then: (ok: (r: unknown) => unknown) =>
+          then: <T>(ok: (r: ExecResult) => T) =>
             Promise.resolve(ok({ stdout: "success", stderr: "", exitCode: 0 })),
           pipe: async () => {},
         };
@@ -249,7 +254,7 @@ describe("flushOps — retry primitive", () => {
         result: async () => {
           throw new Error("always fails");
         },
-        then: (_ok: unknown, reject: (e: Error) => unknown) =>
+        then: <T, E>(_ok: (value: ExecResult) => T, reject: (e: Error) => E) =>
           Promise.resolve(reject(new Error("always fails"))),
         pipe: async () => {
           throw new Error("always fails");

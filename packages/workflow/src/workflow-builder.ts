@@ -5,7 +5,7 @@ export interface WorkflowResult {
   /** Concatenated stdout from all sandboxes in the workflow. */
   stdout: string;
   /** Named values captured by `sb.readFile(path, as)`. */
-  vars: Record<string, unknown>;
+  vars: Record<string, string>;
 }
 
 /** A single step in a `.sequence()` call. */
@@ -100,7 +100,7 @@ export class WorkflowBuilder {
   }
 
   /** Execute the workflow and pipe stdout to a writable. */
-  async pipe(writable: { write(chunk: string): unknown }): Promise<void> {
+  async pipe(writable: { write(chunk: string): void }): Promise<void> {
     await this._execute(writable);
   }
 
@@ -110,7 +110,7 @@ export class WorkflowBuilder {
   }
 
   private async _execute(
-    sink: { write(chunk: string): unknown } | undefined,
+    sink: { write(chunk: string): void } | undefined,
   ): Promise<WorkflowResult> {
     const combined: WorkflowResult = { stdout: "", vars: {} };
 
@@ -139,7 +139,7 @@ export class WorkflowBuilder {
   private async _runSandbox(
     opts: SandboxOptions,
     fn: (sb: SandboxBuilder) => void,
-    sink: { write(chunk: string): unknown } | undefined,
+    sink: { write(chunk: string): void } | undefined,
   ): Promise<WorkflowResult> {
     const sb = new SandboxBuilder();
     fn(sb);
@@ -159,14 +159,14 @@ export class WorkflowBuilder {
   private async _runParallel(
     configs: SandboxOptions[],
     fn: (sb: SandboxBuilder) => void,
-    sink: { write(chunk: string): unknown } | undefined,
+    sink: { write(chunk: string): void } | undefined,
   ): Promise<WorkflowResult[]> {
     return Promise.all(configs.map((opts) => this._runSandbox(opts, fn, sink)));
   }
 
   private async _runSequence(
     steps: SequenceStep[],
-    sink: { write(chunk: string): unknown } | undefined,
+    sink: { write(chunk: string): void } | undefined,
   ): Promise<WorkflowResult> {
     const combined: WorkflowResult = { stdout: "", vars: {} };
     let prev: WorkflowResult | undefined;
