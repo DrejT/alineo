@@ -6,6 +6,7 @@ import type { AgentInternal } from "../src/agent/internal";
 /** An `AgentInternal` just complete enough for `bash()` → `instrument()`. */
 function fakeAgent(events: AgentEvent[]) {
   let endTurnCalls = 0;
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- deliberately partial: bash() only reads these fields of AgentInternal
   const a = {
     adapter: {
       // eslint-disable-next-line require-yield

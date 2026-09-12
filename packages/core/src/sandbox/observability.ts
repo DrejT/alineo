@@ -17,9 +17,15 @@ export async function metrics(sb: SandboxInternal): Promise<Metrics> {
 export async function* watchMetrics(sb: SandboxInternal): AsyncGenerator<Metrics> {
   const ec = await sb.getExecClient();
   for await (const ev of ec.watchMetrics()) {
-    const m = ev as unknown as Metrics;
-    if (typeof m.cpu === "number" && typeof m.memory === "number") yield m;
+    if (isMetrics(ev)) yield ev;
   }
+}
+
+/** `ExecClient.watchMetrics()` types every SSE payload as `SSEEvent`; this checks it's actually metrics. */
+function isMetrics(ev: object): ev is Metrics {
+  return (
+    "cpu" in ev && typeof ev.cpu === "number" && "memory" in ev && typeof ev.memory === "number"
+  );
 }
 
 /** Return sandbox diagnostic logs (names, sizes, and optional inline content). */

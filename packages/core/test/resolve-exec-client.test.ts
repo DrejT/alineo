@@ -2,11 +2,12 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { resolveExecClient } from "../src/sandbox/resolve.ts";
 import { ExecConnectionError } from "../src/errors.ts";
 import type { ControlClient } from "@alineo-labs/opensandbox";
+import { stubControl } from "./control-stub.ts";
 
 function makeControl(): ControlClient {
-  return {
+  return stubControl({
     getEndpoint: vi.fn().mockResolvedValue({ endpoint: "http://localhost:44772", headers: {} }),
-  } as unknown as ControlClient;
+  });
 }
 
 describe("resolveExecClient", () => {

@@ -1,17 +1,17 @@
 import { describe, it, expect } from "bun:test";
-import type { SandboxHandle } from "@alineo-labs/core";
-import { PiAdapter } from "../src/adapters/pi";
+import { PiAdapter, type PiSandbox } from "../src/adapters/pi";
 import type { AgentSpec } from "../src/schema";
 
 function fakeSandbox() {
   const commands: string[] = [];
-  const sb = {
+  const sb: PiSandbox = {
     exec: (cmd: string) => {
       commands.push(cmd);
       return Promise.resolve({ stdout: "", stderr: "", exitCode: 0 });
     },
     proxy: (_port: number) => Promise.resolve({ url: "http://fake-proxy", headers: {} }),
-  } as unknown as SandboxHandle;
+    writeFile: () => Promise.resolve(),
+  };
   return { sb, commands };
 }
 
