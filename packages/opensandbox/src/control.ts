@@ -54,7 +54,7 @@ export class ControlClient {
     return new ControlClient({ baseUrl: this.baseUrl, apiKey: this.apiKey, signal });
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T, B = undefined>(method: string, path: string, body?: B): Promise<T> {
     const headers: Record<string, string> = {};
 
     headers["OPEN-SANDBOX-API-KEY"] = this.apiKey;

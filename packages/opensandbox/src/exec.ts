@@ -148,7 +148,7 @@ export class ExecClient {
     return { "X-EXECD-ACCESS-TOKEN": this.accessToken };
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  private async request<T, B = undefined>(method: string, path: string, body?: B): Promise<T> {
     const headers: Record<string, string> = {};
 
     Object.assign(headers, this.authHeader);
@@ -171,10 +171,10 @@ export class ExecClient {
     return res.json() as Promise<T>;
   }
 
-  private async *streamRequest(
+  private async *streamRequest<B = undefined>(
     method: string,
     path: string,
-    body?: unknown,
+    body?: B,
     isTerminal?: (event: SSEEvent) => boolean,
   ): AsyncGenerator<SSEEvent> {
     const headers: Record<string, string> = {};

@@ -8,8 +8,8 @@ class FakeWebSocket {
   sent: string[] = [];
   closed = false;
   onopen: (() => void) | null = null;
-  onerror: ((ev: unknown) => void) | null = null;
-  onmessage: ((ev: { data: unknown }) => void) | null = null;
+  onerror: ((ev: { type: string }) => void) | null = null;
+  onmessage: ((ev: { data: string | ArrayBuffer }) => void) | null = null;
   onclose: (() => void) | null = null;
 
   constructor(url: string) {
@@ -30,7 +30,7 @@ class FakeWebSocket {
     this.onopen?.();
   }
 
-  triggerMessage(data: unknown): void {
+  triggerMessage(data: string | ArrayBuffer): void {
     this.onmessage?.({ data });
   }
 

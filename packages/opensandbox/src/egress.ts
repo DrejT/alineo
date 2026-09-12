@@ -51,7 +51,11 @@ export class EgressClient {
     private readonly useServerProxy?: boolean,
   ) {}
 
-  private async request<T>(sandboxId: string, method: string, body?: unknown): Promise<T> {
+  private async request<T, B = undefined>(
+    sandboxId: string,
+    method: string,
+    body?: B,
+  ): Promise<T> {
     const ep = await this.control.getEndpoint(sandboxId, EgressClient.PORT, this.useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
 

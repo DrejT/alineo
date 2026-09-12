@@ -127,11 +127,11 @@ export class VaultClient {
 
   constructor(private readonly control: ControlClient) {}
 
-  private async request<T>(
+  private async request<T, B = undefined>(
     sandboxId: string,
     method: string,
     useServerProxy: boolean | undefined,
-    body?: unknown,
+    body?: B,
   ): Promise<T> {
     const ep = await this.control.getEndpoint(sandboxId, VaultClient.PORT, useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;

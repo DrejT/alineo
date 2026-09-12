@@ -107,6 +107,13 @@
       }
     },
     {
+      "files": ["**/agent/test/pi-permission-gate.test.ts"],
+      "rules": {
+        "anti-slop/no-unknown-parameters": "off",
+        "anti-slop/no-unknown-returns": "off"
+      }
+    },
+    {
       "files": [
         "**/core/test/sandbox-close.test.ts",
         "**/core/test/sandbox-replay.test.ts",

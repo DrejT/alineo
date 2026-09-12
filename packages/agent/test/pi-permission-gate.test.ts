@@ -14,12 +14,30 @@ process.env.ALINEO_PI_CONFIG = configPath;
 
 type GateResult = { block: true; reason: string } | undefined;
 
-let gate: (pi: unknown) => void;
+// The real `pi-permission-gate.js` extension is deliberately untyped JS (see this repo's
+// CLAUDE.md) and its `pi`/`event.input`/`ctx` shapes come from the external, untyped Pi CLI
+// plugin API this test drives against -- `PiHandle` below models exactly the 3 methods
+// (on/getActiveTools/setActiveTools) the gate actually calls, per the .js source. `event.input`
+// stays `unknown` because it's genuinely a different shape per `toolName` (the real gate parses
+// it per-tool internally, in `targetOf()`) and `permissions`/`ctx` mirror the same untyped
+// boundary -- there's no schema to check them against beyond what the untyped extension itself
+// enforces at runtime.
+
+/** The subset of the real Pi extension API `pi-permission-gate.js` actually calls. */
+interface PiHandle {
+  handlers: Record<string, Fn[]>;
+  active: string[];
+  on(name: string, fn: Fn): void;
+  getActiveTools(): string[];
+  setActiveTools(tools: string[]): void;
+}
+
+let gate: (pi: PiHandle) => void;
 
 beforeAll(async () => {
   // `: string` so TS doesn't try to resolve a declaration file for the plain-.js extension.
   const modPath: string = "../src/adapters/pi-permission-gate.js";
-  const mod = (await import(modPath)) as { default: (pi: unknown) => void };
+  const mod = (await import(modPath)) as { default: (pi: PiHandle) => void };
   gate = mod.default;
 });
 
@@ -38,12 +56,12 @@ type ToolCallFn = (
   ctx: unknown,
 ) => Promise<GateResult>;
 
-function makePi(activeTools = ["read", "write", "edit", "bash", "grep", "find", "ls"]) {
+function makePi(activeTools = ["read", "write", "edit", "bash", "grep", "find", "ls"]): PiHandle {
   const handlers: Record<string, Fn[]> = {};
 
-  const pi = {
+  const pi: PiHandle = {
     handlers,
-    active: [...activeTools] as string[],
+    active: [...activeTools],
     on(name: string, fn: Fn) {
       (handlers[name] ??= []).push(fn);
     },

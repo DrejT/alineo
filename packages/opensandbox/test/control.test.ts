@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { ControlClient } from "../src/control.ts";
 
-function jsonResponse(body: unknown, ok = true, status = 200) {
+function jsonResponse<T>(body: T, ok = true, status = 200) {
   return { ok, status, json: async () => body, text: async () => JSON.stringify(body) };
 }
 

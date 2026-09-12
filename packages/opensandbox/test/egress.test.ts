@@ -11,7 +11,7 @@ function fakeControl(
   };
 }
 
-function jsonResponse(body: unknown, ok = true, status = 200) {
+function jsonResponse<T>(body: T, ok = true, status = 200) {
   return { ok, status, json: async () => body, text: async () => JSON.stringify(body) };
 }
 

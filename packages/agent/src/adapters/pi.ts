@@ -520,10 +520,10 @@ async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
  */
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 180_000;
 
-async function* sseStream(
+async function* sseStream<B>(
   bridgeUrl: string,
   path: string,
-  body: unknown,
+  body: B,
   pendingStreams: Set<AbortController>,
   inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
 ): AgentStream {
