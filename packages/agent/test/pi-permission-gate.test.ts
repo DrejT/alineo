@@ -37,6 +37,7 @@ let gate: (pi: PiHandle) => void;
 beforeAll(async () => {
   // `: string` so TS doesn't try to resolve a declaration file for the plain-.js extension.
   const modPath: string = "../src/adapters/pi-permission-gate.js";
+  // SAFETY: pi-permission-gate.js's own `module.exports = function gate(pi) { ... }` contract.
   const mod = (await import(modPath)) as { default: (pi: PiHandle) => void };
   gate = mod.default;
 });
@@ -97,6 +98,8 @@ async function call(
     },
   };
 
+  // SAFETY: gate(pi) registers exactly one "tool_call" handler with `pi.on()`, always with
+  // this `(event, ctx) => Promise<GateResult>` shape -- see pi-permission-gate.js's own source.
   const handler = pi.handlers.tool_call[0] as ToolCallFn;
   const result = await handler({ toolName, input }, ctx);
 

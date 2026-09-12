@@ -255,8 +255,12 @@ export function isReadOnlyBashCommand(command: string): boolean {
 
     if (!cmd) return false;
 
+    // SAFETY: widens the literal-tuple type so `.includes()` accepts an arbitrary parsed
+    // `cmd` string instead of only the tuple's own literal members -- the membership check
+    // itself is the real safety net, not the assertion.
     if ((SAFE_BASH_COMMANDS as readonly string[]).includes(cmd)) return true;
 
+    // SAFETY: same widening rationale as SAFE_BASH_COMMANDS above.
     if (cmd === "git" && (SAFE_GIT_SUBCOMMANDS as readonly string[]).includes(tokens[1] ?? "")) {
       return true;
     }

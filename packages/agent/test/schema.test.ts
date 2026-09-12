@@ -138,6 +138,7 @@ describe("validateAgentSpec", () => {
       throw new Error("expected validateAgentSpec to throw");
     } catch (e) {
       expect(e).toBeInstanceOf(AgentSpecValidationError);
+      // SAFETY: the toBeInstanceOf() check above just verified this at runtime.
       const err = e as AgentSpecValidationError;
       // name, cli, spawnDepth, resources.cpu, resources.memory -- five independent problems,
       // all reported, not just the first one encountered.
@@ -217,6 +218,8 @@ describe("validateAgentSpec", () => {
   });
 
   it("passes unknown top-level fields through untouched (forward-compat)", () => {
+    // SAFETY: proving `someFutureField` survives validateAgentSpec() requires reading a key
+    // AgentSpec doesn't declare -- that's exactly the forward-compat behavior under test.
     const spec = validateAgentSpec({
       name: "x",
       cli: "pi",

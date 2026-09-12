@@ -50,6 +50,10 @@ const DEFAULT_CONFIG: AlineoAgentConfig = {
  */
 export async function readProjectConfig(): Promise<AlineoAgentConfig> {
   if (!existsSync(CONFIG_FILE)) return DEFAULT_CONFIG;
+
+  // SAFETY: `alineo.config.json` is user-authored and may be missing any field, hence
+  // `Partial` rather than trusting it as a full AlineoAgentConfig -- every field is merged
+  // over DEFAULT_CONFIG below.
   const data = (await Bun.file(CONFIG_FILE).json()) as Partial<AlineoAgentConfig>;
 
   return {

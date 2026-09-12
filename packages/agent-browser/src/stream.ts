@@ -29,9 +29,13 @@ interface StreamStatusJson {
  * `stream enable` share this envelope. */
 function parseStreamResult(stdout: string): StreamStatusJson | null {
   try {
+    // SAFETY: trusts agent-browser's own `{success, data, error}` CLI JSON envelope,
+    // documented above.
     const parsed = JSON.parse(stdout.trim()) as { data?: Partial<StreamStatusJson> | null };
     const data = parsed.data;
 
+    // SAFETY: `port` is checked above; the other three fields are always present alongside it
+    // in agent-browser's own envelope (see the confirmed-live example in the doc comment above).
     return data && typeof data.port === "number" ? (data as StreamStatusJson) : null;
   } catch {
     return null;

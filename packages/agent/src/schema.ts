@@ -11,8 +11,9 @@ function describeValue(value: unknown): string {
   if (typeof value === "string") return value;
 
   try {
-    // JSON.stringify's type says it always returns string, but at runtime it returns
-    // undefined for values it can't represent (function, symbol, undefined itself).
+    // SAFETY: JSON.stringify's type says it always returns string, but at runtime it returns
+    // undefined for values it can't represent (function, symbol, undefined itself) -- the
+    // check right below relies on that.
     const json = JSON.stringify(value) as string | undefined;
 
     if (json !== undefined) return json;

@@ -136,6 +136,7 @@ export class EgressApprovalGate {
         let body: DenyWebhookBody | null = null;
 
         try {
+          // SAFETY: trusts the egress sidecar's own DNS-deny webhook contract.
           body = JSON.parse(raw) as DenyWebhookBody;
         } catch {
           return;

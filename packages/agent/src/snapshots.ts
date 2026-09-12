@@ -41,6 +41,8 @@ export class AgentSnapshotStore {
 
   private async _read(): Promise<Record<string, AgentSnapshotRecord>> {
     try {
+      // SAFETY: this file is only ever written by this class's own _write(), which
+      // JSON.stringifies exactly a `Record<string, AgentSnapshotRecord>`.
       return JSON.parse(await readFile(this.path, "utf-8")) as Record<string, AgentSnapshotRecord>;
     } catch {
       return {};
