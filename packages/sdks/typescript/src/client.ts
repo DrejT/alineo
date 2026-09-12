@@ -317,6 +317,8 @@ export class Sandbox {
     let checkpointIdx: number;
 
     if (tag) {
+      // SAFETY: this client is the sole writer of CheckpointCreated entries (see
+      // checkpoint()/fork() below), and always writes `{ name, snapshotId }`.
       checkpointIdx = entries.findIndex(
         (e) =>
           e.event === LedgerEvent.CheckpointCreated &&
@@ -335,10 +337,14 @@ export class Sandbox {
         throw new SandboxClientError(`No checkpoint found for session ${sandboxId}`, 404);
     }
 
+    // SAFETY: `checkpoint()`/`fork()` (packages/core/src/sandbox/lifecycle.ts) are the only
+    // writers of CheckpointCreated entries, and always write `{ snapshotId, name }`.
     const { snapshotId } = entries[checkpointIdx].payload as { snapshotId: string };
 
     const createdEntry = entries.find((e) => e.event === LedgerEvent.SandboxCreated);
 
+    // SAFETY: `sandbox()` above is the only writer of SandboxCreated entries, and always
+    // writes exactly this field set (see its `this._adapter.append(...)` call).
     const createdPayload = createdEntry?.payload as
       | {
           resources?: { cpu?: string; memory?: string; gpu?: string };
@@ -407,6 +413,8 @@ export class Sandbox {
 
     for (const entry of entries.slice(0, checkpointIdx)) {
       if (entry.event === LedgerEvent.ExecStart) {
+        // SAFETY: SandboxCore.exec() (packages/core/src/sandbox/core.ts) is the only writer
+        // of ExecStart entries, and always includes at least these fields.
         const { seq, cmd, interactive, cwd, env } = entry.payload as {
           seq: number;
           cmd: string;
@@ -423,6 +431,8 @@ export class Sandbox {
           interactiveMeta.set(seq, { cmd, cwd, env });
         }
       } else if (entry.event === LedgerEvent.ExecEvent) {
+        // SAFETY: SandboxCore.exec() is the only writer of ExecEvent entries, and always
+        // includes at least these fields.
         const { seq, type, text } = entry.payload as { seq: number; type: string; text?: string };
 
         if (text) {
@@ -431,6 +441,8 @@ export class Sandbox {
           else if (type === "stdin") pendingStdin.get(seq)?.push(text);
         }
       } else if (entry.event === LedgerEvent.ExecComplete) {
+        // SAFETY: SandboxCore.exec() is the only writer of ExecComplete entries, and always
+        // includes at least these fields.
         const { seq, exitCode } = entry.payload as { seq: number; exitCode: number };
         replayCache.set(seq, {
           stdout: (pendingStdout.get(seq) ?? []).join(""),
@@ -502,6 +514,8 @@ export class Sandbox {
                   this._forkFromSnapshot(
                     snapshotId,
                     name,
+                    // SAFETY: the `resources?.cpu && resources.memory` check just above proves
+                    // this, but TS narrowing doesn't survive into this nested closure.
                     resources as { cpu: string; memory: string; gpu?: string },
                     undefined,
                     overrideRunId ?? runId,
@@ -882,6 +896,9 @@ export class Sandbox {
 
     if (!checkpoint)
       throw new SandboxClientError(`Environment build for '${name}' produced no checkpoint`, 500);
+
+    // SAFETY: checkpoint()/fork() are the only writers of CheckpointCreated entries, and
+    // always write `{ snapshotId, name }` (see the other CheckpointCreated reads above).
     const { snapshotId } = checkpoint.payload as { snapshotId: string };
 
     await this._adapter.saveEnvironment({ name, snapshotId, image, builtAt: Date.now() });

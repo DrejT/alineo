@@ -276,6 +276,8 @@ export class PiAdapter {
         const res = await fetch(`${this.bridgeUrl}/health`);
 
         if (res.ok) {
+          // SAFETY: pi-bridge.js's `/health` route (this same package's own bridge script,
+          // see BRIDGE_SCRIPT above) always responds `{ ok: boolean }`.
           const body = (await res.json()) as { ok: boolean };
 
           if (body.ok) return;
@@ -319,6 +321,9 @@ export class PiAdapter {
     });
 
     if (!res.ok) {
+      // SAFETY: pi-bridge.js's error responses always have this shape (see `respond(res,
+      // status, { ok: false, error })` in pi-bridge.js); `.catch(() => ({}))` covers a
+      // non-JSON/network-level failure, where `.error` is simply absent.
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(`steer failed: ${body.error ?? res.status}`);
     }
@@ -496,12 +501,20 @@ async function rpcPost<T = null>(bridgeUrl: string, path: string, body: unknown 
   });
 
   if (!res.ok) {
+    // SAFETY: pi-bridge.js's error responses always have this shape (see `respond(res,
+    // status, { ok: false, error })` in pi-bridge.js); `.catch(() => ({}))` covers a
+    // non-JSON/network-level failure, where `.error` is simply absent.
     const err = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(`${path} failed: ${err.error ?? res.status}`);
   }
 
+  // SAFETY: pi-bridge.js's success responses always have this envelope (see `respond(res,
+  // 200, { ok: true, data })`); `data`'s actual shape depends on `path` and isn't verified
+  // here -- each caller supplies `T` knowing which endpoint it called.
   const payload = (await res.json()) as { ok: boolean; data?: T };
 
+  // SAFETY: caller supplies T knowing which endpoint's `data` shape it called (see the
+  // comment above payload's own cast).
   return payload.data as T;
 }
 
@@ -509,8 +522,11 @@ async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
   const res = await fetch(`${bridgeUrl}${path}`);
 
   if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+
+  // SAFETY: same pi-bridge.js envelope as rpcPost() above.
   const payload = (await res.json()) as { ok: boolean; data?: T };
 
+  // SAFETY: same as rpcPost()'s -- caller supplies T knowing the endpoint it called.
   return payload.data as T;
 }
 
@@ -625,6 +641,9 @@ async function* sseStream<B>(
           return;
         }
 
+        // SAFETY: pi-bridge.js's SSE stream only ever emits a real AgentEvent or `{ error }`
+        // (see its `emit()`/error-path helpers), which the `raw.error` check right below
+        // distinguishes.
         const raw = JSON.parse(payload) as AgentEvent & { error?: string };
 
         if (raw.error) throw new Error(`Bridge error: ${raw.error}`);
