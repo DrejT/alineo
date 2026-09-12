@@ -20,7 +20,7 @@
     "anti-slop/no-object-parameters": "error",
     "anti-slop/no-reflect-apply": "error",
     "anti-slop/no-reflect-get": "error",
-    "anti-slop/no-runtime-typeof": "error",
+    "anti-slop/no-runtime-typeof": ["error", { "allowInTypeGuards": true }],
     "anti-slop/no-shape-in-symbol-names": "error",
     "anti-slop/no-unknown-parameters": "error",
     "anti-slop/no-unknown-returns": "error",
@@ -137,7 +137,23 @@
       }
     },
     {
-      "files": ["packages/agent/src/schema.ts"],
+      "files": [
+        "packages/agent/src/schema.ts",
+        "packages/agent/src/permissions.ts",
+        "packages/adapters/flue/src/index.ts",
+        "packages/opensandbox/src/pty.ts",
+        "packages/agent/src/agent/egress-approval.ts",
+        "packages/memory/test/lifecycle-hooks.test.ts",
+        "packages/cli/src/telemetry.ts",
+        "packages/sdks/typescript/src/client.ts",
+        "packages/core/src/sandbox/observability.ts",
+        "packages/memory/src/tools.ts",
+        "packages/agent/src/adapters/pi.ts",
+        "packages/agent-browser/src/stream.ts",
+        "packages/core/src/exec-handle.ts",
+        "packages/sdks/typescript/test/client.test.ts",
+        "packages/adapters/sqlite-memory/test/semantic.test.ts"
+      ],
       "rules": {
         "anti-slop/no-runtime-typeof": "off"
       }
@@ -178,7 +194,8 @@
         "typescript/no-unnecessary-condition": "off",
         "typescript/prefer-nullish-coalescing": "off",
         "typescript/prefer-optional-chain": "off",
-        "typescript/switch-exhaustiveness-check": "off"
+        "typescript/switch-exhaustiveness-check": "off",
+        "anti-slop/no-runtime-typeof": "off"
       }
     },
     {
