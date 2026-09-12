@@ -147,5 +147,9 @@ export function withTeamAccessControlSemantic<T extends ISemanticMemoryProvider>
     };
   }
 
+  // SAFETY: `result` gained `listAll`/`forget`/`rememberMany` above exactly when
+  // `isPrunable(provider)`/`isBulkRememberable(provider)` were true -- the same runtime
+  // checks TeamGuardedSemanticProvider<T>'s conditional type is keyed on, which TS can't
+  // itself connect back to this function's control flow.
   return result as TeamGuardedSemanticProvider<T>;
 }

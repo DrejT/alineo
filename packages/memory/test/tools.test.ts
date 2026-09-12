@@ -73,6 +73,9 @@ describe("createMemoryTools", () => {
     const [, , remember, recall] = createMemoryTools(memory, ref);
 
     await remember.execute({ content: "the sky is blue" });
+
+    // SAFETY: recall_facts's own tool implementation always returns `{ facts: string[] }`
+    // (see createMemoryTools() in memory/src/tools.ts).
     const result = (await recall.execute({ query: "sky" })) as { facts: string[] };
 
     expect(result.facts).toEqual(["the sky is blue"]);

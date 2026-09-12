@@ -185,6 +185,9 @@ describe("Memory", () => {
       await memory.workingMemory.set(parentRef, "prefs", { theme: "light" });
 
       const { ref: childRef } = await memory.fork(parentRef, "child");
+
+      // SAFETY: written just above via `set(parentRef, "prefs", { theme: "light" })`, then
+      // forked -- the value carried over is exactly this shape.
       const childPrefs = (await memory.workingMemory.get(childRef, "prefs")) as { theme: string };
       childPrefs.theme = "dark";
 
@@ -246,6 +249,9 @@ describe("Memory", () => {
       const flaky: EmbeddingProvider = {
         id: "flaky",
         async embed(texts) {
+          // SAFETY: deliberately violates EmbeddingProvider's own contract (a real
+          // `number[]` per text) to simulate a provider that silently drops an embedding --
+          // that's exactly the failure mode this test is exercising.
           return texts.map((t) =>
             t === "shaky" && texts.length > 1 ? undefined : [1, 0],
           ) as number[][];

@@ -79,6 +79,7 @@ describe("withTeamAccessControl (working memory)", () => {
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(MemoryAccessDeniedError);
+    // SAFETY: the toBeInstanceOf() check above just verified this at runtime.
     expect((error as MemoryAccessDeniedError).teamId).toBe("secret-team");
   });
 });
