@@ -7,7 +7,7 @@ import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import { LedgerEvent } from "../src/ledger.ts";
 import { makeControlStub } from "./control-stub.ts";
 
-function makeAdapter(): IStorageAdapter {
+function makeAdapter() {
   return {
     append: vi.fn().mockResolvedValue(undefined),
     readAll: vi.fn().mockResolvedValue([]),
@@ -50,8 +50,8 @@ function makeDeps(adapter: IStorageAdapter, overrides: Partial<SandboxDeps> = {}
   };
 }
 
-function appendedEntries(adapter: IStorageAdapter): LedgerEntry[] {
-  return (adapter.append as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0] as LedgerEntry);
+function appendedEntries(adapter: ReturnType<typeof makeAdapter>): LedgerEntry[] {
+  return adapter.append.mock.calls.map((c) => c[0] as LedgerEntry);
 }
 
 describe("SandboxHandle.fork()", () => {

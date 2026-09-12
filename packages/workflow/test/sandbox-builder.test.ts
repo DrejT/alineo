@@ -146,7 +146,7 @@ describe("flushOps — when primitive", () => {
     const sandbox = makeSandbox();
     await flushOps(sandbox, sb._ops, makeCtx({ exitCode: 0 }));
 
-    const calls = (sandbox.exec as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
+    const calls = sandbox.exec.mock.calls.map((c: string[]) => c[0]);
     expect(calls).toContain("echo pass");
     expect(calls).not.toContain("echo fail");
   });
@@ -166,7 +166,7 @@ describe("flushOps — when primitive", () => {
     const sandbox = makeSandbox();
     await flushOps(sandbox, sb._ops, makeCtx({ exitCode: 1 }));
 
-    const calls = (sandbox.exec as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
+    const calls = sandbox.exec.mock.calls.map((c: string[]) => c[0]);
     expect(calls).toContain("echo fail");
     expect(calls).not.toContain("echo pass");
   });
@@ -182,7 +182,7 @@ describe("flushOps — forEach primitive", () => {
     const sandbox = makeSandbox();
     await flushOps(sandbox, sb._ops, makeCtx());
 
-    const calls = (sandbox.exec as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
+    const calls = sandbox.exec.mock.calls.map((c: string[]) => c[0]);
     expect(calls).toEqual(["echo a", "echo b", "echo c"]);
   });
 });

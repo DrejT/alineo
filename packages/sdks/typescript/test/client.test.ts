@@ -51,11 +51,11 @@ interface SandboxInternals {
   ): Promise<SandboxHandle>;
 }
 
-// anti-slop/no-chained-type-assertions is turned off for this file (see .oxlintrc.json) --
-// Sandbox's _control/_activeCount/etc. are genuinely private, so no single assertion can
-// bridge them to this plain test-only interface; the `unknown` hop is the only way to reach
-// them at all.
+// anti-slop/no-chained-type-assertions is turned off for this file (see .oxlintrc.json).
 function internals(client: Sandbox): SandboxInternals {
+  // SAFETY: Sandbox's _control/_activeCount/etc. are genuinely private, so no single assertion
+  // can bridge them to this plain test-only interface; the `unknown` hop is the only way to
+  // reach them at all.
   return client as unknown as SandboxInternals;
 }
 
@@ -100,6 +100,7 @@ describe("Sandbox.sandboxes", () => {
       },
     ];
 
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue(details);
 
     const result = await client.sandboxes.list();
@@ -135,6 +136,7 @@ describe("Sandbox.sandboxes", () => {
       execCount: 1,
     };
 
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.getSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue(details);
 
     const result = await client.sandboxes.get("ci", "s1");
@@ -409,6 +411,8 @@ function createdPayload(adapter: IStorageAdapter): Record<string, unknown> | und
     .mocked(adapter.append)
     .mock.calls.find(([entry]) => entry.event === "sandbox_created");
 
+  // SAFETY: LedgerEntry.payload's real shape varies per LedgerEvent kind; this reads it back
+  // only for a "sandbox_created" entry, whose payload is always a plain object or absent.
   return call?.[0].payload as Record<string, unknown> | undefined;
 }
 
@@ -427,6 +431,7 @@ describe("Sandbox.sandbox() resourceId/teamId threading", () => {
 
     expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
 
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.append as ReturnType<typeof vi.fn>).mockClear();
     await sb.deps.fork!("snap-1", undefined, undefined, undefined);
     expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
@@ -436,6 +441,7 @@ describe("Sandbox.sandbox() resourceId/teamId threading", () => {
 describe("Sandbox.resume() resourceId/teamId threading", () => {
   it("inherits resourceId/teamId from the original sandbox_created payload", async () => {
     const adapter = makeAdapter();
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([
       {
         name: "ci",
@@ -445,6 +451,7 @@ describe("Sandbox.resume() resourceId/teamId threading", () => {
         execCount: 0,
       },
     ]);
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.readAll as ReturnType<typeof vi.fn>).mockResolvedValue([
       {
         ts: 1000,
@@ -490,6 +497,7 @@ describe("Sandbox.restoreSnapshot() resourceId/teamId threading", () => {
 
     expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
 
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.append as ReturnType<typeof vi.fn>).mockClear();
     await sb.deps.fork!("snap-2", undefined, undefined, undefined);
     expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
@@ -514,6 +522,7 @@ describe("fork closure resourceId/teamId override", () => {
       teamId: "parent-team",
     });
 
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.append as ReturnType<typeof vi.fn>).mockClear();
     await sb.deps.fork!("snap-child", undefined, undefined, {
       resourceId: "child-resource",
@@ -538,6 +547,7 @@ describe("fork closure resourceId/teamId override", () => {
       teamId: "parent-team",
     });
 
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.append as ReturnType<typeof vi.fn>).mockClear();
     await sb.deps.fork!("snap-child", undefined, undefined, undefined);
 
@@ -562,6 +572,7 @@ describe("fork closure resourceId/teamId override", () => {
       resourceId: "child-resource",
     });
 
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.append as ReturnType<typeof vi.fn>).mockClear();
     await child.deps.fork!("snap-grandchild", undefined, undefined, undefined);
 
@@ -598,6 +609,7 @@ describe("Sandbox._createFromSnapshot() resourceId/teamId threading (environment
       { resourceId: "user-1", teamId: "acme" },
     );
 
+    // SAFETY: adapter's methods are vi.fn() mocks; IStorageAdapter's own type just doesn't expose mock methods.
     (adapter.append as ReturnType<typeof vi.fn>).mockClear();
     await sb.deps.fork!("snap-2", undefined, undefined, undefined);
     expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });

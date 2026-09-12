@@ -7,7 +7,7 @@ import type { ExecResult } from "../src/exec-handle.ts";
 import type { PtyOutputListener, PtyExitListener } from "@alineo-labs/opensandbox";
 import { makeControlStub } from "./control-stub.ts";
 
-function makeAdapter(): IStorageAdapter {
+function makeAdapter() {
   return {
     append: vi.fn().mockResolvedValue(undefined),
     readAll: vi.fn().mockResolvedValue([]),
@@ -64,8 +64,8 @@ function makeFakePty() {
   };
 }
 
-function appendedEvents(adapter: IStorageAdapter): LedgerEntry[] {
-  return (adapter.append as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0] as LedgerEntry);
+function appendedEvents(adapter: ReturnType<typeof makeAdapter>): LedgerEntry[] {
+  return adapter.append.mock.calls.map((c) => c[0] as LedgerEntry);
 }
 
 describe("SandboxHandle interactive exec", () => {
