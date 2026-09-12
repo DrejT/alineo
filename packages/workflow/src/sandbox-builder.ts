@@ -1,5 +1,12 @@
 import type { SandboxHandle, ExecOptions, ExecCodeOptions } from "@alineo-labs/sandbox";
 
+/** The subset of `SandboxHandle` `flushOps()` actually calls -- narrow on purpose, so tests can
+ * pass a plain structural mock instead of a cast standing in for the full class. */
+export type SandboxLike = Pick<
+  SandboxHandle,
+  "exec" | "execCode" | "writeFile" | "readFile" | "deleteFile" | "moveFile" | "checkpoint"
+>;
+
 /** An operation queued on a SandboxBuilder and executed later. */
 export type SandboxOp =
   | { kind: "exec"; cmd: string; opts: ExecOptions }
@@ -188,7 +195,7 @@ export interface FlushContext {
 
 /** Flush a SandboxBuilder's op queue against a live SandboxHandle. */
 export async function flushOps(
-  sandbox: SandboxHandle,
+  sandbox: SandboxLike,
   ops: SandboxOp[],
   ctx: FlushContext,
 ): Promise<void> {
@@ -280,7 +287,7 @@ export async function flushOps(
 }
 
 async function flushRetry(
-  sandbox: SandboxHandle,
+  sandbox: SandboxLike,
   fn: (sb: SandboxBuilder) => void,
   maxAttempts: number,
   opts: RetryOptions,
@@ -310,7 +317,7 @@ async function flushRetry(
 }
 
 async function flushForEach(
-  sandbox: SandboxHandle,
+  sandbox: SandboxLike,
   items: unknown[],
   fn: (sb: SandboxBuilder, item: unknown, index: number) => void,
   opts: ForEachOptions,
