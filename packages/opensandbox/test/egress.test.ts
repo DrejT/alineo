@@ -5,10 +5,10 @@ import type { ControlClient } from "../src/control.ts";
 function fakeControl(
   endpoint = "http://10.1.2.3:18080",
   headers: Record<string, string> = { "X-EXECD-ACCESS-TOKEN": "t" },
-): ControlClient {
+): Pick<ControlClient, "getEndpoint"> {
   return {
     getEndpoint: vi.fn().mockResolvedValue({ endpoint, headers }),
-  } as unknown as ControlClient;
+  };
 }
 
 function jsonResponse(body: unknown, ok = true, status = 200) {
@@ -17,7 +17,7 @@ function jsonResponse(body: unknown, ok = true, status = 200) {
 
 /** The `[url, init]` pair of the first fetch call, typed. */
 function firstCall(fetchMock: ReturnType<typeof vi.fn>): [string, RequestInit] {
-  return fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+  return fetchMock.mock.calls[0] as [string, RequestInit];
 }
 
 describe("EgressClient", () => {

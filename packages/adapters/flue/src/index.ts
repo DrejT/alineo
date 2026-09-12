@@ -2,6 +2,10 @@ import type { SandboxApi, SandboxFactory, FileStat } from "@flue/runtime";
 import { createSandboxSessionEnv } from "@flue/runtime";
 import type { SandboxHandle } from "@alineo-labs/sandbox";
 
+/** The subset of `SandboxHandle` this adapter actually calls -- narrow on purpose, so tests can
+ * pass a plain structural stub instead of a cast standing in for the full class. */
+export type AlineoSandbox = Pick<SandboxHandle, "exec" | "readFile" | "writeFile" | "listDirectory">;
+
 // POSIX single-quote escaping for shell arguments.
 function esc(p: string): string {
   return `'${p.replace(/'/g, "'\\''")}'`;
@@ -35,7 +39,7 @@ function base64ToUint8(b64: string): Uint8Array {
 }
 
 class AlineoSandboxApi implements SandboxApi {
-  constructor(private readonly sb: SandboxHandle) {}
+  constructor(private readonly sb: AlineoSandbox) {}
 
   async exec(
     command: string,
@@ -151,7 +155,7 @@ class AlineoSandboxApi implements SandboxApi {
  * );
  * ```
  */
-export function alineo(sandbox: SandboxHandle, opts?: { cwd?: string }): SandboxFactory {
+export function alineo(sandbox: AlineoSandbox, opts?: { cwd?: string }): SandboxFactory {
   return {
     createSessionEnv(_: { id: string }) {
       return Promise.resolve(

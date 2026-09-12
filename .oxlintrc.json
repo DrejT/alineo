@@ -107,7 +107,11 @@
       }
     },
     {
-      "files": ["**/core/test/sandbox-close.test.ts", "**/core/test/sandbox-replay.test.ts"],
+      "files": [
+        "**/core/test/sandbox-close.test.ts",
+        "**/core/test/sandbox-replay.test.ts",
+        "**/sdks/typescript/test/client.test.ts"
+      ],
       "rules": {
         "anti-slop/no-chained-type-assertions": "off"
       }

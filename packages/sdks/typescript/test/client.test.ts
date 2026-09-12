@@ -51,6 +51,10 @@ interface SandboxInternals {
   ): Promise<SandboxHandle>;
 }
 
+// anti-slop/no-chained-type-assertions is turned off for this file (see .oxlintrc.json) --
+// Sandbox's _control/_activeCount/etc. are genuinely private, so no single assertion can
+// bridge them to this plain test-only interface; the `unknown` hop is the only way to reach
+// them at all.
 function internals(client: Sandbox): SandboxInternals {
   return client as unknown as SandboxInternals;
 }

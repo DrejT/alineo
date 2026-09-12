@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { SandboxHandle } from "@alineo-labs/sandbox";
+import type { AlineoSandbox } from "../src/index.ts";
 import type { SandboxApi } from "@flue/runtime";
 
 // ── Module mock ──────────────────────────────────────────────────────────────
@@ -8,20 +8,26 @@ import type { SandboxApi } from "@flue/runtime";
 type MockSessionEnv = { _cwd: string };
 
 let capturedApi: SandboxApi | null = null;
+let capturedCwd: string | null = null;
 
 void mock.module("@flue/runtime", () => ({
   createSandboxSessionEnv: (api: SandboxApi, cwd: string): MockSessionEnv => {
     capturedApi = api;
+    capturedCwd = cwd;
 
     return { _cwd: cwd };
   },
 }));
 
-// Reading `capturedApi` through a function (rather than the bare module-level `let`)
-// gives the type checker a fresh `SandboxApi | null` read instead of the stale
-// "still null" narrowing it can't invalidate across the mocked async call above.
+// Reading these through functions (rather than the bare module-level `let`s) gives the type
+// checker a fresh read each time instead of the stale "still null" narrowing it can't
+// invalidate across the mocked async call above.
 function readCapturedApi(): SandboxApi | null {
   return capturedApi;
+}
+
+function readCapturedCwd(): string | null {
+  return capturedCwd;
 }
 
 import { alineo } from "../src/index.ts";
@@ -52,17 +58,17 @@ type SandboxStub = {
   listDirectory: (path: string, opts?: ListDirectoryOpts) => Promise<FileInfoStub[]>;
 };
 
-function makeStub(overrides: Partial<SandboxStub> = {}): SandboxHandle {
+function makeStub(overrides: Partial<SandboxStub> = {}): AlineoSandbox {
   return {
     exec:
       overrides.exec ?? ((_cmd, _opts) => Promise.resolve({ stdout: "", stderr: "", exitCode: 0 })),
     readFile: overrides.readFile ?? ((_path) => Promise.resolve("")),
     writeFile: overrides.writeFile ?? ((_path, _content) => Promise.resolve()),
     listDirectory: overrides.listDirectory ?? ((_path, _opts) => Promise.resolve([])),
-  } as unknown as SandboxHandle;
+  } as AlineoSandbox;
 }
 
-async function getApi(sb: SandboxHandle): Promise<SandboxApi> {
+async function getApi(sb: AlineoSandbox): Promise<SandboxApi> {
   capturedApi = null;
   const factory = alineo(sb);
   await factory.createSessionEnv({ id: "test-ctx" });
@@ -485,14 +491,14 @@ describe("alineo factory", () => {
   it("passes cwd '/' by default to createSandboxSessionEnv", async () => {
     const sb = makeStub();
     const factory = alineo(sb);
-    const env = (await factory.createSessionEnv({ id: "x" })) as unknown as MockSessionEnv;
-    expect(env._cwd).toBe("/");
+    await factory.createSessionEnv({ id: "x" });
+    expect(readCapturedCwd()).toBe("/");
   });
 
   it("forwards custom cwd option", async () => {
     const sb = makeStub();
     const factory = alineo(sb, { cwd: "/workspace" });
-    const env = (await factory.createSessionEnv({ id: "x" })) as unknown as MockSessionEnv;
-    expect(env._cwd).toBe("/workspace");
+    await factory.createSessionEnv({ id: "x" });
+    expect(readCapturedCwd()).toBe("/workspace");
   });
 });
