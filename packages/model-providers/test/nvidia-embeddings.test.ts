@@ -20,6 +20,8 @@ afterEach(() => {
 });
 
 async function freshModule(): Promise<typeof NvidiaEmbeddingsModule> {
+  // SAFETY: this re-imports the same module file (just cache-busted), which always has this
+  // exact shape.
   return import(`../src/nvidia-embeddings?t=${crypto.randomUUID()}`) as Promise<
     typeof NvidiaEmbeddingsModule
   >;
@@ -75,6 +77,9 @@ describe("createNvidiaEmbeddingProvider", () => {
     process.env.NVIDIA_API_KEY = "test-key";
     let capturedBody: { input: string[]; model: string; input_type: string } | undefined;
     globalThis.fetch = stubFetch((_url, init) => {
+      // SAFETY: this init.body is always the JSON string createNvidiaEmbeddingProvider()'s
+      // own fetch() call constructed (see the real embed() implementation), with exactly
+      // these fields.
       capturedBody = JSON.parse(init?.body as string) as {
         input: string[];
         model: string;
@@ -115,6 +120,7 @@ describe("createNvidiaEmbeddingProvider", () => {
     process.env.NVIDIA_API_KEY = "test-key";
     const capturedInputTypes: string[] = [];
     globalThis.fetch = stubFetch((_url, init) => {
+      // SAFETY: same request body invariant as the test above.
       capturedInputTypes.push(
         (JSON.parse(init?.body as string) as { input_type: string }).input_type,
       );

@@ -20,6 +20,8 @@ afterEach(() => {
 });
 
 async function freshModule(): Promise<typeof NvidiaModule> {
+  // SAFETY: this re-imports the same module file (just cache-busted), which always
+  // has this exact shape.
   return import(`../src/nvidia?t=${crypto.randomUUID()}`) as Promise<typeof NvidiaModule>;
 }
 

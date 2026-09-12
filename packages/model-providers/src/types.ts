@@ -57,6 +57,8 @@ export async function fetchProviderModels(
     return [];
   }
 
+  // SAFETY: every provider this is called for (NVIDIA NIM, Gemini's OpenAI-compat endpoint,
+  // Groq -- see the doc comment above) returns this `{ data: ProviderModel[] }` shape.
   const data = (await res.json()) as { data: ProviderModel[] };
 
   return data.data;

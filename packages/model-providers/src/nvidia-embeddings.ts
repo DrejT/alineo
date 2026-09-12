@@ -71,6 +71,8 @@ export function createNvidiaEmbeddingProvider(
         );
       }
 
+      // SAFETY: NVIDIA NIM's embeddings endpoint is OpenAI-compatible; a 2xx response always
+      // has this `data: [{ embedding, index }]` shape.
       const body = (await res.json()) as { data: { embedding: number[]; index: number }[] };
 
       // NIM (like OpenAI) doesn't guarantee response order matches request order — sort by

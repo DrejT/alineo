@@ -20,6 +20,8 @@ afterEach(() => {
 });
 
 async function freshModule(): Promise<typeof GoogleModule> {
+  // SAFETY: this re-imports the same module file (just cache-busted), which always
+  // has this exact shape.
   return import(`../src/google?t=${crypto.randomUUID()}`) as Promise<typeof GoogleModule>;
 }
 
