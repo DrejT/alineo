@@ -19,9 +19,16 @@ export async function* watchMetrics(sb: SandboxInternal): AsyncGenerator<Metrics
   const ec = await sb.getExecClient();
 
   for await (const ev of ec.watchMetrics()) {
-    const m = ev as unknown as Metrics;
+    // SSEEvent's declared shape doesn't include cpu/memory (they're metrics-stream-only
+    // fields the wire envelope type doesn't model), so read them defensively rather than
+    // asserting the whole event to Metrics -- its `timestamp` type (string) doesn't even
+    // match SSEEvent's (number) anyway.
+    const cpu = (ev as { cpu?: unknown }).cpu;
+    const memory = (ev as { memory?: unknown }).memory;
 
-    if (typeof m.cpu === "number" && typeof m.memory === "number") yield m;
+    if (typeof cpu === "number" && typeof memory === "number") {
+      yield { cpu, memory, timestamp: String(ev.timestamp) };
+    }
   }
 }
 

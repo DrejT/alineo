@@ -62,9 +62,25 @@ export interface SandboxHooks {
   onCredentialInjected?(sandboxId: string, name: string, binding: CredentialBinding): void;
 }
 
+/** The subset of `ControlClient` a `SandboxHandle` actually calls -- narrow on purpose, so
+ * tests can pass a plain structural mock (or `SandboxDeps["control"]` in isolation) instead of
+ * a cast standing in for the full class. */
+export type SandboxControlDeps = Pick<
+  ControlClient,
+  | "createSnapshot"
+  | "deleteSandbox"
+  | "getDiagnosticEvents"
+  | "getDiagnosticLogs"
+  | "getEndpoint"
+  | "getSandbox"
+  | "getSnapshot"
+  | "pauseSandbox"
+  | "resumeSandbox"
+>;
+
 /** Internal dependencies injected by `Sandbox`. */
 export interface SandboxDeps {
-  control: ControlClient;
+  control: SandboxControlDeps;
   adapter: IStorageAdapter;
   hooks?: SandboxHooks;
   /** Broker for `sb.credentials.*` — undefined unless the sandbox was created with `credentialProxy: true`. */

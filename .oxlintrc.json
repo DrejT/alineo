@@ -107,6 +107,12 @@
       }
     },
     {
+      "files": ["**/core/test/sandbox-close.test.ts", "**/core/test/sandbox-replay.test.ts"],
+      "rules": {
+        "anti-slop/no-chained-type-assertions": "off"
+      }
+    },
+    {
       "files": ["**/cli/test/docker.test.ts"],
       "rules": {
         "typescript/require-await": "off",

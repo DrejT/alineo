@@ -3,10 +3,10 @@ import { resolveExecClient } from "../src/sandbox/resolve.ts";
 import { ExecConnectionError } from "../src/errors.ts";
 import type { ControlClient } from "@alineo-labs/opensandbox";
 
-function makeControl(): ControlClient {
+function makeControl(): Pick<ControlClient, "getEndpoint"> {
   return {
     getEndpoint: vi.fn().mockResolvedValue({ endpoint: "http://localhost:44772", headers: {} }),
-  } as unknown as ControlClient;
+  };
 }
 
 describe("resolveExecClient", () => {

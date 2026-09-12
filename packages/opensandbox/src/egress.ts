@@ -47,7 +47,7 @@ export class EgressClient {
   private static readonly PORT = 18080;
 
   constructor(
-    private readonly control: ControlClient,
+    private readonly control: Pick<ControlClient, "getEndpoint">,
     private readonly useServerProxy?: boolean,
   ) {}
 

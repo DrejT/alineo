@@ -6,6 +6,7 @@ import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import { LedgerEvent } from "../src/ledger.ts";
 import type { ExecResult } from "../src/exec-handle.ts";
+import { makeControlStub } from "./control-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -40,6 +41,9 @@ interface SandboxTestInternals {
   _execClient: unknown;
 }
 
+// anti-slop/no-chained-type-assertions is turned off for this file (see .oxlintrc.json) --
+// SandboxCore._execClient is genuinely private, so no single assertion can bridge it to this
+// plain test-only interface; the `unknown` hop is the only way to reach it at all.
 /** SandboxCore._execClient is private; this reaches it for tests that need to inject a fake. */
 function setExecClient(sb: SandboxHandle, client: ReturnType<typeof makeExecClient>): void {
   (sb as unknown as SandboxTestInternals)._execClient = client;
@@ -47,7 +51,7 @@ function setExecClient(sb: SandboxHandle, client: ReturnType<typeof makeExecClie
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return {
-    control: {} as unknown as SandboxDeps["control"],
+    control: makeControlStub(),
     adapter,
   };
 }
@@ -183,7 +187,7 @@ describe("SandboxHandle live mode", () => {
 
     for (const entry of appendedEntries(adapter)) {
       expect(entry.sandboxId).toBe("session-abc");
-      expect((entry as unknown as { runId?: unknown }).runId).toBeUndefined();
+      expect((entry as { runId?: unknown }).runId).toBeUndefined();
     }
   });
 

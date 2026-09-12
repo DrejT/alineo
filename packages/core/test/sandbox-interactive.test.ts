@@ -5,6 +5,7 @@ import { LedgerEvent } from "../src/ledger.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import type { ExecResult } from "../src/exec-handle.ts";
 import type { PtyOutputListener, PtyExitListener } from "@alineo-labs/opensandbox";
+import { makeControlStub } from "./control-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -24,10 +25,8 @@ function makeAdapter(): IStorageAdapter {
 }
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
-  const control = { deleteSandbox: vi.fn().mockResolvedValue(undefined) };
-
   return {
-    control: control as unknown as SandboxDeps["control"],
+    control: makeControlStub({ deleteSandbox: vi.fn().mockResolvedValue(undefined) }),
     adapter,
   };
 }

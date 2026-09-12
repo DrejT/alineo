@@ -34,6 +34,7 @@ export type {
   ExecOptions,
   ExecCodeOptions,
   SandboxDeps,
+  SandboxControlDeps,
   SandboxHooks,
   PendingInteractiveExec,
   ComposeHooksOptions,

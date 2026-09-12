@@ -14,4 +14,5 @@ export type {
   ExecCodeOptions,
   SandboxHooks,
   SandboxDeps,
+  SandboxControlDeps,
 } from "./types";

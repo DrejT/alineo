@@ -19,7 +19,7 @@ import { ExecConnectionError } from "../errors";
  * patience before giving up.
  */
 export async function resolveExecClient(
-  control: ControlClient,
+  control: Pick<ControlClient, "getEndpoint">,
   sandboxId: string,
   useServerProxy?: boolean,
   retries = 45,

@@ -5,6 +5,7 @@ import { SnapshotState } from "@alineo-labs/opensandbox";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import { LedgerEvent } from "../src/ledger.ts";
+import { makeControlStub } from "./control-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -23,21 +24,27 @@ function makeAdapter(): IStorageAdapter {
   };
 }
 
-function makeControl(snapshotId = "snap-abc") {
-  return {
-    createSnapshot: vi.fn().mockResolvedValue({ id: snapshotId }),
-    getSnapshot: vi.fn().mockResolvedValue({ state: SnapshotState.Ready }),
+function makeControl(snapshotId = "snap-abc"): SandboxDeps["control"] {
+  return makeControlStub({
+    createSnapshot: vi.fn().mockResolvedValue({
+      id: snapshotId,
+      sandboxId: "sb-1",
+      state: SnapshotState.Ready,
+      createdAt: new Date().toISOString(),
+    }),
+    getSnapshot: vi.fn().mockResolvedValue({
+      id: snapshotId,
+      sandboxId: "sb-1",
+      state: SnapshotState.Ready,
+      createdAt: new Date().toISOString(),
+    }),
     deleteSandbox: vi.fn().mockResolvedValue(undefined),
-  };
-}
-
-function asControl(control: ReturnType<typeof makeControl>): SandboxDeps["control"] {
-  return control as unknown as SandboxDeps["control"];
+  });
 }
 
 function makeDeps(adapter: IStorageAdapter, overrides: Partial<SandboxDeps> = {}): SandboxDeps {
   return {
-    control: asControl(makeControl()),
+    control: makeControl(),
     adapter,
     ...overrides,
   };
@@ -55,7 +62,7 @@ describe("SandboxHandle.fork()", () => {
     const control = makeControl("snap-xyz");
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: asControl(control),
+      control,
       adapter,
       fork: forkFn,
     });
@@ -84,7 +91,7 @@ describe("SandboxHandle.fork()", () => {
     const control = makeControl("snap-tagged");
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: asControl(control),
+      control,
       adapter,
       fork: forkFn,
     });
@@ -106,7 +113,7 @@ describe("SandboxHandle.fork()", () => {
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: asControl(makeControl()),
+      control: makeControl(),
       adapter,
       fork: forkFn,
     });
@@ -132,7 +139,7 @@ describe("SandboxHandle.fork()", () => {
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: asControl(makeControl()),
+      control: makeControl(),
       adapter,
       fork: forkFn,
     });
@@ -153,7 +160,7 @@ describe("SandboxHandle.fork()", () => {
     const forkFn = vi.fn().mockResolvedValue(forkedSandbox);
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: asControl(makeControl()),
+      control: makeControl(),
       adapter,
       fork: forkFn,
     });
@@ -172,7 +179,7 @@ describe("SandboxHandle.fork()", () => {
     const onCheckpoint = vi.fn();
 
     const sb = new SandboxHandle("sb-1", "test", {
-      control: asControl(makeControl("snap-hook")),
+      control: makeControl("snap-hook"),
       adapter,
       hooks: { onCheckpoint },
       fork: forkFn,
