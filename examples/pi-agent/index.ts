@@ -85,9 +85,11 @@ try {
 
   if (models.length > 0) {
     try {
-      const set = await agent.setModel(models[0].api as string, models[0].id);
+      const set = await agent.setModel(models[0].api, models[0].id);
       console.log(`setModel → ${set.api}/${set.id}`);
     } catch (e) {
+      // SAFETY: display-only -- if `e` isn't actually an Error, `.message` just reads
+      // as `undefined` here, which is a harmless fallback in a demo log line.
       console.log(`setModel(${models[0].id}) → not in Pi config: ${(e as Error).message}`);
     }
   }
@@ -113,6 +115,8 @@ try {
     const tl = await agent.cycleThinkingLevel();
     console.log(`cycleThinkingLevel → ${tl?.level ?? "model does not support thinking"}`);
   } catch (e) {
+    // SAFETY: display-only -- if `e` isn't actually an Error, `.message` just reads
+    // as `undefined` here, which is a harmless fallback in a demo log line.
     console.log(`thinking not supported by current model: ${(e as Error).message}`);
   }
 
@@ -183,6 +187,10 @@ try {
   const forkableMsg = history.find((m) => m.role === "user" && (m.id ?? m.entryId));
 
   if (forkableMsg) {
+    // SAFETY: PiMessage's `id`/`entryId` are typed `unknown` (they come through its
+    // `[key: string]: unknown` extension point, per Pi's own wire format), but the
+    // `.find()` filter just above already proved one of them is truthy for this message,
+    // and Pi always uses a string for both.
     const entryId = (forkableMsg.id ?? forkableMsg.entryId) as string;
 
     try {
@@ -190,6 +198,8 @@ try {
       console.log(`fork(${entryId.slice(0, 12)}…) → cancelled: ${forked.cancelled}`);
       console.log(`  forked from: "${String(forked.text).slice(0, 60)}…"`);
     } catch (e) {
+      // SAFETY: display-only -- if `e` isn't actually an Error, `.message` just reads
+      // as `undefined` here, which is a harmless fallback in a demo log line.
       console.log(`fork failed: ${(e as Error).message}`);
     }
   } else {
@@ -207,6 +217,8 @@ try {
       `compact → ${compacted.tokensBefore} tokens before, ~${compacted.estimatedTokensAfter} after`,
     );
   } catch (e) {
+    // SAFETY: display-only -- if `e` isn't actually an Error, `.message` just reads
+    // as `undefined` here, which is a harmless fallback in a demo log line.
     console.log(`compact → skipped: ${(e as Error).message}`);
   }
 

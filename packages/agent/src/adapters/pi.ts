@@ -550,10 +550,13 @@ async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
  */
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 180_000;
 
-async function* sseStream<B>(
+// `body: unknown` (anti-slop/no-unknown-parameters is off for this file): a generic type
+// parameter here would be used only once and never flow to the return type, which
+// typescript/no-unnecessary-type-parameters correctly flags as providing no real benefit.
+async function* sseStream(
   bridgeUrl: string,
   path: string,
-  body: B,
+  body: unknown,
   pendingStreams: Set<AbortController>,
   inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
 ): AgentStream {

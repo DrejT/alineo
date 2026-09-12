@@ -57,6 +57,8 @@ async function* parseSSE(
         if (trimmed.startsWith("{")) {
           // execd sends raw JSON lines, not data:-prefixed SSE
           try {
+            // SAFETY: execd's own wire contract for this endpoint -- every raw JSON line it
+            // sends is an SSEEvent.
             event = JSON.parse(trimmed) as SSEEvent;
           } catch {
             continue; // skip malformed
@@ -71,6 +73,9 @@ async function* parseSSE(
           }
 
           if (data !== undefined) {
+            // SAFETY: execd's own `event:` field is always one of the SSEEventType wire
+            // values when present, and `data:`'s JSON is always an SSEEvent's remaining
+            // fields -- same wire contract as the raw-JSON-line branch above.
             event = {
               type: (type ?? SSEEventType.Message) as SSEEventType,
               ...(JSON.parse(data) as Omit<SSEEvent, "type">),
@@ -148,7 +153,10 @@ export class ExecClient {
     return { "X-EXECD-ACCESS-TOKEN": this.accessToken };
   }
 
-  private async request<T, B = undefined>(method: string, path: string, body?: B): Promise<T> {
+  // `body?: unknown` (anti-slop/no-unknown-parameters is off for this file, here and on
+  // streamRequest() below): a generic type parameter would be used only once and never flow
+  // to the return type, which typescript/no-unnecessary-type-parameters correctly flags.
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = {};
 
     Object.assign(headers, this.authHeader);
@@ -166,15 +174,21 @@ export class ExecClient {
       throw new Error(text || `execd error ${res.status}`);
     }
 
-    if (res.status === 204) return undefined as T;
+    if (res.status === 204) {
+      // SAFETY: a 204 caller always expects T = void (no execd endpoint returns 204 with a
+      // typed body).
+      return undefined as T;
+    }
 
+    // SAFETY: caller supplies T knowing which execd endpoint it called; not verified against
+    // the actual response body.
     return res.json() as Promise<T>;
   }
 
-  private async *streamRequest<B = undefined>(
+  private async *streamRequest(
     method: string,
     path: string,
-    body?: B,
+    body?: unknown,
     isTerminal?: (event: SSEEvent) => boolean,
   ): AsyncGenerator<SSEEvent> {
     const headers: Record<string, string> = {};

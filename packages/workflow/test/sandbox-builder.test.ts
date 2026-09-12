@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { ExecResult } from "@alineo-labs/sandbox";
 import { SandboxBuilder, flushOps, type FlushContext } from "../src/sandbox-builder.ts";
 
+// typescript/no-unnecessary-type-parameters is off for this file: the mock `then<T, E>(...)`
+// methods below deliberately mirror ExecHandle's real `then<T, E>` signature (which they
+// duck-type) rather than widen to `unknown` -- each type parameter is used only once as
+// written, but that's what mirroring the real generic signature looks like.
+
 function makeCtx(overrides: Partial<FlushContext> = {}): FlushContext {
   return { stdout: "", exitCode: 0, vars: {}, ...overrides };
 }

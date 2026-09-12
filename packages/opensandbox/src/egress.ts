@@ -51,11 +51,9 @@ export class EgressClient {
     private readonly useServerProxy?: boolean,
   ) {}
 
-  private async request<T, B = undefined>(
-    sandboxId: string,
-    method: string,
-    body?: B,
-  ): Promise<T> {
+  // `body?: unknown` (anti-slop/no-unknown-parameters is off for this file): same
+  // no-unnecessary-type-parameters conflict as control.ts's request() -- see its comment.
+  private async request<T>(sandboxId: string, method: string, body?: unknown): Promise<T> {
     const ep = await this.control.getEndpoint(sandboxId, EgressClient.PORT, this.useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
 

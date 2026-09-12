@@ -80,7 +80,8 @@
     {
       "files": ["**/workflow/test/sandbox-builder.test.ts"],
       "rules": {
-        "typescript/require-await": "off"
+        "typescript/require-await": "off",
+        "typescript/no-unnecessary-type-parameters": "off"
       }
     },
     {
@@ -143,7 +144,11 @@
         "packages/core/test/egress-reconstruct.test.ts",
         "packages/agent/test/egress-approval.test.ts",
         "packages/memory/test/access-control.test.ts",
-        "packages/opensandbox/test/egress.test.ts"
+        "packages/opensandbox/test/egress.test.ts",
+        "packages/opensandbox/src/control.ts",
+        "packages/opensandbox/src/exec.ts",
+        "packages/opensandbox/src/egress.ts",
+        "packages/adapters/vault/src/vault-client.ts"
       ],
       "rules": {
         "anti-slop/no-unknown-parameters": "off",

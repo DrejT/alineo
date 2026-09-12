@@ -65,6 +65,8 @@ function makeFakePty() {
 }
 
 function appendedEvents(adapter: ReturnType<typeof makeAdapter>): LedgerEntry[] {
+  // SAFETY: adapter.append's real signature (IStorageAdapter.append) takes one LedgerEntry
+  // argument; vi.fn()'s untyped mock.calls just doesn't carry that through.
   return adapter.append.mock.calls.map((c) => c[0] as LedgerEntry);
 }
 
@@ -100,12 +102,16 @@ describe("SandboxHandle interactive exec", () => {
       expect(pty.write).toHaveBeenCalledWith("whoami\n");
     });
 
+    // SAFETY: SandboxCore.exec() is the only writer of ExecEvent entries for an interactive
+    // session, and always writes `{ seq, type, text }` (see core.ts's write()/attach handlers).
     const stdinEvents = appendedEvents(adapter).filter(
       (e) =>
         e.event === LedgerEvent.ExecEvent &&
         (e.payload as { type?: string } | undefined)?.type === "stdin",
     );
 
+    // SAFETY: an ExecEvent with type "stdin" always carries a `text` field (see core.ts's
+    // write() handler for interactive sessions).
     expect(stdinEvents.map((e) => (e.payload as { text: string }).text)).toEqual(["whoami\n"]);
   });
 
@@ -122,6 +128,7 @@ describe("SandboxHandle interactive exec", () => {
 
     emitOutput("hello\n");
     await vi.waitFor(() => {
+      // SAFETY: same ExecEvent invariant as the stdin case above.
       const stdoutEvents = appendedEvents(adapter).filter(
         (e) =>
           e.event === LedgerEvent.ExecEvent &&
@@ -129,6 +136,7 @@ describe("SandboxHandle interactive exec", () => {
       );
 
       // "$ " is the fake's simulated initial prompt (the readiness signal exec() waits for)
+      // SAFETY: an ExecEvent with type "stdout" always carries a `text` field.
       expect(stdoutEvents.map((e) => (e.payload as { text: string }).text)).toEqual([
         "$ ",
         "hello\n",
@@ -243,6 +251,8 @@ describe("SandboxHandle interactive exec", () => {
       },
       { timeout: 8000 },
     );
+    // SAFETY: PtyClient.write's real signature (write(data: string)) takes one string
+    // argument; vi.fn()'s untyped mock.calls just doesn't carry that through.
     expect(pty.write.mock.calls.map((c) => c[0] as string)).toEqual([
       "export FOO=bar\n",
       "echo $FOO\n",

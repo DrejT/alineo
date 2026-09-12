@@ -54,7 +54,10 @@ export class ControlClient {
     return new ControlClient({ baseUrl: this.baseUrl, apiKey: this.apiKey, signal });
   }
 
-  private async request<T, B = undefined>(method: string, path: string, body?: B): Promise<T> {
+  // `body?: unknown` (anti-slop/no-unknown-parameters is off for this file): a generic type
+  // parameter here would be used only once and never flow to the return type, which
+  // typescript/no-unnecessary-type-parameters correctly flags as providing no real benefit.
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = {};
 
     headers["OPEN-SANDBOX-API-KEY"] = this.apiKey;

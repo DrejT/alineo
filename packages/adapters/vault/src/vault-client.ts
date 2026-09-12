@@ -127,11 +127,13 @@ export class VaultClient {
 
   constructor(private readonly control: ControlClient) {}
 
-  private async request<T, B = undefined>(
+  // `body?: unknown` (anti-slop/no-unknown-parameters is off for this file): same
+  // no-unnecessary-type-parameters conflict as opensandbox's own request() helpers.
+  private async request<T>(
     sandboxId: string,
     method: string,
     useServerProxy: boolean | undefined,
-    body?: B,
+    body?: unknown,
   ): Promise<T> {
     const ep = await this.control.getEndpoint(sandboxId, VaultClient.PORT, useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
