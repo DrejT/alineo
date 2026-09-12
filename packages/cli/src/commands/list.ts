@@ -29,6 +29,8 @@ export async function list(): Promise<void> {
 
   for (const file of files) {
     try {
+      // SAFETY: specs on disk are user-authored JSON that may be missing any field, hence
+      // `Partial` -- every field read below falls back to a placeholder.
       const spec = (await Bun.file(join(dir, file)).json()) as Partial<AgentSpec>;
       const name = (spec.name ?? file.replace(/\.json$/, "")).slice(0, 19);
       const cli = (spec.cli ?? "?").slice(0, 7);

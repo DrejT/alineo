@@ -63,6 +63,7 @@ export async function pollHealth(url: string, timeoutMs = 60_000): Promise<void>
       const res = await fetch(url);
 
       if (res.ok) {
+        // SAFETY: trusts OpenSandbox's own health-check response contract.
         const body = (await res.json()) as { status?: string };
 
         if (body.status === "healthy") return;

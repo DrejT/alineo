@@ -60,6 +60,9 @@ type SandboxStub = {
 };
 
 function makeStub(overrides: Partial<SandboxStub> = {}): AlineoSandbox {
+  // SAFETY: AlineoSandbox is a real class with private fields; this stub only needs to
+  // satisfy the flue adapter's actual usage (exec/readFile/writeFile/listDirectory), which
+  // SandboxStub above models exactly.
   return {
     exec:
       overrides.exec ?? ((_cmd, _opts) => Promise.resolve({ stdout: "", stderr: "", exitCode: 0 })),

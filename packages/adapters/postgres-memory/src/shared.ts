@@ -85,6 +85,8 @@ export class PostgresMemoryConnection {
       return fn(tx);
     });
 
+    // SAFETY: `result` is exactly what `fn(tx)` returned above -- `sql.begin()`'s own generic
+    // inference just doesn't round-trip a caller-supplied `T` cleanly.
     return result as T;
   }
 

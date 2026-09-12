@@ -52,6 +52,8 @@ export async function readConfig(): Promise<AlineoConfig> {
   const localFile = Bun.file(configPath());
 
   if (await localFile.exists()) {
+    // SAFETY: user-authored/hand-edited JSON on disk -- fillDefaults() fills in whatever
+    // this Partial is missing.
     return fillDefaults((await localFile.json()) as Partial<AlineoConfig>);
   }
 
@@ -59,6 +61,7 @@ export async function readConfig(): Promise<AlineoConfig> {
   const globalFile = Bun.file(globalPath);
 
   if (await globalFile.exists()) {
+    // SAFETY: same rationale as the local config file above.
     return fillDefaults((await globalFile.json()) as Partial<AlineoConfig>);
   }
 

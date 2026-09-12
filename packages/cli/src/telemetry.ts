@@ -57,6 +57,9 @@ export async function readTelemetryConfig(): Promise<TelemetryConfig> {
   const file = Bun.file(telemetryConfigPath());
 
   if (await file.exists()) {
+    // SAFETY: this file is only ever written by writeTelemetryConfig() below, but every
+    // field is still nullish-coalesced -- a partly-written or hand-edited file degrades
+    // gracefully instead of throwing.
     const data = (await file.json()) as Partial<TelemetryConfig>;
 
     return {
@@ -171,6 +174,8 @@ async function extractSpecProvider(
   if (!specPath) return undefined;
 
   try {
+    // SAFETY: `provider` is checked with `typeof` right below -- this only recovers a field
+    // an agent spec on disk may or may not declare.
     const spec = (await Bun.file(specPath).json()) as { provider?: unknown };
 
     return typeof spec.provider === "string" ? spec.provider : undefined;
