@@ -52,6 +52,7 @@ interface SandboxInternals {
 }
 
 function internals(client: Sandbox): SandboxInternals {
+  // eslint-disable-next-line anti-slop/no-chained-type-assertions -- reaches private members, which no public type can describe
   return client as unknown as SandboxInternals;
 }
 

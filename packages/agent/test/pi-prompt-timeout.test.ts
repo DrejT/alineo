@@ -1,7 +1,10 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import type { SandboxHandle } from "@alineo-labs/core";
-import { PiAdapter } from "../src/adapters/pi";
+import { PiAdapter, type PiSandbox } from "../src/adapters/pi";
 import { PromptTimeoutError } from "../src/errors";
+
+function stubFetch(impl: () => Promise<Response>): typeof fetch {
+  return Object.assign(impl, { preconnect: () => {} });
+}
 
 // The bridge's own `: ping\n\n` heartbeat (every 3s in production, see pi-bridge.js) keeps the
 // SSE connection's raw `reader.read()` resolving regardless of whether Pi itself is making any
@@ -9,11 +12,12 @@ import { PromptTimeoutError } from "../src/errors";
 // comment lines, or a mix of heartbeats and real events -- to verify the inactivity timeout is
 // keyed off real `AgentEvent`s, not raw stream activity.
 
-function fakeSandbox(): SandboxHandle {
+function fakeSandbox(): PiSandbox {
   return {
     exec: () => Promise.resolve({ stdout: "", stderr: "", exitCode: 0 }),
     proxy: (_port: number) => Promise.resolve({ url: "http://fake-bridge", headers: {} }),
-  } as unknown as SandboxHandle;
+    writeFile: () => Promise.resolve(),
+  };
 }
 
 async function adapterWithBridge(): Promise<PiAdapter> {
@@ -59,10 +63,11 @@ afterEach(() => {
 
 describe("PiAdapter.prompt inactivity timeout", () => {
   it("times out when only heartbeat pings arrive, never a real event", async () => {
-    globalThis.fetch = (() =>
+    globalThis.fetch = stubFetch(() =>
       Promise.resolve(
         sseResponse(Array<string>(50).fill(": ping\n\n"), { intervalMs: 10, keepOpenAfter: true }),
-      )) as unknown as typeof fetch;
+      ),
+    );
 
     const adapter = await adapterWithBridge();
     const stream = adapter.prompt("hi", { inactivityTimeoutMs: 80 });
@@ -87,8 +92,7 @@ describe("PiAdapter.prompt inactivity timeout", () => {
       'data: {"type":"text","text":"b"}\n\n',
       "data: [DONE]\n\n",
     ];
-    globalThis.fetch = (() =>
-      Promise.resolve(sseResponse(chunks, { intervalMs: 20 }))) as unknown as typeof fetch;
+    globalThis.fetch = stubFetch(() => Promise.resolve(sseResponse(chunks, { intervalMs: 20 })));
 
     const adapter = await adapterWithBridge();
     const stream = adapter.prompt("hi", { inactivityTimeoutMs: 200 });

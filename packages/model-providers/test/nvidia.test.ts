@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { stubFetch } from "./fetch-stub";
 import type * as NvidiaModule from "../src/nvidia";
 
 let originalFetch: typeof fetch;
@@ -44,10 +45,10 @@ describe("nvidiaProvider", () => {
 
   it("listModels returns [] without fetching when NVIDIA_API_KEY is unset", async () => {
     delete process.env.NVIDIA_API_KEY;
-    const fetchSpy = mock(() => {
+    const fetchSpy = stubFetch(() => {
       throw new Error("should not be called");
     });
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    globalThis.fetch = fetchSpy;
     const { nvidiaProvider } = await freshModule();
     expect(await nvidiaProvider.listModels()).toEqual([]);
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -55,23 +56,21 @@ describe("nvidiaProvider", () => {
 
   it("listModels returns [] on a non-OK response", async () => {
     process.env.NVIDIA_API_KEY = "test-key";
-    globalThis.fetch = mock(() =>
-      Promise.resolve(new Response("nope", { status: 500 })),
-    ) as unknown as typeof fetch;
+    globalThis.fetch = stubFetch(() => Promise.resolve(new Response("nope", { status: 500 })));
     const { nvidiaProvider } = await freshModule();
     expect(await nvidiaProvider.listModels()).toEqual([]);
   });
 
   it("listModels returns the provider's model list on success, and caches it", async () => {
     process.env.NVIDIA_API_KEY = "test-key";
-    const fetchSpy = mock(() =>
+    const fetchSpy = stubFetch(() =>
       Promise.resolve(
         new Response(JSON.stringify({ data: [{ id: "nvidia/nemotron-3.5-lightning-30b-a3b" }] }), {
           status: 200,
         }),
       ),
     );
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    globalThis.fetch = fetchSpy;
     const { nvidiaProvider } = await freshModule();
     expect(await nvidiaProvider.listModels()).toEqual([
       { id: "nvidia/nemotron-3.5-lightning-30b-a3b" },

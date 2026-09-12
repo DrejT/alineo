@@ -69,9 +69,10 @@ describe("SchemaWorkingMemory", () => {
     );
     await profile.update(ref, { name: "Ada" });
 
-    await expect(profile.update(ref, { age: "not a number" as unknown as number })).rejects.toThrow(
-      "age must be a number",
-    );
+    await expect(
+      // @ts-expect-error -- deliberately the wrong type: the validator must reject it at runtime
+      profile.update(ref, { age: "not a number" }),
+    ).rejects.toThrow("age must be a number");
     expect(await profile.get(ref)).toEqual({ name: "Ada" });
   });
 
