@@ -36,9 +36,11 @@ async function runAgentTurn(stream: AgentStream) {
     if (ev.type === "text") {
       process.stdout.write(ev.text);
     } else if (ev.type === "tool_start" && ev.toolName === "bash") {
+      // SAFETY: the bash tool's own args always carry a `command` string.
       const cmd = (ev.args as { command?: string }).command ?? "";
       process.stdout.write(`\n  $ ${cmd}\n`);
     } else if (ev.type === "tool_end") {
+      // SAFETY: the bash tool's own result always carries an MCP-style content array.
       const out = (ev.result as { content?: { text?: string }[] }).content?.[0]?.text?.trim();
       process.stdout.write(
         out ? `${out.replace(/^/gm, "  ")}\n` : `  ${ev.isError ? "(failed)" : "(ok)"}\n`,

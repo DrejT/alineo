@@ -17,6 +17,8 @@ function jsonResponse<T>(body: T, ok = true, status = 200) {
 
 /** The `[url, init]` pair of the first fetch call, typed. */
 function firstCall(fetchMock: ReturnType<typeof vi.fn>): [string, RequestInit] {
+  // SAFETY: every test using this helper stubs `fetch` and asserts on exactly one call made
+  // with `(url, init)`, matching EgressClient's own `fetch(url, init)` call shape.
   return fetchMock.mock.calls[0] as [string, RequestInit];
 }
 
@@ -73,6 +75,7 @@ describe("EgressClient", () => {
       .catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(EgressClientError);
+    // SAFETY: the toBeInstanceOf() check above just verified this at runtime.
     expect((err as EgressClientError).status).toBe(400);
   });
 

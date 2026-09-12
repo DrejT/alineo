@@ -19,11 +19,12 @@ export async function* watchMetrics(sb: SandboxInternal): AsyncGenerator<Metrics
   const ec = await sb.getExecClient();
 
   for await (const ev of ec.watchMetrics()) {
-    // SSEEvent's declared shape doesn't include cpu/memory (they're metrics-stream-only
+    // SAFETY: SSEEvent's declared shape doesn't include cpu/memory (they're metrics-stream-only
     // fields the wire envelope type doesn't model), so read them defensively rather than
     // asserting the whole event to Metrics -- its `timestamp` type (string) doesn't even
-    // match SSEEvent's (number) anyway.
+    // match SSEEvent's (number) anyway. The `typeof` checks below are the real safety net.
     const cpu = (ev as { cpu?: unknown }).cpu;
+    // SAFETY: same rationale as `cpu` above.
     const memory = (ev as { memory?: unknown }).memory;
 
     if (typeof cpu === "number" && typeof memory === "number") {

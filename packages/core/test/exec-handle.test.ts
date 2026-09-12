@@ -100,7 +100,11 @@ describe("ExecHandle — streaming mode", () => {
     });
 
     await handle;
+
+    // SAFETY: `capturedResult` is set from onDone's own `r` argument, which ExecHandle
+    // always calls with the real ExecResult (exitCode/stdout included).
     expect((capturedResult as { exitCode: number }).exitCode).toBe(42);
+    // SAFETY: same rationale as `exitCode` above.
     expect((capturedResult as { stdout: string }).stdout).toBe("out");
   });
 });

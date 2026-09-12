@@ -33,6 +33,8 @@ describe("SandboxHandle — ledger write ordering (emit queue)", () => {
     let resolveSlow: (() => void) | undefined;
 
     vi.mocked(adapter.append).mockImplementation((entry: LedgerEntry) => {
+      // SAFETY: every emit() call in this test passes `{ id: "slow" | "fast" }` as the
+      // payload -- see the `sb.emit(..., { id: ... })` calls below.
       const id = (entry.payload as { id: string }).id;
 
       if (id === "slow") {
@@ -96,7 +98,7 @@ describe("SandboxHandle — ledger write ordering (emit queue)", () => {
     await vi.waitFor(() => {
       expect(adapter.append).toHaveBeenCalledTimes(1);
     });
-    // TS's array indexing types this as always-defined; widen it so the guard below
+    // SAFETY: TS's array indexing types this as always-defined; widen it so the guard below
     // (real if append() is never called) is meaningful instead of dead code to the checker.
     const entryAtCallTime = vi.mocked(adapter.append).mock.calls[0]?.[0] as LedgerEntry | undefined;
 

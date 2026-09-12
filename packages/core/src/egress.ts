@@ -33,6 +33,8 @@ export function reconstructEgressRules(entries: LedgerEntry[]): ReconstructedEgr
 
   for (const entry of entries) {
     if (entry.event === LedgerEvent.EgressRuleAdded) {
+      // SAFETY: egress_rule_added is only ever emitted by sandbox/egress.ts's own
+      // `sb.emit(LedgerEvent.EgressRuleAdded, -1, { rules })`.
       const { rules } = entry.payload as { rules: NetworkRule[] };
 
       for (const rule of rules) {
@@ -40,6 +42,8 @@ export function reconstructEgressRules(entries: LedgerEntry[]): ReconstructedEgr
         removed.delete(rule.target);
       }
     } else if (entry.event === LedgerEvent.EgressRuleRemoved) {
+      // SAFETY: egress_rule_removed is only ever emitted by sandbox/egress.ts's own
+      // `sb.emit(LedgerEvent.EgressRuleRemoved, -1, { targets })`.
       const { targets } = entry.payload as { targets: string[] };
 
       for (const target of targets) {

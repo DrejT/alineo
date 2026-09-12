@@ -41,6 +41,8 @@ interface SandboxTestInternals {
 // plain test-only interface; the `unknown` hop is the only way to reach it at all.
 /** SandboxCore._execClient is private; this reaches it for tests that need to inject a fake. */
 function setExecClient(sb: SandboxHandle, client: { disposeConnections(): void }): void {
+  // SAFETY: SandboxCore always initializes a `_execClient` field of this name (see
+  // sandbox/core.ts); the `unknown` hop is the only way to reach a genuinely private field.
   (sb as unknown as SandboxTestInternals)._execClient = client;
 }
 

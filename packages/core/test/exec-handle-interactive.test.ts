@@ -142,6 +142,9 @@ describe("InteractiveExecHandle — pty driver", () => {
     const handle = new InteractiveExecHandle(driver);
     emitExit(3);
     await handle;
+
+    // SAFETY: `captured` is set from onDone's own `r` argument, which InteractiveExecHandle
+    // always calls with an object carrying `exitCode`.
     expect((captured as { exitCode: number }).exitCode).toBe(3);
   });
 });

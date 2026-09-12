@@ -75,8 +75,14 @@ export class ControlClient {
       throw new OpenSandboxError(text || "OpenSandbox API error", res.status);
     }
 
-    if (res.status === 204) return undefined as T;
+    if (res.status === 204) {
+      // SAFETY: caller supplies `T` knowing which OpenSandbox endpoint it called; a 204
+      // response body is empty by definition, so `undefined` is the only honest value.
+      return undefined as T;
+    }
 
+    // SAFETY: caller supplies `T` knowing which OpenSandbox endpoint it called; not verified
+    // against the actual response body.
     return res.json() as Promise<T>;
   }
 

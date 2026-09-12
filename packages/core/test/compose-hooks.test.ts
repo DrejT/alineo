@@ -46,6 +46,7 @@ describe("composeHooks", () => {
 
     const hooks = composeHooks([broken, fine], {
       onHookError: (error, hookIndex, method) => {
+        // SAFETY: `broken`'s hook above only ever throws `new Error("boom")`.
         expect((error as Error).message).toBe("boom");
         errors.push({ hookIndex, method });
       },

@@ -51,6 +51,8 @@ function nvidiaEmbeddings(): EmbeddingProvider {
       });
 
       if (!res.ok) throw new Error(`embeddings request failed: ${res.status} ${await res.text()}`);
+
+      // SAFETY: trusts NVIDIA's OpenAI-compatible embeddings response contract.
       const body = (await res.json()) as { data: { embedding: number[]; index: number }[] };
 
       return body.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);

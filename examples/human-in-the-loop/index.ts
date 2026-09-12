@@ -91,6 +91,8 @@ try {
   for await (const ev of agent.prompt(prompt, { onPermission })) {
     if (ev.type === "text") process.stdout.write(ev.text);
     else if (ev.type === "tool_start") {
+      // SAFETY: display-only -- the demo's own tool set (bash/read) only ever carries
+      // {command}/{path} args; a tool this doesn't recognize just prints as "".
       const t = (ev.args as { command?: string; path?: string }) ?? {};
       const label = `${ev.toolName} ${t.command ?? t.path ?? ""}`.trim();
       toolCalls.set(ev.toolCallId, { label, asked: false, blocked: false });
@@ -136,6 +138,9 @@ try {
   for (const e of await adapter.readAll(agent.name, agent.sandboxId)) {
     if (e.event !== "permission_requested" && e.event !== "permission_resolved") continue;
 
+    // SAFETY: permission_requested/permission_resolved ledger entries are only ever written
+    // by egress-approval.ts's PermissionRequested/PermissionResolved emitters, both with
+    // exactly this shape.
     const p = e.payload as {
       requestId: string;
       tool?: string;

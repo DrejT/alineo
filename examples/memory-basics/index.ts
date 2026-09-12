@@ -115,16 +115,18 @@ interface Profile {
 
 const validator: SchemaValidator<Profile> = {
   parse(data) {
-    // `Record<string, unknown>` is correct here, not a lazy dictionary: `parse`'s whole job
-    // is inspecting unparsed `data` field-by-field below (anti-slop/no-unsafe-dictionary-type
-    // is off for this file, see .oxlintrc.json -- same reasoning as schema-working-memory.ts's
-    // own hand-rolled validator).
+    // SAFETY: `Record<string, unknown>` is correct here, not a lazy dictionary: `parse`'s
+    // whole job is inspecting unparsed `data` field-by-field below (anti-slop/
+    // no-unsafe-dictionary-type is off for this file, see .oxlintrc.json -- same reasoning
+    // as schema-working-memory.ts's own hand-rolled validator).
     const obj = data as Record<string, unknown>;
 
     if (obj.plan !== undefined && obj.plan !== "free" && obj.plan !== "pro") {
       throw new Error(`invalid plan: ${String(obj.plan)}`);
     }
 
+    // SAFETY: `plan` was checked above; `name` needs no check (Profile allows it to be
+    // any string or absent).
     return obj as Profile;
   },
 };
@@ -213,6 +215,7 @@ console.log("allowed team:", await guarded.get(teamRef, "key"));
 try {
   await guarded.get({ resourceId: "user-42", teamId: "team-beta" }, "key");
 } catch (err) {
+  // SAFETY: display-only -- withTeamAccessControl() only ever throws `new Error(...)`.
   console.log("denied team:", (err as Error).message);
 }
 

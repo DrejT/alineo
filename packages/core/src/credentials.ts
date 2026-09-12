@@ -133,6 +133,8 @@ export function reconstructBoundCredentials(entries: LedgerEntry[]): Map<string,
 
   for (const entry of entries) {
     if (entry.event === LedgerEvent.CredentialBound) {
+      // SAFETY: credential_bound is only ever emitted by sandbox/credentials.ts's own
+      // `sb.emit(LedgerEvent.CredentialBound, -1, { name, binding, source })`.
       const { name, binding, source } = entry.payload as {
         name: string;
         binding: CredentialBinding;
@@ -141,6 +143,8 @@ export function reconstructBoundCredentials(entries: LedgerEntry[]): Map<string,
 
       result.set(name, { binding, source });
     } else if (entry.event === LedgerEvent.CredentialRevoked) {
+      // SAFETY: credential_revoked is only ever emitted by sandbox/credentials.ts's own
+      // `sb.emit(LedgerEvent.CredentialRevoked, -1, { name })`.
       const { name } = entry.payload as { name: string };
       result.delete(name);
     }

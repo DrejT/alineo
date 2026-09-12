@@ -91,6 +91,8 @@ console.log(`tool_end    events: ${ends.length}`);
 console.log(`text output length: ${textOutput.length} chars`);
 
 // Tool names seen
+// SAFETY: `starts` was filtered to `e.type === "tool_start"` above -- Array.prototype.filter
+// doesn't narrow the element type, so this just recovers what the filter already guarantees.
 const toolNames = [
   ...new Set(starts.map((e) => (e as Extract<AgentEvent, { type: "tool_start" }>).toolName)),
 ];

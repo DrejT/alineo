@@ -81,6 +81,8 @@ async function listRunningSandboxes(): Promise<RawSandbox[]> {
   });
 
   if (!res.ok) throw new Error(`control-plane list failed: ${res.status}`);
+
+  // SAFETY: trusts OpenSandbox's own `/v1/sandboxes` list response contract.
   const data = (await res.json()) as { items: RawSandbox[] };
 
   return data.items;

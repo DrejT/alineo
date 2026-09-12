@@ -45,6 +45,8 @@ async function runUntrusted(label: string, code: string): Promise<RunResult> {
   } catch (e) {
     // Only connection-level failures land here — strict: false already turns
     // ordinary non-zero exits into data, but a timed-out exec still throws.
+    // SAFETY: the only non-CommandError throw on this path is exec()'s own
+    // timeout Error, so `e` is always Error-like here.
     const message = e instanceof CommandError ? e.message : (e as Error).message;
 
     return { label, ok: false, stdout: "", stderr: "", error: message };

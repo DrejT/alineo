@@ -84,6 +84,10 @@ describe("PtyClient", () => {
     const sessionId = await client.create({ cwd: "/root" });
 
     expect(sessionId).toBe("abc-123");
+    // SAFETY: vitest's `expect.objectContaining()` returns an asymmetric matcher, not a real
+    // `HeadersInit` -- the surrounding object literal's `headers` field only accepts that
+    // structurally when widened to `unknown`. `toHaveBeenCalledWith` matches structurally,
+    // not by the declared type, at runtime.
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:8080/pty",
       expect.objectContaining({

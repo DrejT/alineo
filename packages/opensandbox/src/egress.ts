@@ -78,12 +78,19 @@ export class EgressClient {
       const res = await fetch(`${baseUrl}/policy`, init);
 
       if (res.ok) {
-        if (res.status === 204) return undefined as T;
+        if (res.status === 204) {
+          // SAFETY: caller supplies `T` knowing which egress endpoint it called; a 204
+          // response body is empty by definition, so `undefined` is the only honest value.
+          return undefined as T;
+        }
+
         // The `/policy` server always writes a JSON status envelope, but tolerate an empty
         // body rather than surfacing a bare `SyntaxError` from `res.json()` on a mutation
         // that otherwise succeeded.
         const text = await res.text();
 
+        // SAFETY: caller supplies `T` knowing which egress endpoint it called; not verified
+        // against the actual response body.
         return (text ? JSON.parse(text) : undefined) as T;
       }
 
