@@ -1,13 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import type { CredentialBinding, SandboxHandle } from "@alineo-labs/core";
+import type { CredentialBinding } from "@alineo-labs/core";
 import {
   EgressApprovalGate,
+  type EgressApprovalSandbox,
   type EgressDecision,
   type HeldCredential,
 } from "../src/agent/egress-approval";
 
 interface FakeSandbox {
-  handle: SandboxHandle;
+  handle: EgressApprovalSandbox;
   patches: Array<Array<{ action: string; target: string }>>;
   credsSet: string[];
   credsRemoved: string[];
@@ -20,24 +21,28 @@ function fakeSandbox(): FakeSandbox {
   const credsRemoved: string[] = [];
   const emits: FakeSandbox["emits"] = [];
 
-  const handle = {
+  const handle: EgressApprovalSandbox = {
     egress: {
       patch: async (rules: Array<{ action: string; target: string }>) => {
         patches.push(rules);
       },
+      delete: async () => {},
+      get: async () => ({}),
     },
     credentials: {
       set: async (name: string) => {
         credsSet.push(name);
       },
+      patch: async () => {},
       remove: async (name: string) => {
         credsRemoved.push(name);
       },
+      listBindings: async () => [],
     },
     emit: async (event: string, _step: number, payload: unknown) => {
       emits.push({ event, payload });
     },
-  } as unknown as SandboxHandle;
+  };
 
   return { handle, patches, credsSet, credsRemoved, emits };
 }

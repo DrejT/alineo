@@ -169,7 +169,7 @@ describe("SQLiteAdapter", () => {
       expect(d?.sandboxId).toBe("abc-123");
       expect(d?.name).toBe("my-sb");
       expect(d?.runId).toBe("abc-123");
-      expect((d as unknown as { workflowName?: unknown } | null)?.workflowName).toBeUndefined();
+      expect((d as { workflowName?: unknown } | null)?.workflowName).toBeUndefined();
     });
   });
 

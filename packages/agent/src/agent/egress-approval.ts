@@ -6,6 +6,10 @@ import {
   type SandboxHandle,
 } from "@alineo-labs/core";
 
+/** The subset of `SandboxHandle` this gate actually calls -- narrow on purpose, so tests can
+ * pass a plain structural mock instead of a cast standing in for the full class. */
+export type EgressApprovalSandbox = Pick<SandboxHandle, "egress" | "credentials" | "emit">;
+
 /**
  * Human-in-the-loop gate for a sandboxed agent's outbound network access.
  *
@@ -74,7 +78,7 @@ export interface EgressApprovalGateOptions {
 export class EgressApprovalGate {
   private server: Server | undefined;
   private port = 0;
-  private sandbox: SandboxHandle | undefined;
+  private sandbox: EgressApprovalSandbox | undefined;
   private readonly handler: EgressRequestHandler;
   private readonly webhookHost: string;
   /** host → the held credentials bound to it. */
@@ -103,11 +107,11 @@ export class EgressApprovalGate {
   }
 
   /** Attach the sandbox whose egress this gate manages. Called once its handle exists. */
-  bind(sandbox: SandboxHandle): void {
+  bind(sandbox: EgressApprovalSandbox): void {
     this.sandbox = sandbox;
   }
 
-  private sb(): SandboxHandle {
+  private sb(): EgressApprovalSandbox {
     if (!this.sandbox) throw new Error("EgressApprovalGate.bind() has not been called");
 
     return this.sandbox;

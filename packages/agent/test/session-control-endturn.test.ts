@@ -3,6 +3,10 @@ import type { AgentEvent } from "../src/types";
 import { bash } from "../src/agent/session-control";
 import type { AgentInternal } from "../src/agent/internal";
 
+// anti-slop/no-chained-type-assertions is turned off for this file (see .oxlintrc.json) --
+// AgentInternal.sandbox/egressGate are real classes (SandboxHandle/EgressApprovalGate) with
+// private fields, so no single assertion can bridge a plain facade mock to them; the `unknown`
+// hop is the only way to construct a fake AgentInternal at all.
 /** An `AgentInternal` just complete enough for `bash()` → `instrument()`. */
 function fakeAgent(events: AgentEvent[]) {
   let endTurnCalls = 0;

@@ -8,6 +8,7 @@ import type { SandboxApi } from "@flue/runtime";
 type MockSessionEnv = { _cwd: string };
 
 let capturedApi: SandboxApi | null = null;
+
 let capturedCwd: string | null = null;
 
 void mock.module("@flue/runtime", () => ({

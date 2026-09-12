@@ -110,7 +110,8 @@
       "files": [
         "**/core/test/sandbox-close.test.ts",
         "**/core/test/sandbox-replay.test.ts",
-        "**/sdks/typescript/test/client.test.ts"
+        "**/sdks/typescript/test/client.test.ts",
+        "**/agent/test/session-control-endturn.test.ts"
       ],
       "rules": {
         "anti-slop/no-chained-type-assertions": "off"
