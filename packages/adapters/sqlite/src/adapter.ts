@@ -117,8 +117,10 @@ function rowToEntry(row: Row): LedgerEntry {
     name: row.name,
     stepIndex: row.step_idx,
     branch: row.branch ?? undefined,
+    // SAFETY: this column only ever holds a LedgerEvent value -- `append()` below is the only
+    // writer, and always stores `entry.event` verbatim.
     event: row.event as LedgerEvent,
-    payload: row.payload !== null ? (JSON.parse(row.payload) as unknown) : undefined,
+    payload: row.payload !== null ? JSON.parse(row.payload) : undefined,
     error: row.error ?? undefined,
     ts: row.ts,
   };
@@ -136,6 +138,8 @@ export class SQLiteAdapter implements IStorageAdapter {
     try {
       mkdirSync(dirname(path), { recursive: true });
     } catch (e) {
+      // SAFETY: mkdirSync only ever throws a Node fs error, which is always an
+      // NodeJS.ErrnoException with a `.code`.
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     }
 
@@ -236,6 +240,9 @@ export class SQLiteAdapter implements IStorageAdapter {
       .all(name, sandboxId);
 
     return rows.map((r) => {
+      // SAFETY: this query only matches `checkpoint_created` rows, whose payload is always
+      // `{ snapshotId, name? }` (append()'s own callers, e.g. sandbox checkpoint()/fork(),
+      // never write a different shape for this event).
       const p =
         r.payload !== null
           ? (JSON.parse(r.payload) as { snapshotId: string; name?: string })

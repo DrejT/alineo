@@ -51,6 +51,8 @@ function makeDeps(adapter: IStorageAdapter, overrides: Partial<SandboxDeps> = {}
 }
 
 function appendedEntries(adapter: ReturnType<typeof makeAdapter>): LedgerEntry[] {
+  // SAFETY: adapter.append's real signature (IStorageAdapter.append) takes one LedgerEntry
+  // argument; vi.fn()'s untyped mock.calls just doesn't carry that through.
   return adapter.append.mock.calls.map((c) => c[0] as LedgerEntry);
 }
 
@@ -76,6 +78,7 @@ describe("SandboxHandle.fork()", () => {
     expect(events).toContain(LedgerEvent.CheckpointCreated);
 
     const cpEntry = entries.find((e) => e.event === LedgerEvent.CheckpointCreated);
+    // SAFETY: checkpoint()/fork() are the only writers of CheckpointCreated entries, and always write `{ snapshotId, name }`.
     expect((cpEntry?.payload as { snapshotId: string } | undefined)?.snapshotId).toBe("snap-xyz");
 
     expect(forkFn).toHaveBeenCalledWith("snap-xyz", undefined, undefined, {
@@ -104,6 +107,8 @@ describe("SandboxHandle.fork()", () => {
     });
 
     const cpEntry = appendedEntries(adapter).find((e) => e.event === LedgerEvent.CheckpointCreated);
+
+    // SAFETY: same CheckpointCreated invariant as the test above.
     expect((cpEntry?.payload as { name?: string } | undefined)?.name).toBe("after-install");
   });
 
@@ -167,6 +172,8 @@ describe("SandboxHandle.fork()", () => {
 
     await sb.fork();
 
+    // SAFETY: forkFn is a vi.fn() standing in for SandboxDeps["fork"]; its mock.calls args
+    // genuinely match that signature since it's the only thing ever assigned to `fork:` above.
     const [, , , opts] = forkFn.mock.calls[0] as Parameters<NonNullable<SandboxDeps["fork"]>>;
     expect(opts?.resourceId).toBeUndefined();
     expect(opts?.teamId).toBeUndefined();

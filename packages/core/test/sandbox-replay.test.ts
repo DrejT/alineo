@@ -41,11 +41,11 @@ interface SandboxTestInternals {
   _execClient: unknown;
 }
 
-// anti-slop/no-chained-type-assertions is turned off for this file (see .oxlintrc.json) --
-// SandboxCore._execClient is genuinely private, so no single assertion can bridge it to this
-// plain test-only interface; the `unknown` hop is the only way to reach it at all.
+// anti-slop/no-chained-type-assertions is turned off for this file (see .oxlintrc.json).
 /** SandboxCore._execClient is private; this reaches it for tests that need to inject a fake. */
 function setExecClient(sb: SandboxHandle, client: ReturnType<typeof makeExecClient>): void {
+  // SAFETY: _execClient is genuinely private, so no single assertion can bridge it to this
+  // plain test-only interface; the `unknown` hop is the only way to reach it at all.
   (sb as unknown as SandboxTestInternals)._execClient = client;
 }
 
@@ -57,6 +57,8 @@ function makeDeps(adapter: IStorageAdapter): SandboxDeps {
 }
 
 function appendedEntries(adapter: ReturnType<typeof makeAdapter>): LedgerEntry[] {
+  // SAFETY: adapter.append's real signature (IStorageAdapter.append) takes one LedgerEntry
+  // argument; vi.fn()'s untyped mock.calls just doesn't carry that through.
   return adapter.append.mock.calls.map((c) => c[0] as LedgerEntry);
 }
 
@@ -187,6 +189,8 @@ describe("SandboxHandle live mode", () => {
 
     for (const entry of appendedEntries(adapter)) {
       expect(entry.sandboxId).toBe("session-abc");
+      // SAFETY: checking for the absence of a property LedgerEntry doesn't declare -- not a
+      // privacy issue, just proving `runId` was never written onto this entry.
       expect((entry as { runId?: unknown }).runId).toBeUndefined();
     }
   });

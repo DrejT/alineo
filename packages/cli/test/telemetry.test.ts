@@ -143,6 +143,7 @@ describe("sendTelemetryEvent", () => {
     let capturedUrl: string | undefined;
     globalThis.fetch = stubFetch((url, init) => {
       capturedUrl = String(url);
+      // SAFETY: sendTelemetryEvent() always calls fetch with a JSON.stringify'd string body.
       capturedBody = init?.body as string;
 
       return Promise.resolve(new Response(null, { status: 204 }));
@@ -175,6 +176,7 @@ describe("withTelemetry", () => {
     await writeTelemetryConfig({ enabled: true, anonymousId: "x", notifiedAt: Date.now() });
     let capturedBody: string | undefined;
     globalThis.fetch = stubFetch((_url, init) => {
+      // SAFETY: sendTelemetryEvent() always calls fetch with a JSON.stringify'd string body.
       capturedBody = init?.body as string;
 
       return Promise.resolve(new Response(null, { status: 204 }));
@@ -189,6 +191,8 @@ describe("withTelemetry", () => {
       }),
     ).rejects.toBe(boom);
 
+    // SAFETY: sendTelemetryEvent() (this same file's code under test) always sends a
+    // JSON-serialized CliTelemetryEvent as the body.
     const sent = JSON.parse(capturedBody ?? "{}") as CliTelemetryEvent;
     expect(sent.outcome).toBe("error");
     expect(sent.errorClass).toBe("Error");
@@ -198,6 +202,7 @@ describe("withTelemetry", () => {
     await writeTelemetryConfig({ enabled: true, anonymousId: "x", notifiedAt: Date.now() });
     let capturedBody: string | undefined;
     globalThis.fetch = stubFetch((_url, init) => {
+      // SAFETY: sendTelemetryEvent() always calls fetch with a JSON.stringify'd string body.
       capturedBody = init?.body as string;
 
       return Promise.resolve(new Response(null, { status: 204 }));
@@ -206,6 +211,8 @@ describe("withTelemetry", () => {
     // "agents" only allowlists --json; --not-a-real-flag must never appear in the sent event.
     await withTelemetry("agents", ["--json", "--not-a-real-flag"], async () => {});
 
+    // SAFETY: sendTelemetryEvent() (this same file's code under test) always sends a
+    // JSON-serialized CliTelemetryEvent as the body.
     const sent = JSON.parse(capturedBody ?? "{}") as CliTelemetryEvent;
     expect(sent.flags).toEqual({ json: true });
   });
