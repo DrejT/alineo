@@ -386,6 +386,8 @@ async function reconcileDroppedPermissions(
 
     for (const e of events) {
       if (e.event === LedgerEvent.PermissionResolved) {
+        // SAFETY: egress-approval.ts/session-control.ts are the only emitters of
+        // PermissionResolved entries, and always include `requestId`.
         const rid = (e.payload as { requestId?: string } | undefined)?.requestId;
 
         if (rid) resolved.add(rid);
@@ -394,6 +396,7 @@ async function reconcileDroppedPermissions(
 
     for (const e of events) {
       if (e.event !== LedgerEvent.PermissionRequested) continue;
+      // SAFETY: same PermissionRequested/PermissionResolved payload invariant as above.
       const rid = (e.payload as { requestId?: string } | undefined)?.requestId;
 
       if (rid && !resolved.has(rid)) {
@@ -446,7 +449,7 @@ export async function attachAgent(
   const env = parseShellExports(envFile);
   // Falls back to a fresh UUID only when attaching to a sandbox created before this
   // field existed — every sandbox created going forward always has ALINEO_RUN_ID baked in.
-  // parseShellExports()'s Record<string, string> is optimistic about which keys are
+  // SAFETY: parseShellExports()'s Record<string, string> is optimistic about which keys are
   // actually present; this specific key genuinely may be missing.
   const runId = (env.ALINEO_RUN_ID as string | undefined) ?? crypto.randomUUID();
   const stubSpec: AgentSpec = { name: opts.name, cli: "pi" };

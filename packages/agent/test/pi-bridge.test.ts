@@ -54,6 +54,8 @@ const configPath = join(dir, "alineo-pi.json");
 let proc: ReturnType<typeof Bun.spawn>;
 
 async function getJson<T>(url: string): Promise<T> {
+  // SAFETY: caller supplies T knowing which bridge endpoint it fetched; not verified against
+  // the actual response body.
   return (await (await fetch(url)).json()) as T;
 }
 
@@ -61,6 +63,7 @@ async function waitForHealth() {
   for (let i = 0; i < 100; i++) {
     try {
       const r = await fetch(`${BASE}/health`);
+      // SAFETY: pi-bridge.js's own `/health` route always responds `{ ok: boolean }`.
       const body = (await r.json().catch(() => null)) as { ok?: boolean } | null;
 
       if (r.ok && body?.ok) return;
@@ -96,6 +99,8 @@ function openPermissionStream(sink: SseEvent[], signal: AbortSignal) {
         for (const l of lines) {
           if (l.startsWith("data: ") && l.slice(6).trim() !== "[DONE]") {
             try {
+              // SAFETY: pi-bridge.js's own SSE wire contract -- every `data:` line (other
+              // than `[DONE]`, excluded above) is a JSON-encoded SseEvent.
               sink.push(JSON.parse(l.slice(6)) as SseEvent);
             } catch {}
           }
