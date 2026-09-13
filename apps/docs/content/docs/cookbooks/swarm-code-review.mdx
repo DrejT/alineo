@@ -63,48 +63,51 @@ NVIDIA_API_KEY=nvapi-... bun run start
   repoHref="https://github.com/DrejT/alineo/tree/main/cookbooks/swarm-code-review"
   commands={[{ command: "bun install" }, { command: "bun start" }]}
   output={`Starting the review lead (first run installs git and clones the repo)...
-  review-lead            sandbox ready
-  review-lead            bash
+review-lead sandbox ready
+review-lead bash
 
 Reviewing expressjs/cors at 5317ebe docs: app.del() with app.delete() in README example (#411)
 
-  reviewer-security      sandbox ready
-  reviewer-correctness   sandbox ready
-  reviewer-tests         sandbox ready
-  reviewer-security      bash
-  reviewer-correctness   bash
-  reviewer-tests         bash
-  reviewer-tests         running → paused (operator)
-  reviewer-tests         paused → running (operator)
-  reviewer-security      steered
-  reviewer-security      bash
-  reviewer-correctness   done (success)
-  reviewer-tests         done (success)
-  reviewer-security      done (success)
-  editor                 sandbox ready
-  editor                 bash
-  editor                 done (success)
+reviewer-security sandbox ready
+reviewer-correctness sandbox ready
+reviewer-tests sandbox ready
+reviewer-security bash
+reviewer-correctness bash
+reviewer-tests bash
+reviewer-tests running → paused (operator)
+reviewer-tests paused → running (operator)
+reviewer-security steered
+reviewer-security bash
+reviewer-correctness done (success)
+reviewer-tests done (success)
+reviewer-security done (success)
+editor sandbox ready
+editor bash
+editor done (success)
 
 # Code Review: expressjs/cors @ 5317ebe
 
 ## Security
+
 - **lib/index.js:19-33, :58-62** — \`origin: true\` (or any origin callback resolving to boolean \`true\`) falls through isOriginAllowed's final else branch (\`return !!allowedOrigin\`), so every request's Origin header is reflected back as allowed with no real allowlist check. Combined with \`credentials: true\` at lib/index.js:85, this reproduces the classic reflect-any-origin-plus-credentials CORS misconfiguration — safe only if callers understand that \`origin: true\` disables validation entirely, which the README doesn't call out at the option definition.
 
 ## Correctness
+
 - **lib/index.js:94-99** — configureAllowedHeaders treats \`options.headers\` as an undocumented alias for \`options.allowedHeaders\`; if neither is set, it reflects Access-Control-Request-Headers verbatim on every preflight with no validation against an allowlist.
 - **lib/index.js:173-183** — the non-preflightContinue path unconditionally ends every OPTIONS request with optionsSuccessStatus, even one this middleware wasn't meant to guard — fine for typical single-mount usage, but a footgun if cors() is mounted broadly alongside routes that define their own OPTIONS handler.
 
 ## Tests
+
 - No test exercises \`options.origin\` as a mixed array of strings, RegExps, and booleans together — only single-type arrays are covered, so isOriginAllowed's recursive branch (lib/index.js:19-33) goes untested for the mixed case.
 - No test covers an origin callback resolving to boolean \`true\` (vs. a string or array) — the exact shape flagged under Security — so that behavior is currently unverified by the suite.
 
 Written to review.md
 
-review-lead              success
-  reviewer-security      success
-  reviewer-correctness   success
-  reviewer-tests         success
-  editor                 success`}
+review-lead success
+reviewer-security success
+reviewer-correctness success
+reviewer-tests success
+editor success`}
 />
 
 ## What it does
@@ -160,8 +163,9 @@ Every agent's progress arrives on a single `GET /runs/:runId/events` connection 
 tool calls, tagged with the `agentId` that produced them.
 
 <Callout title="Adapt it">
-  To review a different repository, change the clone URL in `agents/lead.json`, and the paths and concerns in
-  `index.ts`. Add a concern by adding a key to `concerns` — and raise `maxAgents` if the swarm grows past five.
+  To review a different repository, change the clone URL in `agents/lead.json`, and the paths and
+  concerns in `index.ts`. Add a concern by adding a key to `concerns` — and raise `maxAgents` if the
+  swarm grows past five.
 </Callout>
 
 <Callout title="Where to go next">
