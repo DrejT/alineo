@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Alineo — Sandboxes for coding agents</title>
+<meta name="description" content="Alineo runs Pi coding agents inside isolated, stateful, resumable sandboxes. Spawn, exec, checkpoint, fork — a durable substrate for agent execution." />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a; --panel:#111111; --panel2:#0d0d0d; --border:#232323;
+    --text:#ededed; --muted:#8a8a8a; --muted2:#5a5a5a; --accent:#d98d51; --accent2:#e8ac7a;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  ::selection{background:rgba(217,141,81,.3);color:#fff}
+  ::-webkit-scrollbar{width:10px}
+  ::-webkit-scrollbar-track{background:#0a0a0a}
+  ::-webkit-scrollbar-thumb{background:#242424;border-radius:6px}
+
+  .grain{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.03;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .dot-grid{
+    background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);
+    background-size:26px 26px;
+  }
+  .fade-edge{-webkit-mask-image:linear-gradient(to bottom,transparent,black 8%,black 92%,transparent);mask-image:linear-gradient(to bottom,transparent,black 8%,black 92%,transparent)}
+
+  /* scroll reveal */
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+  .reveal.in{opacity:1;transform:translateY(0)}
+  .reveal-scale{opacity:0;transform:scale(.96);transition:opacity .6s ease,transform .6s ease}
+  .reveal-scale.in{opacity:1;transform:scale(1)}
+
+  .glow-btn{position:relative;overflow:hidden}
+  .glow-btn:before{content:"";position:absolute;inset:-2px;background:conic-gradient(from 0deg,var(--accent),transparent 30%);opacity:0;transition:opacity .3s;animation:spin 3s linear infinite}
+  .glow-btn:hover:before{opacity:.5}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .card-hover{transition:transform .35s cubic-bezier(.16,1,.3,1),border-color .35s ease,background-color .35s ease}
+  .card-hover:hover{transform:translateY(-4px);border-color:rgba(217,141,81,.35)}
+
+  .ascii{white-space:pre;line-height:1.05;font-size:9px;color:var(--muted2);letter-spacing:0}
+  .ascii-accent{color:var(--accent)}
+  @media(min-width:768px){.ascii{font-size:11px}}
+
+  .tab-item{cursor:pointer;border-left:2px solid transparent;transition:.25s ease}
+  .tab-item.active{border-left-color:var(--accent);background:rgba(217,141,81,.06)}
+  .tab-item:not(.active):hover{background:rgba(255,255,255,.03)}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block;animation:fadeIn .45s ease}
+  .tab-desc{display:none}
+  .tab-desc.active{display:block;animation:fadeIn .45s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  .blink{animation:blink 1.1s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  .marquee-track{display:flex;width:max-content;animation:marquee 28s linear infinite}
+  @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  .acc-item{border-top:1px solid var(--border)}
+  .acc-item:last-child{border-bottom:1px solid var(--border)}
+  .acc-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+  .acc-item.open .acc-body{max-height:220px}
+  .acc-chevron{transition:transform .3s ease}
+  .acc-item.open .acc-chevron{transform:rotate(45deg)}
+
+  .float-slow{animation:floaty 6s ease-in-out infinite}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+  .beam{position:absolute;width:1px;background:linear-gradient(to bottom,transparent,var(--accent),transparent);opacity:.5}
+
+  #copy-btn:active{transform:scale(.96)}
+</style>
+</head>
+<body class="antialiased">
+<div class="grain"></div>
+
+<!-- ============ NAV ============ -->
+<header class="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-black/40 border-b border-white/[0.06]">
+  <div class="max-w-[1320px] mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2.5 group">
+      <svg viewBox="0 0 100 100" class="w-6 h-6 text-white group-hover:text-[var(--accent)] transition-colors" fill="currentColor">
+        <circle cx="50" cy="30" r="16" />
+        <circle cx="32" cy="62" r="16" />
+        <circle cx="68" cy="62" r="16" />
+        <path d="M43 45 Q 50 55 57 45 Q 60 55 50 60 Q 40 55 43 45 Z" />
+      </svg>
+      <span class="font-semibold text-[15px] tracking-tight">alineo</span>
+    </a>
+    <nav class="hidden lg:flex items-center gap-8 text-[13px] font-medium text-neutral-400">
+      <a href="#primitives" class="hover:text-white transition-colors">Platform</a>
+      <a href="#sdk" class="hover:text-white transition-colors">Agent SDK</a>
+      <a href="#use-cases" class="hover:text-white transition-colors">Use cases</a>
+      <a href="#gallery" class="hover:text-white transition-colors">Showcase</a>
+      <a href="#security" class="hover:text-white transition-colors">Security</a>
+      <a href="https://docs.alineo.tech/docs/agent" class="hover:text-white transition-colors">Docs</a>
+    </nav>
+    <div class="flex items-center gap-3">
+      <a href="https://github.com/DrejT/alineo" target="_blank" rel="noopener" class="hidden sm:flex items-center gap-2 text-[13px] text-neutral-400 hover:text-white transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.09 3.29 9.4 7.86 10.93.57.1.79-.25.79-.55 0-.27-.01-1-.02-1.96-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.29-1.69-1.29-1.69-1.05-.72.08-.7.08-.7 1.17.08 1.78 1.2 1.78 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.59.24 2.76.12 3.05.74.8 1.18 1.83 1.18 3.09 0 4.43-2.69 5.41-5.25 5.69.41.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.2.66.8.55A11.5 11.5 0 0 0 23.5 12c0-6.35-5.15-11.5-11.5-11.5Z"/></svg>
+        <span>4.9k</span>
+      </a>
+      <a href="https://docs.alineo.tech/docs/agent" class="px-4 py-2 rounded-md bg-white text-black text-[13px] font-semibold hover:bg-neutral-200 active:scale-95 transition-all">Get started</a>
+    </div>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="relative min-h-screen flex items-center overflow-hidden dot-grid">
+  <div class="absolute inset-0 fade-edge">
+    <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full opacity-[0.12]" style="background:radial-gradient(circle,var(--accent),transparent 60%)"></div>
+  </div>
+
+  <div class="relative z-10 max-w-[1320px] mx-auto px-6 md:px-10 pt-28 pb-16 w-full grid lg:grid-cols-[1.05fr_0.95fr] gap-14 items-center">
+    <!-- Copy -->
+    <div>
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-[10px] font-semibold tracking-widest text-neutral-400 uppercase mb-7">
+        <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent)]"></span>
+        Built on OpenSandbox · Apache 2.0
+      </div>
+      <h1 class="text-[44px] sm:text-[56px] lg:text-[64px] font-semibold tracking-tight leading-[1.03] mb-6">
+        Everything your<br/>
+        coding agent needs<br/>
+        <span class="text-neutral-500">to actually run.</span>
+      </h1>
+      <p class="text-neutral-400 text-[17px] max-w-[520px] leading-relaxed mb-9">
+        Alineo runs Pi coding agents inside isolated, stateful sandbox containers —
+        exec, checkpoint, resume, and fork, streamed back over one plain TypeScript API.
+      </p>
+      <div class="flex flex-wrap items-center gap-4 mb-10">
+        <a href="https://docs.alineo.tech/docs/agent" class="px-6 py-3 rounded-md bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-95 transition-all">Get started free</a>
+        <a href="https://github.com/DrejT/alineo" target="_blank" rel="noopener" class="px-6 py-3 rounded-md border border-white/15 text-white font-semibold text-sm hover:bg-white/10 active:scale-95 transition-all">View on GitHub</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="mono text-[13px] px-4 py-2.5 rounded-md bg-[#111] border border-white/10 text-neutral-300 flex items-center gap-3">
+          <span class="text-neutral-600">$</span>
+          <span>bunx alineo-cli init</span>
+          <span class="w-1.5 h-3.5 bg-[var(--accent)] blink"></span>
+        </div>
+        <button id="copy-btn" class="text-[12px] text-neutral-500 hover:text-white transition-colors mono">copy</button>
+      </div>
+    </div>
+
+    <!-- Pixel / ASCII hero art -->
+    <div class="relative flex items-center justify-center reveal-scale in">
+      <div class="absolute w-[420px] h-[420px] rounded-full opacity-20 blur-3xl" style="background:radial-gradient(circle,var(--accent),transparent 65%)"></div>
+      <pre class="ascii relative z-10 float-slow select-none">
+░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░
+░░░░░░░░░░▓▓▓▓▓████████████████▓▓▓▓░░░░░░░░░░
+░░░░░░░▓▓▓█████░░░░░░░░░░░░░░████████▓▓░░░░░░
+░░░░░▓▓███░░░░░░<span class="ascii-accent">▓▓▓▓▓▓▓▓▓▓</span>░░░░░░░███▓▓░░░░░
+░░░░▓██░░░░░░░░<span class="ascii-accent">▓░░░░░░░░▓</span>░░░░░░░░░░██▓░░░░
+░░░▓██░░░░░░░░░<span class="ascii-accent">▓░ sbx ░▓</span>░░░░░░░░░░░██▓░░░
+░░▓██░░░░░░░░░░<span class="ascii-accent">▓░ 8f4k ░▓</span>░░░░░░░░░░░░██▓░░
+░░██░░░░░░░░░░░<span class="ascii-accent">▓▓▓▓▓▓▓▓▓▓</span>░░░░░░░░░░░░░██░░
+░▓██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░██▓░
+░██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░██░
+░██░░░<span class="ascii-accent">╔══════╗</span>░░░░░░░░░░░░░░░░░<span class="ascii-accent">╔══════╗</span>░██░
+░██░░░<span class="ascii-accent">║ exec ║</span>──────────────────<span class="ascii-accent">║ fork ║</span>░██░
+░██░░░<span class="ascii-accent">╚══════╝</span>░░░░░░░░░░░░░░░░░<span class="ascii-accent">╚══════╝</span>░██░
+░▓██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░██▓░
+░░██░░░░░░░░░░░░░<span class="ascii-accent">▓▓▓▓▓▓▓▓▓▓</span>░░░░░░░░░░░░░██░░
+░░▓██░░░░░░░░░░░<span class="ascii-accent">▓ cp_0142 ▓</span>░░░░░░░░░░░██▓░░
+░░░▓██░░░░░░░░░░<span class="ascii-accent">▓▓▓▓▓▓▓▓▓▓</span>░░░░░░░░░░░██▓░░░
+░░░░▓██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░██▓░░░░
+░░░░░▓▓███░░░░░░░░░░░░░░░░░░░░░░░░░░░███▓▓░░░░░
+░░░░░░░▓▓█████░░░░░░░░░░░░░░████████▓▓░░░░░░░░
+░░░░░░░░░░▓▓▓▓█████████████████▓▓▓▓░░░░░░░░░░░
+░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░</pre>
+    </div>
+  </div>
+
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-neutral-600">
+    <span class="text-[10px] tracking-[0.2em] uppercase mono">Watch it run</span>
+    <svg class="w-4 h-4 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+  </div>
+</section>
+
+<!-- ============ LIVE ANIMATION (first thing after scroll) ============ -->
+<section class="relative bg-black border-y border-white/[0.06] py-16">
+  <div class="max-w-[1320px] mx-auto px-6 md:px-10 mb-8 reveal">
+    <p class="text-[11px] tracking-[0.2em] uppercase text-[var(--accent)] font-semibold mb-3 mono">Live session</p>
+    <h2 class="text-3xl md:text-[40px] font-semibold tracking-tight max-w-xl">One prompt. A real sandbox. A durable session.</h2>
+  </div>
+  <div class="max-w-[1320px] mx-auto px-4">
+    <div class="reveal-scale rounded-2xl border border-white/10 overflow-hidden" style="aspect-ratio:1180/780;background:#0b0b0b">
+      <iframe src="animations/agent-primitives.html" title="Alineo agent primitives animation" loading="lazy"
+        class="w-full h-full" style="border:0;display:block" scrolling="no"></iframe>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHY ALINEO — TABBED PRIMITIVES ============ -->
+<section id="primitives" class="relative py-28 border-b border-white/[0.06]">
+  <div class="max-w-[1320px] mx-auto px-6 md:px-10">
+    <div class="reveal mb-16">
+      <p class="text-[11px] tracking-[0.2em] uppercase text-neutral-500 font-semibold mb-3 mono">Why Alineo</p>
+      <h2 class="text-3xl md:text-[46px] font-semibold tracking-tight max-w-2xl leading-[1.1]">
+        Your agent is smart.<br/>Its sandbox should be too.
+      </h2>
+    </div>
+
+    <div class="grid lg:grid-cols-[260px_1fr_360px] gap-0 border border-white/10 rounded-2xl overflow-hidden reveal">
+      <!-- Tab list -->
+      <div id="tab-list" class="border-r border-white/10 bg-[#0c0c0c]">
+        <div class="tab-item active p-6" data-tab="1">
+          <div class="mono text-[11px] text-neutral-600 mb-1">01</div>
+          <div class="font-semibold text-[15px]">Sandboxes that persist</div>
+        </div>
+        <div class="tab-item p-6" data-tab="2">
+          <div class="mono text-[11px] text-neutral-600 mb-1">02</div>
+          <div class="font-semibold text-[15px]">Checkpoint &amp; resume</div>
+        </div>
+        <div class="tab-item p-6" data-tab="3">
+          <div class="mono text-[11px] text-neutral-600 mb-1">03</div>
+          <div class="font-semibold text-[15px]">Spawn &amp; fork</div>
+        </div>
+        <div class="tab-item p-6" data-tab="4">
+          <div class="mono text-[11px] text-neutral-600 mb-1">04</div>
+          <div class="font-semibold text-[15px]">Programmatic workflows</div>
+        </div>
+      </div>
+
+      <!-- Mock panel -->
+      <div class="bg-[#0e0e0e] p-8 flex items-center justify-center min-h-[380px]">
+        <div id="tab-panel-1" class="tab-panel active w-full max-w-[420px]">
+          <div class="mono text-[11px] border border-white/10 rounded-md px-3 py-2.5 text-neutral-500 flex items-center gap-2 mb-3">
+            <span class="text-neutral-600">⌕</span> run python script in sandbox...
+          </div>
+          <div class="space-y-2">
+            <div class="border border-white/10 rounded-md p-3 flex items-center justify-between">
+              <div><div class="mono text-[11px] text-neutral-300">SANDBOX_EXEC</div><div class="mono text-[10px] text-neutral-600">Run a command, stream stdout</div></div>
+              <span class="mono text-[9px] px-2 py-0.5 rounded bg-[var(--accent)]/15 text-[var(--accent)]">MATCH</span>
+            </div>
+            <div class="border border-white/10 rounded-md p-3 flex items-center justify-between">
+              <div><div class="mono text-[11px] text-neutral-300">EXEC_CODE</div><div class="mono text-[10px] text-neutral-600">Run code in a persistent context</div></div>
+              <span class="mono text-[9px] px-2 py-0.5 rounded bg-[var(--accent)]/15 text-[var(--accent)]">MATCH</span>
+            </div>
+          </div>
+          <div class="mono text-[10px] text-neutral-600 mt-4 leading-relaxed border-t border-white/10 pt-3">
+            resources = {`{`} cpu: "500m", memory: "256Mi" {`}`} <span class="text-neutral-700">// required</span>
+          </div>
+        </div>
+
+        <div id="tab-panel-2" class="tab-panel w-full max-w-[420px] mono text-[11px] leading-relaxed">
+          <div class="border border-white/10 rounded-md p-4 text-neutral-400">
+            <div><span class="text-neutral-600">$</span> sb.exec("python3 train.py")</div>
+            <div class="text-neutral-600">→ exec_start · exec_event · exec_complete</div>
+            <div class="mt-2"><span class="text-neutral-600">$</span> sb.checkpoint()</div>
+            <div class="text-[var(--accent)]">✓ snapshot saved · cp_0142</div>
+            <div class="mt-3 pt-3 border-t border-white/10 text-neutral-600">— process restarts —</div>
+            <div class="mt-2"><span class="text-neutral-600">$</span> client.resume(sandboxId)</div>
+            <div class="text-neutral-400">→ restored from cp_0142, replaying cached results</div>
+          </div>
+        </div>
+
+        <div id="tab-panel-3" class="tab-panel w-full max-w-[420px]">
+          <div class="border border-white/10 rounded-md p-4">
+            <div class="mono text-[10px] text-neutral-600 mb-2">agent.spawn("./worker.json")</div>
+            <div class="flex items-center gap-3 p-3 rounded-md bg-white/[0.03] border border-white/10 mb-2">
+              <div class="w-2 h-2 rounded-full bg-[var(--accent)]"></div>
+              <div class="mono text-[11px] text-neutral-300">parent · sbx_8F4K2M</div>
+            </div>
+            <div class="pl-6 flex items-center gap-3 p-3 rounded-md bg-white/[0.03] border border-white/10">
+              <div class="w-2 h-2 rounded-full bg-neutral-500"></div>
+              <div class="mono text-[11px] text-neutral-400">child · sbx_2Q9RTA <span class="text-neutral-600">(forked fs + packages)</span></div>
+            </div>
+            <div class="mono text-[10px] text-neutral-600 mt-3">spawnDepth: 2 · maxAgents: 5 enforced</div>
+          </div>
+        </div>
+
+        <div id="tab-panel-4" class="tab-panel w-full max-w-[420px]">
+          <pre class="mono text-[11px] text-neutral-400 leading-relaxed">workflow(client)
+  .sandbox({ resources }, (sb) =&gt; {
+    sb.exec("pytest -q");
+    sb.checkpoint();
+  })
+  .pipe(sink);
+
+<span class="text-neutral-600">// one await, however complex</span></pre>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="p-8 bg-[#0c0c0c] min-h-[380px] flex flex-col justify-center">
+        <div id="tab-desc-1" class="tab-desc active">
+          <h3 class="text-xl font-semibold mb-3">Sandboxes that persist</h3>
+          <p class="text-neutral-400 text-[14px] leading-relaxed mb-5">Every exec runs inside a live, isolated OpenSandbox container — filesystem, packages, and processes carry over between calls.</p>
+          <ul class="space-y-3 text-[13.5px] text-neutral-400">
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>A live container as a first-class object: spawn(), exec(), close()</li>
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>Streamed events: text, tool_start, tool_end over one API</li>
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>Resource limits required on every request — no runaway containers</li>
+          </ul>
+        </div>
+        <div id="tab-desc-2" class="tab-desc">
+          <h3 class="text-xl font-semibold mb-3">Checkpoint &amp; resume</h3>
+          <p class="text-neutral-400 text-[14px] leading-relaxed mb-5">Every exec is written to a durable ledger. checkpoint() snapshots the container; resume() reconnects after a full restart.</p>
+          <ul class="space-y-3 text-[13.5px] text-neutral-400">
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>SQLiteAdapter for local dev, PostgresAdapter in production</li>
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>Resume replays cached results, runs only what's left live</li>
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>Invisible to the caller — no special resume-path code</li>
+          </ul>
+        </div>
+        <div id="tab-desc-3" class="tab-desc">
+          <h3 class="text-xl font-semibold mb-3">Spawn &amp; fork</h3>
+          <p class="text-neutral-400 text-[14px] leading-relaxed mb-5">Fork a running agent's live sandbox — filesystem, installed packages, everything on disk — into an independent sub-agent.</p>
+          <ul class="space-y-3 text-[13.5px] text-neutral-400">
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>spawnDepth and maxAgents cap recursive fan-out</li>
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>steer() redirects a running agent mid-response</li>
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>attach() reconnects to any live sandbox by ID</li>
+          </ul>
+        </div>
+        <div id="tab-desc-4" class="tab-desc">
+          <h3 class="text-xl font-semibold mb-3">Programmatic workflows</h3>
+          <p class="text-neutral-400 text-[14px] leading-relaxed mb-5">@alineo-labs/workflow is a lazy pipeline builder — retry, branching, fan-out, and parallel steps queue synchronously.</p>
+          <ul class="space-y-3 text-[13.5px] text-neutral-400">
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>The queue flushes on one await, regardless of complexity</li>
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>Hooks fire on every lifecycle event — bring your own tracer</li>
+            <li class="flex gap-2"><span class="text-[var(--accent)]">—</span>maxConcurrency caps simultaneous sandboxes with a semaphore</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOR BUILDERS / FOR DEVELOPERS ============ -->
+<section id="sdk" class="relative py-28 border-b border-white/[0.06] bg-[#080808]">
+  <div class="max-w-[1320px] mx-auto px-6 md:px-10 space-y-24">
+
+    <!-- For agent builders -->
+    <div class="grid lg:grid-cols-2 gap-14 items-center reveal">
+      <div>
+        <p class="text-[11px] tracking-[0.2em] uppercase text-neutral-500 font-semibold mb-3 mono">For agent builders</p>
+        <h2 class="text-3xl font-semibold tracking-tight mb-5 leading-tight">From chatbot to an agent that actually executes.</h2>
+        <p class="text-neutral-400 text-[15px] leading-relaxed mb-6 max-w-lg">Pi runs inside the sandbox itself — reading and writing real files, running real shell commands, streaming every tool call back to you in real time.</p>
+        <a href="https://docs.alineo.tech/docs/agent" class="text-[13px] font-semibold text-white inline-flex items-center gap-1.5 hover:gap-2.5 transition-all">Learn more <span>→</span></a>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-[#0c0c0c] p-6 mono text-[12px] leading-relaxed">
+        <div class="flex items-center gap-1.5 mb-4">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#3a3a3a]"></span><span class="w-2.5 h-2.5 rounded-full bg-[#3a3a3a]"></span><span class="w-2.5 h-2.5 rounded-full bg-[#3a3a3a]"></span>
+          <span class="ml-2 text-neutral-600">pi · alineo</span>
+        </div>
+        <pre class="ascii text-neutral-700 mb-3"> █████╗ ██╗     ██╗███╗   ██╗███████╗ ██████╗
+██╔══██╗██║     ██║████╗  ██║██╔════╝██╔═══██╗
+███████║██║     ██║██╔██╗ ██║█████╗  ██║   ██║
+██╔══██║██║     ██║██║╚██╗██║██╔══╝  ██║   ██║
+██║  ██║███████╗██║██║ ╚████║███████╗╚██████╔╝
+╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝╚══════╝ ╚═════╝ </pre>
+        <div class="text-neutral-600 mb-3">/workspace/app · sbx_8F4K2M</div>
+        <div class="text-neutral-500">❯ <span class="text-neutral-300">try</span> "fix the failing integration test"</div>
+        <div class="space-y-1.5 mt-3 text-neutral-500">
+          <div class="hover:text-white transition-colors">spawn a worker to handle the auth module</div>
+          <div class="hover:text-white transition-colors">checkpoint before the risky migration</div>
+          <div class="hover:text-white transition-colors">resume sbx_8F4K2M from yesterday</div>
+          <div class="hover:text-white transition-colors">fork this sandbox for a second reviewer</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- For developers -->
+    <div class="grid lg:grid-cols-2 gap-14 items-center reveal">
+      <div class="order-2 lg:order-1 rounded-2xl border border-white/10 bg-[#0c0c0c] p-6 overflow-x-auto">
+        <pre class="ascii text-neutral-700 mb-4"> █████╗ ██╗     ██╗███╗   ██╗███████╗ ██████╗
+██╔══██╗██║     ██║████╗  ██║██╔════╝██╔═══██╗
+███████║██║     ██║██╔██╗ ██║█████╗  ██║   ██║
+██╔══██║██║     ██║██║╚██╗██║██╔══╝  ██║   ██║
+██║  ██║███████╗██║██║ ╚████║███████╗╚██████╔╝
+╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝╚══════╝ ╚═════╝  <span class="ascii-accent">SDK</span></pre>
+        <pre class="mono text-[12.5px] leading-relaxed text-neutral-400"><span class="text-neutral-600">import</span> { Alineo, textOnly } <span class="text-neutral-600">from</span> <span class="text-[var(--accent2)]">"alineo"</span>;
+
+<span class="text-neutral-600">const</span> agent = <span class="text-neutral-600">await</span> Alineo.load(spec, { adapter });
+<span class="text-neutral-600">for await</span> (<span class="text-neutral-600">const</span> chunk <span class="text-neutral-600">of</span> textOnly(
+  agent.prompt(<span class="text-[var(--accent2)]">"Write and run a hello world script."</span>)
+)) {
+  process.stdout.write(chunk);
+}</pre>
+      </div>
+      <div class="order-1 lg:order-2">
+        <p class="text-[11px] tracking-[0.2em] uppercase text-neutral-500 font-semibold mb-3 mono">For developers</p>
+        <h2 class="text-3xl font-semibold tracking-tight mb-5 leading-tight">Five lines to a running agent. Full control underneath.</h2>
+        <p class="text-neutral-400 text-[15px] leading-relaxed mb-6 max-w-lg">A plain TypeScript SDK — no framework lock-in, no hidden runtime. Swap the storage adapter, the model, or the hooks without touching the rest.</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="border border-white/10 rounded-lg p-4 card-hover">
+            <div class="text-[13px] font-semibold mb-1">Storage adapters</div>
+            <div class="text-[12px] text-neutral-500 leading-snug">SQLite for local dev, Postgres in production — same interface.</div>
+          </div>
+          <div class="border border-white/10 rounded-lg p-4 card-hover">
+            <div class="text-[13px] font-semibold mb-1">Hooks &amp; OTel</div>
+            <div class="text-[12px] text-neutral-500 leading-snug">onExecStart, onCheckpoint, onSandboxClosed — bring your own tracer.</div>
+          </div>
+          <div class="border border-white/10 rounded-lg p-4 card-hover">
+            <div class="text-[13px] font-semibold mb-1">Concurrency limits</div>
+            <div class="text-[12px] text-neutral-500 leading-snug">maxConcurrency caps simultaneous sandboxes with a semaphore.</div>
+          </div>
+          <div class="border border-white/10 rounded-lg p-4 card-hover">
+            <div class="text-[13px] font-semibold mb-1">Model agnostic</div>
+            <div class="text-[12px] text-neutral-500 leading-snug">Cycle Pi models mid-session — tools and state carry over.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ USE CASES ============ -->
+<section id="use-cases" class="relative py-28 border-b border-white/[0.06]">
+  <div class="max-w-[1320px] mx-auto px-6 md:px-10">
+    <div class="reveal mb-14 flex items-end justify-between flex-wrap gap-4">
+      <div>
+        <p class="text-[11px] tracking-[0.2em] uppercase text-neutral-500 font-semibold mb-3 mono">One substrate, every workflow</p>
+        <h2 class="text-3xl md:text-[40px] font-semibold tracking-tight max-w-xl">Core use cases, straight from the repo</h2>
+      </div>
+      <a href="https://github.com/DrejT/alineo/tree/main/examples" target="_blank" rel="noopener" class="text-[13px] font-semibold text-neutral-400 hover:text-white transition-colors">Browse all examples →</a>
+    </div>
+
+    <div id="uc-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- cards injected identically in markup for no-js correctness, class reveal added via JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ============ GALLERY / IMAGE PAGE ============ -->
+<section id="gallery" class="relative py-28 border-b border-white/[0.06] bg-[#080808] overflow-hidden">
+  <div class="max-w-[1320px] mx-auto px-6 md:px-10">
+    <div class="reveal mb-14">
+      <p class="text-[11px] tracking-[0.2em] uppercase text-neutral-500 font-semibold mb-3 mono">Showcase</p>
+      <h2 class="text-3xl md:text-[40px] font-semibold tracking-tight max-w-xl">The sandbox lifecycle, drawn in text</h2>
+      <p class="text-neutral-400 text-[15px] max-w-xl mt-4 leading-relaxed">Four primitives, rendered as pixel-art panels — the same shapes the sandbox ledger tracks under the hood.</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="reveal border border-white/10 rounded-2xl p-5 bg-[#0c0c0c] card-hover">
+        <pre class="ascii leading-[1.15]">╔══════════════╗
+║ <span class="ascii-accent">░░░░░░░░░░░░</span> ║
+║ <span class="ascii-accent">░▓▓▓▓▓▓▓▓▓▓░</span> ║
+║ <span class="ascii-accent">░▓░░░░░░░░▓░</span> ║
+║ <span class="ascii-accent">░▓░ SBX ░░▓░</span> ║
+║ <span class="ascii-accent">░▓░░░░░░░░▓░</span> ║
+║ <span class="ascii-accent">░▓▓▓▓▓▓▓▓▓▓░</span> ║
+║ <span class="ascii-accent">░░░░░░░░░░░░</span> ║
+╚══════════════╝</pre>
+        <div class="mt-4 text-[13px] font-semibold">01 · spawn()</div>
+        <div class="text-[12px] text-neutral-500 mt-1">A live container as a first-class object.</div>
+      </div>
+
+      <div class="reveal border border-white/10 rounded-2xl p-5 bg-[#0c0c0c] card-hover">
+        <pre class="ascii leading-[1.15]">╔══════════════╗
+║  <span class="ascii-accent">▓▓</span>          ║
+║  <span class="ascii-accent">▓▓</span>  exec()   ║
+║  <span class="ascii-accent">▓▓</span>━━━━━━━━━▶ ║
+║  <span class="ascii-accent">▓▓</span>  stdout   ║
+║  <span class="ascii-accent">▓▓</span>◀━━━━━━━━━ ║
+║  <span class="ascii-accent">▓▓</span>          ║
+║  <span class="ascii-accent">▓▓</span>          ║
+╚══════════════╝</pre>
+        <div class="mt-4 text-[13px] font-semibold">02 · exec()</div>
+        <div class="text-[12px] text-neutral-500 mt-1">Stream text, tool_start, tool_end.</div>
+      </div>
+
+      <div class="reveal border border-white/10 rounded-2xl p-5 bg-[#0c0c0c] card-hover">
+        <pre class="ascii leading-[1.15]">╔══════════════╗
+║   ┌────────┐ ║
+║   │ <span class="ascii-accent">▓▓▓▓▓▓</span> │ ║
+║   │ <span class="ascii-accent">▓cp_01</span>│ ║
+║   │ <span class="ascii-accent">▓▓▓▓▓▓</span> │ ║
+║   └────────┘ ║
+║   saved ✓    ║
+║              ║
+╚══════════════╝</pre>
+        <div class="mt-4 text-[13px] font-semibold">03 · checkpoint()</div>
+        <div class="text-[12px] text-neutral-500 mt-1">Snapshot the container, resumable later.</div>
+      </div>
+
+      <div class="reveal border border-white/10 rounded-2xl p-5 bg-[#0c0c0c] card-hover">
+        <pre class="ascii leading-[1.15]">╔══════════════╗
+║     <span class="ascii-accent">▓▓</span>       ║
+║    ╱  ╲      ║
+║  <span class="ascii-accent">▓▓</span>    <span class="ascii-accent">▓▓</span>    ║
+║ parent child ║
+║  <span class="ascii-accent">▓▓</span>          ║
+║              ║
+║              ║
+╚══════════════╝</pre>
+        <div class="mt-4 text-[13px] font-semibold">04 · spawn(child)</div>
+        <div class="text-[12px] text-neutral-500 mt-1">Fork fs + packages into a new agent.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECURITY ============ -->
+<section id="security" class="relative py-28 border-b border-white/[0.06]">
+  <div class="max-w-[1320px] mx-auto px-6 md:px-10 grid lg:grid-cols-2 gap-14">
+    <div class="reveal">
+      <p class="text-[11px] tracking-[0.2em] uppercase text-neutral-500 font-semibold mb-3 mono">Isolation &amp; security</p>
+      <h2 class="text-3xl md:text-[40px] font-semibold tracking-tight leading-[1.1] mb-5">Protected from every angle, by default.</h2>
+      <p class="text-neutral-400 text-[15px] leading-relaxed max-w-md">Every sandbox is ephemeral, resource-capped, and network-gated — an agent gets exactly the reach you grant it, nothing more.</p>
+    </div>
+    <div id="acc" class="reveal">
+      <div class="acc-item open">
+        <button class="acc-trigger w-full flex items-center justify-between py-5 text-left">
+          <span class="font-semibold text-[15px]">Resource limits enforced</span>
+          <span class="acc-chevron text-2xl font-light text-neutral-500">+</span>
+        </button>
+        <div class="acc-body"><p class="text-neutral-400 text-[13.5px] leading-relaxed pb-5 max-w-md">cpu/memory are required on every sandbox request — OpenSandbox rejects anything without them. No runaway containers.</p></div>
+      </div>
+      <div class="acc-item">
+        <button class="acc-trigger w-full flex items-center justify-between py-5 text-left">
+          <span class="font-semibold text-[15px]">Network egress control</span>
+          <span class="acc-chevron text-2xl font-light text-neutral-500">+</span>
+        </button>
+        <div class="acc-body"><p class="text-neutral-400 text-[13.5px] leading-relaxed pb-5 max-w-md">DNS or direct egress modes, plus an agent-egress-approval gate so outbound calls need explicit sign-off.</p></div>
+      </div>
+      <div class="acc-item">
+        <button class="acc-trigger w-full flex items-center justify-between py-5 text-left">
+          <span class="font-semibold text-[15px]">Credential injection</span>
+          <span class="acc-chevron text-2xl font-light text-neutral-500">+</span>
+        </button>
+        <div class="acc-body"><p class="text-neutral-400 text-[13.5px] leading-relaxed pb-5 max-w-md">Secrets are injected into the sandbox at exec time — never returned to the agent, never written to the ledger.</p></div>
+      </div>
+      <div class="acc-item">
+        <button class="acc-trigger w-full flex items-center justify-between py-5 text-left">
+          <span class="font-semibold text-[15px]">Durable audit ledger</span>
+          <span class="acc-chevron text-2xl font-light text-neutral-500">+</span>
+        </button>
+        <div class="acc-body"><p class="text-neutral-400 text-[13.5px] leading-relaxed pb-5 max-w-md">Every exec_start, exec_event, and exec_complete is recorded to your storage adapter and fully replayable.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="relative py-32 text-center overflow-hidden">
+  <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] opacity-10" style="background:radial-gradient(circle,var(--accent),transparent 65%)"></div>
+  <div class="relative max-w-2xl mx-auto px-6 reveal">
+    <h2 class="text-4xl md:text-[52px] font-semibold tracking-tight mb-6 leading-[1.05]">Your agent's ready.<br/>Give it somewhere to run.</h2>
+    <p class="text-neutral-400 text-[16px] mb-10">One command spins up OpenSandbox locally — no infra to provision first.</p>
+    <div class="flex flex-wrap items-center justify-center gap-4">
+      <a href="https://docs.alineo.tech/docs/agent" class="glow-btn px-7 py-3.5 rounded-md bg-white text-black font-semibold text-sm hover:bg-neutral-200 active:scale-95 transition-all">Try Alineo today</a>
+      <a href="https://discord.com/invite/XGkPu3YBH4" target="_blank" rel="noopener" class="px-7 py-3.5 rounded-md border border-white/15 text-white font-semibold text-sm hover:bg-white/10 active:scale-95 transition-all">Join the Discord</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="border-t border-white/[0.06] py-16">
+  <div class="max-w-[1320px] mx-auto px-6 md:px-10">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-10 mb-14">
+      <div class="lg:col-span-2">
+        <div class="flex items-center gap-2.5 mb-4">
+          <svg viewBox="0 0 100 100" class="w-5 h-5 text-white" fill="currentColor">
+            <circle cx="50" cy="30" r="16" /><circle cx="32" cy="62" r="16" /><circle cx="68" cy="62" r="16" />
+            <path d="M43 45 Q 50 55 57 45 Q 60 55 50 60 Q 40 55 43 45 Z" />
+          </svg>
+          <span class="font-semibold text-[15px]">alineo</span>
+        </div>
+        <p class="text-neutral-500 text-[13.5px] max-w-xs leading-relaxed">Run Pi coding agents inside isolated sandbox containers. Apache 2.0, built on OpenSandbox.</p>
+      </div>
+      <div>
+        <div class="text-[12px] font-semibold text-neutral-300 uppercase tracking-wider mb-4">Product</div>
+        <ul class="space-y-2.5 text-[13.5px] text-neutral-500">
+          <li><a href="#sdk" class="hover:text-white transition-colors">Agent SDK</a></li>
+          <li><a href="#primitives" class="hover:text-white transition-colors">Sandbox client</a></li>
+          <li><a href="https://github.com/DrejT/alineo/tree/main/packages/workflow" class="hover:text-white transition-colors">Workflow engine</a></li>
+          <li><a href="https://github.com/DrejT/alineo/tree/main/packages/cli" class="hover:text-white transition-colors">CLI</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-[12px] font-semibold text-neutral-300 uppercase tracking-wider mb-4">Resources</div>
+        <ul class="space-y-2.5 text-[13.5px] text-neutral-500">
+          <li><a href="https://docs.alineo.tech/docs/agent" class="hover:text-white transition-colors">Docs</a></li>
+          <li><a href="https://github.com/DrejT/alineo/tree/main/examples" class="hover:text-white transition-colors">Examples</a></li>
+          <li><a href="https://github.com/DrejT/alineo" class="hover:text-white transition-colors">GitHub</a></li>
+          <li><a href="https://www.npmjs.com/package/alineo" class="hover:text-white transition-colors">npm</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="text-[12px] font-semibold text-neutral-300 uppercase tracking-wider mb-4">Community</div>
+        <ul class="space-y-2.5 text-[13.5px] text-neutral-500">
+          <li><a href="https://discord.com/invite/XGkPu3YBH4" class="hover:text-white transition-colors">Discord</a></li>
+          <li><a href="https://github.com/DrejT/alineo/issues" class="hover:text-white transition-colors">Issues</a></li>
+          <li><a href="https://github.com/DrejT/alineo/blob/main/CONTRIBUTING.md" class="hover:text-white transition-colors">Contributing</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-white/[0.06] text-[12.5px] text-neutral-600">
+      <span>© 2026 Alineo · Apache 2.0</span>
+      <div class="flex items-center gap-5">
+        <a href="https://github.com/DrejT/alineo" class="hover:text-white transition-colors">GitHub</a>
+        <a href="https://discord.com/invite/XGkPu3YBH4" class="hover:text-white transition-colors">Discord</a>
+        <a href="https://www.npmjs.com/package/alineo" class="hover:text-white transition-colors">npm</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ---------- copy install command ----------
+  document.getElementById('copy-btn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText('bunx alineo-cli init');
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'copied';
+      setTimeout(() => (btn.textContent = 'copy'), 1400);
+    } catch (e) { /* clipboard unavailable — no-op */ }
+  });
+
+  // ---------- tabs ----------
+  const tabItems = document.querySelectorAll('#tab-list .tab-item');
+  tabItems.forEach((el) => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.tab;
+      tabItems.forEach((t) => t.classList.toggle('active', t === el));
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-panel-${id}`));
+      document.querySelectorAll('.tab-desc').forEach((d) => d.classList.toggle('active', d.id === `tab-desc-${id}`));
+    });
+  });
+  // auto-advance tabs every 6s unless the user has interacted
+  let tabAuto = setInterval(() => {
+    const current = document.querySelector('#tab-list .tab-item.active');
+    const items = Array.from(tabItems);
+    const next = items[(items.indexOf(current) + 1) % items.length];
+    next.click();
+  }, 6000);
+  tabItems.forEach((el) => el.addEventListener('click', () => { clearInterval(tabAuto); }));
+
+  // ---------- accordion ----------
+  document.querySelectorAll('.acc-trigger').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.acc-item');
+      const wasOpen = item.classList.contains('open');
+      document.querySelectorAll('#acc .acc-item').forEach((i) => i.classList.remove('open'));
+      if (!wasOpen) item.classList.add('open');
+    });
+  });
+
+  // ---------- use case cards (data-driven so markup + JS stay in one place) ----------
+  const useCases = [
+    { name: 'hello-world', title: 'Hello world', desc: 'Spawn a sandbox, run a script, read the result back.' },
+    { name: 'exec-code', title: 'Exec code', desc: 'Run code in a persistent, stateful execution context.' },
+    { name: 'file-ops', title: 'File operations', desc: 'Read, write, move, and search files inside the sandbox.' },
+    { name: 'sandbox-fork', title: 'Sandbox fork', desc: 'Clone a live sandbox — filesystem and packages included.' },
+    { name: 'snapshot-replay', title: 'Snapshot replay', desc: 'Checkpoint a run, resume it later from the exact state.' },
+    { name: 'credential-injection', title: 'Credential injection', desc: 'Inject secrets at exec time — never exposed to the agent.' },
+    { name: 'human-in-the-loop', title: 'Human in the loop', desc: 'Pause execution for approval before a sensitive step.' },
+    { name: 'rlm-repo-fanout', title: 'Repo fan-out', desc: 'Fan a task out across a whole repository in parallel.' },
+    { name: 'memory-basics', title: 'Memory basics', desc: 'Give an agent durable memory across sessions.' },
+    { name: 'interactive-exec', title: 'Interactive exec', desc: 'Drive a long-lived interactive shell session (PTY).' },
+    { name: 'network-egress', title: 'Network egress', desc: 'Control what a sandbox can reach on the network.' },
+    { name: 'control-flow', title: 'Control flow', desc: 'Retry, branch, and fan-out steps in a lazy workflow.' },
+  ];
+  const ucGrid = document.getElementById('uc-grid');
+  ucGrid.innerHTML = useCases.map((u, i) => `
+    <a href="https://github.com/DrejT/alineo/tree/main/examples/${u.name}" target="_blank" rel="noopener"
+       class="reveal card-hover group border border-white/10 rounded-xl p-5 bg-[#0c0c0c] block" style="transition-delay:${(i % 3) * 70}ms">
+      <div class="flex items-center justify-between mb-4">
+        <span class="mono text-[10px] text-neutral-600">examples/${u.name}</span>
+        <span class="text-neutral-600 group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all">→</span>
+      </div>
+      <div class="font-semibold text-[15px] mb-1.5">${u.title}</div>
+      <div class="text-[13px] text-neutral-500 leading-relaxed">${u.desc}</div>
+    </a>
+  `).join('');
+
+  // ---------- scroll reveal ----------
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal, .reveal-scale').forEach((el) => io.observe(el));
+</script>
+</body>
+</html>
