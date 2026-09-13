@@ -153,8 +153,11 @@ const final = await api("POST", `/runs/${run.runId}/agents`, {
   spec: editor,
   waitFor: Object.values(reviewers),
   prompt:
-    `Read /inputs.json and every file it lists; each is one reviewer's findings. ` +
-    `The files map to areas as follows: ${JSON.stringify(areaOf)}. ` +
+    // One bash command instead of one `read` tool call per file — fewer turn boundaries means
+    // fewer chances for a NIM free-tier model to stall between turns (see apps/alineod/README.md's
+    // "Known issues"; demo-swarm.py's gather prompt uses the same `cat` pattern for the same reason).
+    `Use your bash tool to run \`cat /inputs.json /inputs/*.txt\` — that's every reviewer's findings ` +
+    `in one place. The files map to areas as follows: ${JSON.stringify(areaOf)}. ` +
     `Write one review report in markdown: a title, then a section per area (Security, Correctness, Tests), ` +
     `with duplicate findings merged and the most severe first. If a reviewer's outcome is not "success", ` +
     `say that area was not reviewed. Output only the report.`,
