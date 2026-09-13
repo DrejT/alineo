@@ -1,10 +1,12 @@
 name: CI
 
+# Called by blocking-ci.yml, which is the single entrypoint for merge-blocking
+# checks. Triggering directly on push/pull_request here would run everything
+# twice. `github.event_name` and `github.head_ref` still refer to the caller's
+# event, so the pull-request-only changeset job below keeps working.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_call:
+  workflow_dispatch:
 
 jobs:
   check:
