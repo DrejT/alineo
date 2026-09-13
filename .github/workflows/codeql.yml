@@ -1,10 +1,10 @@
 name: CodeQL
 
-# Called by blocking-ci.yml for pull requests and pushes to main; the weekly
-# scan still runs this workflow directly.
 on:
-  workflow_call:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
   schedule:
     - cron: "23 4 * * 1"
 

@@ -1,12 +1,10 @@
 name: CI
 
-# Called by blocking-ci.yml, which is the single entrypoint for merge-blocking
-# checks. Triggering directly on push/pull_request here would run everything
-# twice. `github.event_name` and `github.head_ref` still refer to the caller's
-# event, so the pull-request-only changeset job below keeps working.
 on:
-  workflow_call:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
 
 jobs:
   check:
@@ -99,3 +97,30 @@ jobs:
 
       - name: Check for changeset
         run: bunx changeset status --since origin/main
+
+  # Fan-in so branch protection can require one context instead of naming every
+  # job. The list below is what "CI required" stands for, and it lives here
+  # rather than in repository settings, where an added job is easy to forget.
+  required:
+    name: CI required
+    # Without always(), GitHub skips this job when a dependency fails and the
+    # check reports success instead of the failure.
+    if: ${{ always() }}
+    needs:
+      - check
+      - test
+      - build
+      - changeset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Require successful dependencies
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          # `changeset` deliberately does not run outside pull requests or on
+          # the release branch; every other dependency must succeed outright.
+          SKIPPABLE: changeset
+        run: python3 .github/scripts/check_ci_results.py
