@@ -80,6 +80,17 @@ export const commands: CliCommand[] = [
     run: async (argv) => (await import("./fork.js")).forkCommand.run(argv),
   },
   {
+    name: "steer",
+    group: "agent",
+    variants: [
+      {
+        usage: "alineo steer <sandbox-id> <message>",
+        summary: "Redirect a running session — lands at its next turn boundary, not instantly",
+      },
+    ],
+    run: async (argv) => (await import("./steer.js")).steerCommand.run(argv),
+  },
+  {
     name: "agents",
     group: "agent",
     variants: [{ usage: "alineo agents [--json]", summary: "List running agent sessions" }],

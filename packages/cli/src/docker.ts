@@ -41,24 +41,34 @@ export async function startContainer(name: string): Promise<void> {
   if (!ok) throw new Error(`Failed to start container '${name}': ${stderr.trim()}`);
 }
 
-export async function runContainer(args: string[]): Promise<void> {
+export async function runContainer(args: string[], label = "container"): Promise<void> {
   const { ok, stderr } = await spawn(["docker", "run", ...args]);
-  if (!ok) throw new Error(`Failed to start OpenSandbox container: ${stderr.trim()}`);
+  if (!ok) throw new Error(`Failed to start ${label}: ${stderr.trim()}`);
 }
 
-export async function pollHealth(url: string, timeoutMs = 60_000): Promise<void> {
+export async function pullImage(image: string): Promise<void> {
+  const { ok, stderr } = await spawn(["docker", "pull", image]);
+  if (!ok) throw new Error(`Failed to pull '${image}': ${stderr.trim()}`);
+}
+
+/** Default health predicate: OpenSandbox's `/health` returns `{ status: "healthy" }`. */
+const isOpenSandboxHealthy = (body: unknown): boolean =>
+  (body as { status?: string } | null)?.status === "healthy";
+
+export async function pollHealth(
+  url: string,
+  timeoutMs = 60_000,
+  isHealthy: (body: unknown) => boolean = isOpenSandboxHealthy,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
       const res = await fetch(url);
-      if (res.ok) {
-        const body = (await res.json()) as { status?: string };
-        if (body.status === "healthy") return;
-      }
+      if (res.ok && isHealthy(await res.json())) return;
     } catch {
       /* not ready yet */
     }
     await new Promise<void>((r) => setTimeout(r, 1_000));
   }
-  throw new Error(`OpenSandbox did not become healthy within ${timeoutMs / 1_000}s`);
+  throw new Error(`${url} did not become healthy within ${timeoutMs / 1_000}s`);
 }

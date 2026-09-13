@@ -1,4 +1,13 @@
-import { Bug, Brain, Database, GitFork, KeyRound, ListChecks, ShieldCheck } from "lucide-react";
+import {
+  Bug,
+  Brain,
+  Database,
+  GitFork,
+  KeyRound,
+  ListChecks,
+  Network,
+  ShieldCheck,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CookbookDifficulty } from "@/components/cookbook/meta";
 
@@ -78,5 +87,14 @@ export const cookbooksMeta: CookbookMetaEntry[] = [
     difficulty: "Advanced",
     time: "~10 min",
     icon: KeyRound,
+  },
+  {
+    slug: "swarm-code-review",
+    title: "Swarm Code Review",
+    description:
+      "A swarm of reviewers forked from one checkout — steered and paused mid-review, then merged by an editor, via alineod.",
+    difficulty: "Advanced",
+    time: "~15 min",
+    icon: Network,
   },
 ];

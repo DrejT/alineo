@@ -9,6 +9,7 @@
     "spawn",
     "prompt",
     "fork",
+    "steer",
     "agents",
     "kill",
     "logs"

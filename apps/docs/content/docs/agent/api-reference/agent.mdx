@@ -84,6 +84,36 @@ const agent2 = await Alineo.resume(savedSandboxId, { adapter, specPath: "./agent
 const agent3 = await Alineo.resume(savedSandboxId, { adapter, spec });
 ```
 
+### Alineo.reattach()
+
+```ts
+static async reattach(
+  sandboxId: string,
+  opts: {
+    adapter: IStorageAdapter;
+    spec?: AgentSpec | Record<string, unknown>;
+    specPath?: string;
+    runId?: string;
+    memory?: Memory;
+  },
+): Promise<Alineo>
+```
+
+Reconnect to an existing sandbox **without restarting its bridge**. Where `resume()` kills and restarts the bridge process — dropping any turn in progress — `reattach()` only looks up the sandbox's proxy URL and checks that the bridge answers. The returned `Alineo` is fully functional: `.prompt()`, `.bash()`, and `.steer()` continue the same Pi process and conversation.
+
+Use it when your own process restarted but the sandbox didn't — a control plane coming back up after a crash (this is how [alineod recovers a swarm](/docs/alineod/guides/crash-recovery)), or a CLI steering an agent that is busy mid-turn ([`alineo steer`](/docs/alineo/commands/steer)).
+
+It **fails fast (within 5 s) if the bridge doesn't answer** — a container can be running while the bridge inside it has died. Fall back to `resume()` in that case. `spec`/`specPath` resolve the same way as for `resume()`.
+
+```ts
+let agent: Alineo;
+try {
+  agent = await Alineo.reattach(savedSandboxId, { adapter });
+} catch {
+  agent = await Alineo.resume(savedSandboxId, { adapter }); // bridge really is gone
+}
+```
+
 ### Alineo.attach()
 
 ```ts
@@ -191,6 +221,8 @@ async steer(message: string): Promise<void>
 ```
 
 Redirect Pi's current response mid-flight. Pi acknowledges the instruction and adjusts its output. Best called after a short delay into a `prompt()` stream.
+
+The message is delivered after the tool calls in the current turn finish and before Pi's next model call — it does not interrupt a tool call that is already running. Use `abort()` to stop immediately.
 
 ```ts
 const stream = textOnly(agent.prompt("Write a very long essay..."));

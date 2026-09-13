@@ -26,7 +26,8 @@
     "apps/docs-mcp",
     "apps/registry",
     "apps/sandbox",
-    "apps/telemetry"
+    "apps/telemetry",
+    "apps/alineod"
   ],
   "scripts": {
     "setup": "bun scripts/setup.ts",

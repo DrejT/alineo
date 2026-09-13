@@ -1,0 +1,175 @@
+---
+title: Swarm Code Review
+description: A swarm of reviewers forked from one checkout — steered and paused mid-review, then merged by an editor, via alineod.
+---
+
+<CookbookMeta
+  difficulty="Advanced"
+  time="~15 min"
+  primitives={[
+    "POST /runs",
+    "POST /runs/:id/agents",
+    "waitFor",
+    "POST /agents/:id/steer",
+    "POST /agents/:id/pause",
+    "GET /runs/:id/events",
+  ]}
+/>
+
+A code review run by a swarm of agents, orchestrated entirely through [alineod](/docs/alineod)'s HTTP API. One lead
+agent checks out the repository; three reviewers are forked from its sandbox — each starting with the checkout
+already on disk — to review one concern each; an editor waits for all three and merges their findings into a single
+report.
+
+```
+review-lead ── clones expressjs/cors once
+  ├── reviewer: security      ┐
+  ├── reviewer: correctness   ├─ forked from the lead's sandbox
+  ├── reviewer: tests         ┘
+  └── editor ── waitFor all three → one report
+```
+
+## Setup
+
+<Steps>
+<Step>
+
+Start OpenSandbox in Docker (one-time setup), and build the workspace:
+
+```bash
+bunx alineo-cli init
+bun install && bun run build
+```
+
+</Step>
+<Step>
+
+Get a free API key from [build.nvidia.com](https://build.nvidia.com) and start alineod with it in **its**
+environment. The agent specs reference `${NVIDIA_API_KEY}`, which the daemon resolves — the key never travels in a
+request.
+
+```bash
+cd apps/alineod
+NVIDIA_API_KEY=nvapi-... bun run start
+```
+
+</Step>
+</Steps>
+
+## Run it
+
+<CookbookPlayground
+  cwd="cookbooks/swarm-code-review"
+  repoHref="https://github.com/DrejT/alineo/tree/main/cookbooks/swarm-code-review"
+  commands={[{ command: "bun install" }, { command: "bun start" }]}
+  output={`Starting the review lead (first run installs git and clones the repo)...
+review-lead sandbox ready
+review-lead bash
+
+Reviewing expressjs/cors at 5317ebe docs: app.del() with app.delete() in README example (#411)
+
+reviewer-security sandbox ready
+reviewer-correctness sandbox ready
+reviewer-tests sandbox ready
+reviewer-security bash
+reviewer-correctness bash
+reviewer-tests bash
+reviewer-tests running → paused (operator)
+reviewer-tests paused → running (operator)
+reviewer-security steered
+reviewer-security bash
+reviewer-correctness done (success)
+reviewer-tests done (success)
+reviewer-security done (success)
+editor sandbox ready
+editor bash
+editor done (success)
+
+# Code Review: expressjs/cors @ 5317ebe
+
+## Security
+
+- **lib/index.js:19-33, :58-62** — \`origin: true\` (or any origin callback resolving to boolean \`true\`) falls through isOriginAllowed's final else branch (\`return !!allowedOrigin\`), so every request's Origin header is reflected back as allowed with no real allowlist check. Combined with \`credentials: true\` at lib/index.js:85, this reproduces the classic reflect-any-origin-plus-credentials CORS misconfiguration — safe only if callers understand that \`origin: true\` disables validation entirely, which the README doesn't call out at the option definition.
+
+## Correctness
+
+- **lib/index.js:94-99** — configureAllowedHeaders treats \`options.headers\` as an undocumented alias for \`options.allowedHeaders\`; if neither is set, it reflects Access-Control-Request-Headers verbatim on every preflight with no validation against an allowlist.
+- **lib/index.js:173-183** — the non-preflightContinue path unconditionally ends every OPTIONS request with optionsSuccessStatus, even one this middleware wasn't meant to guard — fine for typical single-mount usage, but a footgun if cors() is mounted broadly alongside routes that define their own OPTIONS handler.
+
+## Tests
+
+- No test exercises \`options.origin\` as a mixed array of strings, RegExps, and booleans together — only single-type arrays are covered, so isOriginAllowed's recursive branch (lib/index.js:19-33) goes untested for the mixed case.
+- No test covers an origin callback resolving to boolean \`true\` (vs. a string or array) — the exact shape flagged under Security — so that behavior is currently unverified by the suite.
+
+Written to review.md
+
+review-lead success
+reviewer-security success
+reviewer-correctness success
+reviewer-tests success
+editor success`}
+/>
+
+## What it does
+
+<Steps>
+<Step>
+
+### Check out the repository once
+
+`agents/lead.json` installs `git` and clones `expressjs/cors` as a setup step. `POST /runs` creates the run with the
+lead as its root, and its first turn reports the commit under review. The lead's `spawnDepth: 1` and `maxAgents: 5`
+are what allow — and cap — the swarm below it.
+
+</Step>
+<Step>
+
+### Fork a reviewer per concern
+
+Three `POST /runs/:runId/agents` calls fork the lead's live sandbox into reviewers for security, correctness, and test
+coverage. Each one starts with `/workspace/cors` already present, so the repository is cloned exactly once. Every
+spawn carries an `idempotencyKey`, so retrying a request can never fork a duplicate reviewer.
+
+</Step>
+<Step>
+
+### Intervene mid-review
+
+While the reviewers work, the script pauses the tests reviewer's container for five seconds and resumes it — it
+continues exactly where it stopped — and steers the security reviewer onto a narrower brief. The steer lands after the
+reviewer's current tool call finishes, before its next model call. Neither agent restarts.
+
+</Step>
+<Step>
+
+### Gather with `waitFor`
+
+The editor is spawned with `waitFor` on all three reviewers. alineod holds it in the `spawning` state until they
+finish, then forks it and writes each reviewer's findings into its sandbox as `/inputs/<agentId>.txt`, plus an
+`/inputs.json` manifest carrying each reviewer's outcome. The editor merges them into one report.
+
+</Step>
+<Step>
+
+### Report and tear down
+
+The report is printed and saved to `review.md`, followed by the final agent tree. `DELETE /runs/:runId` then closes
+every sandbox in the swarm while keeping the run's history.
+
+</Step>
+</Steps>
+
+Every agent's progress arrives on a single `GET /runs/:runId/events` connection — lifecycle events plus each agent's
+tool calls, tagged with the `agentId` that produced them.
+
+<Callout title="Adapt it">
+  To review a different repository, change the clone URL in `agents/lead.json`, and the paths and
+  concerns in `index.ts`. Add a concern by adding a key to `concerns` — and raise `maxAgents` if the
+  swarm grows past five.
+</Callout>
+
+<Callout title="Where to go next">
+  [Fan-out and gather](/docs/alineod/guides/fan-out-gather) and [Steering and
+  pausing](/docs/alineod/guides/steering-and-pausing) cover the mechanics used here, and the [HTTP
+  API](/docs/alineod/api-reference/http-api) lists every route.
+</Callout>

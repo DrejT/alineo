@@ -309,6 +309,11 @@ export async function resumeAgent(
   const t1 = Date.now();
   const sb = await client.connect(sandboxId, spec.name, {
     runId,
+    // client.connect()'s `fork` dependency is only wired up when `resources` is passed
+    // (see its own comment) -- omit this and a resumed/reattached agent's .spawn() throws
+    // "fork() is not supported on this sandbox". Reuse the spec's own sizing so a resumed
+    // agent can keep spawning children exactly as it could before the restart.
+    resources: spec.resources ?? config.defaults.resources,
     // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment for
     // why this matters (episodicRecall() enforces teamId strictly). Unlike `sandbox()`/
     // `restoreSnapshot()`, `connect()` can't discover a running sandbox's *original*
@@ -373,6 +378,89 @@ async function reconcileDroppedPermissions(
   } catch {
     // Best-effort audit hygiene; never block a resume on it.
   }
+}
+
+/**
+ * Reconnect to a previously-created agent WITHOUT restarting its bridge. See
+ * `Alineo.reattach()` for the public-facing docs. Structurally `resumeAgent()` minus its two
+ * destructive steps (the `pkill` and the fresh `startBridge()`) — everything else (spec
+ * resolution, env, `client.connect()`) is identical.
+ */
+export async function reattachAgent(
+  sandboxId: string,
+  opts: {
+    adapter: IStorageAdapter;
+    spec?: AgentSpec | Record<string, unknown>;
+    specPath?: string;
+    runId?: string;
+  },
+): Promise<AgentConstructorArgs> {
+  const t0 = Date.now();
+  const config = await readProjectConfig();
+
+  const client = new Sandbox({
+    baseUrl: config.serverUrl,
+    apiKey: config.apiKey,
+    adapter: opts.adapter,
+    useServerProxy: config.useServerProxy,
+  });
+
+  // Same three-way spec fallback as resumeAgent() — see its comment for why.
+  let spec: AgentSpec;
+  if (opts.spec) {
+    spec = validateAgentSpec(opts.spec);
+  } else if (opts.specPath) {
+    spec = validateAgentSpec(await Bun.file(opts.specPath).json());
+  } else {
+    const sessions = await client.sandboxes.list();
+    const session = sessions.find((s) => s.sandboxId === sandboxId);
+    if (!session)
+      throw new Error(
+        `No ledger record for sandbox ${sandboxId} — pass opts.spec or opts.specPath explicitly`,
+      );
+    spec = validateAgentSpec(await Bun.file(`./agents/${session.name}.json`).json());
+  }
+
+  const resolvedEnv = resolveEnv(spec.env ?? {});
+  if (spec.maxAgents !== undefined) {
+    assertValidMaxAgents(spec.maxAgents, "Alineo.reattach()");
+    resolvedEnv.ALINEO_MAX_AGENTS = String(spec.maxAgents);
+  }
+  if (spec.spawnDepth !== undefined) {
+    assertValidSpawnDepth(spec.spawnDepth, "Alineo.reattach()");
+    resolvedEnv.ALINEO_SPAWN_DEPTH = String(spec.spawnDepth);
+  }
+  const runId = opts.runId ?? crypto.randomUUID();
+  resolvedEnv.ALINEO_RUN_ID = runId;
+  resolvedEnv.ALINEO_SANDBOX_ID = sandboxId;
+
+  console.log(`[agent] reattaching to ${sandboxId}...`);
+  const t1 = Date.now();
+  const sb = await client.connect(sandboxId, spec.name, {
+    runId,
+    resourceId: spec.resourceId ?? spec.name,
+    teamId: spec.teamId,
+    // Same reason as resumeAgent() — client.connect() only wires up the `fork` dependency
+    // when `resources` is passed, so a reattached agent needs this too if it's going to
+    // keep spawning children.
+    resources: spec.resources ?? config.defaults.resources,
+  });
+  console.log(`[agent] connected       ${elapsed(t1)}`);
+
+  // No pkill, no configure(), no startBridge() — the bridge (and everything it's holding in
+  // memory: the Pi conversation, any tool call parked awaiting a human decision) is exactly
+  // as this agent's previous host process left it. `waitReady()` is the only check that it's
+  // actually still there; a short timeout because there's nothing to wait out (it either
+  // answers immediately or the bridge process is gone and the caller should fall back to
+  // `Alineo.resume()`).
+  const adapter = new PiAdapter();
+  await adapter.reattachBridge(sb);
+  const t2 = Date.now();
+  await adapter.waitReady(5_000);
+  console.log(`[agent] bridge reattached ${elapsed(t2)}`);
+  console.log(`[agent] total           ${elapsed(t0)}`);
+
+  return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false, runId };
 }
 
 /**

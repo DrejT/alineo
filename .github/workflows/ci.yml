@@ -34,6 +34,10 @@ jobs:
         run: bun run typecheck
         working-directory: apps/docs-mcp
 
+      - name: Typecheck alineod
+        run: bun run typecheck
+        working-directory: apps/alineod
+
       - name: Lint
         run: bun run lint
 
@@ -62,6 +66,10 @@ jobs:
       - name: Test docs
         run: bun run test
         working-directory: apps/docs
+
+      - name: Test alineod
+        run: bun run test
+        working-directory: apps/alineod
 
   build:
     name: Build
