@@ -33,7 +33,7 @@
     "@opentelemetry/api": "1.9.1",
     "bun-types": "1.4.2",
     "tsdown": "0.23.0",
-    "typescript": "7.0.2"
+    "typescript": "6.0.3"
   },
   "peerDependencies": {
     "@opentelemetry/api": "^1.0.0"
