@@ -118,13 +118,52 @@ describe("agents with a sandbox", () => {
     ).toHaveLength(1);
   }, 10_000);
 
-  test("finished agents are left alone", async () => {
+  test("a finished agent with an open sandbox is reconnected so it can be prompted again", async () => {
     const runId = newRunId();
-    seed({ runId, sandbox: container(runId), ended: "success" });
+    const sandbox = container(runId);
+    const id = seed({ runId, sandbox, state: "running", ended: "success" });
+
+    await rehydrate();
+
+    expect(get(id)).toBe(sandbox as never);
+    expect(fakeSdk.calls.reattach).toEqual([sandbox.sandboxId]);
+    // Already settled before the crash — no catch-up poll needed, and its recorded outcome
+    // is untouched by being reconnected.
+    expect(getAgentRow(id)).toMatchObject({ state: "done", outcome: "success" });
+  });
+
+  test("an aborted (closed) agent is left alone — its sandbox is genuinely gone", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    seed({ runId, sandbox, ended: "aborted" });
 
     await rehydrate();
 
     expect(fakeSdk.calls.reattach).toEqual([]);
+    expect(fakeSdk.calls.resume).toEqual([]);
+  });
+
+  test("an already-lost agent is not retried again this boot", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    seed({ runId, sandbox, ended: "lost" });
+
+    await rehydrate();
+
+    expect(fakeSdk.calls.reattach).toEqual([]);
+  });
+
+  test("a finished agent that can't be reconnected keeps its real outcome instead of becoming lost", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seed({ runId, sandbox, ended: "failed" });
+    fakeSdk.reattachFails.add(sandbox.sandboxId);
+    fakeSdk.resumeFails.add(sandbox.sandboxId);
+
+    await rehydrate();
+
+    expect(get(id)).toBeUndefined();
+    expect(getAgentRow(id)).toMatchObject({ state: "failed", outcome: "failed" });
   });
 });
 

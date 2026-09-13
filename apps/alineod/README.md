@@ -102,8 +102,12 @@ disturb a running swarm.
 - **Budgets are owned by alineod.** It passes each parent's remaining `spawnDepth` /
   `maxAgents` to `Alineo.spawn()`, which refuses when exhausted; alineod turns that into
   `budget_denied` and ends the child as `budget-exceeded`.
-- **Rehydrate tries `Alineo.reattach()` first**, falling back to `Alineo.resume()` (which
-  restarts the bridge, dropping an in-flight turn) only if the bridge doesn't answer (D-a).
+- **Rehydrate reconnects live agents AND finished-but-open ones.** A `done`/`failed` turn
+  doesn't close its sandbox, so it stays promptable / usable as a spawn parent — rehydrate
+  reconnects those too, not just `provisioning`/`spawning`/`running`/`paused`, so that survives
+  a restart. It tries `Alineo.reattach()` first, falling back to `Alineo.resume()` (which
+  restarts the bridge, dropping an in-flight turn) only if the bridge doesn't answer (D-a). If
+  both fail: a still-live agent ends `lost`; a finished agent keeps its real outcome.
 - **Control verbs are single-agent.** `steer`, `pause`, `resume`, and `stop` act on the named
   agent only; `DELETE /runs/:id` is the one whole-run operation.
 

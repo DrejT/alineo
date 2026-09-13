@@ -2,11 +2,14 @@
  * Crash-only recovery (research/daemon.md §3). On boot:
  *
  *   1. rebuild the `agents` / `handles` projections from the ledger.
- *   2. Pass 1 — every live agent that already has a sandbox: `Alineo.reattach()` (preserves
- *      the bridge, see D-a), falling back to `Alineo.resume()` (restarts it) if that fails.
- *      A reattached agent that was mid-turn at crash time gets a background catch-up poll
- *      (`catchUpTurn`) so its handle still settles once Pi finishes — otherwise the
- *      projection would say "running" forever even though the turn is long done.
+ *   2. Pass 1 — every live agent that already has a sandbox, PLUS every finished agent whose
+ *      sandbox is still open (`reconnectableTerminalAgents()` — a `done`/`failed` turn does not
+ *      close the sandbox, so it stays promptable / usable as a spawn parent, and a fresh
+ *      process needs its own connection object for that to keep working post-restart):
+ *      `Alineo.reattach()` (preserves the bridge, see D-a), falling back to `Alineo.resume()`
+ *      (restarts it) if that fails. A reattached agent that was mid-turn at crash time gets a
+ *      background catch-up poll (`catchUpTurn`) so its handle still settles once Pi finishes —
+ *      otherwise the projection would say "running" forever even though the turn is long done.
  *   3. Pass 2 — every live agent still stuck *before* its fork (no sandbox yet: a child
  *      queued behind `waitFor`, or a root still inside `Alineo.load()`): retry the spawn
  *      from what was persisted in its `agent_spawned` event (`wait_for`/`prompt` in db.ts —
@@ -15,7 +18,12 @@
  *      1 (or is itself a retried root); anything else really is unrecoverable.
  */
 import { Alineo } from "alineo";
-import { rebuild, liveAgents, getAgentRow, type AgentRow } from "../state/projection";
+import {
+  rebuild,
+  liveAgents,
+  reconnectableTerminalAgents,
+  type AgentRow,
+} from "../state/projection";
 import { sdkAdapter, register, get } from "./registry";
 import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
@@ -27,24 +35,21 @@ export async function rehydrate(): Promise<void> {
   rebuild();
 
   const live = liveAgents();
-  if (live.length === 0) return;
+  const finished = reconnectableTerminalAgents();
+  if (live.length === 0 && finished.length === 0) return;
 
   const withSandbox = live.filter((a) => a.sandbox_id);
   const preFork = live.filter((a) => !a.sandbox_id).sort((a, b) => a.depth - b.depth);
 
-  // A pre-fork agent's parent may have already finished its OWN turn by crash time (a
-  // terminal outcome, e.g. "done" — so absent from liveAgents()) while its sandbox is still
-  // sitting there, needed as pass 2's fork source. Nothing here ever closes a sandbox just
-  // because its own turn ended, so pull in any such parent explicitly.
+  // A pre-fork agent's parent may have already finished its OWN turn by crash time (a terminal
+  // outcome, e.g. "done") while its sandbox is still sitting there, needed as pass 2's fork
+  // source — `finished` already covers exactly that case, so no separate lookup is needed here.
   const reattachSet = new Map(withSandbox.map((a) => [a.agent_id, a]));
-  for (const a of preFork) {
-    if (!a.parent_agent_id || reattachSet.has(a.parent_agent_id)) continue;
-    const parentRow = getAgentRow(a.parent_agent_id);
-    if (parentRow?.sandbox_id) reattachSet.set(parentRow.agent_id, parentRow);
-  }
+  for (const a of finished) reattachSet.set(a.agent_id, a);
 
   console.log(
-    `[alineod] rehydrating ${live.length} live agent(s) — ${reattachSet.size} with a sandbox to reconnect, ${preFork.length} still pre-fork...`,
+    `[alineod] rehydrating ${live.length} live + ${finished.length} finished-but-open agent(s) — ` +
+      `${reattachSet.size} to reconnect, ${preFork.length} still pre-fork...`,
   );
 
   // Pass 1 — awaited: fast (~100-200ms each, verified live), and pass 2 needs these parents
@@ -79,12 +84,22 @@ async function reattachOne(a: AgentRow): Promise<void> {
     console.log(`[alineod]   resumed ${a.agent_id} (${a.sandbox_id}) — bridge restarted`);
   } catch (err) {
     const message = describeError(err);
-    emit(a.run_id, a.agent_id, "agent_ended", {
-      outcome: "lost",
-      endedAt: Date.now(),
-      error: message,
-    });
-    console.log(`[alineod]   lost ${a.agent_id}: ${message}`);
+    // An agent that had already ended (this is the "finished-but-open" reconnect case, not the
+    // live one) keeps its real outcome — a failed reconnect only means it can't be prompted or
+    // spawned-from again THIS boot, not that its already-recorded, already-settled turn is now
+    // "lost". Only a still-live agent's outcome is genuinely unknown and worth overwriting.
+    if (a.ended_at === null) {
+      emit(a.run_id, a.agent_id, "agent_ended", {
+        outcome: "lost",
+        endedAt: Date.now(),
+        error: message,
+      });
+      console.log(`[alineod]   lost ${a.agent_id}: ${message}`);
+    } else {
+      console.log(
+        `[alineod]   ${a.agent_id} (${a.sandbox_id}) is unreachable (${message}) — its recorded outcome (${a.outcome}) stands`,
+      );
+    }
   }
 }
 

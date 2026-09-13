@@ -14,8 +14,11 @@ the daemon is down.
 
 ### Rebuild state from the ledger
 
-The `agents` and `handles` tables are discarded and rebuilt by replaying the ledger. Any agent in
-`provisioning`, `spawning`, `running`, or `paused` is considered live and needs reconnecting.
+The `agents` and `handles` tables are discarded and rebuilt by replaying the ledger. Two kinds of agent need
+reconnecting: any agent in `provisioning`, `spawning`, `running`, or `paused` (still live), and any **finished**
+agent (`done` or `failed`) whose sandbox is still open — a turn ending does not close the sandbox, so it stays
+promptable and usable as a spawn parent. `aborted` and `lost` agents are skipped: `stop`/`DELETE /runs/:id` already
+closed their sandbox, and a `lost` agent is retried again on a later boot, not this one.
 
 </Step>
 <Step>
@@ -30,10 +33,11 @@ If the agent was mid-turn at crash time, the process that was reading its stream
 agent until the turn finishes and then records its result — anything waiting on that agent is still released.
 
 If the bridge doesn't answer, alineod falls back to [`Alineo.resume()`](/docs/agent/api-reference/agent#alineoresume),
-which restarts the bridge (dropping any in-flight turn). If that fails too, the agent ends as `lost`.
+which restarts the bridge (dropping any in-flight turn). If that fails too: a still-live agent ends as `lost`, since
+its outcome genuinely is unknown; a finished agent instead keeps its already-recorded outcome — it just can't be
+prompted or used as a spawn parent again this boot.
 
-Parents whose own turn already finished are reconnected as well when a pending child still needs them as its
-fork source.
+Parents whose own turn already finished are reconnected the same way, so a pending child can still fork from them.
 
 </Step>
 <Step>

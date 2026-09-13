@@ -33,8 +33,9 @@ repo, installed packages, files the parent wrote — rather than a fresh install
 
 An ended agent also carries an `outcome` — `success`, `failed`, `aborted`, `lost`, or `budget-exceeded`.
 
-A finished turn does not close the agent's sandbox. An agent in `done` can still be prompted again or used as a
-spawn parent.
+A finished turn does not close the agent's sandbox. An agent in `done` (or `failed`, if its turn failed but its
+sandbox came up) can still be prompted again or used as a spawn parent — including after alineod itself restarts;
+see [Crash recovery](/docs/alineod/guides/crash-recovery).
 
 ## Asynchronous requests
 

@@ -188,9 +188,33 @@ export function runAsOf(runId: string): number {
   return qMaxSeq.get(runId)?.m ?? 0;
 }
 
+const LIVE_STATES = new Set(["provisioning", "running", "spawning", "paused"]);
+
 export function liveAgents(): AgentRow[] {
-  const live = new Set(["provisioning", "running", "spawning", "paused"]);
-  return qAgentsByState.all().filter((r) => live.has(r.state));
+  return qAgentsByState.all().filter((r) => LIVE_STATES.has(r.state));
+}
+
+/**
+ * Finished agents whose sandbox is still open — a turn that ended in `done` or `failed`
+ * does NOT close the sandbox (see stream.ts's driveTurn), so it stays promptable and usable as
+ * a spawn parent for the rest of the process's life. `liveAgents()` alone misses these on a
+ * fresh process (their state isn't "live"), which is what rehydrate.ts uses this for: without
+ * it, a restarted alineod has no connection object for them at all, and every route that
+ * checks `registry.get(agentId)` — prompt, steer, pause, spawn-as-parent — would 409 forever,
+ * even though the container is right there.
+ *
+ * Excludes `aborted` (stop/deleteRun call `agent.close()` — the sandbox really is gone) and
+ * `lost` (rehydrate itself already gave up on it; retried the same way next boot, not this one).
+ */
+const CLOSED_OUTCOMES = new Set(["aborted", "lost"]);
+
+export function reconnectableTerminalAgents(): AgentRow[] {
+  return qAgentsByState
+    .all()
+    .filter(
+      (r) =>
+        !LIVE_STATES.has(r.state) && r.sandbox_id !== null && !CLOSED_OUTCOMES.has(r.outcome ?? ""),
+    );
 }
 
 // ── handles ─────────────────────────────────────────────────────────────────
