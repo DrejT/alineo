@@ -17,6 +17,7 @@ import {
   serverDataDir,
 } from "../config.js";
 import type { CliCommand } from "./types.js";
+import { PI_MODEL_API_KEY_ENV_VARS } from "../pi-model-keys.js";
 
 const OPENSANDBOX_CONTAINER_NAME = "alineo-opensandbox";
 // 127.0.0.1, not "localhost" — some hosts resolve "localhost" to ::1 first,
@@ -95,6 +96,24 @@ async function ensureAlineod(): Promise<void> {
     console.log(`Pulling ${ALINEOD_IMAGE}...`);
     await pullImage(ALINEOD_IMAGE);
     console.log("Starting alineod in Docker...");
+
+    // Model-agnostic: forward whatever Pi-supported provider key(s) are already in the
+    // operator's shell. An AgentSpec's env map (e.g. `{ NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }`)
+    // is resolved from process.env inside whichever process calls Alineo.load()/.spawn() —
+    // for a swarm run through alineod, that's this container — so any provider works as long
+    // as Pi supports it, not just NVIDIA's free tier.
+    const foundModelKeys = PI_MODEL_API_KEY_ENV_VARS.filter((name) => process.env[name]);
+    const modelKeyArgs = foundModelKeys.flatMap((name) => ["-e", `${name}=${process.env[name]}`]);
+    if (foundModelKeys.length > 0) {
+      console.log(`Forwarding model key(s): ${foundModelKeys.join(", ")}`);
+    } else {
+      console.log(
+        "No known model API key found in the environment — alineod will start, but agent " +
+          "specs referencing a provider key will fail until one is set (see any of the env " +
+          "vars in packages/cli/src/pi-model-keys.ts).",
+      );
+    }
+
     await runContainer(
       [
         "-d",
@@ -111,6 +130,7 @@ async function ensureAlineod(): Promise<void> {
         `ALINEO_SERVER_URL=${SERVER_URL}`,
         "-e",
         "ALINEO_USE_SERVER_PROXY=true",
+        ...modelKeyArgs,
         "-v",
         "alineod-data:/data",
         ALINEOD_IMAGE,
