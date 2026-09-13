@@ -380,92 +380,6 @@
   </div>
 </section>
 
-<!-- ============ USE CASES ============ -->
-<section id="use-cases" class="relative py-28 border-b border-white/[0.06]">
-  <div class="max-w-[1320px] mx-auto px-6 md:px-10">
-    <div class="reveal mb-14 flex items-end justify-between flex-wrap gap-4">
-      <div>
-        <p class="text-[11px] tracking-[0.2em] uppercase text-neutral-500 font-semibold mb-3 mono">One substrate, every workflow</p>
-        <h2 class="text-3xl md:text-[40px] font-semibold tracking-tight max-w-xl">Core use cases, straight from the repo</h2>
-      </div>
-      <a href="https://github.com/DrejT/alineo/tree/main/examples" target="_blank" rel="noopener" class="text-[13px] font-semibold text-neutral-400 hover:text-white transition-colors">Browse all examples →</a>
-    </div>
-
-    <div id="uc-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <!-- cards injected identically in markup for no-js correctness, class reveal added via JS -->
-    </div>
-  </div>
-</section>
-
-<!-- ============ GALLERY / IMAGE PAGE ============ -->
-<section id="gallery" class="relative py-28 border-b border-white/[0.06] bg-[#080808] overflow-hidden">
-  <div class="max-w-[1320px] mx-auto px-6 md:px-10">
-    <div class="reveal mb-14">
-      <p class="text-[11px] tracking-[0.2em] uppercase text-neutral-500 font-semibold mb-3 mono">Showcase</p>
-      <h2 class="text-3xl md:text-[40px] font-semibold tracking-tight max-w-xl">The sandbox lifecycle, drawn in text</h2>
-      <p class="text-neutral-400 text-[15px] max-w-xl mt-4 leading-relaxed">Four primitives, rendered as pixel-art panels — the same shapes the sandbox ledger tracks under the hood.</p>
-    </div>
-
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="reveal border border-white/10 rounded-2xl p-5 bg-[#0c0c0c] card-hover">
-        <pre class="ascii leading-[1.15]">╔══════════════╗
-║ <span class="ascii-accent">░░░░░░░░░░░░</span> ║
-║ <span class="ascii-accent">░▓▓▓▓▓▓▓▓▓▓░</span> ║
-║ <span class="ascii-accent">░▓░░░░░░░░▓░</span> ║
-║ <span class="ascii-accent">░▓░ SBX ░░▓░</span> ║
-║ <span class="ascii-accent">░▓░░░░░░░░▓░</span> ║
-║ <span class="ascii-accent">░▓▓▓▓▓▓▓▓▓▓░</span> ║
-║ <span class="ascii-accent">░░░░░░░░░░░░</span> ║
-╚══════════════╝</pre>
-        <div class="mt-4 text-[13px] font-semibold">01 · spawn()</div>
-        <div class="text-[12px] text-neutral-500 mt-1">A live container as a first-class object.</div>
-      </div>
-
-      <div class="reveal border border-white/10 rounded-2xl p-5 bg-[#0c0c0c] card-hover">
-        <pre class="ascii leading-[1.15]">╔══════════════╗
-║  <span class="ascii-accent">▓▓</span>          ║
-║  <span class="ascii-accent">▓▓</span>  exec()   ║
-║  <span class="ascii-accent">▓▓</span>━━━━━━━━━▶ ║
-║  <span class="ascii-accent">▓▓</span>  stdout   ║
-║  <span class="ascii-accent">▓▓</span>◀━━━━━━━━━ ║
-║  <span class="ascii-accent">▓▓</span>          ║
-║  <span class="ascii-accent">▓▓</span>          ║
-╚══════════════╝</pre>
-        <div class="mt-4 text-[13px] font-semibold">02 · exec()</div>
-        <div class="text-[12px] text-neutral-500 mt-1">Stream text, tool_start, tool_end.</div>
-      </div>
-
-      <div class="reveal border border-white/10 rounded-2xl p-5 bg-[#0c0c0c] card-hover">
-        <pre class="ascii leading-[1.15]">╔══════════════╗
-║   ┌────────┐ ║
-║   │ <span class="ascii-accent">▓▓▓▓▓▓</span> │ ║
-║   │ <span class="ascii-accent">▓cp_01</span>│ ║
-║   │ <span class="ascii-accent">▓▓▓▓▓▓</span> │ ║
-║   └────────┘ ║
-║   saved ✓    ║
-║              ║
-╚══════════════╝</pre>
-        <div class="mt-4 text-[13px] font-semibold">03 · checkpoint()</div>
-        <div class="text-[12px] text-neutral-500 mt-1">Snapshot the container, resumable later.</div>
-      </div>
-
-      <div class="reveal border border-white/10 rounded-2xl p-5 bg-[#0c0c0c] card-hover">
-        <pre class="ascii leading-[1.15]">╔══════════════╗
-║     <span class="ascii-accent">▓▓</span>       ║
-║    ╱  ╲      ║
-║  <span class="ascii-accent">▓▓</span>    <span class="ascii-accent">▓▓</span>    ║
-║ parent child ║
-║  <span class="ascii-accent">▓▓</span>          ║
-║              ║
-║              ║
-╚══════════════╝</pre>
-        <div class="mt-4 text-[13px] font-semibold">04 · spawn(child)</div>
-        <div class="text-[12px] text-neutral-500 mt-1">Fork fs + packages into a new agent.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ============ SECURITY ============ -->
 <section id="security" class="relative py-28 border-b border-white/[0.06]">
   <div class="max-w-[1320px] mx-auto px-6 md:px-10 grid lg:grid-cols-2 gap-14">
@@ -611,34 +525,6 @@
       if (!wasOpen) item.classList.add('open');
     });
   });
-
-  // ---------- use case cards (data-driven so markup + JS stay in one place) ----------
-  const useCases = [
-    { name: 'hello-world', title: 'Hello world', desc: 'Spawn a sandbox, run a script, read the result back.' },
-    { name: 'exec-code', title: 'Exec code', desc: 'Run code in a persistent, stateful execution context.' },
-    { name: 'file-ops', title: 'File operations', desc: 'Read, write, move, and search files inside the sandbox.' },
-    { name: 'sandbox-fork', title: 'Sandbox fork', desc: 'Clone a live sandbox — filesystem and packages included.' },
-    { name: 'snapshot-replay', title: 'Snapshot replay', desc: 'Checkpoint a run, resume it later from the exact state.' },
-    { name: 'credential-injection', title: 'Credential injection', desc: 'Inject secrets at exec time — never exposed to the agent.' },
-    { name: 'human-in-the-loop', title: 'Human in the loop', desc: 'Pause execution for approval before a sensitive step.' },
-    { name: 'rlm-repo-fanout', title: 'Repo fan-out', desc: 'Fan a task out across a whole repository in parallel.' },
-    { name: 'memory-basics', title: 'Memory basics', desc: 'Give an agent durable memory across sessions.' },
-    { name: 'interactive-exec', title: 'Interactive exec', desc: 'Drive a long-lived interactive shell session (PTY).' },
-    { name: 'network-egress', title: 'Network egress', desc: 'Control what a sandbox can reach on the network.' },
-    { name: 'control-flow', title: 'Control flow', desc: 'Retry, branch, and fan-out steps in a lazy workflow.' },
-  ];
-  const ucGrid = document.getElementById('uc-grid');
-  ucGrid.innerHTML = useCases.map((u, i) => `
-    <a href="https://github.com/DrejT/alineo/tree/main/examples/${u.name}" target="_blank" rel="noopener"
-       class="reveal card-hover group border border-white/10 rounded-xl p-5 bg-[#0c0c0c] block" style="transition-delay:${(i % 3) * 70}ms">
-      <div class="flex items-center justify-between mb-4">
-        <span class="mono text-[10px] text-neutral-600">examples/${u.name}</span>
-        <span class="text-neutral-600 group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all">→</span>
-      </div>
-      <div class="font-semibold text-[15px] mb-1.5">${u.title}</div>
-      <div class="text-[13px] text-neutral-500 leading-relaxed">${u.desc}</div>
-    </a>
-  `).join('');
 
   // ---------- scroll reveal ----------
   const io = new IntersectionObserver((entries) => {
