@@ -83,6 +83,23 @@
   .beam{position:absolute;width:1px;background:linear-gradient(to bottom,transparent,var(--accent),transparent);opacity:.5}
 
   #copy-btn:active{transform:scale(.96)}
+
+  /* ---- live session player ---- */
+  .demo-tab{padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:transparent;color:#8a8a8a;font:11px/1 "JetBrains Mono",monospace;cursor:pointer;transition:.2s ease}
+  .demo-tab:hover{color:#fff;border-color:rgba(255,255,255,.25)}
+  .demo-tab.active{background:rgba(217,141,81,.12);border-color:rgba(217,141,81,.4);color:var(--accent2)}
+  .demo-cursor{display:inline-block;color:var(--accent);animation:blink 1s step-end infinite}
+  .demo-beam{position:absolute;inset:0;pointer-events:none;background:radial-gradient(620px 220px at 15% 0%,rgba(217,141,81,.08),transparent 70%)}
+  .demo-line{opacity:0;transform:translateY(4px);animation:demoIn .35s ease forwards;display:block}
+  @keyframes demoIn{to{opacity:1;transform:translateY(0)}}
+  .demo-line .tag{color:#8a8a8a;margin-right:8px}
+  .demo-line .ok{color:#7fd99a}
+  .demo-line .path{color:#dcdcdc}
+  .demo-line .muted{color:#5a5a5a}
+  #demo-status-dot.live{background:var(--accent);animation:pulseDot 1.2s ease-in-out infinite}
+  #demo-status-dot.done{background:#7fd99a}
+  @keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(217,141,81,.5)}50%{opacity:.6;box-shadow:0 0 0 4px rgba(217,141,81,0)}}
+  #demo-progress{transition:width .25s linear}
 </style>
 </head>
 <body class="antialiased">
@@ -153,16 +170,73 @@
   </div>
 </section>
 
-<!-- ============ LIVE ANIMATION (first thing after scroll) ============ -->
-<section class="relative bg-black border-y border-white/[0.06] py-16">
+<!-- ============ LIVE SESSION PLAYER (first thing after scroll) ============ -->
+<section class="relative bg-black border-y border-white/[0.06] py-16 overflow-hidden">
   <div class="max-w-[1320px] mx-auto px-6 md:px-10 mb-8 reveal">
     <p class="text-[11px] tracking-[0.2em] uppercase text-[var(--accent)] font-semibold mb-3 mono">Live session</p>
     <h2 class="text-3xl md:text-[40px] font-semibold tracking-tight max-w-xl">One prompt. A real sandbox. A durable session.</h2>
+    <p class="text-neutral-500 text-[14px] mt-3 max-w-lg leading-relaxed">
+      Pick an example straight from
+      <a href="https://github.com/DrejT/alineo/tree/main/examples" target="_blank" rel="noopener" class="text-neutral-300 underline decoration-white/20 hover:decoration-white/60">the repo</a>
+      and watch it actually run.
+    </p>
   </div>
+
   <div class="max-w-[1320px] mx-auto px-4">
-    <div class="reveal-scale rounded-2xl border border-white/10 overflow-hidden" style="aspect-ratio:1180/780;background:#0b0b0b">
-      <iframe src="animations/agent-primitives.html" title="Alineo agent primitives animation" loading="lazy"
-        class="w-full h-full" style="border:0;display:block" scrolling="no"></iframe>
+    <!-- example tabs -->
+    <div id="demo-tabs" class="flex flex-wrap gap-2 mb-5 px-2">
+      <button class="demo-tab active" data-demo="hello-world">hello-world</button>
+      <button class="demo-tab" data-demo="sandbox-fork">sandbox-fork</button>
+      <button class="demo-tab" data-demo="snapshot-replay">snapshot-replay</button>
+      <button class="demo-tab" data-demo="credential-injection">credential-injection</button>
+      <button class="demo-tab" data-demo="rlm-repo-fanout">rlm-repo-fanout</button>
+    </div>
+
+    <div class="reveal-scale rounded-2xl border border-white/10 overflow-hidden relative">
+      <div class="demo-beam" aria-hidden="true"></div>
+      <div class="relative grid lg:grid-cols-[1fr_260px]">
+        <!-- terminal -->
+        <div class="p-6 md:p-8">
+          <div class="flex items-center gap-1.5 mb-6">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#2c2c2c]"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#2c2c2c]"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-[#2c2c2c]"></span>
+            <span id="demo-path" class="ml-2 mono text-[11px] text-neutral-600">examples/hello-world</span>
+            <span id="demo-status" class="ml-auto mono text-[10px] px-2 py-0.5 rounded-full border border-white/10 text-neutral-500 flex items-center gap-1.5">
+              <span id="demo-status-dot" class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span>
+              <span id="demo-status-text">idle</span>
+            </span>
+          </div>
+          <div class="mono text-[13.5px] text-neutral-300 mb-5">
+            <span class="text-neutral-600">$</span> <span id="demo-cmd-text"></span><span class="demo-cursor">▌</span>
+          </div>
+          <div id="demo-log" class="mono text-[12.5px] leading-[2] min-h-[210px]"></div>
+        </div>
+        <!-- session state -->
+        <div class="border-t lg:border-t-0 lg:border-l border-white/10 p-6 md:p-7 bg-[#0d0d0d] flex flex-col gap-6">
+          <div>
+            <div class="mono text-[10px] text-neutral-600 uppercase tracking-wider mb-2">Sandbox</div>
+            <div id="demo-sbx" class="mono text-[13px] text-neutral-300">—</div>
+          </div>
+          <div>
+            <div class="mono text-[10px] text-neutral-600 uppercase tracking-wider mb-2">State</div>
+            <div class="flex items-center gap-2">
+              <span id="demo-state-dot" class="w-2 h-2 rounded-full bg-neutral-600"></span>
+              <span id="demo-state" class="mono text-[13px] text-neutral-300">idle</span>
+            </div>
+          </div>
+          <div>
+            <div class="mono text-[10px] text-neutral-600 uppercase tracking-wider mb-2">Elapsed</div>
+            <div id="demo-elapsed" class="mono text-[13px] text-neutral-300">0.0s</div>
+          </div>
+          <div class="mt-auto">
+            <div class="h-1 rounded-full bg-white/5 overflow-hidden">
+              <div id="demo-progress" class="h-full bg-[var(--accent)]" style="width:0%"></div>
+            </div>
+            <button id="demo-replay" class="mt-4 w-full text-[11px] mono py-2 rounded-md border border-white/10 text-neutral-400 hover:text-white hover:border-white/25 transition-colors">Replay</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -496,6 +570,178 @@
       setTimeout(() => (btn.textContent = 'copy'), 1400);
     } catch (e) { /* clipboard unavailable — no-op */ }
   });
+
+  // ---------- live session player: real example scenarios from examples/*, replayed as a live log ----------
+  const demos = {
+    'hello-world': {
+      cmd: 'bun examples/hello-world/index.ts',
+      sbx: 'sbx_4H2K9L',
+      endState: 'closed',
+      lines: [
+        [300, '<span class="tag">→</span> spawn sandbox <span class="muted">(cpu: 500m, memory: 256Mi)</span>'],
+        [900, '<span class="tag">→</span> write_file <span class="path">/workspace/app.py</span>'],
+        [1500, '<span class="tag">→</span> exec <span class="path">python3 app.py</span>'],
+        [2100, '<span class="ok">hello from agent</span>'],
+        [2700, '<span class="tag">✓</span> <span class="ok">exec_complete</span> <span class="muted">· exitCode 0</span>'],
+        [3300, '<span class="tag">→</span> sb.close()'],
+      ],
+    },
+    'sandbox-fork': {
+      cmd: 'bun examples/sandbox-fork/index.ts',
+      sbx: 'sbx_8F4K2M',
+      endState: 'forked',
+      lines: [
+        [300, '<span class="tag">→</span> spawn parent sandbox'],
+        [900, '<span class="tag">→</span> agent.spawn(<span class="path">"./agents/worker.json"</span>)'],
+        [1500, '<span class="tag">→</span> fork: filesystem = copied, packages = preserved'],
+        [2100, '<span class="ok">child ready</span> <span class="muted">· sbx_2Q9RTA</span>'],
+        [2700, '<span class="tag">→</span> parent continues · child handles auth module'],
+        [3300, '<span class="tag">✓</span> <span class="ok">both sandboxes running independently</span>'],
+      ],
+    },
+    'snapshot-replay': {
+      cmd: 'bun examples/snapshot-replay/index.ts',
+      sbx: 'sbx_7C3D1P',
+      endState: 'resumed',
+      lines: [
+        [300, '<span class="tag">→</span> exec <span class="path">long_task.py</span>'],
+        [900, '<span class="tag">→</span> sb.checkpoint() <span class="muted">→ cp_0142 saved</span>'],
+        [1500, '<span class="muted">— process restarts —</span>'],
+        [2100, '<span class="tag">→</span> client.resume(sandboxId)'],
+        [2700, '<span class="ok">restored from cp_0142</span> <span class="muted">· replaying cached results</span>'],
+        [3300, '<span class="tag">✓</span> <span class="ok">remaining steps ran live · 0 lost work</span>'],
+      ],
+    },
+    'credential-injection': {
+      cmd: 'bun examples/credential-injection/index.ts',
+      sbx: 'sbx_1A9X4R',
+      endState: 'secured',
+      lines: [
+        [300, '<span class="tag">→</span> inject secret <span class="path">API_KEY</span> <span class="muted">(masked)</span>'],
+        [900, '<span class="tag">→</span> exec <span class="path">curl -H "Authorization: $API_KEY" ...</span>'],
+        [1500, '<span class="ok">200 OK</span>'],
+        [2100, '<span class="tag">✓</span> <span class="ok">secret never returned to the agent</span>'],
+        [2700, '<span class="tag">✓</span> <span class="ok">ledger stores no plaintext credential</span>'],
+      ],
+    },
+    'rlm-repo-fanout': {
+      cmd: 'bun examples/rlm-repo-fanout/index.ts',
+      sbx: 'sbx_5N2W8Q',
+      endState: 'aggregated',
+      lines: [
+        [300, '<span class="tag">→</span> scan repo <span class="muted">→ 42 files matched</span>'],
+        [900, '<span class="tag">→</span> fan out <span class="muted">→ 6 parallel sub-agents</span>'],
+        [1500, '<span class="tag">→</span> sub-agent[0..5] processing…'],
+        [2100, '<span class="ok">6/6 sub-agents complete</span>'],
+        [2700, '<span class="tag">→</span> aggregate results <span class="path">→ summary.md</span>'],
+        [3300, '<span class="tag">✓</span> <span class="ok">fan-out complete in 3.1s</span>'],
+      ],
+    },
+  };
+
+  const demoPath = document.getElementById('demo-path');
+  const demoCmdText = document.getElementById('demo-cmd-text');
+  const demoLog = document.getElementById('demo-log');
+  const demoStatusDot = document.getElementById('demo-status-dot');
+  const demoStatusText = document.getElementById('demo-status-text');
+  const demoSbx = document.getElementById('demo-sbx');
+  const demoStateDot = document.getElementById('demo-state-dot');
+  const demoState = document.getElementById('demo-state');
+  const demoElapsed = document.getElementById('demo-elapsed');
+  const demoProgress = document.getElementById('demo-progress');
+  const demoTabs = document.querySelectorAll('.demo-tab');
+
+  let demoTimers = [];
+  let demoTickInterval = null;
+  let demoCycleTimer = null;
+
+  function clearDemoTimers() {
+    demoTimers.forEach((t) => clearTimeout(t));
+    demoTimers = [];
+    if (demoTickInterval) clearInterval(demoTickInterval);
+  }
+
+  function typeCommand(text, done) {
+    demoCmdText.textContent = '';
+    let i = 0;
+    const step = () => {
+      demoCmdText.textContent = text.slice(0, i);
+      i++;
+      if (i <= text.length) demoTimers.push(setTimeout(step, 16));
+      else done();
+    };
+    step();
+  }
+
+  function runDemo(name) {
+    const demo = demos[name];
+    if (!demo) return;
+    clearDemoTimers();
+
+    demoPath.textContent = `examples/${name}`;
+    demoLog.innerHTML = '';
+    demoSbx.textContent = '—';
+    demoState.textContent = 'starting';
+    demoStateDot.className = 'w-2 h-2 rounded-full bg-neutral-600';
+    demoStatusText.textContent = 'running';
+    demoStatusDot.className = 'w-1.5 h-1.5 rounded-full live';
+    demoProgress.style.width = '0%';
+    demoElapsed.textContent = '0.0s';
+
+    const totalMs = demo.lines[demo.lines.length - 1][0] + 700;
+    const startedAt = performance.now();
+    demoTickInterval = setInterval(() => {
+      const elapsed = Math.min(performance.now() - startedAt, totalMs);
+      demoElapsed.textContent = `${(elapsed / 1000).toFixed(1)}s`;
+      demoProgress.style.width = `${Math.min(100, (elapsed / totalMs) * 100)}%`;
+    }, 80);
+
+    typeCommand(demo.cmd, () => {
+      demoTimers.push(setTimeout(() => { demoSbx.textContent = demo.sbx; demoState.textContent = 'running'; }, 150));
+    });
+
+    demo.lines.forEach(([delay, html]) => {
+      demoTimers.push(setTimeout(() => {
+        const line = document.createElement('div');
+        line.className = 'demo-line';
+        line.innerHTML = html;
+        demoLog.appendChild(line);
+      }, delay));
+    });
+
+    demoTimers.push(setTimeout(() => {
+      demoStatusDot.className = 'w-1.5 h-1.5 rounded-full done';
+      demoStatusText.textContent = 'done';
+      demoState.textContent = demo.endState;
+      demoStateDot.className = 'w-2 h-2 rounded-full bg-[var(--accent)]';
+      demoProgress.style.width = '100%';
+      if (demoTickInterval) clearInterval(demoTickInterval);
+    }, totalMs));
+  }
+
+  function selectDemo(name) {
+    demoTabs.forEach((t) => t.classList.toggle('active', t.dataset.demo === name));
+    runDemo(name);
+  }
+
+  demoTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      if (demoCycleTimer) clearInterval(demoCycleTimer);
+      selectDemo(tab.dataset.demo);
+    });
+  });
+  document.getElementById('demo-replay').addEventListener('click', () => {
+    const current = document.querySelector('.demo-tab.active');
+    if (current) runDemo(current.dataset.demo);
+  });
+
+  selectDemo('hello-world');
+  demoCycleTimer = setInterval(() => {
+    const names = Object.keys(demos);
+    const current = document.querySelector('.demo-tab.active').dataset.demo;
+    const next = names[(names.indexOf(current) + 1) % names.length];
+    selectDemo(next);
+  }, 9000);
 
   // ---------- tabs ----------
   const tabItems = document.querySelectorAll('#tab-list .tab-item');
