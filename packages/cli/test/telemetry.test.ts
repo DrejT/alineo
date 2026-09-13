@@ -11,6 +11,7 @@ import {
   writeTelemetryConfig,
   type CliTelemetryEvent,
 } from "../src/telemetry.js";
+import { stubFetch } from "./fetch-stub.ts";
 
 let originalConfigPath: string | undefined;
 let originalDisabled: string | undefined;
@@ -104,9 +105,7 @@ describe("sendTelemetryEvent", () => {
   };
 
   it("never throws when fetch rejects", async () => {
-    globalThis.fetch = mock(() =>
-      Promise.reject(new Error("network down")),
-    ) as unknown as typeof fetch;
+    globalThis.fetch = stubFetch(() => Promise.reject(new Error("network down")));
     // bun-types types `.resolves`/`.rejects` as Matchers<unknown>, whose assertion methods
     // return void — the actual async runtime behavior isn't reflected in the type.
     // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression
@@ -120,14 +119,14 @@ describe("sendTelemetryEvent", () => {
     // honor that same contract to actually exercise sendTelemetryEvent's own timeout bound
     // (a mock that ignores `init.signal` entirely would hang regardless of what the
     // implementation does, proving nothing about its timeout logic).
-    globalThis.fetch = mock(
-      (_url: string, init?: RequestInit) =>
+    globalThis.fetch = stubFetch(
+      (_url, init) =>
         new Promise<Response>((_resolve, reject) => {
           init?.signal?.addEventListener("abort", () => {
             reject(new Error("aborted"));
           });
         }),
-    ) as unknown as typeof fetch;
+    );
     const start = performance.now();
     await sendTelemetryEvent(event, "http://example.invalid/v1/events");
     expect(performance.now() - start).toBeLessThan(2000);
@@ -136,11 +135,11 @@ describe("sendTelemetryEvent", () => {
   it("POSTs the event as JSON to the given endpoint", async () => {
     let capturedBody: string | undefined;
     let capturedUrl: string | undefined;
-    globalThis.fetch = mock((url: string, init?: RequestInit) => {
+    globalThis.fetch = stubFetch((url, init) => {
       capturedUrl = String(url);
       capturedBody = init?.body as string;
       return Promise.resolve(new Response(null, { status: 204 }));
-    }) as unknown as typeof fetch;
+    });
     await sendTelemetryEvent(event, "http://example.invalid/v1/events");
     expect(capturedUrl).toBe("http://example.invalid/v1/events");
     expect(JSON.parse(capturedBody ?? "{}")).toEqual(event);
@@ -150,10 +149,10 @@ describe("sendTelemetryEvent", () => {
 describe("withTelemetry", () => {
   it("calls run() directly when telemetry is disabled, without ever touching fetch", async () => {
     await writeTelemetryConfig({ enabled: false, anonymousId: "x", notifiedAt: Date.now() });
-    const fetchSpy = mock(() => {
+    const fetchSpy = stubFetch(() => {
       throw new Error("should not be called");
     });
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    globalThis.fetch = fetchSpy;
     let ran = false;
     // eslint-disable-next-line typescript/require-await -- run must return a Promise per withTelemetry's signature; nothing here needs to await
     await withTelemetry("spawn", [], async () => {
@@ -166,10 +165,10 @@ describe("withTelemetry", () => {
   it("re-throws the original error after recording outcome: error", async () => {
     await writeTelemetryConfig({ enabled: true, anonymousId: "x", notifiedAt: Date.now() });
     let capturedBody: string | undefined;
-    globalThis.fetch = mock((_url: string, init?: RequestInit) => {
+    globalThis.fetch = stubFetch((_url, init) => {
       capturedBody = init?.body as string;
       return Promise.resolve(new Response(null, { status: 204 }));
-    }) as unknown as typeof fetch;
+    });
 
     const boom = new Error("boom");
     // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- see comment on the earlier .resolves. usage above
@@ -188,10 +187,10 @@ describe("withTelemetry", () => {
   it("only reports allowlisted flags for the given command, dropping everything else", async () => {
     await writeTelemetryConfig({ enabled: true, anonymousId: "x", notifiedAt: Date.now() });
     let capturedBody: string | undefined;
-    globalThis.fetch = mock((_url: string, init?: RequestInit) => {
+    globalThis.fetch = stubFetch((_url, init) => {
       capturedBody = init?.body as string;
       return Promise.resolve(new Response(null, { status: 204 }));
-    }) as unknown as typeof fetch;
+    });
 
     // "agents" only allowlists --json; --not-a-real-flag must never appear in the sent event.
     await withTelemetry("agents", ["--json", "--not-a-real-flag"], async () => {});
@@ -202,9 +201,7 @@ describe("withTelemetry", () => {
 
   it("prints the first-run notice exactly once, on the first send", async () => {
     await writeTelemetryConfig({ enabled: true, anonymousId: "x", notifiedAt: null });
-    globalThis.fetch = mock(() =>
-      Promise.resolve(new Response(null, { status: 204 })),
-    ) as unknown as typeof fetch;
+    globalThis.fetch = stubFetch(() => Promise.resolve(new Response(null, { status: 204 })));
 
     const originalError = console.error;
     const messages: unknown[] = [];

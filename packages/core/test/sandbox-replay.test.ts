@@ -6,6 +6,7 @@ import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import { LedgerEvent } from "../src/ledger.ts";
 import type { ExecResult } from "../src/exec-handle.ts";
+import { stubControl } from "./control-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -36,18 +37,14 @@ function makeExecClient(events: SSEEvent[] = []) {
   };
 }
 
-interface SandboxTestInternals {
-  _execClient: unknown;
-}
-
 /** SandboxCore._execClient is private; this reaches it for tests that need to inject a fake. */
 function setExecClient(sb: SandboxHandle, client: ReturnType<typeof makeExecClient>): void {
-  (sb as unknown as SandboxTestInternals)._execClient = client;
+  Object.assign(sb, { _execClient: client });
 }
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return {
-    control: {} as unknown as SandboxDeps["control"],
+    control: stubControl({}),
     adapter,
   };
 }
@@ -173,7 +170,7 @@ describe("SandboxHandle live mode", () => {
 
     for (const entry of appendedEntries(adapter)) {
       expect(entry.sandboxId).toBe("session-abc");
-      expect((entry as unknown as { runId?: unknown }).runId).toBeUndefined();
+      expect((entry as { runId?: unknown }).runId).toBeUndefined();
     }
   });
 

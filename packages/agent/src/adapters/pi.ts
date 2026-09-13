@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { SandboxHandle, CredentialBinding, CredentialSource } from "@alineo-labs/core";
+import type {
+  SandboxHandle,
+  CredentialBinding,
+  CredentialSource,
+  ExecOptions,
+  ExecResult,
+} from "@alineo-labs/core";
 import { PromptTimeoutError } from "../errors";
 import { normalizePermissions } from "../permissions";
 import type { AgentSpec, CredentialEnvBinding } from "../schema";
@@ -16,6 +22,14 @@ import type {
   SessionStats,
   ThinkingLevel,
 } from "../types";
+
+/** The subset of `SandboxHandle` that `PiAdapter` calls. `exec` only needs to be awaitable, so
+ * callers (and tests) don't have to supply a full `ExecHandle`. */
+export interface PiSandbox {
+  exec(cmd: string, opts?: ExecOptions): PromiseLike<ExecResult>;
+  proxy: SandboxHandle["proxy"];
+  writeFile: SandboxHandle["writeFile"];
+}
 
 // Node.js CJS bridge script — written into the sandbox at /alineo-bridge.js and run with `node`.
 // Wraps `pi --mode rpc` in an HTTP server so the host can communicate bidirectionally
@@ -169,7 +183,7 @@ export class PiAdapter {
   }
 
   /** Install Pi CLI and any spec packages. Slow — result is captured by checkpoint(). */
-  async install(sb: SandboxHandle, spec: AgentSpec): Promise<void> {
+  async install(sb: PiSandbox, spec: AgentSpec): Promise<void> {
     const pkgs = [...new Set(spec.packages ?? [])].filter(
       (p) => p !== "nodejs_22" && p !== "nodejs",
     );
@@ -190,7 +204,7 @@ export class PiAdapter {
    * and snapshot resume alike) so env values, model/provider, and bridge code stay current.
    */
   async configure(
-    sb: SandboxHandle,
+    sb: PiSandbox,
     spec: AgentSpec,
     resolvedEnv: Record<string, string>,
     opts?: { resume?: boolean },
@@ -218,7 +232,7 @@ export class PiAdapter {
    * be part of the exact command that spawns the bridge process so the bridge (and
    * everything it in turn spawns, including Pi itself) inherits the already-clean env.
    */
-  async startBridge(sb: SandboxHandle, unsetVars?: string[]): Promise<void> {
+  async startBridge(sb: PiSandbox, unsetVars?: string[]): Promise<void> {
     const prefix = unsetVars && unsetVars.length > 0 ? `unset ${unsetVars.join(" ")}; ` : "";
     await sb.exec(`${prefix}node /alineo-bridge.js &`);
     const { url } = await sb.proxy(3001);

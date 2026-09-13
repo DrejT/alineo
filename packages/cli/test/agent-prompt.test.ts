@@ -2,13 +2,13 @@ import { describe, it, expect } from "bun:test";
 import type { Alineo, AgentEvent } from "alineo";
 import { collectReply } from "../src/agent-prompt";
 
-function fakeAgent(events: AgentEvent[]): Alineo {
+function fakeAgent(events: AgentEvent[]): Pick<Alineo, "prompt"> {
   return {
     // eslint-disable-next-line typescript/require-await -- must be async to match Alineo.prompt's real signature; nothing here needs to await
     prompt: async function* () {
       for (const ev of events) yield ev;
     },
-  } as unknown as Alineo;
+  };
 }
 
 describe("collectReply", () => {

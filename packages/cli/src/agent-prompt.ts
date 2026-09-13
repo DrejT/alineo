@@ -12,7 +12,7 @@ export interface CollectedReply {
 
 /** Sends one prompt and collects the text chunks plus a record of any tool calls made. */
 export async function collectReply(
-  agent: Alineo,
+  agent: Pick<Alineo, "prompt">,
   message: string,
   opts?: { inactivityTimeoutMs?: number },
 ): Promise<CollectedReply> {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SandboxHandle } from "../src/sandbox/index.ts";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter } from "../src/ledger.ts";
+import { stubControl } from "./control-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -21,27 +22,19 @@ function makeAdapter(): IStorageAdapter {
 }
 
 function makeControl() {
-  return { deleteSandbox: vi.fn().mockResolvedValue(undefined) };
-}
-
-function asControl(control: ReturnType<typeof makeControl>): SandboxDeps["control"] {
-  return control as unknown as SandboxDeps["control"];
+  return stubControl({ deleteSandbox: vi.fn().mockResolvedValue(undefined) });
 }
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return {
-    control: asControl(makeControl()),
+    control: makeControl(),
     adapter,
   };
 }
 
-interface SandboxTestInternals {
-  _execClient: unknown;
-}
-
 /** SandboxCore._execClient is private; this reaches it for tests that need to inject a fake. */
 function setExecClient(sb: SandboxHandle, client: unknown): void {
-  (sb as unknown as SandboxTestInternals)._execClient = client;
+  Object.assign(sb, { _execClient: client });
 }
 
 describe("SandboxHandle.close()", () => {
@@ -61,7 +54,7 @@ describe("SandboxHandle.close()", () => {
   it("does not resolve a new exec client just to dispose it when none was ever created", async () => {
     const adapter = makeAdapter();
     const control = makeControl();
-    const sb = new SandboxHandle("sb-1", "test", { control: asControl(control), adapter });
+    const sb = new SandboxHandle("sb-1", "test", { control, adapter });
 
     await expect(sb.close()).resolves.toBeUndefined();
     // No fetch/control call was ever made to resolve an exec client — deleteSandbox is

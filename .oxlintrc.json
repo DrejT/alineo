@@ -1,6 +1,9 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript"],
+  "jsPlugins": [
+    { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }
+  ],
   "env": {
     "node": true
   },
@@ -8,6 +11,15 @@
     "typeAware": true
   },
   "rules": {
+    "anti-slop/no-chained-type-assertions": "error",
+    "anti-slop/no-widen-then-assert": "error",
+    "anti-slop/no-unsafe-dictionary-type": "warn",
+    "anti-slop/no-reflect-apply": "error",
+    "anti-slop/no-reflect-get": "error",
+    "anti-slop/no-reduce-accumulator-copy": "error",
+    "anti-slop/no-unknown-type-aliases": "error",
+    "anti-slop/no-module-mocking": "error",
+
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": "warn",
 

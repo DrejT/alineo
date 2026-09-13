@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type { SandboxHandle } from "@alineo-labs/sandbox";
 import { SandboxBuilder, flushOps, type FlushContext } from "../src/sandbox-builder.ts";
 
 function makeCtx(overrides: Partial<FlushContext> = {}): FlushContext {
@@ -79,7 +78,7 @@ describe("flushOps — execution", () => {
 
     const sandbox = makeSandbox();
     const ctx = makeCtx();
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, ctx);
+    await flushOps(sandbox, sb._ops, ctx);
 
     expect(sandbox.exec).toHaveBeenCalledWith("cmd1", {});
     expect(sandbox.exec).toHaveBeenCalledWith("cmd2", {});
@@ -90,7 +89,7 @@ describe("flushOps — execution", () => {
     sb.writeFile("/tmp/f", "hello");
 
     const sandbox = makeSandbox();
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, makeCtx());
+    await flushOps(sandbox, sb._ops, makeCtx());
 
     expect(sandbox.writeFile).toHaveBeenCalledWith("/tmp/f", "hello");
   });
@@ -101,7 +100,7 @@ describe("flushOps — execution", () => {
 
     const sandbox = makeSandbox();
     const ctx = makeCtx();
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, ctx);
+    await flushOps(sandbox, sb._ops, ctx);
 
     expect(sandbox.readFile).toHaveBeenCalledWith("/tmp/f");
     expect(ctx.vars["content"]).toBe("file content");
@@ -112,7 +111,7 @@ describe("flushOps — execution", () => {
     sb.checkpoint("after-install");
 
     const sandbox = makeSandbox();
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, makeCtx());
+    await flushOps(sandbox, sb._ops, makeCtx());
 
     expect(sandbox.checkpoint).toHaveBeenCalledWith("after-install");
   });
@@ -132,7 +131,7 @@ describe("flushOps — when primitive", () => {
     );
 
     const sandbox = makeSandbox();
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, makeCtx({ exitCode: 0 }));
+    await flushOps(sandbox, sb._ops, makeCtx({ exitCode: 0 }));
 
     const calls = (sandbox.exec as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
     expect(calls).toContain("echo pass");
@@ -152,7 +151,7 @@ describe("flushOps — when primitive", () => {
     );
 
     const sandbox = makeSandbox();
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, makeCtx({ exitCode: 1 }));
+    await flushOps(sandbox, sb._ops, makeCtx({ exitCode: 1 }));
 
     const calls = (sandbox.exec as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
     expect(calls).toContain("echo fail");
@@ -168,7 +167,7 @@ describe("flushOps — forEach primitive", () => {
     });
 
     const sandbox = makeSandbox();
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, makeCtx());
+    await flushOps(sandbox, sb._ops, makeCtx());
 
     const calls = (sandbox.exec as ReturnType<typeof vi.fn>).mock.calls.map((c: string[]) => c[0]);
     expect(calls).toEqual(["echo a", "echo b", "echo c"]);
@@ -183,7 +182,7 @@ describe("flushOps — retry primitive", () => {
     });
 
     const sandbox = makeSandbox();
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, makeCtx());
+    await flushOps(sandbox, sb._ops, makeCtx());
 
     expect(sandbox.exec).toHaveBeenCalledTimes(1);
   });
@@ -191,6 +190,7 @@ describe("flushOps — retry primitive", () => {
   it("retries on failure and succeeds", async () => {
     let attempts = 0;
     const sandbox = {
+      ...makeSandbox(),
       exec: vi.fn().mockImplementation(() => {
         attempts++;
         if (attempts < 3) {
@@ -227,12 +227,13 @@ describe("flushOps — retry primitive", () => {
       { delayMs: 0 },
     );
 
-    await flushOps(sandbox as unknown as SandboxHandle, sb._ops, makeCtx());
+    await flushOps(sandbox, sb._ops, makeCtx());
     expect(attempts).toBe(3);
   });
 
   it("throws after exhausting all attempts", async () => {
     const sandbox = {
+      ...makeSandbox(),
       exec: vi.fn().mockImplementation(() => ({
         stdout: async function* () {},
         result: async () => {
@@ -255,9 +256,7 @@ describe("flushOps — retry primitive", () => {
       { delayMs: 0 },
     );
 
-    await expect(flushOps(sandbox as unknown as SandboxHandle, sb._ops, makeCtx())).rejects.toThrow(
-      "always fails",
-    );
+    await expect(flushOps(sandbox, sb._ops, makeCtx())).rejects.toThrow("always fails");
     expect(sandbox.exec).toHaveBeenCalledTimes(3);
   });
 });
