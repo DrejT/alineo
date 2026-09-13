@@ -60,6 +60,38 @@ describe("spawning a child", () => {
     expect(indexes).toEqual([0, 1, 2]);
   });
 
+  test("forks of the same parent are serialized, never overlapping against its sandbox (OpenSandbox#1831)", async () => {
+    const run = await startRun(root);
+    const gate = deferred();
+    run.root.forkGate = gate.promise; // stretch the in-flight window so any overlap gets caught
+
+    const [a, b] = await Promise.all([
+      call("POST", `/runs/${run.runId}/agents`, {
+        parentAgentId: run.rootAgentId,
+        spec: spec("w1"),
+      }),
+      call("POST", `/runs/${run.runId}/agents`, {
+        parentAgentId: run.rootAgentId,
+        spec: spec("w2"),
+      }),
+    ]);
+    await Bun.sleep(20); // let both requests' background provisionChild() reach the fork
+    gate.resolve();
+
+    const [aView, bView] = await Promise.all(
+      [a.body.agentId, b.body.agentId].map((id) =>
+        until(async () => {
+          const r = await call("GET", `/agents/${id}`);
+          return r.body.sandboxId || r.body.outcome ? r.body : null;
+        }),
+      ),
+    );
+
+    expect(aView).toMatchObject({ sandboxId: expect.stringMatching(/^sb-/), outcome: null });
+    expect(bView).toMatchObject({ sandboxId: expect.stringMatching(/^sb-/), outcome: null });
+    expect(run.root.spawns).toHaveLength(2);
+  });
+
   test.each([
     ["no parentAgentId", { spec: { name: "w" } }, 400],
     ["no spec", { parentAgentId: "PARENT" }, 400],

@@ -11,11 +11,16 @@
  * Budget enforcement is the SDK's: `Alineo.prototype.spawn()` throws when `spawnDepth` /
  * `maxAgents` are exhausted (single source of truth — the counters are force-computed and
  * tamper-resistant). alineod catches that throw and turns it into `budget_denied`.
+ *
+ * The synchronous prefix above lets two children of the same parent be accepted in the same
+ * tick — but the fork itself (`parent.spawn()`) is queued per parent (`fork-lock.ts`), never
+ * run concurrently against one live sandbox: see opensandbox-group/OpenSandbox#1831.
  */
 import type { Alineo } from "alineo";
 import type { SpawnAgentBody } from "../schema";
 import { newAgentId } from "../ids";
 import { get, register } from "./registry";
+import { withParentForkLock } from "./fork-lock";
 import { emit } from "./emit";
 import { driveTurn } from "./stream";
 import { waitForHandles } from "./waitfor";
@@ -125,10 +130,11 @@ export async function provisionChild(
     if (!parent) throw new Error(`parent ${parentAgentId} is no longer live`);
 
     const specPath = writeSpecFile(childId, body.spec);
-    const child = await parent.spawn(specPath, {
-      spawnDepth: spawnBudget,
-      maxAgents: maxAgentsBudget,
-    });
+    // Serialized per parent — see fork-lock.ts (opensandbox-group/OpenSandbox#1831): two
+    // children of this same parent forking at once can each silently come back missing files.
+    const child = await withParentForkLock(parentAgentId, () =>
+      parent.spawn(specPath, { spawnDepth: spawnBudget, maxAgents: maxAgentsBudget }),
+    );
 
     register(childId, child);
     emit(runId, childId, "agent_provisioned", { sandboxId: child.sandboxId });

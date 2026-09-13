@@ -52,6 +52,10 @@ export class FakeAgent {
   pauseError?: Error;
   hangSessionStats = false;
 
+  /** Set to delay every spawn() call on this agent — combine with the `forking` guard below to catch overlap. */
+  forkGate?: Promise<void>;
+  private forking = false;
+
   readonly sandbox = {
     pause: async (): Promise<void> => {
       if (this.pauseError) throw this.pauseError;
@@ -121,11 +125,22 @@ export class FakeAgent {
   }
 
   async spawn(specPath: string, opts: SpawnOpts = {}): Promise<FakeAgent> {
-    fakeSdk.spawnCheck(opts);
-    const spec = JSON.parse(readFileSync(specPath, "utf8")) as { name?: string };
-    const child = new FakeAgent({ name: spec.name ?? "agent", runId: this.runId });
-    this.spawns.push({ specPath, opts, child });
-    return child;
+    // Stands in for the real bug (opensandbox-group/OpenSandbox#1831): a second fork() call
+    // reaching this sandbox while the first is still in flight is exactly what corrupts a real
+    // Docker-runtime commit. spawn.ts's per-parent fork-lock is what's supposed to prevent two
+    // calls from ever overlapping here — see the "forks ... are serialized" test in spawn.test.ts.
+    if (this.forking) throw new Error(`concurrent fork() on ${this.sandboxId} — OpenSandbox#1831`);
+    this.forking = true;
+    try {
+      fakeSdk.spawnCheck(opts);
+      if (this.forkGate) await this.forkGate;
+      const spec = JSON.parse(readFileSync(specPath, "utf8")) as { name?: string };
+      const child = new FakeAgent({ name: spec.name ?? "agent", runId: this.runId });
+      this.spawns.push({ specPath, opts, child });
+      return child;
+    } finally {
+      this.forking = false;
+    }
   }
 }
 
