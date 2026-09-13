@@ -1,5 +1,12 @@
 # @alineo-labs/vault
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [68a30c2]
+  - @alineo-labs/core@0.4.1
+
 ## 0.3.0
 
 ### Minor Changes
