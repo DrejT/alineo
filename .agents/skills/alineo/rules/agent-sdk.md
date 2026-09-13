@@ -93,6 +93,7 @@ decrements it into the child's env. `maxAgents` is a separate, optional descenda
 | `agent.fork(entryId)` | Branch from a specific history entry → `{ text, cancelled }` |
 | `agent.getMessages()` / `agent.getForkMessages()` | Full history / available fork entry points |
 | `agent.setModel(provider, modelId)` / `agent.cycleModel()` | Model switching |
+| `agent.getAvailableModels()` | List every model available to Pi under the current provider config — the way to find a valid `modelId` for `setModel()`/a spec's `model` field, rather than guessing the string |
 | `agent.setThinkingLevel(level)` / `agent.cycleThinkingLevel()` | Reasoning effort |
 | `agent.compact(instructions?)` / `agent.setAutoCompaction(bool)` | Context compaction |
 | `agent.setAutoRetry(bool)` / `agent.abortRetry()` | Retry on 429/500/502/503/504 (on by default: 3 attempts, 2s/4s/8s backoff) |
