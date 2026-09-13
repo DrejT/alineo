@@ -24,3 +24,14 @@ Each agent action is recorded in the ledger the same way sandbox execs are:
 from that snapshot (`agent.fromSnapshot`). `Alineo.resume(sandboxId)` reconnects a bridge to an
 existing container after the host process exits; `Alineo.attach(sandboxId)` connects without
 touching the bridge at all, for `.spawn()`-only access.
+
+## Where alineod fits
+
+**alineod is not part of this diagram** — it's a separate HTTP+SSE process (own Docker image,
+`ghcr.io/drejt/alineod`) that calls this same `Alineo` class server-side, in-process, from inside
+its own request handlers, to orchestrate many agents as one swarm (spawn tree, budgets, `waitFor`
+gather, steer/pause/resume). None of the CLI commands above talk to it — `alineo spawn`/`fork`/
+`prompt`/`steer` always call `Alineo` directly, whether or not alineod happens to be running. See
+[CLI Reference § alineod](cli.md#alineod-the-swarm-daemon) for how it's launched, and
+`apps/alineod/README.md` for its own architecture (ledger/agents/handles tables, crash-only
+rehydrate).
