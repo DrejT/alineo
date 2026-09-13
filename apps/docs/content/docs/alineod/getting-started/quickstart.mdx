@@ -70,7 +70,7 @@ curl -s localhost:4600/runs -H 'content-type: application/json' -d '{
 ```
 
 The route returns `202` immediately — creating the sandbox happens in the background (a cold spec can take a
-minute or more). An agent can be used as a spawn parent once it has a `sandboxId`:
+minute or more). The root's `spawnDepth` of `2` is what allows it to have children, and grandchildren, at all. An agent can be used as a spawn parent once it has a `sandboxId`:
 
 ```bash
 curl -s localhost:4600/agents/a_7b2e44d1

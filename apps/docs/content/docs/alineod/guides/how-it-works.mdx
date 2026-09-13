@@ -20,16 +20,16 @@ repo, installed packages, files the parent wrote — rather than a fresh install
 
 `GET /agents/:id` and `GET /runs/:id` report each agent's `state`:
 
-| State          | Meaning                                                                  |
-| -------------- | ------------------------------------------------------------------------ |
-| `provisioning` | Accepted; the sandbox is being created or forked.                        |
-| `spawning`     | Held by `waitFor` — not forked until its dependencies settle.            |
-| `running`      | A turn is in progress (or the agent is live and idle between prompts).   |
-| `paused`       | The agent's container is frozen.                                         |
-| `done`         | The turn finished successfully.                                          |
-| `failed`       | The turn or the provisioning failed, or a spawn was refused by a budget. |
-| `aborted`      | Stopped by `POST /agents/:id/stop` or `DELETE /runs/:id`.                |
-| `lost`         | alineod restarted and could not reconnect to (or retry) this agent.      |
+| State          | Meaning                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `provisioning` | Accepted, and no turn has started yet. The sandbox may still be being created — once `sandboxId` is set, it exists. |
+| `spawning`     | Held by `waitFor` — not forked until its dependencies settle.                                                       |
+| `running`      | A turn is in progress (or the agent is live and idle between prompts).                                              |
+| `paused`       | The agent's container is frozen.                                                                                    |
+| `done`         | The turn finished successfully.                                                                                     |
+| `failed`       | The turn or the provisioning failed, or a spawn was refused by a budget.                                            |
+| `aborted`      | Stopped by `POST /agents/:id/stop` or `DELETE /runs/:id`.                                                           |
+| `lost`         | alineod restarted and could not reconnect to (or retry) this agent.                                                 |
 
 An ended agent also carries an `outcome` — `success`, `failed`, `aborted`, `lost`, or `budget-exceeded`.
 
@@ -65,6 +65,11 @@ The result is the agent's final assistant message.
 
 Two limits bound how far a swarm can grow. Both can be set on the root's spec (`spawnDepth`, `maxAgents`) or
 overridden per request with a `budget` object.
+
+<Callout type="info">
+  Spawning is opt-in: a run can only spawn children if its root has a `spawnDepth` of at least `1`.
+  Without one, every spawn is refused as `budget-exceeded`.
+</Callout>
 
 - **`spawnDepth`** — how many more levels of children may be created below an agent. Each child receives its
   parent's budget minus one; a spawn from an agent with no budget left is refused.

@@ -1,0 +1,8 @@
+{
+  "name": "alineo-cookbook-swarm-code-review",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "bun index.ts"
+  }
+}

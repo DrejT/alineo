@@ -79,7 +79,11 @@ async function reattachOne(a: AgentRow): Promise<void> {
     console.log(`[alineod]   resumed ${a.agent_id} (${a.sandbox_id}) — bridge restarted`);
   } catch (err) {
     const message = describeError(err);
-    emit(a.run_id, a.agent_id, "agent_ended", { outcome: "lost", endedAt: Date.now(), error: message });
+    emit(a.run_id, a.agent_id, "agent_ended", {
+      outcome: "lost",
+      endedAt: Date.now(),
+      error: message,
+    });
     console.log(`[alineod]   lost ${a.agent_id}: ${message}`);
   }
 }
@@ -88,11 +92,16 @@ async function retryProvision(a: AgentRow): Promise<void> {
   const spec = JSON.parse(a.spec_json);
 
   if (!a.parent_agent_id) {
-    console.log(`[alineod]   retrying provision for root ${a.agent_id} (was still inside Alineo.load())...`);
+    console.log(
+      `[alineod]   retrying provision for root ${a.agent_id} (was still inside Alineo.load())...`,
+    );
     const body: CreateRunBody = {
       spec,
       prompt: a.prompt ?? undefined,
-      budget: { spawnDepth: a.spawn_budget ?? undefined, maxAgents: a.max_agents_budget ?? undefined },
+      budget: {
+        spawnDepth: a.spawn_budget ?? undefined,
+        maxAgents: a.max_agents_budget ?? undefined,
+      },
     };
     await provisionRoot(a.run_id, a.agent_id, body);
     return;
@@ -109,7 +118,9 @@ async function retryProvision(a: AgentRow): Promise<void> {
     return;
   }
 
-  console.log(`[alineod]   retrying provision for ${a.agent_id} (parent ${a.parent_agent_id} is live)...`);
+  console.log(
+    `[alineod]   retrying provision for ${a.agent_id} (parent ${a.parent_agent_id} is live)...`,
+  );
   const body: SpawnAgentBody = {
     spec,
     parentAgentId: a.parent_agent_id,

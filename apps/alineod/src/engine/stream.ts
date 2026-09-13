@@ -21,7 +21,9 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
   setState(agentId, "running", "prompt");
 
   try {
-    for await (const ev of agent.prompt(message, { inactivityTimeoutMs: PROMPT_INACTIVITY_TIMEOUT_MS })) {
+    for await (const ev of agent.prompt(message, {
+      inactivityTimeoutMs: PROMPT_INACTIVITY_TIMEOUT_MS,
+    })) {
       emitHarness(runId, agentId, ev as { type: string } & Record<string, unknown>);
     }
     const text = await safeLastText(agent);

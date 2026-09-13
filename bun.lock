@@ -168,6 +168,10 @@
         "@alineo-labs/sqlite": "workspace:*",
       },
     },
+    "cookbooks/swarm-code-review": {
+      "name": "alineo-cookbook-swarm-code-review",
+      "version": "0.0.1",
+    },
     "cookbooks/untrusted-code-execution": {
       "name": "alineo-cookbook-untrusted-code-execution",
       "version": "0.0.5",
@@ -183,6 +187,10 @@
         "@alineo-labs/sqlite": "workspace:*",
         "alineo": "workspace:*",
       },
+    },
+    "examples/alineod-swarm": {
+      "name": "alineo-example-alineod-swarm",
+      "version": "0.0.1",
     },
     "examples/benchmark": {
       "name": "alineo-example-benchmark",
@@ -1801,9 +1809,13 @@
 
     "alineo-cookbook-resumable-etl-pipeline": ["alineo-cookbook-resumable-etl-pipeline@workspace:cookbooks/resumable-etl-pipeline"],
 
+    "alineo-cookbook-swarm-code-review": ["alineo-cookbook-swarm-code-review@workspace:cookbooks/swarm-code-review"],
+
     "alineo-cookbook-untrusted-code-execution": ["alineo-cookbook-untrusted-code-execution@workspace:cookbooks/untrusted-code-execution"],
 
     "alineo-example-agent-egress-approval": ["alineo-example-agent-egress-approval@workspace:examples/agent-egress-approval"],
+
+    "alineo-example-alineod-swarm": ["alineo-example-alineod-swarm@workspace:examples/alineod-swarm"],
 
     "alineo-example-benchmark": ["alineo-example-benchmark@workspace:examples/benchmark"],
 

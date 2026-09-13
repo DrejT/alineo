@@ -19,9 +19,7 @@ const upsertAgent = db.query(
    ON CONFLICT(agent_id) DO NOTHING`,
 );
 
-const setAgentState = db.query(
-  `UPDATE agents SET state = $state WHERE agent_id = $agentId`,
-);
+const setAgentState = db.query(`UPDATE agents SET state = $state WHERE agent_id = $agentId`);
 
 const setAgentSandbox = db.query(
   `UPDATE agents SET sandbox_id = $sandboxId WHERE agent_id = $agentId`,

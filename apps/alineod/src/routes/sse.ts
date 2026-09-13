@@ -57,7 +57,9 @@ export function sseResponse(runId: string, lastEventId: number): Response {
       }
 
       // 2. live subscription
-      const off = onRun(runId, (msg: BusMessage) => send(frame(msg.id, msg.event, msg.data), msg.id !== undefined));
+      const off = onRun(runId, (msg: BusMessage) =>
+        send(frame(msg.id, msg.event, msg.data), msg.id !== undefined),
+      );
 
       // 3. keep-alive
       const hb = setInterval(() => send(`: ping\n\n`, false), SSE_HEARTBEAT_MS);

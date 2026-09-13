@@ -24,7 +24,10 @@ export const agentsRoutes = new Elysia()
     // Skip the live fetch outright while paused (the bridge is frozen, this would just burn
     // the timeout below every time) — and bound it regardless, since "container reports
     // running" doesn't guarantee the bridge inside it is actually still responsive.
-    const sessionStats = agent && view.state !== "paused" ? await withTimeout(agent.getSessionStats(), 2_000) : undefined;
+    const sessionStats =
+      agent && view.state !== "paused"
+        ? await withTimeout(agent.getSessionStats(), 2_000)
+        : undefined;
     return { ...view, sessionStats };
   })
 

@@ -59,7 +59,11 @@ export function createRun(body: CreateRunBody): CreateRunResult {
  * The slow half of creating a run: `Alineo.load()`. Exported so `rehydrate()` can re-run it
  * verbatim for a root that was still stuck here (no sandbox yet) when alineod crashed.
  */
-export async function provisionRoot(runId: string, rootAgentId: string, body: CreateRunBody): Promise<void> {
+export async function provisionRoot(
+  runId: string,
+  rootAgentId: string,
+  body: CreateRunBody,
+): Promise<void> {
   try {
     const agent = await Alineo.load(body.spec, {
       adapter: sdkAdapter,
@@ -73,7 +77,11 @@ export async function provisionRoot(runId: string, rootAgentId: string, body: Cr
     if (body.prompt) void driveTurn(rootAgentId, body.prompt);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    emit(runId, rootAgentId, "agent_ended", { outcome: "failed", endedAt: Date.now(), error: message });
+    emit(runId, rootAgentId, "agent_ended", {
+      outcome: "failed",
+      endedAt: Date.now(),
+      error: message,
+    });
   }
 }
 

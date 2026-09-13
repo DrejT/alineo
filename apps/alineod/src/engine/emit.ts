@@ -8,7 +8,12 @@ import { apply } from "../state/projection";
 import { publish } from "../bus";
 
 /** Persist an alineod event and fan it out. Returns the assigned `seq`. */
-export function emit(runId: string, agentId: string | null, event: string, payload: Record<string, unknown>): number {
+export function emit(
+  runId: string,
+  agentId: string | null,
+  event: string,
+  payload: Record<string, unknown>,
+): number {
   const row = appendRow(runId, agentId, event, { agentId, ...payload });
   apply(row);
   publish(runId, { id: row.seq, event, data: { agentId, ...payload } });
@@ -36,7 +41,11 @@ const PERSISTED_HARNESS_EVENTS = new Set([
   "extension_error",
 ]);
 
-export function emitHarness(runId: string, agentId: string, ev: { type: string } & Record<string, unknown>): void {
+export function emitHarness(
+  runId: string,
+  agentId: string,
+  ev: { type: string } & Record<string, unknown>,
+): void {
   const { type, ...rest } = ev;
   const data = { agentId, ...rest };
   if (PERSISTED_HARNESS_EVENTS.has(type)) {

@@ -5,31 +5,16 @@
  *
  * See research/daemon.md for the design.
  */
-import { Elysia } from "elysia";
-import { openapi } from "@elysiajs/openapi";
-import { PORT, IDLE_TIMEOUT_SECONDS } from "./config";
+import { PORT } from "./config";
 import "./src/state/db"; // side effect: open the db, create tables
 import { connectSdkAdapter } from "./src/engine/registry";
 import { rehydrate } from "./src/engine/rehydrate";
-import { toErrorResponse } from "./src/routes/http";
-import { runsRoutes } from "./src/routes/runs";
-import { agentsRoutes } from "./src/routes/agents";
-import { resultsRoutes } from "./src/routes/results";
+import { createApp } from "./src/app";
 
 await connectSdkAdapter();
 await rehydrate();
 
-const app = new Elysia({
-  // Bun kills idle sockets after ~10s by default — lethal for SSE and the result long-poll.
-  serve: { idleTimeout: IDLE_TIMEOUT_SECONDS },
-})
-  .use(openapi())
-  .onError(({ error }) => toErrorResponse(error))
-  .get("/health", () => ({ ok: true }))
-  .use(runsRoutes)
-  .use(agentsRoutes)
-  .use(resultsRoutes)
-  .listen(PORT);
+const app = createApp().listen(PORT);
 
 console.log(`[alineod] listening on http://localhost:${PORT}  (OpenAPI at /openapi)`);
 

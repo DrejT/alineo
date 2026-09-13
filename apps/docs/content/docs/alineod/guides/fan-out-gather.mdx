@@ -96,6 +96,6 @@ Keys are scoped to the run.
 
 ## Budgets in a fan-out
 
-Every worker consumes budget from its parent's lineage. Give the root a `spawnDepth` of at least `1` for a flat
+Spawning requires a budget. Every worker consumes budget from its parent's lineage. Give the root a `spawnDepth` of at least `1` for a flat
 fan-out, and at least `2` if workers will fan out further themselves. See
 [Budgets](/docs/alineod/guides/how-it-works#budgets).

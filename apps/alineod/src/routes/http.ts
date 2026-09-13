@@ -9,7 +9,10 @@ import { HttpError } from "../engine/errors";
 export function parseBody<T>(schema: ZodType<T>, value: unknown): T {
   const r = schema.safeParse(value);
   if (!r.success) {
-    throw new HttpError(400, `invalid request body: ${r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+    throw new HttpError(
+      400,
+      `invalid request body: ${r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+    );
   }
   return r.data;
 }
