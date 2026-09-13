@@ -1,7 +1,7 @@
 /**
  * `waitFor` — hold until every named agent's handle is settled (research/daemon.md §8, D-c
  * "hold-then-spawn"). The wait graph is a DAG by construction (you can only wait on agents
- * that already exist), so there is no deadlock detection in v0.
+ * that already exist), so no deadlock detection is needed.
  */
 import { onRun } from "../bus";
 import { getHandle } from "../state/projection";

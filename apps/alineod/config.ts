@@ -20,12 +20,13 @@ export const DB_PATH = process.env.ALINEOD_DB_PATH ?? "./data/alineod.db";
  * alineod passes one instance of `@alineo-labs/sqlite`'s adapter to every `Alineo.load()` /
  * `.resume()`; the SDK owns its schema.
  */
-export const SDK_LEDGER_PATH = process.env.ALINEOD_SDK_LEDGER_PATH ?? "./data/alineod-sdk-ledger.db";
+export const SDK_LEDGER_PATH =
+  process.env.ALINEOD_SDK_LEDGER_PATH ?? "./data/alineod-sdk-ledger.db";
 
 /**
  * Working directory alineod owns. Incoming `AgentSpec` objects are written here as files
  * because the SDK's `.spawn()` takes a spec *path* (D-b in research/daemon.md — "accept the
- * object, own the dir"). Prototype result blobs land here too (D-d — real impl is a
+ * object, own the dir"). Result blobs land here too (D-d — real impl is a
  * by-reference `fs://` into the sandbox).
  */
 export const WORK_DIR = process.env.ALINEOD_WORK_DIR ?? "./data/alineod-work";
@@ -47,4 +48,6 @@ export const MAX_RESULT_WAIT_SECONDS = 240;
  * handle settles (failed, or success if partial text exists) instead of hanging the swarm.
  * Some NIM models stall mid-turn on multi-tool-call turns (see the pi-bridge notes).
  */
-export const PROMPT_INACTIVITY_TIMEOUT_MS = Number(process.env.ALINEOD_PROMPT_INACTIVITY_MS ?? 180_000);
+export const PROMPT_INACTIVITY_TIMEOUT_MS = Number(
+  process.env.ALINEOD_PROMPT_INACTIVITY_MS ?? 180_000,
+);

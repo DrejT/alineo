@@ -8,7 +8,9 @@
 import { z } from "zod";
 
 /** Opaque pass-through: the SDK owns `AgentSpec` validation. */
-export const AgentSpec = z.record(z.string(), z.unknown()).describe("alineo AgentSpec (validated by the SDK)");
+export const AgentSpec = z
+  .record(z.string(), z.unknown())
+  .describe("alineo AgentSpec (validated by the SDK)");
 
 export const BudgetOverride = z
   .object({
@@ -29,7 +31,11 @@ export type CreateRunBody = z.infer<typeof CreateRunBody>;
 export const CreateRunResponse = z.object({
   runId: z.string(),
   rootAgentId: z.string(),
-  state: z.string().describe('Always "provisioning" at return time (the route is async) — poll for the real state.'),
+  state: z
+    .string()
+    .describe(
+      'Always "provisioning" at return time (the route is async) — poll for the real state.',
+    ),
 });
 
 // ── POST /runs/:runId/agents ──────────────────────────────────────────────────
@@ -46,13 +52,17 @@ export const SpawnAgentBody = z.object({
   idempotencyKey: z
     .string()
     .optional()
-    .describe("D-f: a retried POST with the same key returns the original spawn instead of creating a second child."),
+    .describe(
+      "D-f: a retried POST with the same key returns the original spawn instead of creating a second child.",
+    ),
 });
 export type SpawnAgentBody = z.infer<typeof SpawnAgentBody>;
 
 export const SpawnAgentResponse = z.object({
   agentId: z.string(),
-  state: z.string().describe('"spawning" if waitFor is set, else "provisioning" — poll for the real state.'),
+  state: z
+    .string()
+    .describe('"spawning" if waitFor is set, else "provisioning" — poll for the real state.'),
 });
 
 // ── agent / tree views ───────────────────────────────────────────────────────
@@ -97,7 +107,9 @@ export const PromptBody = z.object({ text: z.string().min(1) });
 
 export const SteerBody = z
   .object({ message: z.string().min(1) })
-  .describe("Injected into the agent's current turn (research/swarm-control.md §8) — the named agent only, never a subtree.");
+  .describe(
+    "Injected into the agent's current turn (research/swarm-control.md §8) — the named agent only, never a subtree.",
+  );
 
 // ── GET /agents/:id/result ───────────────────────────────────────────────────
 
@@ -106,7 +118,7 @@ export const ResultResponse = z.object({
   state: z.enum(["pending", "settled"]),
   outcome: z.string().nullable(),
   resultRef: z.string().nullable(),
-  result: z.string().nullable().describe("Prototype convenience: the inline result text."),
+  result: z.string().nullable().describe("The result text, inline."),
 });
 
 // ── the event union (research/daemon.md §7) ──────────────────────────────────
@@ -130,7 +142,9 @@ export const AlineodEvent = z.discriminatedUnion("event", [
       .array(z.string())
       .nullable()
       .optional()
-      .describe("Persisted (not just the spec) so rehydrate() can retry a still-pending spawn instead of losing it."),
+      .describe(
+        "Persisted (not just the spec) so rehydrate() can retry a still-pending spawn instead of losing it.",
+      ),
     prompt: z.string().nullable().optional(),
   }),
   EventBase.extend({
@@ -142,7 +156,9 @@ export const AlineodEvent = z.discriminatedUnion("event", [
   EventBase.extend({
     event: z.literal("agent_provisioned"),
     sandboxId: z.string(),
-  }).describe("The sandbox now exists and the bridge is up — backfills what agent_spawned couldn't know yet."),
+  }).describe(
+    "The sandbox now exists and the bridge is up — backfills what agent_spawned couldn't know yet.",
+  ),
   EventBase.extend({
     event: z.literal("agent_steered"),
     message: z.string(),

@@ -1,4 +1,4 @@
-# alineod — the swarm control daemon (prototype).
+# alineod — the swarm control daemon.
 #
 # Build from the REPO ROOT (it needs the whole monorepo to build the SDK it depends on):
 #   docker build -f apps/alineod/Dockerfile -t alineod .

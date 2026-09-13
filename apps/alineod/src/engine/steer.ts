@@ -7,7 +7,7 @@
  *
  * Scope: the named agent only. Per research/swarm-control.md §8a, steer never cascades to a
  * subtree by default in this protocol's design; the opt-in `steer(subtree(x))` case (§8a/Q11)
- * isn't in v0 — same boundary as every other verb here (spawn/stop are single-agent too).
+ * isn't supported — same boundary as every other verb here (spawn/stop are single-agent too).
  */
 import { get } from "./registry";
 import { getAgentRow } from "../state/projection";

@@ -1,9 +1,9 @@
 /**
- * alineod — the swarm control daemon. Prototype.
+ * alineod — the swarm control daemon.
  *
  *   client ── HTTP + SSE ──▶ alineod ── in-process ──▶ alineo SDK ──▶ OpenSandbox + Pi
  *
- * See research/daemon.md for the design. This is `prototype/alineod` — off main, no tests yet.
+ * See research/daemon.md for the design.
  */
 import { Elysia } from "elysia";
 import { openapi } from "@elysiajs/openapi";

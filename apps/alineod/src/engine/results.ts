@@ -1,5 +1,5 @@
 /**
- * Prototype result storage. When an agent's turn ends, alineod stores its last assistant
+ * Result storage. When an agent's turn ends, alineod stores its last assistant
  * text as an inline blob and hands waiters a `resultRef`.
  *
  * D-d in research/daemon.md: the real implementation resolves a by-reference
@@ -24,7 +24,7 @@ export function writeResult(agentId: string, text: string | null): string {
   return `fs://${agentId}/result.md`;
 }
 
-/** Resolve a `resultRef` back to its text. Prototype: ignores the ref shape, reads the blob. */
+/** Resolve a `resultRef` back to its text. Currently ignores the ref shape and reads the stored blob. */
 export function readResult(agentId: string): string | null {
   const p = pathFor(agentId);
   return existsSync(p) ? readFileSync(p, "utf8") : null;

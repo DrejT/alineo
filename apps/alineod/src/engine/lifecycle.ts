@@ -1,6 +1,5 @@
 /**
- * Stopping agents and tearing down runs. `stop` is the only intervention in v0 — no steer,
- * no checkpoint, no pause/resume (research/daemon.md §9).
+ * Stopping agents and tearing down runs. Steer lives in steer.ts, pause/resume in pause.ts.
  *
  * `DELETE /runs/:id` releases live resources but KEEPS the ledger (Q9 — delete is about
  * resources, not history).

@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS handles (
   run_id     TEXT NOT NULL,
   state      TEXT NOT NULL,               -- pending|settled
   outcome    TEXT,
-  result_ref TEXT,                        -- prototype: a local path; real impl: fs://<agentId>/<path> (D-d)
+  result_ref TEXT,                        -- currently a local path; planned: fs://<agentId>/<path> (D-d)
   settled_at INTEGER
 );
 
@@ -101,9 +101,10 @@ export interface LedgerRow {
   payload: string | null;
 }
 
-const insertLedger = db.query<{ seq: number }, [string, string | null, number, string, string | null]>(
-  `INSERT INTO ledger (run_id, agent_id, ts, event, payload) VALUES (?, ?, ?, ?, ?) RETURNING seq`,
-);
+const insertLedger = db.query<
+  { seq: number },
+  [string, string | null, number, string, string | null]
+>(`INSERT INTO ledger (run_id, agent_id, ts, event, payload) VALUES (?, ?, ?, ?, ?) RETURNING seq`);
 
 /** Append one event and return its `seq`. Callers should also run projection.apply() on the row. */
 export function appendRow(

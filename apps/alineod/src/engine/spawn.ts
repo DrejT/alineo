@@ -85,7 +85,11 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
     prompt: body.prompt ?? null,
   });
   if (hasWaitFor) {
-    emit(runId, childId, "agent_state_changed", { from: "provisioning", to: "spawning", reason: "waitFor" });
+    emit(runId, childId, "agent_state_changed", {
+      from: "provisioning",
+      to: "spawning",
+      reason: "waitFor",
+    });
   }
   if (body.idempotencyKey) recordIdempotent(runId, body.idempotencyKey, childId);
 
@@ -110,14 +114,21 @@ export async function provisionChild(
   try {
     if (body.waitFor && body.waitFor.length > 0) {
       await waitForHandles(runId, body.waitFor);
-      emit(runId, childId, "agent_state_changed", { from: "spawning", to: "provisioning", reason: "deps-settled" });
+      emit(runId, childId, "agent_state_changed", {
+        from: "spawning",
+        to: "provisioning",
+        reason: "deps-settled",
+      });
     }
 
     const parent = get(parentAgentId);
     if (!parent) throw new Error(`parent ${parentAgentId} is no longer live`);
 
     const specPath = writeSpecFile(childId, body.spec);
-    const child = await parent.spawn(specPath, { spawnDepth: spawnBudget, maxAgents: maxAgentsBudget });
+    const child = await parent.spawn(specPath, {
+      spawnDepth: spawnBudget,
+      maxAgents: maxAgentsBudget,
+    });
 
     register(childId, child);
     emit(runId, childId, "agent_provisioned", { sandboxId: child.sandboxId });
@@ -150,7 +161,7 @@ async function injectInputs(child: Alineo, waitFor: string[]): Promise<void> {
       await child.sandbox.writeFile(path, text);
       manifest[depId] = { path, outcome: handle?.outcome ?? null };
     } catch {
-      // best-effort in the prototype
+      // best-effort
     }
   }
   try {

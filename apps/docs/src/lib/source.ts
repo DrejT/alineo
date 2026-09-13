@@ -3,6 +3,7 @@ import {
   alineoDocs,
   workflowDocs,
   agentDocs,
+  alineodDocs,
   examplesDocs,
   cookbooksDocs,
   playgroundDocs,
@@ -26,6 +27,11 @@ export const workflowSource = loader({
 export const agentSource = loader({
   baseUrl: "/docs/agent",
   source: agentDocs.toFumadocsSource(),
+});
+
+export const alineodSource = loader({
+  baseUrl: "/docs/alineod",
+  source: alineodDocs.toFumadocsSource(),
 });
 
 export const examplesSource = loader({

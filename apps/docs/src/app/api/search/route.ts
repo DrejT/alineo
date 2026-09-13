@@ -4,6 +4,7 @@ import {
   workflowSource,
   alineoSource,
   agentSource,
+  alineodSource,
   examplesSource,
   playgroundSource,
 } from "@/lib/source";
@@ -15,6 +16,7 @@ const allPages = [
   ...workflowSource.getPages(),
   ...alineoSource.getPages(),
   ...agentSource.getPages(),
+  ...alineodSource.getPages(),
   ...examplesSource.getPages(),
   ...playgroundSource.getPages(),
 ];

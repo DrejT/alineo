@@ -12,7 +12,7 @@
  * `@alineo-labs/core`'s own docs note pause/resume is snapshot-based instead — in-memory
  * state does not survive.
  *
- * v0 scope (research/swarm-control.md has the fuller design — `pausedBy` provenance,
+ * Scope (research/swarm-control.md has the fuller design — `pausedBy` provenance,
  * cascade-to-subtree, etc.): operator-only, the named agent only, no cascade. Resume always
  * restores state to "running" rather than whatever it was before pause — correct for the
  * common case (pausing a running agent) and a harmless label inaccuracy for the rare one
@@ -38,7 +38,11 @@ export async function pauseAgent(agentId: string): Promise<void> {
     throw new HttpError(502, `pause failed: ${msg}`);
   }
 
-  emit(row.run_id, agentId, "agent_state_changed", { from: row.state, to: "paused", reason: "operator" });
+  emit(row.run_id, agentId, "agent_state_changed", {
+    from: row.state,
+    to: "paused",
+    reason: "operator",
+  });
 }
 
 export async function resumeAgent(agentId: string): Promise<void> {
@@ -58,5 +62,9 @@ export async function resumeAgent(agentId: string): Promise<void> {
     throw new HttpError(502, `resume failed: ${msg}`);
   }
 
-  emit(row.run_id, agentId, "agent_state_changed", { from: "paused", to: "running", reason: "operator" });
+  emit(row.run_id, agentId, "agent_state_changed", {
+    from: "paused",
+    to: "running",
+    reason: "operator",
+  });
 }

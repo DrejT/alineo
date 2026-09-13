@@ -1,0 +1,82 @@
+---
+title: Crash recovery
+description: How alineod reconnects to a live swarm after a restart, without interrupting agents mid-turn.
+---
+
+alineod is designed to be **crash-only**: stopping it with `kill -9` and starting it again is a supported way to
+restart it. Agents run in OpenSandbox containers, not as child processes of alineod, so they keep working while
+the daemon is down.
+
+## What happens on startup
+
+<Steps>
+<Step>
+
+### Rebuild state from the ledger
+
+The `agents` and `handles` tables are discarded and rebuilt by replaying the ledger. Any agent in
+`provisioning`, `spawning`, `running`, or `paused` is considered live and needs reconnecting.
+
+</Step>
+<Step>
+
+### Reconnect to agents that have a sandbox
+
+For each one, alineod calls [`Alineo.reattach()`](/docs/agent/api-reference/agent#alineoreattach), which binds to
+the harness bridge already running in the container **without restarting it**. An in-flight turn is not
+interrupted.
+
+If the agent was mid-turn at crash time, the process that was reading its stream is gone, so alineod polls the
+agent until the turn finishes and then records its result — anything waiting on that agent is still released.
+
+If the bridge doesn't answer, alineod falls back to [`Alineo.resume()`](/docs/agent/api-reference/agent#alineoresume),
+which restarts the bridge (dropping any in-flight turn). If that fails too, the agent ends as `lost`.
+
+Parents whose own turn already finished are reconnected as well when a pending child still needs them as its
+fork source.
+
+</Step>
+<Step>
+
+### Retry spawns that hadn't forked yet
+
+Agents recorded before their sandbox existed — a child held by `waitFor`, or a root still being provisioned — are
+retried from what was persisted in their `agent_spawned` event: the spec, `waitFor` list, prompt, and budget. A
+gather agent that was waiting on workers goes back to waiting and starts normally once they settle.
+
+A child whose parent could not be reconnected ends as `lost`.
+
+</Step>
+<Step>
+
+### Serve requests
+
+The daemon starts listening once reconnection is done; spawn retries continue in the background.
+
+</Step>
+</Steps>
+
+## What clients see
+
+- **HTTP** — requests in flight during the crash fail; retry them. Use `idempotencyKey` on spawns so a retry can't
+  create a duplicate child.
+- **Result long-polls** — reissue `GET /agents/:id/result?wait=…`. A result that settled while alineod was down, or
+  during catch-up, is returned immediately.
+- **Event stream** — reconnect with the last `id` you received in `Last-Event-ID`. Every persisted event since then
+  is replayed before live events resume. Text deltas produced during the gap are not replayed.
+
+```bash
+curl -N localhost:4600/runs/r_3f9a1c20/events -H 'Last-Event-ID: 128'
+```
+
+## Verifying it
+
+`apps/alineod/scripts/swarm-reattach-test.py` drives a multi-agent run, and is used to kill and restart alineod
+mid-run and check that every agent — including a gather still waiting on its workers — completes.
+
+## Limits
+
+- Reconnecting depends on the agent's container still existing. If OpenSandbox itself restarted and removed it,
+  the agent is `lost`.
+- A turn that finished while alineod was down is recorded when alineod comes back — its result is the agent's
+  final message, but the individual stream events from the gap are not in the ledger.

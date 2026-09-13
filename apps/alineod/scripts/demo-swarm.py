@@ -7,7 +7,7 @@ Fan-out/gather swarm demo against a running alineod.
 
 Usage:  python3 demo-swarm.py [BASE_URL]      (default http://localhost:4600)
 
-Not a test — a scripted client that exercises the v0 routes end to end.
+Not a test — a scripted client that exercises the routes end to end.
 """
 import json
 import sys

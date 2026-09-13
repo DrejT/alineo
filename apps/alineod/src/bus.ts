@@ -1,7 +1,7 @@
 /**
  * In-process pub/sub for SSE fan-out, keyed by `runId`. One `EventEmitter` per run.
  *
- * Prototype scope: single process, no cross-instance fan-out. A real deployment would put a
+ * Scope: single process, no cross-instance fan-out. A real deployment would put a
  * durable log / broker here — but the ledger replay in routes/events.ts already covers
  * reconnect-after-restart for persisted events, so a subscriber never depends on the bus for
  * correctness, only for liveness.

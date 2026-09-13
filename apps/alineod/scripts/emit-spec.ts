@@ -40,15 +40,21 @@ const openapi = {
     version: "0.0.0",
     description:
       "Initiate and orchestrate agent swarms. alineod drives OpenSandbox through the alineo SDK; " +
-      "this is the language-neutral wire contract. Prototype.",
+      "this is the language-neutral wire contract.",
   },
   paths: {
     "/runs": {
       post: {
         summary: "Create a run (load the root agent)",
-        requestBody: { required: true, content: { "application/json": { schema: json(CreateRunBody) } } },
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: json(CreateRunBody) } },
+        },
         responses: {
-          "200": { description: "Run created", content: { "application/json": { schema: json(CreateRunResponse) } } },
+          "200": {
+            description: "Run created",
+            content: { "application/json": { schema: json(CreateRunResponse) } },
+          },
           "422": { description: "Spec load failed" },
         },
       },
@@ -57,7 +63,12 @@ const openapi = {
       get: {
         summary: "The spawn tree",
         parameters: [{ name: "runId", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Tree", content: { "application/json": { schema: json(TreeView) } } } },
+        responses: {
+          "200": {
+            description: "Tree",
+            content: { "application/json": { schema: json(TreeView) } },
+          },
+        },
       },
       delete: {
         summary: "Tear down the run (keeps the ledger)",
@@ -79,9 +90,15 @@ const openapi = {
       post: {
         summary: "Spawn a child agent",
         parameters: [{ name: "runId", in: "path", required: true, schema: { type: "string" } }],
-        requestBody: { required: true, content: { "application/json": { schema: json(SpawnAgentBody) } } },
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: json(SpawnAgentBody) } },
+        },
         responses: {
-          "200": { description: "Spawned", content: { "application/json": { schema: json(SpawnAgentResponse) } } },
+          "200": {
+            description: "Spawned",
+            content: { "application/json": { schema: json(SpawnAgentResponse) } },
+          },
           "409": { description: "Budget denied / parent not live" },
         },
       },
@@ -90,14 +107,22 @@ const openapi = {
       get: {
         summary: "Inspect an agent",
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
-        responses: { "200": { description: "Agent", content: { "application/json": { schema: json(AgentDetail) } } } },
+        responses: {
+          "200": {
+            description: "Agent",
+            content: { "application/json": { schema: json(AgentDetail) } },
+          },
+        },
       },
     },
     "/agents/{agentId}/prompt": {
       post: {
         summary: "Drive a turn",
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
-        requestBody: { required: true, content: { "application/json": { schema: json(PromptBody) } } },
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: json(PromptBody) } },
+        },
         responses: { "202": { description: "Accepted" } },
       },
     },
@@ -107,7 +132,10 @@ const openapi = {
         description:
           "The named agent only — steer never cascades to a subtree (research/swarm-control.md §8a).",
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
-        requestBody: { required: true, content: { "application/json": { schema: json(SteerBody) } } },
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: json(SteerBody) } },
+        },
         responses: {
           "202": { description: "Accepted" },
           "409": { description: "Agent not live" },
@@ -150,11 +178,23 @@ const openapi = {
         summary: "Resolve a handle",
         parameters: [
           { name: "agentId", in: "path", required: true, schema: { type: "string" } },
-          { name: "wait", in: "query", required: false, schema: { type: "integer" }, description: "Long-poll seconds." },
+          {
+            name: "wait",
+            in: "query",
+            required: false,
+            schema: { type: "integer" },
+            description: "Long-poll seconds.",
+          },
         ],
         responses: {
-          "200": { description: "Settled", content: { "application/json": { schema: json(ResultResponse) } } },
-          "202": { description: "Still pending", content: { "application/json": { schema: json(ResultResponse) } } },
+          "200": {
+            description: "Settled",
+            content: { "application/json": { schema: json(ResultResponse) } },
+          },
+          "202": {
+            description: "Still pending",
+            content: { "application/json": { schema: json(ResultResponse) } },
+          },
         },
       },
     },
@@ -162,7 +202,10 @@ const openapi = {
 };
 
 writeFileSync(join(OUT_DIR, "openapi.json"), JSON.stringify(openapi, null, 2) + "\n");
-writeFileSync(join(OUT_DIR, "events.schema.json"), JSON.stringify(json(AlineodEvent), null, 2) + "\n");
+writeFileSync(
+  join(OUT_DIR, "events.schema.json"),
+  JSON.stringify(json(AlineodEvent), null, 2) + "\n",
+);
 
 console.log(`wrote ${join(OUT_DIR, "openapi.json")}`);
 console.log(`wrote ${join(OUT_DIR, "events.schema.json")}`);

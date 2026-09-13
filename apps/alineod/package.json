@@ -2,8 +2,8 @@
   "name": "@alineo-labs/alineod",
   "version": "0.0.0",
   "private": true,
+  "description": "alineod — the swarm control daemon: HTTP + SSE orchestration for swarms of sandboxed agents.",
   "type": "module",
-  "description": "alineod — the swarm control daemon. Prototype (prototype/alineod branch). See research/daemon.md.",
   "scripts": {
     "start": "bun server.ts",
     "dev": "bun --watch server.ts",
@@ -11,11 +11,11 @@
     "spec": "bun scripts/emit-spec.ts"
   },
   "dependencies": {
-    "alineo": "workspace:*",
     "@alineo-labs/core": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
-    "elysia": "^1.4.9",
     "@elysiajs/openapi": "^1.4.9",
+    "alineo": "workspace:*",
+    "elysia": "^1.4.9",
     "zod": "^4.4.3"
   },
   "devDependencies": {
