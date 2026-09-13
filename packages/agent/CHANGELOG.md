@@ -1,5 +1,53 @@
 # @drej/agent
 
+## 0.5.0
+
+### Minor Changes
+
+- b9c30e7: New `Alineo.reattach(sandboxId, opts)` — reconnects to a previously-created agent WITHOUT
+  restarting its bridge, unlike `Alineo.resume()`. `sb.proxy()` is a pure URL lookup against the
+  sandbox's control plane, so as long as the bridge process inside the sandbox is still running
+  (the caller's own host process is what exited/restarted, not the sandbox), `reattach()` rebinds
+  to it with zero side effects: no killed process, no dropped in-flight turn, no reset Pi
+  conversation state. Fails fast (5s) if the bridge doesn't answer, so callers who aren't sure
+  which case they're in can try `reattach()` first and fall back to `resume()`:
+
+  ```ts
+  let agent: Alineo;
+  try {
+    agent = await Alineo.reattach(savedSandboxId, { adapter });
+  } catch {
+    agent = await Alineo.resume(savedSandboxId, { adapter }); // bridge really is gone
+  }
+  ```
+
+  Motivated by a control-plane daemon (`apps/alineod`, prototype) restarting and needing to
+  reconnect to every live agent without dropping their in-flight turns.
+
+### Patch Changes
+
+- 68a30c2: Narrow a few parameter types to the `SandboxHandle` / `Alineo` members they actually use, so
+  callers (and tests) can pass a structural stand-in instead of a cast: `PiAdapter`'s
+  `install`/`configure`/`startBridge` take `PiSandbox`, `EgressApprovalGate.bind()` takes
+  `EgressApprovalSandbox`, the Flue `alineo()` factory takes `AlineoSandbox`, `flushOps()` takes
+  `SandboxLike`, and `collectReply()` takes `Pick<Alineo, "prompt">`. Every existing call site still
+  type-checks; there is no runtime change.
+- b9c30e7: Fix `Alineo.resume()` (and the new `Alineo.reattach()`) losing the ability to `.spawn()`
+  children. `client.connect()`'s `fork` dependency is only wired up when `resources` is passed
+  to it — `resumeAgent()` never passed it, so any agent reconnected via `resume()` (or
+  `reattach()`) threw `"fork() is not supported on this sandbox"` on its first `.spawn()` call.
+  Both now pass `spec.resources` (falling back to `alineo.config.json`'s `defaults.resources`,
+  same as `Alineo.load()`), so a resumed or reattached agent can keep spawning children exactly
+  as it could before the reconnect.
+
+  Found by testing `Alineo.reattach()` (see the sibling changeset) against a multi-agent tree
+  where a reconnected root needed to spawn a child that had been queued behind it at crash time.
+
+- Updated dependencies [68a30c2]
+  - @alineo-labs/core@0.4.1
+  - @alineo-labs/memory@0.2.2
+  - @alineo-labs/sandbox@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes
@@ -311,8 +359,7 @@
     const agent = await Alineo.load(spec, { adapter });
   } catch (e) {
     if (e instanceof AgentSpecValidationError) {
-      for (const issue of e.issues)
-        console.error(`${issue.path.join(".")}: ${issue.message}`);
+      for (const issue of e.issues) console.error(`${issue.path.join(".")}: ${issue.message}`);
     }
     throw e;
   }

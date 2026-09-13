@@ -1,5 +1,51 @@
 # drejx
 
+## 0.2.0
+
+### Minor Changes
+
+- b9c30e7: New `alineo steer <sandbox-id> <message>` — redirect a running session without restarting it.
+  Uses the new `Alineo.reattach()` (see the sibling `alineo` changeset), so a mid-turn session
+  isn't interrupted the way `alineo prompt` (which goes through `Alineo.resume()`) would. Meant
+  to be run by one session to redirect another it doesn't own the control plane for — a parent
+  redirecting a child it forked being the common case.
+
+  Pi extension guidance (`pi-extension/alineo.ts`) updated to mention it alongside `fork`/
+  `prompt`/`kill`, including the timing caveat: steer lands after the target's current tool call
+  finishes, before its next decision — it does not interrupt work already in progress. Use
+  `alineo kill` instead for an immediate stop.
+
+- b9c30e7: `alineo init` now also pulls and starts `alineod` (`ghcr.io/drejt/alineod:latest`) alongside
+  OpenSandbox, on `--network host` so it can reach OpenSandbox at the same `127.0.0.1:8080` a bare
+  `bun run start` would — a bridge-network container can't resolve the sandbox proxy URLs
+  OpenSandbox hands back, which are built from its own configured `eip`. No model API key is
+  required to start; agents whose spec references a missing one will fail at spawn time, not at
+  daemon startup. Re-running `init` is idempotent: an already-running or stopped `alineo-alineod`
+  container is left running or restarted, never recreated.
+
+  Model-agnostic: `init` forwards whichever of Pi's ~30 supported provider API key env vars
+  (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ... — see
+  `packages/cli/src/pi-model-keys.ts`) are already set in the operator's shell into the container,
+  not just `NVIDIA_API_KEY`. An `AgentSpec`'s env map is resolved from `process.env` inside
+  whichever process calls `Alineo.load()`/`.spawn()`, so any Pi-supported provider works as long
+  as its key is set locally. Amazon Bedrock and Google Vertex aren't covered yet — both need a
+  mounted credentials file or IAM role chain, not just an env var.
+
+### Patch Changes
+
+- 68a30c2: Narrow a few parameter types to the `SandboxHandle` / `Alineo` members they actually use, so
+  callers (and tests) can pass a structural stand-in instead of a cast: `PiAdapter`'s
+  `install`/`configure`/`startBridge` take `PiSandbox`, `EgressApprovalGate.bind()` takes
+  `EgressApprovalSandbox`, the Flue `alineo()` factory takes `AlineoSandbox`, `flushOps()` takes
+  `SandboxLike`, and `collectReply()` takes `Pick<Alineo, "prompt">`. Every existing call site still
+  type-checks; there is no runtime change.
+- Updated dependencies [b9c30e7]
+- Updated dependencies [68a30c2]
+- Updated dependencies [b9c30e7]
+  - alineo@0.5.0
+  - @alineo-labs/sqlite@0.2.2
+  - @alineo-labs/sandbox@0.4.1
+
 ## 0.1.5
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @alineo-labs/memory
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [68a30c2]
+  - @alineo-labs/core@0.4.1
+
 ## 0.2.1
 
 ### Patch Changes
