@@ -33,13 +33,32 @@ must reach OpenSandbox at the same `127.0.0.1:8080` a bare `bun run start` would
 hands back sandbox proxy URLs built from its own configured `eip` (`127.0.0.1:8080`) that a
 bridge-network container can't resolve.
 
-**Model API key**: `init` scans the shell it's run from for any of ~30 Pi-supported provider key
-env vars (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, ... — the
-full list is `packages/cli/src/pi-model-keys.ts`, mirroring pi's own `env-api-keys.ts`) and
-forwards whichever are set into the container. **No key is required to start** — alineod boots
-fine either way; only a run whose agent spec references a missing key fails, at spawn time. Docker
-env is fixed at container creation: to add/change a key on an already-running daemon, `docker rm -f
-alineo-alineod` first, then re-run `init` (or `docker run`) with the new key exported.
+**Model API key**: `init` scans the shell it's run from for any of these Pi-supported provider key
+env vars (`packages/cli/src/pi-model-keys.ts`, mirroring pi's own `env-api-keys.ts` — keep both in
+sync as pi adds providers) and forwards whichever are set into the container:
+
+`ANTHROPIC_API_KEY` / `ANTHROPIC_OAUTH_TOKEN` / `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`,
+`AZURE_OPENAI_API_KEY`, `GEMINI_API_KEY`, `NVIDIA_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`,
+`GROQ_API_KEY`, `CEREBRAS_API_KEY`, `XAI_API_KEY`, `OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`,
+`CLOUDFLARE_API_KEY` (+ `CLOUDFLARE_ACCOUNT_ID`/`CLOUDFLARE_GATEWAY_ID`), `RADIUS_API_KEY`,
+`OPENCODE_API_KEY`, `QWEN_TOKEN_PLAN_API_KEY`, `QWEN_TOKEN_PLAN_CN_API_KEY`, `MOONSHOT_API_KEY`,
+`KIMI_API_KEY`, `ZAI_API_KEY`, `ZAI_CODING_CN_API_KEY`, `MINIMAX_API_KEY`, `MINIMAX_CN_API_KEY`,
+`XIAOMI_API_KEY` (+ 3 regional token-plan variants), `ANT_LING_API_KEY`, `HF_TOKEN`,
+`FIREWORKS_API_KEY`, `TOGETHER_API_KEY`, `BASETEN_API_KEY`, `COPILOT_GITHUB_TOKEN`.
+
+Not covered (need a mounted credentials file or IAM role chain, not just an env var): Amazon
+Bedrock, Google Vertex.
+
+**No key is required to start** — alineod boots fine either way; only a run whose agent spec
+references a missing key fails, at spawn time. Docker env is fixed at container creation: to
+add/change a key on an already-running daemon, `docker rm -f alineo-alineod` first, then re-run
+`init` (or `docker run`) with the new key exported.
+
+**Picking a `model` value**: `provider`/`model` in an agent spec (or `setModel(provider, modelId)`)
+take Pi's own provider/model IDs, not alineo's — this skill doesn't enumerate them since Pi's
+catalog changes independently. Use `agent.getAvailableModels()` (see
+[Agent SDK](agent-sdk.md)) to list what's actually available under whichever key you set above,
+rather than guessing a model ID string.
 
 **What alineod actually is, and what it isn't**: it's a separate HTTP+SSE swarm-orchestration
 process, not something this skill's `alineo spawn`/`fork`/`prompt`/`steer` commands talk to — those
