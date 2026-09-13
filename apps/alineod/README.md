@@ -30,6 +30,18 @@ Run it from a directory that has an `alineo.config.json` (or rely on the SDK def
 
 ### Docker
 
+`alineo init` pulls `ghcr.io/drejt/alineod:latest` and starts it automatically alongside
+OpenSandbox — on `--network host` so it reaches OpenSandbox at the same `127.0.0.1:8080`
+a bare `bun run start` would (see the networking caveat below), with no model API key set.
+Add one after the fact (`docker run -e NVIDIA_API_KEY=... --network host ... ghcr.io/drejt/alineod:latest`,
+or edit agent specs to reference a different env var) — alineod boots fine without one; only
+agents whose spec references a missing key will fail at spawn time. The image is published by
+[`.github/workflows/publish-alineod.yml`](../../.github/workflows/publish-alineod.yml) on every
+push to `main` that touches `apps/alineod` or a package it bundles, tagged with
+`apps/alineod/package.json`'s version plus `latest`.
+
+To build from source instead (e.g. testing an unreleased change):
+
 ```bash
 # from the repo root (the build needs the whole monorepo to build the SDK)
 docker build -f apps/alineod/Dockerfile -t alineod .
