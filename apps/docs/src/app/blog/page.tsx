@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { createMetadata } from "@/lib/metadata";
 import { formatBlogDate, getBlogPosts, type BlogPost } from "@/lib/blog";
+import { BlogCard } from "@/components/blog-card";
 
 export const metadata: Metadata = createMetadata({
   title: "Blog",
@@ -23,15 +24,6 @@ function CoverImage({ post, className }: { post: BlogPost; className?: string })
       className={className}
       style={{ background: "var(--color-fd-secondary)" }}
     />
-  );
-}
-
-function Meta({ post }: { post: BlogPost }) {
-  return (
-    <div className="flex items-center gap-2.5 font-mono text-[11px] uppercase tracking-[0.05em] text-fd-muted-foreground">
-      <time dateTime={post.date.toISOString()}>{formatBlogDate(post.date)}</time>
-      <span className="text-fd-primary">{post.tag}</span>
-    </div>
   );
 }
 
@@ -95,26 +87,7 @@ export default function BlogIndexPage() {
           </span>
           <ul className="grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2">
             {rest.map((post) => (
-              <li
-                key={post.url}
-                className="overflow-hidden rounded-xl border border-fd-border transition-colors hover:border-fd-foreground/25"
-              >
-                <Link href={post.url} className="group flex h-full flex-col">
-                  <CoverImage
-                    post={post}
-                    className="aspect-[3/2] w-full border-b border-fd-border object-cover"
-                  />
-                  <div className="flex flex-1 flex-col gap-2 p-5">
-                    <Meta post={post} />
-                    <h3 className="text-[16.5px] font-semibold leading-snug tracking-[-0.01em] text-fd-foreground text-balance group-hover:text-fd-primary">
-                      {post.title}
-                    </h3>
-                    <p className="line-clamp-2 text-[13.5px] leading-relaxed text-fd-muted-foreground">
-                      {post.description}
-                    </p>
-                  </div>
-                </Link>
-              </li>
+              <BlogCard key={post.url} post={post} />
             ))}
           </ul>
         </section>
