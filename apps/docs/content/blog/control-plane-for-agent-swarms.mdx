@@ -101,6 +101,22 @@ was watching it — alineod falls back to `Alineo.resume()`, which restarts the 
 drop the in-flight turn. Only if that fails too does a live agent end as `lost`; a finished
 agent just keeps the outcome it already recorded.
 
+## How it fits
+
+Every agent alineod runs — lead or child — is spawned from the exact same `AgentSpec` the SDK
+uses for a single agent, written to a spec file and handed to the SDK's own `spawn()`. The
+format doesn't change shape to become swarm-friendly. That means anything you've already set up
+per-agent keeps working without a second configuration: an
+[`AgentSpec.permissions`](/docs/agent/getting-started/permissions) gate pausing a risky tool
+call for a human still gates that call inside a forked worker three levels deep; a
+[credential bound with `approval: "hold"`](/docs/agent/getting-started/permissions#holding-network-egress-for-approval) still holds the
+first request to that host until someone approves it, no matter where in the tree the agent
+sits. You don't secure "an agent" once and "a swarm" separately — it's the same spec either way.
+
+The daemon installs the same way, too: `alineo init` starts it in Docker right alongside
+OpenSandbox, using whichever of your provider API keys are already in the shell. No new
+account, no new config format — just a new way to run agents you already know how to spec.
+
 ## What it doesn't do
 
 Results are inline text, not file references — a settled handle stores the agent's final
@@ -111,30 +127,24 @@ starts it in Docker alongside OpenSandbox, but you own the container.
 
 ## Where this is going
 
-Every control verb in the table above takes exactly one `agentId`. That's a sequencing choice,
-not the ceiling — the primitives that make a swarm crash-safe had to exist before it was worth
-making them expressive. Three things are next, roughly in this order.
-
-**Subtree-scoped control.** `steer(subtree(x))` and a batch `stop` are the obvious next verbs —
-today, redirecting five workers at once means five requests. A shallow checkpoint/rollback on a
-parent is the other half of the same idea: undo a bad fan-out instead of only being able to
+Today, every control action reaches one agent at a time — steering, pausing, or stopping a
+five-agent review means up to five requests. That's fine at five; it won't be at twenty. The
+next round of work makes the swarm itself the unit of control: redirect or pause a whole branch
+of workers in one call, and undo a bad fan-out with a rollback instead of only being able to
 abort it.
 
-**Coordination past `waitFor`.** Gather today means "block until every dependency settles" —
-right for a fixed fan-out, wrong for one that shouldn't wait on a single straggler. `awaitAny`
-and `awaitQuorum` are the fix; `notifyWhen` is the non-blocking version, an inbox a dependent can
-check instead of holding a spawn open.
+Gather grows past "wait for everyone" the same way. `waitFor` today blocks until every listed
+dependency settles, which is the wrong shape the moment one worker is a straggler you don't want
+holding up the rest. The plan is to let a gather proceed once enough of its dependencies are in,
+or react the moment any one of them finishes, instead of always waiting on all of them.
 
-**Authority.** This is the biggest gap, and internally the most-cited one: alineod is
-single-operator today, which is fine for one person driving a swarm from a terminal. It stops
-being fine the moment more than one caller touches the same run — an operator, an ancestor
-agent, and the agent itself need different scopes of what they're allowed to do to a tree they
-didn't spawn. Nothing past this ships until that model exists; everything above is what's being
-proven out first.
+And as swarms stop being single-player — a person driving one from a terminal, an agent forking
+its own children, another service polling the same run — alineod needs a real answer to "who's
+allowed to do what to a tree they didn't start." That's the least-finished part of the daemon
+today, and where the design work is headed next.
 
-Further out: a real generated client from the OpenAPI spec — the `demo-swarm.py` in the
-`swarm-code-review` cookbook is hand-written today, not generated — and resolving a result by
-reference into an agent's sandbox instead of today's inline-text stand-in.
+None of this changes the shape you already know: it's the same routes, the same `AgentSpec`,
+just more of the swarm addressable at once.
 
 ## Try it
 
