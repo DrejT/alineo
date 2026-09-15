@@ -100,9 +100,15 @@ async function api(method: string, path: string, body?: unknown): Promise<Json> 
   return { ...parsed, _status: res.status };
 }
 
+/**
+ * Unique per run: the SDK reuses a cached snapshot per spec name + setup hash, and on a host where
+ * snapshots don't carry the container's filesystem (gVisor) a restored sandbox has no harness.
+ */
+const RUN_TAG = Date.now().toString(36);
+
 function spec(name: string, extra: Json = {}): Json {
   return {
-    name,
+    name: `${name}-${RUN_TAG}`,
     cli: "pi",
     provider: "nvidia",
     model: MODEL,
@@ -395,6 +401,7 @@ async function t3(): Promise<void> {
 // ── main ──────────────────────────────────────────────────────────────────────
 
 try {
+  results.runTag = RUN_TAG;
   await startDaemon("initial");
   const parallel: Promise<void>[] = [];
   if (only.has("t1")) parallel.push(t1());
