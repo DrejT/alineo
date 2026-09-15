@@ -57,7 +57,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
 function inspect(sandboxId: string): string {
   const r = Bun.spawnSync([
     "docker", "inspect", "-f",
-    "status={{.State.Status}} paused={{.State.Paused}} runtime={{.HostConfig.Runtime}} ip={{.NetworkSettings.IPAddress}}",
+    "status={{.State.Status}} paused={{.State.Paused}} runtime={{.HostConfig.Runtime}} network={{.HostConfig.NetworkMode}}",
     `sandbox-${sandboxId}`,
   ]);
   return (r.stdout.toString() + r.stderr.toString()).trim();
