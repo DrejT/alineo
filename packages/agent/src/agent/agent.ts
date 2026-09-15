@@ -299,9 +299,10 @@ export class Alineo {
       /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
       memory?: Memory;
       /**
-       * Don't probe the bridge before returning. For a paused sandbox, whose frozen bridge
-       * can't answer until `sandbox.resume()` — check it yourself after resuming
-       * (`agent.adapter.waitReady()`), and fall back to `Alineo.resume()` if it's gone.
+       * Don't probe the bridge before returning, and accept a Paused sandbox. For a paused
+       * sandbox, whose frozen bridge can't answer until `agent.sandbox.resume()` — check it
+       * yourself after resuming (`agent.adapter.waitReady()`), and fall back to
+       * `Alineo.resume()` if it's gone.
        */
       skipReadyCheck?: boolean;
     },

@@ -378,6 +378,48 @@ describe("Sandbox.connect() fork wiring", () => {
   });
 });
 
+describe("Sandbox.connect() paused sandboxes", () => {
+  it("refuses a Paused sandbox by default", async () => {
+    const client = makeClient(makeAdapter());
+    internals(client)._control = makeFakeControl({
+      getSandbox: vi.fn().mockResolvedValue({ status: { state: SandboxState.Paused } }),
+    });
+
+    await expect(client.connect("sandbox-1", "my-agent")).rejects.toThrow(/allowPaused/);
+  });
+
+  it("connects to a Paused sandbox with allowPaused, returning a handle marked paused", async () => {
+    const client = makeClient(makeAdapter());
+    internals(client)._control = makeFakeControl({
+      getSandbox: vi.fn().mockResolvedValue({ status: { state: SandboxState.Paused } }),
+    });
+
+    const sb = await client.connect("sandbox-1", "my-agent", { allowPaused: true });
+
+    expect(sb.isPaused()).toBe(true);
+  });
+
+  it("still refuses a sandbox that is neither Running nor Paused, even with allowPaused", async () => {
+    const client = makeClient(makeAdapter());
+    internals(client)._control = makeFakeControl({
+      getSandbox: vi.fn().mockResolvedValue({ status: { state: SandboxState.Terminated } }),
+    });
+
+    await expect(client.connect("sandbox-1", "my-agent", { allowPaused: true })).rejects.toThrow(
+      /can only connect to Running/,
+    );
+  });
+
+  it("does not mark a Running sandbox paused", async () => {
+    const client = makeClient(makeAdapter());
+    internals(client)._control = makeFakeControl();
+
+    const sb = await client.connect("sandbox-1", "my-agent", { allowPaused: true });
+
+    expect(sb.isPaused()).toBe(false);
+  });
+});
+
 // ── resourceId / teamId threading ───────────────────────────────────────────
 //
 // `resourceId` and `teamId` (see `SandboxOptions`) must reach the `sandbox_created` ledger

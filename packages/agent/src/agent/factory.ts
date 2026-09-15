@@ -445,6 +445,10 @@ export async function reattachAgent(
     // when `resources` is passed, so a reattached agent needs this too if it's going to
     // keep spawning children.
     resources: spec.resources ?? config.defaults.resources,
+    // A caller that skips the ready probe may be reconnecting to a PAUSED sandbox (its bridge
+    // can't answer until resumed). The endpoint lookup below works on a paused sandbox too
+    // (verified against OpenSandbox); the handle comes back marked paused until resume().
+    allowPaused: opts.skipReadyCheck === true,
   });
   console.log(`[agent] connected       ${elapsed(t1)}`);
 
