@@ -145,6 +145,17 @@ describe("DELETE /runs/:runId", () => {
     gate.resolve();
   });
 
+  test("closes a finished agent's still-open sandbox too, keeping its outcome", async () => {
+    const { runId, rootAgentId, root } = await startRun({ prompt: "quick" });
+    await until(() => getAgentRow(rootAgentId)?.state === "done", "turn to finish");
+
+    expect((await call("DELETE", `/runs/${runId}`)).status).toBe(204);
+    expect(root.closed).toBe(true);
+    expect(root.aborted).toBe(false);
+    expect(getAgentRow(rootAgentId)).toMatchObject({ state: "done", outcome: "success" });
+    expect(events(runId).filter((e) => e.event === "agent_ended")).toHaveLength(1);
+  });
+
   test("404 for an unknown run", async () => {
     expect((await call("DELETE", "/runs/r_missing")).status).toBe(404);
   });
