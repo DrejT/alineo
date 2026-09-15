@@ -553,19 +553,28 @@ export class Sandbox {
       /** Default team scope for any later `.fork()` call — see `SandboxOptions.teamId`. Same
        *  rationale as `opts.resourceId`. */
       teamId?: string;
+      /**
+       * Also accept a Paused sandbox. The handle comes back marked paused: `exec()` and friends
+       * throw until `resume()` is called. For reconnecting to a sandbox someone paused (e.g. after
+       * the process that paused it restarted) without resuming it first.
+       */
+      allowPaused?: boolean;
     },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
     const info = await this._control.getSandbox(sandboxId);
-    if (info.status.state !== SandboxState.Running) {
+    const state = info.status.state;
+    const paused = state === SandboxState.Paused;
+    if (state !== SandboxState.Running && !(paused && opts?.allowPaused)) {
       throw new SandboxClientError(
-        `SandboxHandle ${sandboxId} is ${info.status.state} — can only connect to Running sandboxes`,
+        `SandboxHandle ${sandboxId} is ${state} — can only connect to Running sandboxes` +
+          (paused ? " (pass allowPaused to connect to a Paused one)" : ""),
         409,
       );
     }
     await this._acquireSlot();
     const resources = opts?.resources;
-    return new SandboxHandle(sandboxId, name, {
+    const handle = new SandboxHandle(sandboxId, name, {
       control: this._control,
       adapter: this._adapter,
       credentialBroker: this._credentialBroker,
@@ -588,6 +597,8 @@ export class Sandbox {
         : undefined,
       useServerProxy: this._useServerProxy,
     });
+    if (paused) handle.setPaused(true);
+    return handle;
   }
 
   /**

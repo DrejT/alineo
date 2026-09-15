@@ -44,10 +44,29 @@ export const SSE_HEARTBEAT_MS = 10_000;
 export const MAX_RESULT_WAIT_SECONDS = 240;
 
 /**
- * If a driven turn produces no stream activity for this long, give up on it — the turn's
- * handle settles (failed, or success if partial text exists) instead of hanging the swarm.
- * Some NIM models stall mid-turn on multi-tool-call turns (see the pi-bridge notes).
+ * If a driven turn's stream produces no activity for this long, alineod stops reading it and
+ * follows the turn by polling Pi's state instead (`catchUpTurn`). The SDK's timeout only stops
+ * the reader — Pi keeps working and usually finishes (verified live,
+ * research/subtree-controls-verification.md V2). The clock runs on this host, so it also fires
+ * while the agent is paused.
  */
 export const PROMPT_INACTIVITY_TIMEOUT_MS = Number(
   process.env.ALINEOD_PROMPT_INACTIVITY_MS ?? 180_000,
+);
+
+/**
+ * How long catch-up keeps following a turn before giving up and settling with whatever text is
+ * readable. Counts only time the agent is NOT paused, so a pause never ends a turn.
+ */
+export const TURN_MAX_MS = Number(process.env.ALINEOD_TURN_MAX_MS ?? 30 * 60_000);
+
+/** Interval between Pi state polls while catching up on a turn. */
+export const CATCH_UP_POLL_MS = Number(process.env.ALINEOD_CATCH_UP_POLL_MS ?? 2_000);
+
+/** Bound on one state probe — a frozen or dead bridge never answers. */
+export const STATE_PROBE_TIMEOUT_MS = Number(process.env.ALINEOD_STATE_PROBE_TIMEOUT_MS ?? 5_000);
+
+/** How long resume waits for an agent's bridge to answer before restarting the bridge. */
+export const RESUME_BRIDGE_TIMEOUT_MS = Number(
+  process.env.ALINEOD_RESUME_BRIDGE_TIMEOUT_MS ?? 10_000,
 );

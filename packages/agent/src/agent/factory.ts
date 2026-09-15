@@ -194,29 +194,37 @@ export async function loadAgent(
     });
     console.log(`[agent] sandbox ready   ${elapsed(t1)} (${sb.sandboxId})`);
 
-    console.log(`[agent] installing Pi CLI...`);
-    const t2 = Date.now();
-    await adapter.install(sb, spec);
-    console.log(`[agent] Pi CLI ready    ${elapsed(t2)}`);
+    const created = sb;
+    try {
+      console.log(`[agent] installing Pi CLI...`);
+      const t2 = Date.now();
+      await adapter.install(created, spec);
+      console.log(`[agent] Pi CLI ready    ${elapsed(t2)}`);
 
-    for (const step of spec.setup ?? []) {
-      console.log(`[agent] setup: ${step.name}...`);
-      const ts = Date.now();
-      const cmd = step.cwd ? `cd ${step.cwd} && ${step.run}` : step.run;
-      await sb.exec(cmd);
-      console.log(`[agent] setup done      ${elapsed(ts)} (${step.name})`);
+      for (const step of spec.setup ?? []) {
+        console.log(`[agent] setup: ${step.name}...`);
+        const ts = Date.now();
+        const cmd = step.cwd ? `cd ${step.cwd} && ${step.run}` : step.run;
+        await created.exec(cmd);
+        console.log(`[agent] setup done      ${elapsed(ts)} (${step.name})`);
+      }
+
+      console.log(`[agent] checkpointing...`);
+      const t3 = Date.now();
+      const snapshotId = await created.checkpoint();
+      await store.save({
+        specName: spec.name,
+        setupHash,
+        snapshotId,
+        createdAt: Date.now(),
+      });
+      console.log(`[agent] checkpoint done ${elapsed(t3)}`);
+    } catch (err) {
+      // Nothing else holds this sandbox yet — don't leave it running.
+      await created.close().catch(() => {});
+      await egressGate?.stop().catch(() => {});
+      throw err;
     }
-
-    console.log(`[agent] checkpointing...`);
-    const t3 = Date.now();
-    const snapshotId = await sb.checkpoint();
-    await store.save({
-      specName: spec.name,
-      setupHash,
-      snapshotId,
-      createdAt: Date.now(),
-    });
-    console.log(`[agent] checkpoint done ${elapsed(t3)}`);
   }
 
   // Both paths above (snapshot fast path setting fromSnapshot=true, or the full
@@ -229,20 +237,36 @@ export async function loadAgent(
   // whichever path just created `sb` needs these re-registered against its own sandboxId.
   // `approval: "hold"` bindings are skipped here — their host is denied, so the vault would
   // reject them; the gate registers them on approval instead.
-  for (const cb of credentialBindings) {
-    if (cb.approval === "hold") continue;
-    await sb.credentials.set(cb.name, cb.value, cb.binding, cb.source);
+  try {
+    for (const cb of credentialBindings) {
+      if (cb.approval === "hold") continue;
+      await sb.credentials.set(cb.name, cb.value, cb.binding, cb.source);
+    }
+
+    // ── Always: write fresh config + start bridge ───────────────────────────
+    resolvedEnv.ALINEO_SANDBOX_ID = sb.sandboxId;
+    await adapter.configure(sb, spec, resolvedEnv);
+
+    console.log(`[agent] starting bridge...`);
+    const t4 = Date.now();
+    await adapter.startBridge(sb);
+    await adapter.waitReady();
+    console.log(`[agent] bridge ready    ${elapsed(t4)}`);
+  } catch (err) {
+    await sb.close().catch(() => {});
+    await egressGate?.stop().catch(() => {});
+    if (!fromSnapshot) throw err;
+    // The snapshot restored, but the agent inside it doesn't start — e.g. a snapshot taken on a
+    // runtime whose commits don't capture the container's filesystem (gVisor with its default
+    // rootfs overlay), which restores without the harness. A cache hit must never be worse than
+    // a miss: drop the record and do the full install.
+    const reason = err instanceof Error ? err.message : String(err);
+    console.log(
+      `[agent] restored snapshot didn't start (${reason}) — discarding it and rebuilding...`,
+    );
+    await store.delete(spec.name);
+    return loadAgent(specInput, { ...opts, rebuild: true });
   }
-
-  // ── Always: write fresh config + start bridge ─────────────────────────────
-  resolvedEnv.ALINEO_SANDBOX_ID = sb.sandboxId;
-  await adapter.configure(sb, spec, resolvedEnv);
-
-  console.log(`[agent] starting bridge...`);
-  const t4 = Date.now();
-  await adapter.startBridge(sb);
-  await adapter.waitReady();
-  console.log(`[agent] bridge ready    ${elapsed(t4)}`);
   console.log(`[agent] total           ${elapsed(t0)}${fromSnapshot ? " (from snapshot)" : ""}`);
 
   return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot, runId, egressGate };
@@ -393,6 +417,7 @@ export async function reattachAgent(
     spec?: AgentSpec | Record<string, unknown>;
     specPath?: string;
     runId?: string;
+    skipReadyCheck?: boolean;
   },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
@@ -444,6 +469,10 @@ export async function reattachAgent(
     // when `resources` is passed, so a reattached agent needs this too if it's going to
     // keep spawning children.
     resources: spec.resources ?? config.defaults.resources,
+    // A caller that skips the ready probe may be reconnecting to a PAUSED sandbox (its bridge
+    // can't answer until resumed). The endpoint lookup below works on a paused sandbox too
+    // (verified against OpenSandbox); the handle comes back marked paused until resume().
+    allowPaused: opts.skipReadyCheck === true,
   });
   console.log(`[agent] connected       ${elapsed(t1)}`);
 
@@ -456,8 +485,12 @@ export async function reattachAgent(
   const adapter = new PiAdapter();
   await adapter.reattachBridge(sb);
   const t2 = Date.now();
-  await adapter.waitReady(5_000);
-  console.log(`[agent] bridge reattached ${elapsed(t2)}`);
+  // `skipReadyCheck`: the caller knows the bridge can't answer right now (a paused sandbox's
+  // container is frozen) and will check it itself once it can — e.g. after `sandbox.resume()`.
+  if (!opts.skipReadyCheck) await adapter.waitReady(5_000);
+  console.log(
+    `[agent] bridge reattached ${elapsed(t2)}${opts.skipReadyCheck ? " (not probed)" : ""}`,
+  );
   console.log(`[agent] total           ${elapsed(t0)}`);
 
   return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false, runId };
@@ -560,19 +593,25 @@ export async function spawnChild(
   });
   console.log(`[agent] fork ready      ${elapsed(t0)} (${forkedSb.sandboxId})`);
 
-  for (const { name, value, binding, source } of childCredentialBindings) {
-    await forkedSb.credentials.set(name, value, binding, source);
-  }
-
   const adapter = new PiAdapter();
-  childEnv.ALINEO_SANDBOX_ID = forkedSb.sandboxId;
-  await adapter.configure(forkedSb, childSpec, childEnv);
+  try {
+    for (const { name, value, binding, source } of childCredentialBindings) {
+      await forkedSb.credentials.set(name, value, binding, source);
+    }
 
-  console.log(`[agent] starting bridge...`);
-  const t1 = Date.now();
-  await adapter.startBridge(forkedSb, Object.keys(self.env));
-  await adapter.waitReady();
-  console.log(`[agent] bridge ready    ${elapsed(t1)}`);
+    childEnv.ALINEO_SANDBOX_ID = forkedSb.sandboxId;
+    await adapter.configure(forkedSb, childSpec, childEnv);
+
+    console.log(`[agent] starting bridge...`);
+    const t1 = Date.now();
+    await adapter.startBridge(forkedSb, Object.keys(self.env));
+    await adapter.waitReady();
+    console.log(`[agent] bridge ready    ${elapsed(t1)}`);
+  } catch (err) {
+    // The fork exists but the child never became usable — nothing else will ever close it.
+    await forkedSb.close().catch(() => {});
+    throw err;
+  }
 
   // The forked sandbox's actual ledger name (auto-generated by fork, not
   // childSpec.name) is what `alineo agents` displays and what future forks

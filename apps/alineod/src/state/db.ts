@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS agents (
   -- marked lost. Before this, that intent only ever lived in the dead process's closure.
   wait_for        TEXT,                   -- JSON array of agentIds, or NULL
   prompt          TEXT,
+  -- State before the most recent pause, restored on resume.
+  paused_from     TEXT,
   created_at      INTEGER NOT NULL,
   ended_at        INTEGER,
   outcome         TEXT                    -- success|failed|aborted|budget-exceeded|lost
@@ -84,6 +86,7 @@ for (const alter of [
   "ALTER TABLE agents ADD COLUMN max_agents_budget INTEGER",
   "ALTER TABLE agents ADD COLUMN wait_for TEXT",
   "ALTER TABLE agents ADD COLUMN prompt TEXT",
+  "ALTER TABLE agents ADD COLUMN paused_from TEXT",
 ]) {
   try {
     db.exec(alter);

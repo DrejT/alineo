@@ -22,7 +22,9 @@ import { newAgentId } from "../ids";
 import { get, register } from "./registry";
 import { withParentForkLock } from "./fork-lock";
 import { emit } from "./emit";
-import { driveTurn } from "./stream";
+import { driveTurn, setState } from "./stream";
+import { isNotRunningError, waitUntilNotPaused } from "./hold";
+import { sleep } from "../util";
 import { waitForHandles } from "./waitfor";
 import { writeSpecFile } from "./specfile";
 import { readResult } from "./results";
@@ -126,15 +128,11 @@ export async function provisionChild(
       });
     }
 
-    const parent = get(parentAgentId);
-    if (!parent) throw new Error(`parent ${parentAgentId} is no longer live`);
-
     const specPath = writeSpecFile(childId, body.spec);
-    // Serialized per parent — see fork-lock.ts (opensandbox-group/OpenSandbox#1831): two
-    // children of this same parent forking at once can each silently come back missing files.
-    const child = await withParentForkLock(parentAgentId, () =>
-      parent.spawn(specPath, { spawnDepth: spawnBudget, maxAgents: maxAgentsBudget }),
-    );
+    const child = await forkFromParent(runId, childId, parentAgentId, specPath, {
+      spawnDepth: spawnBudget,
+      maxAgents: maxAgentsBudget,
+    });
 
     register(childId, child);
     emit(runId, childId, "agent_provisioned", { sandboxId: child.sandboxId });
@@ -150,6 +148,56 @@ export async function provisionChild(
       outcome = "budget-exceeded";
     }
     emit(runId, childId, "agent_ended", { outcome, endedAt: Date.now(), error: message });
+  }
+}
+
+/** Retries of a fork OpenSandbox refused as "not running" while the projection says it's running. */
+const MAX_NOT_RUNNING_RETRIES = 10;
+
+/**
+ * `parent.spawn()`, waiting out any pause on the parent. OpenSandbox won't fork a paused sandbox
+ * (hold.ts), so:
+ *
+ * - parent already paused → the child goes to `spawning` (`reason: "parent-paused"`) and waits
+ *   for the resume, then back to `provisioning` (`"parent-resumed"`) once it forks;
+ * - parent paused while the fork request is in flight → the refusal is retried the same way
+ *   instead of failing the child;
+ * - parent stopped while the child waits → "no longer live", same as today.
+ *
+ * Forks stay serialized per parent — see fork-lock.ts (opensandbox-group/OpenSandbox#1831): two
+ * children of this same parent forking at once can each silently come back missing files.
+ */
+async function forkFromParent(
+  runId: string,
+  childId: string,
+  parentAgentId: string,
+  specPath: string,
+  opts: { spawnDepth: number | undefined; maxAgents: number | undefined },
+): Promise<Alineo> {
+  let held = false;
+  for (let retries = 0; ;) {
+    if (getAgentRow(parentAgentId)?.state === "paused") {
+      held = true;
+      setState(childId, "spawning", "parent-paused");
+      await waitUntilNotPaused(runId, parentAgentId);
+    }
+
+    const parent = get(parentAgentId);
+    if (!parent) throw new Error(`parent ${parentAgentId} is no longer live`);
+
+    try {
+      const child = await withParentForkLock(parentAgentId, () => parent.spawn(specPath, opts));
+      if (held) setState(childId, "provisioning", "parent-resumed");
+      return child;
+    } catch (err) {
+      if (!isNotRunningError(err)) throw err;
+      // Paused in the projection → loop back into the hold. Otherwise the sandbox isn't running
+      // for some reason alineod doesn't know about: retry a few times, then fail the child.
+      if (getAgentRow(parentAgentId)?.state !== "paused") {
+        if (++retries > MAX_NOT_RUNNING_RETRIES) throw err;
+        await sleep(3000);
+      }
+    }
   }
 }
 

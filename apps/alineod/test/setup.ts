@@ -13,8 +13,12 @@ const dir = mkdtempSync(join(tmpdir(), "alineod-test-"));
 process.env.ALINEOD_DB_PATH = join(dir, "alineod.db");
 process.env.ALINEOD_SDK_LEDGER_PATH = join(dir, "sdk-ledger.db");
 process.env.ALINEOD_WORK_DIR = join(dir, "work");
-// Bounds how long a reattach catch-up keeps polling a mid-turn agent.
 process.env.ALINEOD_PROMPT_INACTIVITY_MS = "8000";
+// Catch-up timings, shortened so tests that follow a turn by polling finish quickly.
+process.env.ALINEOD_TURN_MAX_MS = "2000"; // unpaused time before catch-up gives up
+process.env.ALINEOD_CATCH_UP_POLL_MS = "25";
+process.env.ALINEOD_STATE_PROBE_TIMEOUT_MS = "100";
+process.env.ALINEOD_RESUME_BRIDGE_TIMEOUT_MS = "100";
 
 const { FakeAlineo } = await import("./fakes");
 mock.module("alineo", () => ({ Alineo: FakeAlineo }));

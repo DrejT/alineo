@@ -66,6 +66,11 @@ async function reattachOne(a: AgentRow): Promise<void> {
   const opts = { adapter: sdkAdapter, spec, runId: a.run_id };
   const wasRunning = a.state === "running";
 
+  if (a.state === "paused") {
+    await reattachPaused(a, opts);
+    return;
+  }
+
   try {
     const agent = await Alineo.reattach(a.sandbox_id!, opts);
     register(a.agent_id, agent);
@@ -98,6 +103,43 @@ async function reattachOne(a: AgentRow): Promise<void> {
     } else {
       console.log(
         `[alineod]   ${a.agent_id} (${a.sandbox_id}) is unreachable (${message}) — its recorded outcome (${a.outcome}) stands`,
+      );
+    }
+  }
+}
+
+/**
+ * A paused agent's container is frozen, so its bridge can't answer the usual ready probe — and
+ * falling back to `Alineo.resume()` would try to restart the bridge inside the frozen container
+ * and mark the agent `lost`. Reconnect without probing and leave it paused; `resumeAgent()`
+ * checks the bridge (and restarts it if needed) and catches up any turn once it's resumed.
+ */
+async function reattachPaused(
+  a: AgentRow,
+  opts: { adapter: typeof sdkAdapter; spec: unknown; runId: string },
+): Promise<void> {
+  try {
+    const agent = await Alineo.reattach(a.sandbox_id!, {
+      ...opts,
+      spec: opts.spec as Record<string, unknown>,
+      skipReadyCheck: true,
+    });
+    register(a.agent_id, agent);
+    console.log(
+      `[alineod]   reattached ${a.agent_id} (${a.sandbox_id}) — paused, bridge not probed`,
+    );
+  } catch (err) {
+    const message = describeError(err);
+    if (a.ended_at === null) {
+      emit(a.run_id, a.agent_id, "agent_ended", {
+        outcome: "lost",
+        endedAt: Date.now(),
+        error: message,
+      });
+      console.log(`[alineod]   lost ${a.agent_id} (paused): ${message}`);
+    } else {
+      console.log(
+        `[alineod]   ${a.agent_id} (${a.sandbox_id}, paused) is unreachable (${message}) — its recorded outcome (${a.outcome}) stands`,
       );
     }
   }

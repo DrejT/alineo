@@ -22,6 +22,12 @@ export interface FakeTurn {
   text?: string | null;
   /** If set, the stream throws this after the gate; `text` (default null) is left as partial output. */
   error?: string;
+  /**
+   * Stands in for the SDK's inactivity timeout: after the gate, the stream throws
+   * `PromptTimeoutError` while Pi keeps working — `streaming` stays true until the test sets
+   * `lastText` and flips `streaming` to false.
+   */
+  detach?: boolean;
 }
 
 export interface SpawnOpts {
@@ -51,6 +57,16 @@ export class FakeAgent {
   steerError?: Error;
   pauseError?: Error;
   hangSessionStats = false;
+  /** getState() never answers (an unresponsive bridge). A paused agent never answers either. */
+  hangState = false;
+  /** The bridge's ready probe fails (e.g. the bridge process died while the container was frozen). */
+  bridgeDown = false;
+
+  readonly adapter = {
+    waitReady: async (_timeoutMs?: number): Promise<void> => {
+      if (this.bridgeDown) throw new Error("alineo-bridge did not become ready");
+    },
+  };
 
   /** Set to delay every spawn() call on this agent — combine with the `forking` guard below to catch overlap. */
   forkGate?: Promise<void>;
@@ -84,16 +100,23 @@ export class FakeAgent {
     this.prompts.push(message);
     const turn = this.turn;
     this.streaming = true;
+    let detached = false;
     try {
       for (const ev of turn.events ?? [{ type: "text", text: "…" }]) yield ev;
       if (turn.gate) await turn.gate;
+      if (turn.detach) {
+        detached = true;
+        const err = new Error("Prompt produced no activity for 180s");
+        err.name = "PromptTimeoutError";
+        throw err;
+      }
       if (turn.error) {
         this.lastText = turn.text ?? null;
         throw new Error(turn.error);
       }
       this.lastText = turn.text === undefined ? `reply: ${message}` : turn.text;
     } finally {
-      this.streaming = false;
+      if (!detached) this.streaming = false;
     }
   }
 
@@ -116,6 +139,7 @@ export class FakeAgent {
   }
 
   async getState(): Promise<{ isStreaming: boolean }> {
+    if (this.paused || this.hangState) return new Promise(() => {});
     return { isStreaming: this.streaming };
   }
 
@@ -134,6 +158,12 @@ export class FakeAgent {
     try {
       fakeSdk.spawnCheck(opts);
       if (this.forkGate) await this.forkGate;
+      // OpenSandbox refuses to snapshot a paused sandbox (verified live — V1).
+      if (this.paused) {
+        throw new Error(
+          'OpenSandboxError: {"code":"SNAPSHOT::INVALID_SOURCE_STATE","message":"Snapshot can only be created from a Running sandbox."}',
+        );
+      }
       const spec = JSON.parse(readFileSync(specPath, "utf8")) as { name?: string };
       const child = new FakeAgent({ name: spec.name ?? "agent", runId: this.runId });
       this.spawns.push({ specPath, opts, child });
@@ -165,7 +195,12 @@ export const fakeSdk = {
   loadError: undefined as Error | undefined,
   reattachFails: new Set<string>(),
   resumeFails: new Set<string>(),
-  calls: { load: 0, reattach: [] as string[], resume: [] as string[] },
+  calls: {
+    load: 0,
+    reattach: [] as string[],
+    reattachOpts: [] as Array<Record<string, unknown> | undefined>,
+    resume: [] as string[],
+  },
   spawnCheck: sdkSpawnCheck as (opts: SpawnOpts) => void,
   reset(): void {
     this.nextTurn = undefined;
@@ -173,7 +208,7 @@ export const fakeSdk = {
     this.loadError = undefined;
     this.reattachFails.clear();
     this.resumeFails.clear();
-    this.calls = { load: 0, reattach: [], resume: [] };
+    this.calls = { load: 0, reattach: [], reattachOpts: [], resume: [] };
     this.spawnCheck = sdkSpawnCheck;
   },
 };
@@ -186,10 +221,13 @@ export const FakeAlineo = {
     return new FakeAgent({ name: spec.name ?? "agent", runId: opts.runId });
   },
 
-  async reattach(sandboxId: string): Promise<FakeAgent> {
+  async reattach(sandboxId: string, opts?: Record<string, unknown>): Promise<FakeAgent> {
     fakeSdk.calls.reattach.push(sandboxId);
+    fakeSdk.calls.reattachOpts.push(opts);
     const agent = fakeSdk.sandboxes.get(sandboxId);
-    if (!agent || fakeSdk.reattachFails.has(sandboxId)) {
+    // The real reattach probes the bridge, which a frozen container can't answer.
+    const probeFails = agent?.paused && !opts?.skipReadyCheck;
+    if (!agent || fakeSdk.reattachFails.has(sandboxId) || probeFails) {
       throw new Error(`bridge in ${sandboxId} did not answer`);
     }
     return agent;
@@ -201,6 +239,9 @@ export const FakeAlineo = {
     if (!agent || fakeSdk.resumeFails.has(sandboxId)) {
       throw new Error(`sandbox ${sandboxId} not found`);
     }
+    // Restarting the bridge execs into the container, which fails while it's frozen.
+    if (agent.paused) throw new Error(`sandbox ${sandboxId} is paused`);
+    agent.bridgeDown = false;
     return agent;
   },
 };

@@ -54,8 +54,10 @@ The result is the agent's final assistant message.
 
 - `GET /agents/:id/result?wait=<seconds>` holds the request open until the handle settles.
 - `waitFor` on a spawn uses the same handles to decide when a child may start.
-- If a turn stalls (no stream activity for `ALINEOD_PROMPT_INACTIVITY_MS`), it is ended; any partial text it had
-  produced still becomes the result, with outcome `success`.
+- If a turn's stream goes quiet for `ALINEOD_PROMPT_INACTIVITY_MS`, alineod stops reading it and polls the agent
+  until the turn actually finishes, so the result is still the full answer. A turn still running after
+  `ALINEOD_TURN_MAX_MS` of unpaused time is ended; any partial text it had produced becomes the result, with
+  outcome `success`.
 
 <Callout type="info">
   A result is the final message stored as text by alineod, and `resultRef` has the shape

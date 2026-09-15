@@ -71,12 +71,17 @@ error. Each transition emits `agent_state_changed` with `reason: "operator"`.
 - Pausing an already-paused agent is a no-op.
 - Resuming an agent that isn't paused returns `409`.
 - While paused, `GET /agents/:id` omits `sessionStats` rather than waiting on the frozen harness.
-- Resume always returns the agent to `running`.
+- Resume returns the agent to the state it had before the pause.
+- Spawning a child under a paused agent is accepted: the child waits in `spawning` until the parent resumes,
+  then forks. If the parent is stopped instead, the child fails.
+- If alineod restarts while an agent is paused, the agent stays paused and resumes normally; a turn that was
+  running when it was paused is followed to completion after the resume.
 
-<Callout type="warn" title="Long pauses and the inactivity timeout">
-  A paused turn still counts toward `ALINEOD_PROMPT_INACTIVITY_MS` (default 180 s). If a pause
-  outlasts it, the turn is ended shortly after resume and settles with whatever it had produced.
-  Raise the timeout if you expect long pauses mid-turn.
+<Callout type="info" title="Pauses don't end turns">
+  A paused turn's stream goes quiet, and a pause can outlast `ALINEOD_PROMPT_INACTIVITY_MS` (default
+  180 s). alineod then follows the turn by polling the agent instead of reading its stream, and
+  paused time doesn't count toward `ALINEOD_TURN_MAX_MS`, so the turn finishes normally after resume
+  with its full result.
 </Callout>
 
 <Callout type="info" title="Runtime differences">

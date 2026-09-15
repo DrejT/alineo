@@ -21,6 +21,10 @@ const upsertAgent = db.query(
 
 const setAgentState = db.query(`UPDATE agents SET state = $state WHERE agent_id = $agentId`);
 
+const setPausedFrom = db.query(
+  `UPDATE agents SET paused_from = $pausedFrom WHERE agent_id = $agentId`,
+);
+
 const setAgentSandbox = db.query(
   `UPDATE agents SET sandbox_id = $sandboxId WHERE agent_id = $agentId`,
 );
@@ -71,6 +75,9 @@ export function apply(row: LedgerRow): void {
     }
     case "agent_state_changed":
       setAgentState.run({ $agentId: row.agent_id, $state: p.to as string });
+      if (p.to === "paused") {
+        setPausedFrom.run({ $agentId: row.agent_id, $pausedFrom: (p.from as string) ?? null });
+      }
       break;
     case "agent_provisioned":
       setAgentSandbox.run({ $agentId: row.agent_id, $sandboxId: p.sandboxId as string });
@@ -150,6 +157,7 @@ export interface AgentRow {
   max_agents_budget: number | null;
   wait_for: string | null;
   prompt: string | null;
+  paused_from: string | null;
   created_at: number;
   ended_at: number | null;
   outcome: string | null;

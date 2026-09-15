@@ -39,13 +39,16 @@ export async function deleteRun(runId: string): Promise<void> {
   if (agents.length === 0) throw new HttpError(404, `no run ${runId}`);
 
   for (const a of agents) {
-    if (a.endedAt) continue;
     const agent = get(a.agentId);
     if (!agent) continue;
-    try {
-      await agent.abort();
-    } catch {
-      /* ignore */
+    // A finished agent's sandbox stays open (promptable, usable as a spawn parent), so it still
+    // has to be closed here — but its recorded outcome stands; only a live one ends as aborted.
+    if (!a.endedAt) {
+      try {
+        await agent.abort();
+      } catch {
+        /* ignore */
+      }
     }
     try {
       await agent.close();
@@ -53,7 +56,9 @@ export async function deleteRun(runId: string): Promise<void> {
       /* ignore */
     }
     forget(a.agentId);
-    emit(runId, a.agentId, "agent_ended", { outcome: "aborted", endedAt: Date.now() });
+    if (!a.endedAt) {
+      emit(runId, a.agentId, "agent_ended", { outcome: "aborted", endedAt: Date.now() });
+    }
   }
   // Ledger is intentionally left intact.
 }

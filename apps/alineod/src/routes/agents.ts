@@ -6,7 +6,7 @@ import { spawnAgent } from "../engine/spawn";
 import { stopAgent } from "../engine/lifecycle";
 import { steerAgent } from "../engine/steer";
 import { pauseAgent, resumeAgent } from "../engine/pause";
-import { driveTurn } from "../engine/stream";
+import { driveTurn, isCatchingUp } from "../engine/stream";
 import { get } from "../engine/registry";
 import { getAgentView } from "../state/projection";
 import { HttpError } from "../engine/errors";
@@ -34,6 +34,11 @@ export const agentsRoutes = new Elysia()
   .post("/agents/:agentId/prompt", async ({ params, body }) => {
     const { text } = parseBody(PromptBody, body);
     if (!get(params.agentId)) throw new HttpError(409, `agent ${params.agentId} is not live`);
+    // Pi is still working on a turn alineod stopped streaming — a new prompt would land in the
+    // middle of it. Wait for that turn's result first.
+    if (isCatchingUp(params.agentId)) {
+      throw new HttpError(409, `agent ${params.agentId} is still finishing its previous turn`);
+    }
     void driveTurn(params.agentId, text);
     return new Response(null, { status: 202 });
   })
