@@ -312,7 +312,7 @@ async function t2(): Promise<void> {
     log("T2: parent resumed");
     const result = await waitResult(childId);
     obs.childResult = { outcome: result.outcome, text: result.result };
-    const lc = lifecycle(await ledger(runId), childId);
+    const lc = lifecycle(await ledger(runId), childId) as Json[];
     obs.childLifecycle = lc;
     const held = obs.childWhileParentPaused as Json;
     const ended = lc.find((e) => e.event === "agent_ended");
