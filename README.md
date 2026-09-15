@@ -8,7 +8,11 @@
 Run [Pi](https://pi.ai) coding agents inside isolated sandbox containers — read/write files, run
 shell commands, execute scripts, streamed back over a plain TypeScript API.
 
-<!-- TODO: demo GIF/video — drop in here once recorded -->
+![A lead agent clones expressjs/cors, forks three reviewer agents from its live sandbox, pauses one and steers another mid-review, then an editor waits for all three and merges their findings.](.github/assets/demo.gif)
+
+<sub>A swarm code review driven through alineod: one checkout, three forked reviewers, one merged
+report. Sped-up replay of a real run of the
+[swarm-code-review cookbook](https://docs.alineo.tech/docs/cookbooks/swarm-code-review).</sub>
 
 ```ts
 import { Alineo, textOnly } from "alineo";
