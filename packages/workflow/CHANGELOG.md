@@ -1,5 +1,12 @@
 # @drej/workflow
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [5ff090b]
+  - @alineo-labs/sandbox@0.4.2
+
 ## 0.1.4
 
 ### Patch Changes

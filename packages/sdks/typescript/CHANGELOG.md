@@ -1,5 +1,11 @@
 # drej
 
+## 0.4.2
+
+### Patch Changes
+
+- 5ff090b: `client.connect()` accepts `allowPaused: true` to connect to a Paused sandbox. The handle comes back marked paused — `exec()` throws until `resume()`.
+
 ## 0.4.1
 
 ### Patch Changes
