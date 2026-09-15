@@ -1,5 +1,14 @@
 # @drej/agent
 
+## 0.5.1
+
+### Patch Changes
+
+- 5ff090b: `Alineo.load()` and `.spawn()` no longer leave a sandbox running when they fail partway: the sandbox is closed before the error is rethrown. A load whose cached snapshot restores but won't start (e.g. a snapshot taken on a runtime that didn't capture the container's filesystem) now discards that snapshot and rebuilds instead of failing.
+- 5ff090b: `Alineo.reattach()` accepts `skipReadyCheck: true` to reconnect to a sandbox without probing its bridge, including a Paused one — for a paused sandbox, whose frozen bridge can't answer until it's resumed.
+- Updated dependencies [5ff090b]
+  - @alineo-labs/sandbox@0.4.2
+
 ## 0.5.0
 
 ### Minor Changes
