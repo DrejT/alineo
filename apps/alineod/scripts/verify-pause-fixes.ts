@@ -12,6 +12,14 @@
  *   bun apps/alineod/scripts/verify-pause-fixes.ts [t1,t2,t3]
  *
  * Writes everything it observes to ./verify-pause-fixes/results.json (daemon logs alongside).
+ *
+ * The pause is timed off the agent reaching `running`, not off a `tool_start` event: once the
+ * stream goes quiet for the inactivity timeout (the model thinking is enough), alineod follows the
+ * turn by polling and no further harness events reach SSE (G2), so waiting for one can hang.
+ *
+ * T2 judges the hold (child waits in `spawning` with no sandbox, then the fork is attempted after
+ * resume) separately from whether the forked child's harness starts: on a host where forks don't
+ * carry the parent's filesystem, the child's bridge can't start — outside what B4 changes.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -124,6 +132,18 @@ async function waitLive(agentId: string, timeoutMs = 600_000): Promise<void> {
   throw new Error(`${agentId} never provisioned`);
 }
 
+async function waitState(agentId: string, state: string, timeoutMs = 600_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const v = await agentView(agentId);
+    if (v.state === state) return;
+    if (v.outcome)
+      throw new Error(`${agentId} ended before reaching ${state}: ${JSON.stringify(v)}`);
+    await sleep(1_000);
+  }
+  throw new Error(`${agentId} never reached ${state}`);
+}
+
 async function waitResult(agentId: string, timeoutMs = 600_000): Promise<Json> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -215,7 +235,7 @@ async function t1(): Promise<void> {
   try {
     const r = await api("POST", "/runs", {
       spec: spec("verify-pause-t1"),
-      prompt: sleepPrompt("T1_SLEPT_OK", 60),
+      prompt: sleepPrompt("T1_SLEPT_OK", 90),
     });
     const runId = r.runId as string;
     const id = r.rootAgentId as string;
@@ -223,9 +243,8 @@ async function t1(): Promise<void> {
     Object.assign(obs, { runId, agentId: id });
     log("T1: run", runId);
 
-    const tool = await waitEvent(runId, (e, d) => e === "tool_start" && d.agentId === id, 600_000);
-    obs.toolStartSeen = Boolean(tool);
-    await sleep(3_000);
+    await waitState(id, "running");
+    await sleep(10_000); // mid-turn: the model thinking, or already inside the sleep tool call
 
     await api("POST", `/agents/${id}/pause`);
     obs.pausedAt = Date.now() - t0;
@@ -242,9 +261,14 @@ async function t1(): Promise<void> {
     obs.result = { outcome: result.outcome, text: result.result };
     obs.lifecycle = lifecycle(await ledger(runId), id);
     const during = obs.duringPause as Json;
+    const lc = obs.lifecycle as Json[];
+    const resumeIdx = lc.findIndex((e) => e.event === "agent_state_changed" && e.from === "paused");
+    const endedIdx = lc.findIndex((e) => e.event === "agent_ended");
+    obs.endedAfterResume = resumeIdx !== -1 && endedIdx > resumeIdx;
     obs.pass =
       during.state === "paused" &&
       during.outcome === null &&
+      obs.endedAfterResume === true &&
       result.outcome === "success" &&
       String(result.result).includes("T1_SLEPT_OK");
     log("T1:", obs.pass ? "PASS" : "FAIL", JSON.stringify(obs.result));
@@ -288,14 +312,19 @@ async function t2(): Promise<void> {
     log("T2: parent resumed");
     const result = await waitResult(childId);
     obs.childResult = { outcome: result.outcome, text: result.result };
-    obs.childLifecycle = lifecycle(await ledger(runId), childId);
+    const lc = lifecycle(await ledger(runId), childId);
+    obs.childLifecycle = lc;
     const held = obs.childWhileParentPaused as Json;
-    obs.pass =
+    const ended = lc.find((e) => e.event === "agent_ended");
+    // B4's job: hold while the parent is paused, then fork after resume — never fail for "paused".
+    obs.holdPass =
       held.state === "spawning" &&
       held.sandboxId === null &&
       held.outcome === null &&
-      result.outcome === "success" &&
-      String(result.result).includes("CHILD_OK");
+      lc[0]?.reason === "parent-paused" &&
+      !/INVALID_SOURCE_STATE|Running sandbox/i.test(String(ended?.error ?? ""));
+    obs.childAnswered = result.outcome === "success" && String(result.result).includes("CHILD_OK");
+    obs.pass = obs.holdPass === true && obs.childAnswered === true;
     log("T2:", obs.pass ? "PASS" : "FAIL", JSON.stringify(obs.childResult));
   } catch (e) {
     obs.error = errMsg(e);
@@ -313,7 +342,7 @@ async function t3(): Promise<void> {
   try {
     const r = await api("POST", "/runs", {
       spec: spec("verify-pause-t3"),
-      prompt: sleepPrompt("T3_SLEPT_OK", 60),
+      prompt: sleepPrompt("T3_SLEPT_OK", 90),
     });
     const runId = r.runId as string;
     const id = r.rootAgentId as string;
@@ -321,10 +350,8 @@ async function t3(): Promise<void> {
     Object.assign(obs, { runId, agentId: id });
     log("T3: run", runId);
 
-    obs.toolStartSeen = Boolean(
-      await waitEvent(runId, (e, d) => e === "tool_start" && d.agentId === id, 600_000),
-    );
-    await sleep(3_000);
+    await waitState(id, "running");
+    await sleep(10_000);
     await api("POST", `/agents/${id}/pause`);
     log("T3: paused; killing alineod with SIGKILL");
 
