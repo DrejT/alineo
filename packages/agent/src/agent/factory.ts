@@ -393,6 +393,7 @@ export async function reattachAgent(
     spec?: AgentSpec | Record<string, unknown>;
     specPath?: string;
     runId?: string;
+    skipReadyCheck?: boolean;
   },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
@@ -456,8 +457,12 @@ export async function reattachAgent(
   const adapter = new PiAdapter();
   await adapter.reattachBridge(sb);
   const t2 = Date.now();
-  await adapter.waitReady(5_000);
-  console.log(`[agent] bridge reattached ${elapsed(t2)}`);
+  // `skipReadyCheck`: the caller knows the bridge can't answer right now (a paused sandbox's
+  // container is frozen) and will check it itself once it can — e.g. after `sandbox.resume()`.
+  if (!opts.skipReadyCheck) await adapter.waitReady(5_000);
+  console.log(
+    `[agent] bridge reattached ${elapsed(t2)}${opts.skipReadyCheck ? " (not probed)" : ""}`,
+  );
   console.log(`[agent] total           ${elapsed(t0)}`);
 
   return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false, runId };

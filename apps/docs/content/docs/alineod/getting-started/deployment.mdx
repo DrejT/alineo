@@ -9,13 +9,17 @@ can't be rebuilt, so the process — or its container — can be restarted or re
 
 ## Configuration
 
-| Variable                       | Default                        | Description                                                                                            |
-| ------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `ALINEOD_PORT`                 | `4600`                         | HTTP + SSE listen port.                                                                                |
-| `ALINEOD_DB_PATH`              | `./data/alineod.db`            | alineod's own state: the append-only swarm ledger and the `agents`/`handles` tables derived from it.   |
-| `ALINEOD_SDK_LEDGER_PATH`      | `./data/alineod-sdk-ledger.db` | The SDK's sandbox ledger (sandbox, exec, and checkpoint events), shared by every agent alineod drives. |
-| `ALINEOD_WORK_DIR`             | `./data/alineod-work`          | Spec files handed to `spawn()`, and stored agent results.                                              |
-| `ALINEOD_PROMPT_INACTIVITY_MS` | `180000`                       | If a turn's stream produces nothing for this long, the turn is ended and its result settles.           |
+| Variable                           | Default                        | Description                                                                                            |
+| ---------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `ALINEOD_PORT`                     | `4600`                         | HTTP + SSE listen port.                                                                                |
+| `ALINEOD_DB_PATH`                  | `./data/alineod.db`            | alineod's own state: the append-only swarm ledger and the `agents`/`handles` tables derived from it.   |
+| `ALINEOD_SDK_LEDGER_PATH`          | `./data/alineod-sdk-ledger.db` | The SDK's sandbox ledger (sandbox, exec, and checkpoint events), shared by every agent alineod drives. |
+| `ALINEOD_WORK_DIR`                 | `./data/alineod-work`          | Spec files handed to `spawn()`, and stored agent results.                                              |
+| `ALINEOD_PROMPT_INACTIVITY_MS`     | `180000`                       | If a turn's stream produces nothing for this long, alineod follows the turn by polling instead.        |
+| `ALINEOD_TURN_MAX_MS`              | `1800000`                      | How long a polled turn may keep running (paused time excluded) before it's ended with partial output.  |
+| `ALINEOD_CATCH_UP_POLL_MS`         | `2000`                         | Interval between state polls while following a turn.                                                   |
+| `ALINEOD_STATE_PROBE_TIMEOUT_MS`   | `5000`                         | Bound on one state poll, so an unresponsive agent can't stall alineod.                                 |
+| `ALINEOD_RESUME_BRIDGE_TIMEOUT_MS` | `10000`                        | After a resume, how long to wait for the agent's harness to answer before restarting it.               |
 
 OpenSandbox connection settings come from `alineo.config.json` in the working directory, exactly as for the SDK
 and CLI. Model-provider keys (`NVIDIA_API_KEY`, `ANTHROPIC_API_KEY`, …) are read from alineod's own environment

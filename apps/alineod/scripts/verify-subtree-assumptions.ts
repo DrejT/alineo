@@ -43,27 +43,34 @@ function spec(name: string) {
 }
 
 const t0 = Date.now();
-const log = (...a: unknown[]) => console.log(`[verify +${((Date.now() - t0) / 1000).toFixed(1)}s]`, ...a);
+const log = (...a: unknown[]) =>
+  console.log(`[verify +${((Date.now() - t0) / 1000).toFixed(1)}s]`, ...a);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const errMsg = (e: unknown) => (e instanceof Error ? `${e.name}: ${e.message}` : String(e));
 
 function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   return Promise.race([
     p,
-    new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`timeout after ${ms}ms: ${what}`)), ms)),
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(new Error(`timeout after ${ms}ms: ${what}`)), ms),
+    ),
   ]);
 }
 
 function inspect(sandboxId: string): string {
   const r = Bun.spawnSync([
-    "docker", "inspect", "-f",
+    "docker",
+    "inspect",
+    "-f",
     "status={{.State.Status}} paused={{.State.Paused}} runtime={{.HostConfig.Runtime}} network={{.HostConfig.NetworkMode}}",
     `sandbox-${sandboxId}`,
   ]);
   return (r.stdout.toString() + r.stderr.toString()).trim();
 }
 
-async function timed<T>(fn: () => Promise<T>): Promise<{ ok: boolean; ms: number; value?: T; error?: string }> {
+async function timed<T>(
+  fn: () => Promise<T>,
+): Promise<{ ok: boolean; ms: number; value?: T; error?: string }> {
   const s = Date.now();
   try {
     return { ok: true, ms: Date.now() - s, value: await fn() };
@@ -81,7 +88,11 @@ async function closeAll() {
 
 async function v1v3() {
   log("V1/V3: loading parent agent");
-  const parent = await Alineo.load(spec("verify-v1-parent"), { adapter, spawnDepth: 3, maxAgents: 5 });
+  const parent = await Alineo.load(spec("verify-v1-parent"), {
+    adapter,
+    spawnDepth: 3,
+    maxAgents: 5,
+  });
   opened.push(parent);
   await parent.sandbox.writeFile("/tmp/v1-marker.txt", "v1-marker-before-pause");
   const pid = parent.sandboxId;
@@ -94,14 +105,23 @@ async function v1v3() {
     log("V1: parent paused:", v1.afterPause);
 
     // 1a — substrate fork of a paused sandbox
-    const rawFork = await timed(() => withTimeout(parent.sandbox.fork("v1-paused"), 300_000, "sandbox.fork"));
+    const rawFork = await timed(() =>
+      withTimeout(parent.sandbox.fork("v1-paused"), 300_000, "sandbox.fork"),
+    );
     v1.rawFork = { ok: rawFork.ok, ms: rawFork.ms, error: rawFork.error };
     if (rawFork.ok && rawFork.value) {
-      const f = rawFork.value as { id?: string; sandboxId?: string; exec(c: string): Promise<{ stdout: string }>; close(): Promise<void> };
+      const f = rawFork.value as {
+        id?: string;
+        sandboxId?: string;
+        exec(c: string): Promise<{ stdout: string }>;
+        close(): Promise<void>;
+      };
       opened.push(f);
       const fid = f.sandboxId ?? f.id ?? "?";
       v1.rawForkChild = { sandboxId: fid, inspect: inspect(fid) };
-      v1.rawForkMarker = await timed(async () => (await f.exec("cat /tmp/v1-marker.txt")).stdout.trim());
+      v1.rawForkMarker = await timed(async () =>
+        (await f.exec("cat /tmp/v1-marker.txt")).stdout.trim(),
+      );
     }
     v1.parentAfterRawFork = inspect(pid);
     log("V1: raw fork:", JSON.stringify(v1.rawFork));
@@ -111,7 +131,11 @@ async function v1v3() {
     const childSpecPath = resolve("verify-v1-child.json");
     writeFileSync(childSpecPath, JSON.stringify(spec("verify-v1-child")));
     const agentSpawn = await timed(() =>
-      withTimeout(parent.spawn(childSpecPath, { spawnDepth: 2, maxAgents: 4 }), 300_000, "Alineo.spawn"),
+      withTimeout(
+        parent.spawn(childSpecPath, { spawnDepth: 2, maxAgents: 4 }),
+        300_000,
+        "Alineo.spawn",
+      ),
     );
     v1.agentSpawn = { ok: agentSpawn.ok, ms: agentSpawn.ms, error: agentSpawn.error };
     if (agentSpawn.ok && agentSpawn.value) {
@@ -130,7 +154,9 @@ async function v1v3() {
     // 1c — parent is healthy after resume
     await parent.sandbox.resume();
     v1.afterResume = inspect(pid);
-    v1.parentBridgeAfterResume = await timed(() => withTimeout(parent.getState(), 15_000, "parent.getState"));
+    v1.parentBridgeAfterResume = await timed(() =>
+      withTimeout(parent.getState(), 15_000, "parent.getState"),
+    );
     save();
   }
 
@@ -153,10 +179,13 @@ async function v1v3() {
     };
     results.v3 = v3;
 
-    const net = await timed(async () =>
-      (await parent.sandbox.exec(
-        "sh -c 'cat /etc/resolv.conf; echo ---route; ip route 2>/dev/null || cat /proc/net/route; echo ---hosts; cat /etc/hosts; echo ---env; env | grep -iE \"proxy|egress\" || true; which curl wget node'",
-      )).stdout,
+    const net = await timed(
+      async () =>
+        (
+          await parent.sandbox.exec(
+            "sh -c 'cat /etc/resolv.conf; echo ---route; ip route 2>/dev/null || cat /proc/net/route; echo ---hosts; cat /etc/hosts; echo ---env; env | grep -iE \"proxy|egress\" || true; which curl wget node'",
+          )
+        ).stdout,
     );
     v3.sandboxNetwork = net;
 
@@ -181,7 +210,12 @@ interface TurnObs {
   endedNaturallyAtMs?: number;
 }
 
-function drain(agent: InstanceType<typeof Alineo>, prompt: string, timeoutMs: number, startedAt: number): { obs: TurnObs; done: Promise<void> } {
+function drain(
+  agent: InstanceType<typeof Alineo>,
+  prompt: string,
+  timeoutMs: number,
+  startedAt: number,
+): { obs: TurnObs; done: Promise<void> } {
   const obs: TurnObs = { events: [] };
   const done = (async () => {
     try {
@@ -197,12 +231,20 @@ function drain(agent: InstanceType<typeof Alineo>, prompt: string, timeoutMs: nu
 }
 
 async function pollUntilIdle(agent: InstanceType<typeof Alineo>, startedAt: number, maxMs: number) {
-  const samples: { atMs: number; isStreaming?: boolean; messageCount?: number; error?: string }[] = [];
+  const samples: { atMs: number; isStreaming?: boolean; messageCount?: number; error?: string }[] =
+    [];
   const deadline = Date.now() + maxMs;
   while (Date.now() < deadline) {
     try {
-      const st = await withTimeout(agent.getState(), 10_000, "getState");
-      samples.push({ atMs: Date.now() - startedAt, isStreaming: st.isStreaming, messageCount: st.messageCount });
+      const st = (await withTimeout(agent.getState(), 10_000, "getState")) as {
+        isStreaming: boolean;
+        messageCount: number;
+      };
+      samples.push({
+        atMs: Date.now() - startedAt,
+        isStreaming: st.isStreaming,
+        messageCount: st.messageCount,
+      });
       if (!st.isStreaming) break;
     } catch (e) {
       samples.push({ atMs: Date.now() - startedAt, error: errMsg(e) });
@@ -232,7 +274,12 @@ async function v2() {
     log("V2a: stream ended:", JSON.stringify(obs.threw ?? { natural: obs.endedNaturallyAtMs }));
     const samples = await pollUntilIdle(agent, s, 240_000);
     const last = await timed(() => agent.getLastAssistantText());
-    v2.a_silentToolCall = { obs, stateSamples: samples, lastAssistantText: last, finishedAtMs: Date.now() - s };
+    v2.a_silentToolCall = {
+      obs,
+      stateSamples: samples,
+      lastAssistantText: last,
+      finishedAtMs: Date.now() - s,
+    };
     log("V2a: last text:", JSON.stringify(last.value));
     save();
   }
@@ -242,7 +289,14 @@ async function v2() {
     const s = Date.now();
     const { obs, done } = drain(agent, "Reply with only: PING_OK", 120_000, s);
     await done;
-    v2.b_promptAfterTimeout = { obs: { threw: obs.threw, endedNaturallyAtMs: obs.endedNaturallyAtMs, eventCount: obs.events.length }, lastAssistantText: await timed(() => agent.getLastAssistantText()) };
+    v2.b_promptAfterTimeout = {
+      obs: {
+        threw: obs.threw,
+        endedNaturallyAtMs: obs.endedNaturallyAtMs,
+        eventCount: obs.events.length,
+      },
+      lastAssistantText: await timed(() => agent.getLastAssistantText()),
+    };
     log("V2b:", JSON.stringify(v2.b_promptAfterTimeout));
     save();
   }
@@ -257,7 +311,8 @@ async function v2() {
       s,
     );
     // wait for the tool call to start (or 60s)
-    for (let i = 0; i < 60 && !obs.events.some((e) => e.type === "tool_start"); i++) await sleep(1_000);
+    for (let i = 0; i < 60 && !obs.events.some((e) => e.type === "tool_start"); i++)
+      await sleep(1_000);
     const pauseAt = Date.now() - s;
     await agent.sandbox.pause();
     const pausedInspect = inspect(agent.sandboxId);
@@ -277,7 +332,10 @@ async function v2() {
       lastAssistantText: await timed(() => agent.getLastAssistantText()),
       finishedAtMs: Date.now() - s,
     };
-    log("V2c: last text:", JSON.stringify((v2.c_pauseMidTurn as { lastAssistantText: unknown }).lastAssistantText));
+    log(
+      "V2c: last text:",
+      JSON.stringify((v2.c_pauseMidTurn as { lastAssistantText: unknown }).lastAssistantText),
+    );
     save();
   }
 }

@@ -8,7 +8,7 @@ import { get } from "../src/engine/registry";
 import { rehydrate } from "../src/engine/rehydrate";
 import { newAgentId, newRunId } from "../src/ids";
 import { getAgentRow, getHandle } from "../src/state/projection";
-import { events, spec, until, wipeState } from "./helpers";
+import { call, events, spec, until, wipeState } from "./helpers";
 import { FakeAgent, fakeSdk } from "./fakes";
 
 beforeEach(() => wipeState());
@@ -247,5 +247,73 @@ describe("agents that hadn't forked yet", () => {
     await until(() => getAgentRow(child)?.state === "lost", "child lost");
     const ended = events(runId).find((e) => e.event === "agent_ended" && e.agentId === child);
     expect(ended?.error).toContain("did not come back");
+  });
+});
+
+describe("paused agents", () => {
+  /** An agent that was mid-turn and then paused when the previous process died. */
+  function seedPaused(runId: string, sandbox: FakeAgent): string {
+    sandbox.paused = true;
+    sandbox.streaming = true;
+    const id = seed({ runId, sandbox, state: "running" });
+    emit(runId, id, "agent_state_changed", { from: "running", to: "paused", reason: "operator" });
+    return id;
+  }
+
+  test("are reconnected without probing their frozen bridge, and stay paused", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seedPaused(runId, sandbox);
+
+    await rehydrate();
+
+    expect(get(id)).toBe(sandbox as never);
+    expect(fakeSdk.calls.reattachOpts[0]).toMatchObject({ skipReadyCheck: true });
+    expect(fakeSdk.calls.resume).toEqual([]);
+    expect(getAgentRow(id)?.state).toBe("paused");
+    expect(getHandle(id)?.state).toBe("pending");
+  });
+
+  test("resuming after the restart catches up the turn that was running", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seedPaused(runId, sandbox);
+    await rehydrate();
+
+    expect((await call("POST", `/agents/${id}/resume`)).status).toBe(202);
+    expect(getAgentRow(id)?.state).toBe("running");
+    expect(getHandle(id)?.state).toBe("pending");
+
+    sandbox.lastText = "finished after the restart";
+    sandbox.streaming = false;
+    await until(() => getHandle(id)?.state === "settled", "catch-up settle");
+    expect(getAgentRow(id)).toMatchObject({ state: "done", outcome: "success" });
+    expect(fakeSdk.calls.resume).toEqual([]);
+  });
+
+  test("resume restarts the bridge if it doesn't answer once the container is running", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seedPaused(runId, sandbox);
+    sandbox.bridgeDown = true;
+    await rehydrate();
+
+    sandbox.lastText = "done";
+    sandbox.streaming = false;
+    expect((await call("POST", `/agents/${id}/resume`)).status).toBe(202);
+    expect(fakeSdk.calls.resume).toEqual([sandbox.sandboxId]);
+    await until(() => getHandle(id)?.state === "settled", "catch-up settle");
+  });
+
+  test("a paused agent whose sandbox is gone is marked lost", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seedPaused(runId, sandbox);
+    await sandbox.close();
+
+    await rehydrate();
+
+    expect(getAgentRow(id)).toMatchObject({ state: "lost", outcome: "lost" });
+    expect(fakeSdk.calls.resume).toEqual([]);
   });
 });

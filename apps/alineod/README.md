@@ -26,7 +26,8 @@ bun run start          # or: bun run dev   (watch mode)
 
 Run it from a directory that has an `alineo.config.json` (or rely on the SDK defaults:
 `http://127.0.0.1:8080`, `useServerProxy: true`). Env: `ALINEOD_PORT` (4600), `ALINEOD_DB_PATH`,
-`ALINEOD_SDK_LEDGER_PATH`, `ALINEOD_WORK_DIR`, `ALINEOD_PROMPT_INACTIVITY_MS`.
+`ALINEOD_SDK_LEDGER_PATH`, `ALINEOD_WORK_DIR`, `ALINEOD_PROMPT_INACTIVITY_MS`, `ALINEOD_TURN_MAX_MS`,
+`ALINEOD_CATCH_UP_POLL_MS`, `ALINEOD_STATE_PROBE_TIMEOUT_MS`, `ALINEOD_RESUME_BRIDGE_TIMEOUT_MS`.
 
 ### Docker
 
@@ -131,8 +132,9 @@ See [`research/open-questions.md`](../../../research/open-questions.md).
 
 ## Known issues
 
-- **Some NIM models stall mid-turn** on multi-tool-call turns; `driveTurn` bounds this with
-  `inactivityTimeoutMs` (default 180s) and settles with partial text.
+- **Some NIM models stall mid-turn** on multi-tool-call turns. When a stream goes quiet for
+  `ALINEOD_PROMPT_INACTIVITY_MS` (180s), alineod follows the turn by polling Pi's state; a turn
+  still running after `ALINEOD_TURN_MAX_MS` (30 min, paused time excluded) settles with partial text.
 - **`stop` with `mode: "drain"`** currently behaves the same as `abort`.
 
 ## Scripts
