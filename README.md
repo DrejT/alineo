@@ -33,21 +33,21 @@ export NVIDIA_API_KEY=nvapi-...     # free key from build.nvidia.com
 ```
 
 ```ts
-import { Alineo, textOnly } from "alineo";
+import { Alineo, textOnly, type AgentSpec } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const agent = await Alineo.load(
-  {
-    name: "hello-agent",
-    cli: "pi",
-    provider: "nvidia",
-    model: "nvidia/nemotron-3.5-lightning-30b-a3b",
-    packages: ["python3"],
-    env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }, // resolved from your shell
-    resources: { cpu: "1000m", memory: "2Gi" },
-  },
-  { adapter: new SQLiteAdapter("./.alineo/ledger.db") },
-);
+const spec: AgentSpec = {
+  name: "hello-agent",
+  cli: "pi",
+  provider: "nvidia",
+  model: "nvidia/nemotron-3.5-lightning-30b-a3b",
+  packages: ["python3"],
+  env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }, // resolved from your shell
+  resources: { cpu: "1000m", memory: "2Gi" },
+};
+
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+const agent = await Alineo.load(spec, { adapter });
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
     process.stdout.write(chunk);
