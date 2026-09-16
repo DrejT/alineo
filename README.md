@@ -27,17 +27,27 @@ report. Sped-up replay of a real run of the
 ## Quickstart
 
 ```bash
-bunx alineo-cli init   # starts OpenSandbox in Docker
+bunx alineo-cli init                # starts OpenSandbox in Docker
 bun add alineo @alineo-labs/sqlite
+export NVIDIA_API_KEY=nvapi-...     # free key from build.nvidia.com
 ```
 
 ```ts
 import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const agent = await Alineo.load(await Bun.file("./agents/my-agent.json").json(), {
-  adapter: new SQLiteAdapter("./.alineo/ledger.db"),
-});
+const agent = await Alineo.load(
+  {
+    name: "hello-agent",
+    cli: "pi",
+    provider: "nvidia",
+    model: "nvidia/nemotron-3.5-lightning-30b-a3b",
+    packages: ["python3"],
+    env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }, // resolved from your shell
+    resources: { cpu: "1000m", memory: "2Gi" },
+  },
+  { adapter: new SQLiteAdapter("./.alineo/ledger.db") },
+);
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
     process.stdout.write(chunk);
@@ -46,6 +56,9 @@ try {
   await agent.close();
 }
 ```
+
+A spec is plain data — keep it in a file instead with
+`Alineo.load(await Bun.file("./agents/hello-agent.json").json())`.
 
 Agents run [Pi](https://pi.ai) inside [OpenSandbox](https://opensandbox.ai) containers.
 [Full quickstart →](https://docs.alineo.tech/docs/agent/getting-started/quickstart)
