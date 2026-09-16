@@ -1,5 +1,4 @@
 import {
-  overviewSource,
   coreSource,
   agentSource,
   workflowSource,
@@ -14,7 +13,6 @@ export const dynamic = "force-static";
 
 export async function GET() {
   const allPages = [
-    ...overviewSource.getPages(),
     ...coreSource.getPages(),
     ...agentSource.getPages(),
     ...workflowSource.getPages(),
