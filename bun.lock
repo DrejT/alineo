@@ -140,6 +140,13 @@
         "alineo": "workspace:*",
       },
     },
+    "cookbooks/mcp-agent-swarm": {
+      "name": "alineo-cookbook-mcp-agent-swarm",
+      "version": "0.0.1",
+      "dependencies": {
+        "@modelcontextprotocol/client": "^2.0.0",
+      },
+    },
     "cookbooks/parallel-test-shards": {
       "name": "alineo-cookbook-parallel-test-shards",
       "version": "0.0.5",
@@ -1822,6 +1829,8 @@
     "alineo-cookbook-ci-test-runner": ["alineo-cookbook-ci-test-runner@workspace:cookbooks/ci-test-runner"],
 
     "alineo-cookbook-credential-scoped-agent": ["alineo-cookbook-credential-scoped-agent@workspace:cookbooks/credential-scoped-agent"],
+
+    "alineo-cookbook-mcp-agent-swarm": ["alineo-cookbook-mcp-agent-swarm@workspace:cookbooks/mcp-agent-swarm"],
 
     "alineo-cookbook-parallel-test-shards": ["alineo-cookbook-parallel-test-shards@workspace:cookbooks/parallel-test-shards"],
 

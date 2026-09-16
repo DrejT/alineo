@@ -1,0 +1,11 @@
+{
+  "name": "alineo-cookbook-mcp-agent-swarm",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.0.0"
+  }
+}
