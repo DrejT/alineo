@@ -1,0 +1,152 @@
+---
+title: Quickstart
+description: Load an agent spec, send a prompt, and stream the response in minutes.
+---
+
+`alineo` wraps a [Pi](https://pi.ai) coding agent CLI in an OpenSandbox container and exposes it through a simple TypeScript API. The agent can read and write files inside the sandbox, run shell commands and Python scripts autonomously, and stream its responses back to the host.
+
+<Steps>
+<Step>
+
+### Install
+
+```bash
+bun add alineo
+```
+
+</Step>
+<Step>
+
+### Start a local sandbox server
+
+Run OpenSandbox locally. See [Core SDK — Installation](/docs/core/installation) for the full setup.
+
+The quickest path:
+
+```bash
+bunx alineo-cli init   # starts OpenSandbox in Docker, writes alineo.config.json
+```
+
+</Step>
+<Step>
+
+### Write an agent spec
+
+Create `agents/hello-agent.json`:
+
+```json title="agents/hello-agent.json"
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "hello-agent",
+  "cli": "pi",
+  "model": "gemini-flash-latest",
+  "packages": ["python3"],
+  "env": {
+    "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+  },
+  "resources": { "cpu": "1000m", "memory": "2Gi" }
+}
+```
+
+`${GEMINI_API_KEY}` is interpolated from `process.env.GEMINI_API_KEY` at load time.
+
+</Step>
+<Step>
+
+### Load the agent and send a prompt
+
+```ts title="run.ts"
+import { Alineo, textOnly } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+
+const adapter = new SQLiteAdapter("./.alineo/ledger.db");
+const spec = await Bun.file("./agents/hello-agent.json").json();
+const agent = await Alineo.load(spec, { adapter });
+console.log(`Sandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}`);
+
+try {
+  for await (const chunk of textOnly(
+    agent.prompt("Write a Python script that prints the first 10 Fibonacci numbers. Run it."),
+  )) {
+    process.stdout.write(chunk);
+  }
+} finally {
+  await agent.close();
+}
+```
+
+```bash
+bun run.ts
+```
+
+`Alineo.load()` reports timing for each phase. It is silent by default — set `ALINEO_LOG_LEVEL=info` to see it (`ALINEO_LOG_LEVEL=info bun run.ts`); the `alineo` CLI turns it on for you. The first run installs the Pi CLI and checkpoints the sandbox — on the order of a minute. Subsequent runs restore from that snapshot in a few seconds:
+
+```
+# First run
+[agent] starting sandbox name=hello-agent
+[agent] sandbox ready name=hello-agent elapsed=12340ms sandboxId=abc-123...
+[agent] installing Pi CLI name=hello-agent
+[agent] Pi CLI ready name=hello-agent elapsed=28000ms
+[agent] checkpointing name=hello-agent
+[agent] checkpoint done name=hello-agent elapsed=10000ms
+[agent] starting bridge name=hello-agent
+[agent] bridge ready name=hello-agent elapsed=3210ms
+[agent] total name=hello-agent elapsed=54000ms fromSnapshot=false
+
+# Second run
+[agent] restoring from snapshot name=hello-agent
+[agent] snapshot ready name=hello-agent elapsed=1900ms sandboxId=def-456...
+[agent] starting bridge name=hello-agent
+[agent] bridge ready name=hello-agent elapsed=2800ms
+[agent] total name=hello-agent elapsed=5000ms fromSnapshot=true
+```
+
+Lines go to **stderr** — this pretty form on a terminal, JSON lines when piped (`ALINEO_LOG_FORMAT=pretty|json` to choose). Every line carries the agent's `name`, so output from several agents loading at once stays attributable.
+
+See [Snapshotting](/docs/agent/concepts/snapshots) for details.
+
+</Step>
+<Step>
+
+### Read and write files
+
+`agent.sandbox` gives direct access to the underlying `SandboxHandle` — bypassing Pi entirely:
+
+```ts
+// Host writes a file into the container
+await agent.sandbox.writeFile("/workspace/data.csv", csvContent);
+
+// Pi reads and processes it
+for await (const chunk of textOnly(agent.prompt("Summarize the CSV at /workspace/data.csv."))) {
+  process.stdout.write(chunk);
+}
+
+// Host reads back whatever Pi wrote
+const result = await agent.sandbox.readFile("/workspace/summary.txt");
+
+// Host can also run shell commands directly
+const { stdout } = await agent.sandbox.exec("ls /workspace/");
+```
+
+</Step>
+<Step>
+
+### Session management
+
+```ts
+// Clear Pi's conversation context (filesystem unchanged)
+await agent.newSession();
+
+// Update environment variables and restart Pi with the new values
+await agent.setEnv({ EXTRA_CONTEXT: "project-alpha" });
+```
+
+</Step>
+</Steps>
+
+## Next steps
+
+- [Snapshotting](/docs/agent/concepts/snapshots) — how fast restores work and how to control the cache
+- [Workspace setup](/docs/agent/concepts/workspace-setup) — bake files and dependencies into the snapshot
+- [Streaming & tool events](/docs/agent/concepts/streaming) — observe Pi's tool calls in real time
+- [Alineo API reference](/docs/agent/api-reference/alineo) — full reference for all methods and types

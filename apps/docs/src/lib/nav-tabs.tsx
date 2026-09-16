@@ -1,36 +1,42 @@
-import { BookOpen, ChefHat, Play, Braces } from "lucide-react";
+import { Package, Bot, Workflow, Terminal, Network } from "lucide-react";
 import type { LayoutTab } from "fumadocs-ui/layouts/shared";
 
 /**
- * Tabs are reading modes, not packages. The old switcher listed one tab per npm
- * package (Core SDK / Workflow Builder / Agent SDK / alineo CLI / alineod), which
- * asked the reader to pick a package before anything had told them what the product
- * does. Narrative lives in Guide; the exhaustive API surface is quarantined in
- * Reference so it never sits in the path of someone learning.
+ * The product switcher. Each entry is one shipped thing; selecting it swaps the
+ * sidebar to that product's own docs, which are organised by its concepts
+ * (Overview → Quickstart → Concepts → API reference) rather than by the shape of
+ * its source tree. Cookbooks and Playground are deliberately not here — they cut
+ * across products, and live in the header nav instead.
  */
 export const docsTabs: LayoutTab[] = [
   {
-    url: "/docs/guide",
-    title: "Guide",
-    description: "Agents, swarms, sandboxes",
-    icon: <BookOpen className="size-4" />,
+    url: "/docs/agent",
+    title: "Agent SDK",
+    description: "alineo",
+    icon: <Bot className="size-4" />,
   },
   {
-    url: "/docs/cookbooks",
-    title: "Cookbooks",
-    description: "Runnable recipes",
-    icon: <ChefHat className="size-4" />,
+    url: "/docs/alineod",
+    title: "alineod",
+    description: "@alineo-labs/alineod",
+    icon: <Network className="size-4" />,
   },
   {
-    url: "/docs/playground",
-    title: "Playground",
-    description: "Run it in the browser",
-    icon: <Play className="size-4" />,
+    url: "/docs/core",
+    title: "Core SDK",
+    description: "@alineo-labs/sandbox",
+    icon: <Package className="size-4" />,
   },
   {
-    url: "/docs/reference",
-    title: "Reference",
-    description: "Every API, route and flag",
-    icon: <Braces className="size-4" />,
+    url: "/docs/cli",
+    title: "alineo CLI",
+    description: "alineo-cli",
+    icon: <Terminal className="size-4" />,
+  },
+  {
+    url: "/docs/workflow",
+    title: "Workflow SDK",
+    description: "@alineo-labs/workflow",
+    icon: <Workflow className="size-4" />,
   },
 ];

@@ -43,7 +43,7 @@ container genuinely has extract and transform's output on disk. The ledger repla
 an optimization, and it's **positional, not content-matched**: the Nth `exec()` call since resume
 returns the Nth call's original result, whatever command is actually passed — there's no check
 that it matches what was recorded. Always re-issue calls in the same order as the original run.
-See [Checkpoint & Resume](/docs/guide/sandboxes/snapshots) for the primitive this recipe builds on.
+See [Checkpoint & Resume](/docs/core/concepts/snapshots) for the primitive this recipe builds on.
 
 All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
 Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable

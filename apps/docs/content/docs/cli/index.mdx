@@ -1,0 +1,47 @@
+---
+title: alineo CLI
+description: Start a local OpenSandbox server, manage agent spec files, and spawn, prompt, steer and fork agent sessions straight from the shell.
+---
+
+`alineo-cli` is the alineo SDK with a shell in front of it. It does the setup you'd otherwise
+write by hand, and it drives agent sessions without a TypeScript file.
+
+```bash
+bunx alineo-cli init                        # OpenSandbox in Docker + alineo.config.json
+alineo add https://registry.alineo.tech/hello-agent
+alineo spawn hello-agent                    # a live agent session
+alineo prompt <sandbox-id> "run the tests"
+```
+
+Nothing here is a separate implementation — `alineo spawn` is `Alineo.load()`, `alineo fork` is
+`agent.spawn()`. Anything you start from the shell can be picked up later from the SDK, and the
+other way round.
+
+## What it's for
+
+- **Setup once.** `alineo init` starts OpenSandbox in Docker and writes the config the SDK reads,
+  so nothing downstream needs a URL passed to it — [init](/docs/cli/commands/init).
+- **Keep specs as files.** `alineo add` fetches an `AgentSpec` from any URL and saves it locally;
+  `list` and `remove` manage the set — [the registry format](/docs/cli/registry).
+- **Drive a session from the shell.** `spawn`, `prompt`, `steer`, `fork`, `agents`, `logs`, `kill`
+  — the full lifecycle of a live agent without writing a script.
+
+## Sessions outlive the command
+
+`alineo spawn` leaves a container running and prints its sandbox ID. The process exiting doesn't
+end the agent — `alineo agents` lists what's alive (cross-checked against the live control plane,
+not just the ledger), and `alineo prompt <id>` reattaches to any of them.
+
+<Cards>
+  <Card
+    href="/docs/cli/quickstart"
+    title="Quickstart"
+    description="Start a server and fetch your first agent spec."
+  />
+  <Card href="/docs/cli/commands" title="Commands" description="Every command and flag." />
+  <Card
+    href="/docs/cli/registry"
+    title="Registry format"
+    description="Publish specs others can fetch with one command."
+  />
+</Cards>

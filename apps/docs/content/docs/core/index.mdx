@@ -1,0 +1,92 @@
+---
+title: Core SDK
+description: "@alineo-labs/sandbox gives you live sandbox containers as first-class objects — spawn, exec, checkpoint, resume — with every command written to a durable ledger."
+---
+
+`@alineo-labs/sandbox` gives you a running container as an ordinary object. You call
+`client.sandbox()` to get one, call methods on it, and close it when you're done.
+
+```ts
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+
+const client = new Sandbox({
+  baseUrl: "http://localhost:8080",
+  adapter: new SQLiteAdapter("./ledger.db"),
+});
+
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "512Mi" },
+});
+try {
+  await sb.exec('echo "hello world"').pipe(process.stdout);
+} finally {
+  await sb.close();
+}
+```
+
+Two sandboxes are two variables. There is no session object, no pool to configure and no special
+API for concurrency — [`maxConcurrency`](/docs/core/concepts/sandboxes) caps it if you want a cap.
+
+## Every exec has three shapes
+
+`sb.exec()` returns an [`ExecHandle`](/docs/core/api-reference/exec-handle), which is a
+`PromiseLike<ExecResult>` you can consume whichever way suits the call site:
+
+```ts
+const { stdout, exitCode } = await sb.exec("npm ci"); // await the whole result
+await sb.exec("npm test").pipe(process.stdout); // stream it somewhere
+
+for await (const chunk of sb.exec("npm test").stdout()) {
+  process.stdout.write(chunk); // or take it chunk by chunk
+}
+```
+
+All three drive the same underlying stream — [exec & execCode](/docs/core/concepts/exec).
+
+## Nothing runs unrecorded
+
+Every sandbox created, every command run and every chunk it emitted is appended to a SQLite or
+Postgres [ledger](/docs/core/storage/ledger) as it happens. That isn't a logging feature bolted
+on the side; it's what the next part depends on.
+
+## Checkpoint, then resume
+
+`sb.checkpoint()` snapshots the container. `client.resume(sandboxId)` restores it and rebuilds a
+replay cache from the ledger, so commands that already completed return their stored result
+instantly and only the unfinished work runs again:
+
+```
+Original run              Resume
+  exec  "pip install"  →    replayed from cache (instant)
+  checkpoint()              —
+  exec  "python run"   →    runs live on the restored container
+```
+
+A crashed pipeline picks up where it stopped instead of starting over —
+[checkpoint and resume](/docs/core/storage/checkpoints).
+
+## Where this sits
+
+The Core SDK is the substrate. The [Agent SDK](/docs/agent) runs coding agents inside these
+sandboxes, [alineod](/docs/alineod) orchestrates trees of those agents, and the
+[Workflow SDK](/docs/workflow) adds a lazy builder over the primitives here.
+
+<Cards>
+  <Card
+    href="/docs/core/installation"
+    title="Installation"
+    description="Install the package and get an OpenSandbox server running locally."
+  />
+  <Card
+    href="/docs/core/concepts/sandboxes"
+    title="Sandboxes"
+    description="The lifecycle of a container, and what SandboxHandle can do."
+  />
+  <Card
+    href="/docs/core/api-reference/sandbox"
+    title="API reference"
+    description="Sandbox, SandboxHandle, ExecHandle and errors."
+  />
+</Cards>

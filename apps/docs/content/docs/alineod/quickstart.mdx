@@ -1,0 +1,200 @@
+---
+title: Driving a swarm over HTTP
+description: Start alineod, create a run, fan work out to three workers, and gather their results.
+---
+
+This walkthrough builds a small fan-out/gather swarm: a **coordinator** root agent, three **worker** children
+that each write a haiku, and a **gather** child that waits for all three and assembles them into one poem.
+
+## Prerequisites
+
+- [Bun](https://bun.sh) and a checkout of the `alineo` repo.
+- A running OpenSandbox server — `bunx alineo-cli init` is the quickest way (see [alineo init](/docs/cli/commands/init)).
+- An API key for your model provider, exported in the shell that starts alineod (this guide uses `NVIDIA_API_KEY`).
+
+<Steps>
+<Step>
+
+### Build the SDK and start the daemon
+
+alineod imports the SDK packages from their built `dist/` output, so build the workspace first:
+
+```bash
+bun install
+bun run build
+
+cd apps/alineod
+export NVIDIA_API_KEY=nvapi-...
+bun run start     # or: bun run dev (watch mode)
+```
+
+```
+[alineod] listening url=http://localhost:4600 openapi=/openapi
+```
+
+alineod logs to stderr — this readable form on a terminal, JSON lines otherwise. See [Logging](/docs/alineod/getting-started/deployment#logging).
+
+Run it from a directory with an `alineo.config.json` (written by `alineo init`), or rely on the SDK defaults
+(`http://127.0.0.1:8080`, server proxy on). Check it's up:
+
+```bash
+curl localhost:4600/health
+# {"ok":true}
+```
+
+</Step>
+<Step>
+
+### Create a run
+
+A run starts with one root agent. The body's `spec` is an ordinary [agent spec](/docs/agent/api-reference/alineo);
+`${VAR}` references in its `env` are resolved from **alineod's own** environment, so secrets never travel in the
+request.
+
+```bash
+curl -s localhost:4600/runs -H 'content-type: application/json' -d '{
+  "spec": {
+    "name": "coordinator",
+    "cli": "pi",
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "env": { "NVIDIA_API_KEY": "${NVIDIA_API_KEY}" },
+    "resources": { "cpu": "1000m", "memory": "2Gi" },
+    "spawnDepth": 2,
+    "maxAgents": 10
+  },
+  "prompt": "You coordinate three worker agents assembling a poem. Reply with exactly: READY"
+}'
+```
+
+```json
+{ "runId": "r_3f9a1c20", "rootAgentId": "a_7b2e44d1", "state": "provisioning" }
+```
+
+The route returns `202` immediately — creating the sandbox happens in the background (a cold spec can take a
+minute or more). The root's `spawnDepth` of `2` is what allows it to have children, and grandchildren, at all. An agent can be used as a spawn parent once it has a `sandboxId`:
+
+```bash
+curl -s localhost:4600/agents/a_7b2e44d1
+# { "agentId": "a_7b2e44d1", "state": "running", "sandboxId": "6a69afcb-…", ... }
+```
+
+</Step>
+<Step>
+
+### Watch the run
+
+In another terminal, subscribe to the run's event stream. Every agent in the run — present and future — reports
+on this one stream:
+
+```bash
+curl -N localhost:4600/runs/r_3f9a1c20/events
+```
+
+```
+id: 1
+event: run_started
+data: {"agentId":null,"runId":"r_3f9a1c20"}
+
+id: 2
+event: agent_spawned
+data: {"agentId":"a_7b2e44d1","parentAgentId":null,"specName":"coordinator","depth":0,...}
+```
+
+See [Events](/docs/alineod/api-reference/events) for every event type.
+
+</Step>
+<Step>
+
+### Fan out to workers
+
+Spawn three children under the root. Each child is a **fork of the parent's live sandbox** — it starts from the
+parent's exact filesystem state, then loads its own spec and runs its own prompt.
+
+```bash
+for topic in ocean mountains desert; do
+  curl -s localhost:4600/runs/r_3f9a1c20/agents -H 'content-type: application/json' -d "{
+    \"parentAgentId\": \"a_7b2e44d1\",
+    \"spec\": { \"name\": \"worker-$topic\", \"cli\": \"pi\", \"provider\": \"nvidia\",
+              \"model\": \"nvidia/nemotron-3.5-lightning-30b-a3b\",
+              \"env\": { \"NVIDIA_API_KEY\": \"\${NVIDIA_API_KEY}\" },
+              \"resources\": { \"cpu\": \"1000m\", \"memory\": \"2Gi\" } },
+    \"prompt\": \"Write one haiku about $topic. Output only the three lines.\"
+  }"
+done
+```
+
+```json
+{ "agentId": "a_c01d9e3a", "state": "provisioning" }
+```
+
+</Step>
+<Step>
+
+### Gather
+
+Spawn a fourth child that `waitFor`s the three workers. It stays in the `spawning` state until every worker's
+result has settled; then alineod forks it and writes each worker's result into its sandbox as
+`/inputs/<agentId>.txt`, plus an `/inputs.json` manifest.
+
+```bash
+curl -s localhost:4600/runs/r_3f9a1c20/agents -H 'content-type: application/json' -d '{
+  "parentAgentId": "a_7b2e44d1",
+  "waitFor": ["a_c01d9e3a", "a_5e8f2b71", "a_91aa0c4d"],
+  "spec": { "name": "gather", "cli": "pi", "provider": "nvidia",
+            "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+            "env": { "NVIDIA_API_KEY": "${NVIDIA_API_KEY}" },
+            "resources": { "cpu": "1000m", "memory": "2Gi" } },
+  "prompt": "Read /inputs.json and the three haiku files it lists. Output a poem titled Three Landscapes with each haiku as a stanza."
+}'
+```
+
+</Step>
+<Step>
+
+### Collect the result
+
+Long-poll the gather agent's result — the request is held open until the result settles or `wait` seconds pass:
+
+```bash
+curl -s 'localhost:4600/agents/a_e4b7d210/result?wait=240'
+```
+
+```json
+{
+  "agentId": "a_e4b7d210",
+  "state": "settled",
+  "outcome": "success",
+  "resultRef": "fs://a_e4b7d210/result.md",
+  "result": "Three Landscapes\n\n..."
+}
+```
+
+Then inspect the whole tree, and tear the run down when you're done — `DELETE` releases every live sandbox but
+keeps the run's history:
+
+```bash
+curl -s localhost:4600/runs/r_3f9a1c20
+curl -s -X DELETE localhost:4600/runs/r_3f9a1c20
+```
+
+</Step>
+</Steps>
+
+A scripted version of this walkthrough lives at `apps/alineod/scripts/demo-swarm.py`:
+
+```bash
+python3 apps/alineod/scripts/demo-swarm.py http://localhost:4600
+```
+
+## Next steps
+
+- [`examples/alineod-swarm`](https://github.com/DrejT/alineo/tree/main/examples/alineod-swarm) — this walkthrough as a
+  TypeScript client, plus pause/resume, steer, and a live event feed.
+- [`examples/alineod-coordination`](https://github.com/DrejT/alineo/tree/main/examples/alineod-coordination) — subtree
+  pause/resume/stop, steering a subtree through its parent, quorum waits and `notifyOn`.
+- [Swarm Code Review](/docs/cookbooks/swarm-code-review) — a full recipe: reviewers forked from one checkout, steered
+  mid-review, and merged by a `waitFor` editor.
+- [Fan-out and gather](/docs/alineod/concepts/fan-out-gather) — `waitFor`, input injection, and idempotent spawns.
+- [Steering and pausing](/docs/agent/concepts/steering) — redirect or freeze agents mid-run.
+- [Crash recovery](/docs/alineod/concepts/crash-recovery) — what happens when alineod restarts under a live swarm.

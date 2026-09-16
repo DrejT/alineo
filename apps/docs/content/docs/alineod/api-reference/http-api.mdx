@@ -1,0 +1,291 @@
+---
+title: HTTP API
+description: Every alineod route — runs, agents, control actions, and results.
+---
+
+Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors are returned as
+`{ "error": "<message>" }` with an appropriate status; an invalid body is `400` and names each failing field.
+
+| Method   | Path                             | Description                                       |
+| -------- | -------------------------------- | ------------------------------------------------- |
+| `GET`    | `/health`                        | Liveness check.                                   |
+| `POST`   | `/runs`                          | Create a run and its root agent.                  |
+| `GET`    | `/runs/:runId`                   | The run's spawn tree.                             |
+| `DELETE` | `/runs/:runId`                   | Stop every live agent in the run.                 |
+| `GET`    | `/runs/:runId/events`            | The run's event stream (SSE).                     |
+| `POST`   | `/runs/:runId/agents`            | Spawn a child agent.                              |
+| `GET`    | `/agents/:agentId`               | One agent's state and session stats.              |
+| `POST`   | `/agents/:agentId/prompt`        | Start a new turn.                                 |
+| `POST`   | `/agents/:agentId/steer`         | Redirect the current turn.                        |
+| `POST`   | `/agents/:agentId/pause`         | Freeze the agent's container.                     |
+| `POST`   | `/agents/:agentId/resume`        | Thaw a paused container.                          |
+| `POST`   | `/agents/:agentId/stop`          | Abort and close the agent.                        |
+| `GET`    | `/agents/:agentId/result`        | Get, or wait for, the agent's result.             |
+| `GET`    | `/agents/:agentId/transcript`    | What the agent said and did, turn by turn.        |
+| `GET`    | `/agents/:agentId/await`         | Wait for the agent's subtree to finish.           |
+| `POST`   | `/runs/:runId/await`             | Wait on a set of agents, or a subtree.            |
+| `POST`   | `/agents/:agentId/notify-on`     | Tell this agent when others finish.               |
+| `GET`    | `/agents/:agentId/inbox`         | This agent's pending and delivered notifications. |
+| `POST`   | `/agents/:agentId/inbox/deliver` | Deliver pending notifications now.                |
+
+## Runs
+
+### POST /runs
+
+Create a run with one root agent. Returns `202`; the sandbox is provisioned in the background and `prompt`, if
+set, runs once it's ready.
+
+| Field               | Type    | Description                                    |
+| ------------------- | ------- | ---------------------------------------------- |
+| `spec`              | object  | An agent spec, validated by the SDK. Required. |
+| `prompt`            | string  | First turn to run on the root agent.           |
+| `budget.spawnDepth` | integer | Overrides the spec's `spawnDepth`.             |
+| `budget.maxAgents`  | integer | Overrides the spec's `maxAgents`.              |
+
+```json
+// 202
+{ "runId": "r_3f9a1c20", "rootAgentId": "a_7b2e44d1", "state": "provisioning" }
+```
+
+If provisioning fails, the root ends with outcome `failed` and the error appears on its `agent_ended` event.
+
+### GET /runs/:runId
+
+The run's whole tree as a flat list with parent pointers. `asOf` is the highest ledger `seq` reflected in the
+response — pass it as `Last-Event-ID` to stream everything after this snapshot.
+
+```json
+{
+  "runId": "r_3f9a1c20",
+  "rootAgentId": "a_7b2e44d1",
+  "asOf": 42,
+  "agents": [
+    {
+      "agentId": "a_7b2e44d1",
+      "runId": "r_3f9a1c20",
+      "parentAgentId": null,
+      "depth": 0,
+      "spawnIndex": 0,
+      "state": "done",
+      "specName": "coordinator",
+      "sandboxId": "6a69afcb-7a00-437a-9819-e032022cc736",
+      "createdAt": 1789000000000,
+      "endedAt": 1789000071000,
+      "outcome": "success"
+    }
+  ]
+}
+```
+
+`404` if the run doesn't exist.
+
+### DELETE /runs/:runId
+
+Aborts and closes every live agent in the run, ending each with outcome `aborted`. The run's ledger is kept, so
+`GET /runs/:runId` and its event stream still work afterwards. Returns `204`; `404` if the run doesn't exist.
+
+### GET /runs/:runId/events
+
+A Server-Sent Events stream for the whole run. Send `Last-Event-ID` to replay persisted events after that `seq`.
+See [Events](/docs/alineod/api-reference/events).
+
+## Agents
+
+### POST /runs/:runId/agents
+
+Spawn a child by forking a live parent's sandbox. Returns `202`.
+
+| Field               | Type               | Description                                                                                                                                                                                                                                                              |
+| ------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `parentAgentId`     | string             | A live agent in this run. Required.                                                                                                                                                                                                                                      |
+| `spec`              | object             | The child's agent spec. Required.                                                                                                                                                                                                                                        |
+| `prompt`            | string             | Turn to run once the child is ready.                                                                                                                                                                                                                                     |
+| `waitFor`           | string[] \| object | Agents in this run whose results must settle before the child is forked. Their results are written to `/inputs/`. The object form adds `mode`, `k`, `onDepFailure`, `deadlineSec` and `onDeadline`; see [Coordination](/docs/alineod/guides/coordination#waitfor-modes). |
+| `notifyOn`          | string[]           | Agents to tell this child about when they finish, without blocking it. See [Coordination](/docs/alineod/guides/coordination#notifyon).                                                                                                                                   |
+| `budget.spawnDepth` | integer            | Overrides the parent's remaining `spawnDepth`.                                                                                                                                                                                                                           |
+| `budget.maxAgents`  | integer            | Overrides the parent's remaining `maxAgents`.                                                                                                                                                                                                                            |
+| `idempotencyKey`    | string             | A retry with the same key returns the original child instead of creating another.                                                                                                                                                                                        |
+
+```json
+// 202
+{ "agentId": "a_c01d9e3a", "state": "provisioning" }
+```
+
+`state` is `spawning` when `waitFor` is set.
+
+| Status | When                                                                                         |
+| ------ | -------------------------------------------------------------------------------------------- |
+| `400`  | Invalid body, `waitFor`/`notifyOn` names an agent not in this run, or an invalid quorum `k`. |
+| `404`  | `parentAgentId` isn't an agent in this run.                                                  |
+| `409`  | The parent isn't live.                                                                       |
+
+A spawn refused by a budget still returns `202`; the child then ends with outcome `budget-exceeded` and a
+`budget_denied` event is emitted. See [Fan-out and gather](/docs/alineod/concepts/fan-out-gather).
+
+### GET /agents/:agentId
+
+The agent's view (same fields as an entry in `GET /runs/:runId`) plus `sessionStats` from the harness when
+available. `sessionStats` is omitted while the agent is paused, or if the harness doesn't answer within 2 seconds.
+`404` if the agent doesn't exist.
+
+### POST /agents/:agentId/prompt
+
+```json
+{ "text": "Now write tests for the fix." }
+```
+
+Starts a new turn and returns `202` immediately; follow it on the event stream or via the result route. `409` if
+the agent isn't live.
+
+### POST /agents/:agentId/steer
+
+```json
+{ "message": "Focus only on src/auth." }
+```
+
+Delivers a steering message to the current turn — after its running tool calls finish, before the next model call.
+Returns `202` and emits `agent_steered`.
+
+With `"scope": "subtree"`, the agent gets one message: yours plus a list of its direct children, so it redirects
+them itself. Returns `200` with `{ deliveredAs: "steer" | "turn" | "queued", roster }`. See
+[Steering a subtree](/docs/alineod/guides/steering-and-pausing#steering-a-subtree).
+
+| Status | When                                   |
+| ------ | -------------------------------------- |
+| `404`  | No such agent.                         |
+| `409`  | The agent isn't live.                  |
+| `502`  | The harness didn't accept the message. |
+
+See [Steering and pausing](/docs/agent/concepts/steering#steer).
+
+### POST /agents/:agentId/pause
+
+Freezes the agent's container. Returns `202` and emits `agent_state_changed` (`to: "paused"`, with `pausedBy`). A
+no-op if already paused. `404` if no such agent, `409` if not live, `502` if the sandbox couldn't be paused.
+
+With `{ "scope": "subtree" }`, pauses the agent and every descendant, parents first, and returns `200` with one
+result per member (`{ asOf, results: [{ agentId, outcome: "applied" | "skipped" | "failed", reason? }] }`).
+
+### POST /agents/:agentId/resume
+
+Thaws a paused container and returns the agent to the state it had before the pause. Returns `202`. `404` if no
+such agent, `409` if the agent isn't paused or isn't live, `502` if the sandbox couldn't be resumed. With
+`{ "scope": "subtree" }`, resumes every paused member, children first, and returns the same per-member result.
+
+### POST /agents/:agentId/stop
+
+```json
+{ "mode": "abort" }
+```
+
+Aborts the current turn, closes the sandbox, and ends the agent with outcome `aborted`. The body is optional;
+`mode` is `abort` (default) or `drain`, which currently behaves the same. Returns `202`; `404` if no such agent.
+
+Stopping an agent that already finished closes its sandbox and emits `agent_released`, keeping its outcome. With
+`"scope": "subtree"`, stops every member, leaves first, and returns the per-member result.
+
+## Results
+
+### GET /agents/:agentId/result
+
+| Query  | Description                                                                               |
+| ------ | ----------------------------------------------------------------------------------------- |
+| `wait` | Seconds to hold the request open while the result is pending. Maximum `240`. Default `0`. |
+
+Settled — `200`:
+
+```json
+{
+  "agentId": "a_e4b7d210",
+  "state": "settled",
+  "outcome": "success",
+  "resultRef": "fs://a_e4b7d210/result.md",
+  "result": "Three Landscapes\n\n..."
+}
+```
+
+Still pending after `wait` — `202`:
+
+```json
+{ "agentId": "a_e4b7d210", "state": "pending", "outcome": null, "resultRef": null, "result": null }
+```
+
+`404` if the agent doesn't exist. `resultRef` is `null` when a turn failed without producing any text.
+
+### GET /agents/:agentId/transcript
+
+What the agent said and did, read from the ledger: one entry per finished turn, each with its messages.
+
+| Query  | Description                                                                                               |
+| ------ | --------------------------------------------------------------------------------------------------------- |
+| `full` | `1` to keep long text whole and include the model's thinking. Default: text over 2,000 characters is cut. |
+
+```json
+{
+  "agentId": "a_e4b7d210",
+  "turns": [
+    {
+      "seq": 41,
+      "ts": 1789910400000,
+      "messages": [
+        { "role": "user", "text": "Run the judge." },
+        {
+          "role": "assistant",
+          "text": "Running it.",
+          "toolCalls": [{ "name": "bash", "arguments": { "command": "python3 evaluate.py" } }],
+          "stopReason": "toolUse",
+          "errorMessage": null
+        },
+        { "role": "tool", "toolName": "bash", "text": "val_bpc: 2.51", "isError": false }
+      ]
+    }
+  ]
+}
+```
+
+Use it to see why an agent did what it did, including a model API error (`stopReason: "error"` with the
+provider's `errorMessage`). A turn appears once it ends, so an agent mid-turn shows its earlier turns only.
+`404` if the agent doesn't exist.
+
+## Coordination
+
+See [Coordination](/docs/alineod/guides/coordination) for how these fit together.
+
+### GET /agents/:agentId/await
+
+| Query   | Description                                                                |
+| ------- | -------------------------------------------------------------------------- |
+| `scope` | `subtree` (the only value, and the default).                               |
+| `wait`  | Seconds to hold the request until the subtree is quiescent. Maximum `240`. |
+
+Returns `{ rootAgentId, quiescent, asOf, members, blockedOnPaused }`. `404` if the agent doesn't exist.
+
+### POST /runs/:runId/await
+
+```json
+{ "agents": ["a_c01d9e3a", "a_5e8f2b71"], "mode": "any", "wait": 60 }
+```
+
+Or `{ "subtree": "<agentId>", "wait": 60 }`. Waits with the same modes as `waitFor`, but spawns nothing. Returns
+`{ outcome: "satisfied" | "partial" | "depfail" | "pending", selected, settled, pending }`. `400` for an invalid
+body (neither or both of `agents` / `subtree`, an invalid `k`, or an agent not in this run).
+
+### POST /agents/:agentId/notify-on
+
+```json
+{ "agents": ["a_c01d9e3a"], "wake": false }
+```
+
+Subscribes this agent to be told when each listed agent finishes. `wake: true` starts a new turn if it's idle
+when a notification arrives. Agents that already finished notify at once. `400` for an unknown agent or
+self-subscription, `404` if this agent doesn't exist.
+
+### GET /agents/:agentId/inbox
+
+`{ agentId, pending: [...], delivered: [...] }`. Each item has `seq`, `kind` (`notification` or `steer`),
+`aboutAgentId`, `outcome`, `resultRef`, `excerpt`, `again`, `state` and `deliveredAs`.
+
+### POST /agents/:agentId/inbox/deliver
+
+Delivers whatever is pending now, starting a new turn if the agent is idle. Returns
+`{ delivery: "steer" | "turn" | "held" | "dropped" | "none" }`.

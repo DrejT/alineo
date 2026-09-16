@@ -1,10 +1,23 @@
 import { ImageResponse } from "next/og";
-import { guideSource, referenceSource, cookbooksSource, playgroundSource } from "@/lib/source";
+import {
+  overviewSource,
+  coreSource,
+  agentSource,
+  workflowSource,
+  cliSource,
+  alineodSource,
+  cookbooksSource,
+  playgroundSource,
+} from "@/lib/source";
 import { loadOgFonts, ogImageSize, renderOgImage } from "@/lib/og-image";
 
 const SOURCES = {
-  guide: guideSource,
-  reference: referenceSource,
+  overview: overviewSource,
+  core: coreSource,
+  agent: agentSource,
+  workflow: workflowSource,
+  cli: cliSource,
+  alineod: alineodSource,
   cookbooks: cookbooksSource,
   playground: playgroundSource,
 } as const;
@@ -13,7 +26,7 @@ type Collection = keyof typeof SOURCES;
 
 // Every page's slug path is followed by a fixed trailing "image" segment (mirroring the pattern
 // fumadocs' own docs site uses for this exact reason): a category page and its children share a
-// URL prefix (e.g. "guide/sandboxes" is both a real page and a directory of deeper pages),
+// URL prefix (e.g. "core/concepts" is both a real page and a directory of deeper pages),
 // so a static-export file can't be named identically to a sibling directory. Appending a constant
 // leaf segment — never a real content slug (verified: no content path is literally "image") —
 // keeps every emitted file at a distinct, always-a-leaf path.

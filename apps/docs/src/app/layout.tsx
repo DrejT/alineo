@@ -66,7 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             nav={{ title: "alineo", url: "/" }}
             themeSwitch={{ enabled: false }}
             links={[
-              { text: "Docs", url: "/docs/guide", active: "nested-url" },
+              { text: "Docs", url: "/docs/overview", active: "nested-url" },
               { text: "Cookbook", url: "/cookbook", active: "nested-url" },
               { text: "Playground", url: "/docs/playground", active: "nested-url" },
               { text: "Blog", url: "/blog", active: "nested-url" },

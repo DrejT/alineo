@@ -6,7 +6,7 @@ Lazy pipeline builder for [alineo](https://alineo.tech) — retry, conditional b
 bun add @alineo-labs/workflow
 ```
 
-**[Full documentation →](https://docs.alineo.tech/docs/guide/sandboxes/workflow-builder)**
+**[Full documentation →](https://docs.alineo.tech/docs/workflow)**
 
 ---
 

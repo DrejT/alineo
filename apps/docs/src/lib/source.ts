@@ -1,6 +1,10 @@
 import {
-  guideDocs,
-  referenceDocs,
+  overviewDocs,
+  coreDocs,
+  agentDocs,
+  workflowDocs,
+  cliDocs,
+  alineodDocs,
   cookbooksDocs,
   playgroundDocs,
   blogPosts,
@@ -8,14 +12,25 @@ import {
 import { loader } from "fumadocs-core/source";
 import { toFumadocsSource } from "fumadocs-mdx/runtime/server";
 
-export const guideSource = loader({
-  baseUrl: "/docs/guide",
-  source: guideDocs.toFumadocsSource(),
+export const overviewSource = loader({
+  baseUrl: "/docs/overview",
+  source: overviewDocs.toFumadocsSource(),
 });
 
-export const referenceSource = loader({
-  baseUrl: "/docs/reference",
-  source: referenceDocs.toFumadocsSource(),
+export const coreSource = loader({ baseUrl: "/docs/core", source: coreDocs.toFumadocsSource() });
+
+export const agentSource = loader({ baseUrl: "/docs/agent", source: agentDocs.toFumadocsSource() });
+
+export const workflowSource = loader({
+  baseUrl: "/docs/workflow",
+  source: workflowDocs.toFumadocsSource(),
+});
+
+export const cliSource = loader({ baseUrl: "/docs/cli", source: cliDocs.toFumadocsSource() });
+
+export const alineodSource = loader({
+  baseUrl: "/docs/alineod",
+  source: alineodDocs.toFumadocsSource(),
 });
 
 export const cookbooksSource = loader({

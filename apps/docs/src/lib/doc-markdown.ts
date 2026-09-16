@@ -1,4 +1,13 @@
-import { guideSource, referenceSource, cookbooksSource, playgroundSource } from "@/lib/source";
+import {
+  overviewSource,
+  coreSource,
+  agentSource,
+  workflowSource,
+  cliSource,
+  alineodSource,
+  cookbooksSource,
+  playgroundSource,
+} from "@/lib/source";
 
 /**
  * Docs collections keyed by the first path segment after `/docs/`. Shared by the
@@ -6,8 +15,12 @@ import { guideSource, referenceSource, cookbooksSource, playgroundSource } from 
  * "Open in ChatGPT" page actions next to each page title.
  */
 export const docCollections = {
-  guide: guideSource,
-  reference: referenceSource,
+  overview: overviewSource,
+  core: coreSource,
+  agent: agentSource,
+  workflow: workflowSource,
+  cli: cliSource,
+  alineod: alineodSource,
   cookbooks: cookbooksSource,
   playground: playgroundSource,
 } as const;
@@ -25,8 +38,8 @@ export function githubSourceUrl(collection: DocCollection, pagePath: string) {
  * Static-export route segments for a docs page's raw markdown.
  *
  * The trailing `.md` on the last segment is load-bearing: `next build`'s static
- * export writes every Route Handler to a file, and a bare `/llms.mdx/guide/durability`
- * file would collide with the `durability/` directory holding its child pages. The
+ * export writes every Route Handler to a file, and a bare `/llms.mdx/core/storage`
+ * file would collide with the `storage/` directory holding its child pages. The
  * `.md` suffix keeps every emitted file at a leaf path (same trick `docs-og` uses
  * with its trailing `image` segment).
  */
@@ -42,8 +55,8 @@ export function pageMarkdownUrl(collection: DocCollection, slugs: string[]) {
 }
 
 /**
- * Rewrite a docs page URL (`/docs/guide/durability/postgres`) to its raw-markdown URL
- * (`/llms.mdx/guide/durability/postgres.md`). Used to point llms.txt entries at clean
+ * Rewrite a docs page URL (`/docs/core/storage/postgres`) to its raw-markdown URL
+ * (`/llms.mdx/core/storage/postgres.md`). Used to point llms.txt entries at clean
  * Markdown instead of HTML.
  */
 export function docUrlToMarkdownUrl(url: string): string {

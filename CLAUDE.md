@@ -280,32 +280,42 @@ The TypeScript sandbox client SDK (`packages/sdks/typescript`, published as `@al
 
 > **Changeset must be committed** before CI will pass — `bunx changeset status --since origin/main` reads from git history, not disk.
 
-## Docs are organised by product concept, not by package
+## Docs: the switcher is products, the sidebar is that product's concepts
 
-`apps/docs/content/docs/` has four collections, and they are reading modes, not npm packages:
+`apps/docs/content/docs/` has one collection per product, plus the platform overview and the two
+sections that cut across products:
 
-| Collection | URL | What goes there |
+| Collection | URL | In the switcher? |
 |---|---|---|
-| `guide/` | `/docs/guide` | The narrative path. Grouped by what the reader is doing: `agents/`, `swarms/`, `control/`, `durability/`, `sandboxes/`, `ship/`. |
-| `reference/` | `/docs/reference` | Exhaustive API surface — SDK methods, HTTP routes, events, CLI flags, the spec schema. Deliberately off the reading path. |
-| `cookbooks/` | `/docs/cookbooks` | Runnable end-to-end recipes, each mirroring a real package under `cookbooks/`. |
-| `playground/` | `/docs/playground` | Browser-executed demos against the live sandbox API. |
+| `overview/` | `/docs/overview` | No — it sits above the products. `/` and the header "Docs" link land here. |
+| `agent/` | `/docs/agent` | Yes — Agent SDK (`alineo`) |
+| `alineod/` | `/docs/alineod` | Yes — `@alineo-labs/alineod` |
+| `core/` | `/docs/core` | Yes — Core SDK (`@alineo-labs/sandbox`) |
+| `cli/` | `/docs/cli` | Yes — `alineo-cli` |
+| `workflow/` | `/docs/workflow` | Yes — `@alineo-labs/workflow` |
+| `cookbooks/` | `/docs/cookbooks` | No — header nav |
+| `playground/` | `/docs/playground` | No — header nav |
 
-`guide/index.mdx` ("At a glance") is the site's front door — `/` and the header "Docs" link both
-land there. It states what alineo is, then makes one claim per section with the smallest snippet
-that proves it. Keep it that way: it is the page that has to earn the next click.
+**Every product follows the same four beats**: `index.mdx` (overview) → `quickstart.mdx` →
+`concepts/` → `api-reference/`. The overview states what the product is in one sentence, shows
+running code immediately, then makes one claim per section with the smallest snippet that proves
+it. Concepts pages are named after ideas, not after the files they came from — never
+`getting-started/`, `building/` or `patterns/` again.
 
-**Placing a new page**: ask what the reader is trying to *do*, not which package the code lives
-in. A capability of the sandbox client and a capability of the agent SDK can sit in the same
-group if they serve the same goal. Never reintroduce a top-level section named after a package.
+**Placing a new page**: decide the product first (which package does the reader install?), then
+the beat. A capability that spans products is documented in the product that owns the API and
+linked from the others.
 
-**Adding a page** means adding it to its group's `meta.json` too — sidebar order is explicit, not
-alphabetical. Every folder has one; `guide/meta.json` lists the groups in reading order.
+**Adding a page** means adding it to its folder's `meta.json` too — sidebar order is explicit, not
+alphabetical.
 
 **Renaming or moving a page** means adding a 301 to `apps/docs/public/_redirects` (a static export
 can't use `next.config.ts` redirects) and updating inbound links. `grep -rn "/docs/<old-path>"`
-across the repo — the README, blog posts, cookbook READMEs, `.agents/skills/`, `apps/docs-mcp`,
+across the repo — the README, blog posts, cookbook READMEs, `.agents/skills/`, `apps/docs-mcp`
 and `apps/registry`'s spec JSON all link into the docs.
+
+The CLI lives at `/docs/cli`, not `/docs/alineo` — the old path read as the `alineo` package,
+which is the Agent SDK.
 
 Docs were versioned (`content/docs/{core,alineo}/vX.Y/`) for a while. That system is **gone** —
 no version folders, no `apps/docs/scripts/`, no `predev`/`prebuild` hooks, no CI version check.
