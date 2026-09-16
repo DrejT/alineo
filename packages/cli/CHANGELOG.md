@@ -1,5 +1,15 @@
 # drejx
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [5ff090b]
+- Updated dependencies [5ff090b]
+- Updated dependencies [5ff090b]
+  - alineo@0.5.1
+  - @alineo-labs/sandbox@0.4.2
+
 ## 0.2.0
 
 ### Minor Changes
