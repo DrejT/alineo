@@ -31,12 +31,16 @@ jobs:
         run: bun run build
 
       - name: Create Release PR or Publish
-        uses: changesets/action@v1
+        # v2 reads the packages it published from the CHANGESETS_OUTPUT file the CLI
+        # writes, instead of grepping "New tag:" lines out of stdout — which
+        # @changesets/cli 3.x no longer prints, so v1 silently created neither git tags
+        # nor GitHub releases (0.5.1 et al. published to npm untagged; backfilled by hand).
+        uses: changesets/action@v2
         with:
-          publish: bun run release:publish
-          version: bun run release:version
-          title: "chore: version packages"
-          commit: "chore: version packages"
+          publish-script: bun run release:publish
+          version-script: bun run release:version
+          pr-title: "chore: version packages"
+          commit-message: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
