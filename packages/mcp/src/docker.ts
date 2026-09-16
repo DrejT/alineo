@@ -42,6 +42,18 @@ export async function startContainer(name: string): Promise<void> {
   if (!ok) throw new Error(`Failed to start container '${name}': ${stderr.trim()}`);
 }
 
+export async function restartContainer(name: string): Promise<void> {
+  const { ok, stderr } = await spawn(["docker", "restart", name]);
+  if (!ok) throw new Error(`Failed to restart container '${name}': ${stderr.trim()}`);
+}
+
+/** Force-removes a container regardless of running/stopped state — used to recreate one whose
+ * config (network mode, env) needs to change, since `docker run` args can't be applied in place. */
+export async function removeContainer(name: string): Promise<void> {
+  const { ok, stderr } = await spawn(["docker", "rm", "-f", name]);
+  if (!ok) throw new Error(`Failed to remove container '${name}': ${stderr.trim()}`);
+}
+
 export async function runContainer(args: string[], label = "container"): Promise<void> {
   const { ok, stderr } = await spawn(["docker", "run", ...args]);
   if (!ok) throw new Error(`Failed to start ${label}: ${stderr.trim()}`);
@@ -71,4 +83,20 @@ export async function pollHealth(
     await new Promise<void>((r) => setTimeout(r, 1_000));
   }
   throw new Error(`${url} did not become healthy within ${timeoutMs / 1_000}s`);
+}
+
+/** A quick one-shot version of `pollHealth` for deciding whether an already-`running`
+ * container is actually reachable, not just started — a container can report "running" to
+ * Docker while its service is unreachable (wrong network mode, crashed process, stale config). */
+export async function isReachable(
+  url: string,
+  isHealthy?: (body: unknown) => boolean,
+  timeoutMs = 3_000,
+): Promise<boolean> {
+  try {
+    await pollHealth(url, timeoutMs, isHealthy);
+    return true;
+  } catch {
+    return false;
+  }
 }

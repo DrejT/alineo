@@ -9,40 +9,45 @@ import {
 } from "../src/config.js";
 
 describe("serverConfigContent", () => {
+  const EIP = "http://127.0.0.1:8080";
+
   it("contains [server]", () => {
-    expect(serverConfigContent()).toContain("[server]");
+    expect(serverConfigContent(EIP)).toContain("[server]");
   });
 
   it("contains [runtime]", () => {
-    expect(serverConfigContent()).toContain("[runtime]");
+    expect(serverConfigContent(EIP)).toContain("[runtime]");
   });
 
   it("contains [docker]", () => {
-    expect(serverConfigContent()).toContain("[docker]");
+    expect(serverConfigContent(EIP)).toContain("[docker]");
   });
 
   it("contains [store]", () => {
-    expect(serverConfigContent()).toContain("[store]");
+    expect(serverConfigContent(EIP)).toContain("[store]");
   });
 
-  it('contains eip = "http://127.0.0.1:8080"', () => {
-    expect(serverConfigContent()).toContain(`eip = "http://127.0.0.1:8080"`);
+  it("embeds the eip it's given", () => {
+    expect(serverConfigContent(EIP)).toContain(`eip = "${EIP}"`);
+    expect(serverConfigContent("http://host.docker.internal:8080")).toContain(
+      `eip = "http://host.docker.internal:8080"`,
+    );
   });
 
   it('contains type = "docker"', () => {
-    expect(serverConfigContent()).toContain(`type = "docker"`);
+    expect(serverConfigContent(EIP)).toContain(`type = "docker"`);
   });
 
   it('contains network_mode = "bridge"', () => {
-    expect(serverConfigContent()).toContain(`network_mode = "bridge"`);
+    expect(serverConfigContent(EIP)).toContain(`network_mode = "bridge"`);
   });
 
   it("contains port = 8080", () => {
-    expect(serverConfigContent()).toContain("port = 8080");
+    expect(serverConfigContent(EIP)).toContain("port = 8080");
   });
 
   it("pins [store].path to the container-side mount target set up in init.ts (/data)", () => {
-    expect(serverConfigContent()).toContain(`path = "/data/opensandbox.db"`);
+    expect(serverConfigContent(EIP)).toContain(`path = "/data/opensandbox.db"`);
   });
 });
 

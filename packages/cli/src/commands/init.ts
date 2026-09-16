@@ -4,9 +4,12 @@ import {
   checkDocker,
   getContainerState,
   startContainer,
+  restartContainer,
+  removeContainer,
   runContainer,
   pullImage,
   pollHealth,
+  isReachable,
 } from "../docker.js";
 import {
   configPath,
@@ -29,22 +32,44 @@ const ALINEOD_IMAGE = "ghcr.io/drejt/alineod:latest";
 const ALINEOD_URL = "http://127.0.0.1:4600";
 const isAlineodHealthy = (body: unknown): boolean => (body as { ok?: boolean } | null)?.ok === true;
 
+/**
+ * `--network host` (which makes alineod see `127.0.0.1` exactly as the host does, matching
+ * OpenSandbox's configured `eip` — see `ensureAlineod`'s doc comment) only works out of the box
+ * on native Linux Docker. Docker Desktop for Windows/Mac ships it behind an opt-in "Enable host
+ * networking" setting nothing here can safely toggle (no stable, documented way to flip it and
+ * restart Docker Desktop from a CLI); without it, `--network host` containers report "running"
+ * but publish no ports the host can reach at all (see the `isReachable` probe below, which is
+ * exactly what catches this class of failure). Keying off `process.platform` instead of probing
+ * Docker's own networking capabilities is a heuristic, not a guarantee (e.g. Docker Desktop for
+ * Linux may behave like Windows/Mac here too) — but it matches how the overwhelming majority of
+ * each platform's users actually run Docker.
+ */
+const usesHostNetworking = process.platform !== "win32" && process.platform !== "darwin";
+
 export async function init(): Promise<void> {
   console.log("Checking Docker...");
   await checkDocker();
 
+  const openSandboxConfigChanged = await ensureServerConfig();
+  await ensureServerDataDir();
+
   const state = await getContainerState(OPENSANDBOX_CONTAINER_NAME);
 
   if (state === "running") {
-    console.log(`OpenSandbox already running at ${SERVER_URL}`);
+    if (openSandboxConfigChanged) {
+      console.log("OpenSandbox networking config changed — restarting to apply it...");
+      await restartContainer(OPENSANDBOX_CONTAINER_NAME);
+      console.log("Waiting for OpenSandbox to be ready...");
+      await pollHealth(`${SERVER_URL}/health`);
+    } else {
+      console.log(`OpenSandbox already running at ${SERVER_URL}`);
+    }
   } else if (state === "stopped") {
     console.log("Restarting OpenSandbox container...");
     await startContainer(OPENSANDBOX_CONTAINER_NAME);
     console.log("Waiting for OpenSandbox to be ready...");
     await pollHealth(`${SERVER_URL}/health`);
   } else {
-    await ensureServerConfig();
-    await ensureServerDataDir();
     console.log("Starting OpenSandbox in Docker...");
 
     const dockerSocketMount = "/var/run/docker.sock:/var/run/docker.sock";
@@ -76,78 +101,120 @@ export async function init(): Promise<void> {
     await pollHealth(`${SERVER_URL}/health`);
   }
 
-  await ensureAlineod();
+  await ensureAlineod(openSandboxConfigChanged);
   await ensureProjectConfig();
   console.log(`OpenSandbox running at ${SERVER_URL}, alineod running at ${ALINEOD_URL} — ready.`);
 }
 
-async function ensureAlineod(): Promise<void> {
+/**
+ * alineod needs to reach OpenSandbox at the same address OpenSandbox's own configured `eip`
+ * uses — that's what it hands back in every sandbox proxy URL (`{eip}/sandboxes/{id}/proxy/{port}`,
+ * see `apps/alineod/README.md`'s "Networking caveat"), and alineod follows those literally.
+ *
+ * - **Linux**: `--network host` puts alineod's `127.0.0.1` in the same namespace as the host's,
+ *   matching `eip` (`SERVER_URL`, `ensureServerConfig` below) exactly — same as a bare `bun run
+ *   start` would see. No extra port publishing needed; alineod's own port is already the host's.
+ * - **Windows/Mac (Docker Desktop)**: `--network host` doesn't publish container ports to the
+ *   host at all without a setting this can't safely flip (see `usesHostNetworking`'s doc
+ *   comment) — every ALINEOD_URL health check would time out, exactly what motivated this split.
+ *   Instead alineod stays on the default bridge network with an explicit `-p 4600:4600` (so the
+ *   host can reach *it*) and reaches OpenSandbox via `host.docker.internal`, which Docker
+ *   Desktop resolves to the host on every container regardless of network mode — no host
+ *   networking feature required. `ensureServerConfig` sets OpenSandbox's `eip` to the same
+ *   `host.docker.internal` address so alineod can also follow the proxy URLs it hands back.
+ *   Trade-off: a host-based client talking to *this same* OpenSandbox instance directly (not
+ *   through alineod) can no longer follow those proxy URLs either, since the host itself can't
+ *   reliably resolve `host.docker.internal` back to itself (Windows routes it via the LAN
+ *   interface, which most local networks don't hairpin NAT back to the same machine) — use `uvx
+ *   opensandbox-server` instead for that case (see the root CLAUDE.md's "Local OpenSandbox
+ *   setup").
+ */
+async function ensureAlineod(openSandboxConfigChanged: boolean): Promise<void> {
   const state = await getContainerState(ALINEOD_CONTAINER_NAME);
 
-  if (state === "running") {
-    console.log(`alineod already running at ${ALINEOD_URL}`);
+  if (state !== "missing" && openSandboxConfigChanged) {
+    console.log("OpenSandbox networking config changed — recreating alineod to match...");
+    await removeContainer(ALINEOD_CONTAINER_NAME);
+  } else if (state === "running") {
+    if (await isReachable(`${ALINEOD_URL}/health`, isAlineodHealthy)) {
+      console.log(`alineod already running at ${ALINEOD_URL}`);
+      return;
+    }
+    // Docker reports "running", but nothing answers — most often the exact Windows/Mac
+    // `--network host` failure mode this split exists to avoid on a fresh init, or a container
+    // left over from before this fix. Recreating (not just restarting) is what actually changes
+    // its network mode — `docker restart` reapplies the same args the container already has.
+    console.log("alineod is running but not reachable — recreating it...");
+    await removeContainer(ALINEOD_CONTAINER_NAME);
+  } else if (state === "stopped") {
+    console.log("Restarting alineod container...");
+    await startContainer(ALINEOD_CONTAINER_NAME);
+    console.log("Waiting for alineod to be ready...");
+    await pollHealth(`${ALINEOD_URL}/health`, 60_000, isAlineodHealthy);
     return;
   }
 
-  if (state === "stopped") {
-    console.log("Restarting alineod container...");
-    await startContainer(ALINEOD_CONTAINER_NAME);
+  console.log(`Pulling ${ALINEOD_IMAGE}...`);
+  await pullImage(ALINEOD_IMAGE);
+  console.log("Starting alineod in Docker...");
+
+  // Model-agnostic: forward whatever Pi-supported provider key(s) are already in the
+  // operator's shell. An AgentSpec's env map (e.g. `{ NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }`)
+  // is resolved from process.env inside whichever process calls Alineo.load()/.spawn() —
+  // for a swarm run through alineod, that's this container — so any provider works as long
+  // as Pi supports it, not just NVIDIA's free tier.
+  const foundModelKeys = PI_MODEL_API_KEY_ENV_VARS.filter((name) => process.env[name]);
+  const modelKeyArgs = foundModelKeys.flatMap((name) => ["-e", `${name}=${process.env[name]}`]);
+  if (foundModelKeys.length > 0) {
+    console.log(`Forwarding model key(s): ${foundModelKeys.join(", ")}`);
   } else {
-    console.log(`Pulling ${ALINEOD_IMAGE}...`);
-    await pullImage(ALINEOD_IMAGE);
-    console.log("Starting alineod in Docker...");
-
-    // Model-agnostic: forward whatever Pi-supported provider key(s) are already in the
-    // operator's shell. An AgentSpec's env map (e.g. `{ NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }`)
-    // is resolved from process.env inside whichever process calls Alineo.load()/.spawn() —
-    // for a swarm run through alineod, that's this container — so any provider works as long
-    // as Pi supports it, not just NVIDIA's free tier.
-    const foundModelKeys = PI_MODEL_API_KEY_ENV_VARS.filter((name) => process.env[name]);
-    const modelKeyArgs = foundModelKeys.flatMap((name) => ["-e", `${name}=${process.env[name]}`]);
-    if (foundModelKeys.length > 0) {
-      console.log(`Forwarding model key(s): ${foundModelKeys.join(", ")}`);
-    } else {
-      console.log(
-        "No known model API key found in the environment — alineod will start, but agent " +
-          "specs referencing a provider key will fail until one is set (see any of the env " +
-          "vars in packages/cli/src/pi-model-keys.ts).",
-      );
-    }
-
-    await runContainer(
-      [
-        "-d",
-        "--name",
-        ALINEOD_CONTAINER_NAME,
-        // Host networking, not a port mapping: OpenSandbox hands back sandbox proxy URLs
-        // built from its own configured `eip` (127.0.0.1:8080, written by
-        // ensureServerConfig() above) — a bridge-network container can't reach that
-        // address. Host networking makes alineod see the host exactly like a bare
-        // `bun run start` would (see apps/alineod/README.md's networking caveat).
-        "--network",
-        "host",
-        "-e",
-        `ALINEO_SERVER_URL=${SERVER_URL}`,
-        "-e",
-        "ALINEO_USE_SERVER_PROXY=true",
-        ...modelKeyArgs,
-        "-v",
-        "alineod-data:/data",
-        ALINEOD_IMAGE,
-      ],
-      "alineod container",
+    console.log(
+      "No known model API key found in the environment — alineod will start, but agent " +
+        "specs referencing a provider key will fail until one is set (see any of the env " +
+        "vars in packages/cli/src/pi-model-keys.ts).",
     );
   }
+
+  const networkArgs = usesHostNetworking
+    ? ["--network", "host"]
+    : ["-p", "4600:4600", "--add-host", "host.docker.internal:host-gateway"];
+  const alineodServerUrl = usesHostNetworking ? SERVER_URL : "http://host.docker.internal:8080";
+
+  await runContainer(
+    [
+      "-d",
+      "--name",
+      ALINEOD_CONTAINER_NAME,
+      ...networkArgs,
+      "-e",
+      `ALINEO_SERVER_URL=${alineodServerUrl}`,
+      "-e",
+      "ALINEO_USE_SERVER_PROXY=true",
+      ...modelKeyArgs,
+      "-v",
+      "alineod-data:/data",
+      ALINEOD_IMAGE,
+    ],
+    "alineod container",
+  );
 
   console.log("Waiting for alineod to be ready...");
   await pollHealth(`${ALINEOD_URL}/health`, 60_000, isAlineodHealthy);
 }
 
-async function ensureServerConfig(): Promise<void> {
+/** Writes `server.toml` if missing or if its `eip` doesn't match what this platform needs (see
+ * `ensureAlineod`'s doc comment) — returns whether it changed, so callers can restart whatever
+ * already-running containers depend on it. */
+async function ensureServerConfig(): Promise<boolean> {
   const dir = serverConfigDir();
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
   const path = serverConfigPath();
-  if (!existsSync(path)) await Bun.write(path, serverConfigContent());
+  const eip = usesHostNetworking ? SERVER_URL : "http://host.docker.internal:8080";
+  const desired = serverConfigContent(eip);
+  const existing = existsSync(path) ? await Bun.file(path).text() : null;
+  if (existing === desired) return false;
+  await Bun.write(path, desired);
+  return true;
 }
 
 /**

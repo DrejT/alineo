@@ -121,11 +121,11 @@ export function serverDataDir(): string {
  * plans/credential-injection.md Phase 4). `dns+nft` (rather than `dns`) is required for
  * `credentialProxy`'s Credential Vault to activate at all.
  */
-export function serverConfigContent(): string {
+export function serverConfigContent(eip: string): string {
   return `[server]
 host = "0.0.0.0"
 port = 8080
-eip = "http://127.0.0.1:8080"
+eip = "${eip}"
 
 [runtime]
 type = "docker"
