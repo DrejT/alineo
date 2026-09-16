@@ -26,7 +26,7 @@ const FAQS: Faq[] = [
         <code>bunx alineo-cli init</code>, which starts OpenSandbox in Docker and configures alineo
         to talk to it automatically. If you&apos;d rather not use Docker, you can run{" "}
         <code>uvx opensandbox-server</code> directly on your host instead — see the{" "}
-        <a href="/docs/alineo/getting-started">alineo CLI docs</a> for both paths.
+        <a href="/docs/guide/ship/cli">alineo CLI docs</a> for both paths.
       </>
     ),
     text: "alineo runs sandboxes against an OpenSandbox instance — the container runtime underneath. The fastest way to get one locally is `bunx alineo-cli init`, which starts OpenSandbox in Docker and configures alineo automatically. If you'd rather not use Docker, run `uvx opensandbox-server` directly on your host instead.",
@@ -40,7 +40,7 @@ const FAQS: Faq[] = [
         <code>@alineo-labs/postgres</code>) is for production, multi-process deployments that need a
         shared ledger across instances. Both implement the same <code>IStorageAdapter</code>{" "}
         interface, so switching later is a one-line change — see{" "}
-        <a href="/docs/core/adapters">Storage Adapters</a>.
+        <a href="/docs/guide/durability">Storage Adapters</a>.
       </>
     ),
     text: "SQLite (@alineo-labs/sqlite) is the right default for local development and single-process deployments — zero config, WAL mode, nothing to run. Postgres (@alineo-labs/postgres) is for production, multi-process deployments that need a shared ledger across instances. Both implement the same IStorageAdapter interface, so switching later is a one-line change.",

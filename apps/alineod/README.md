@@ -4,7 +4,7 @@ The swarm control daemon — HTTP + SSE orchestration for swarms of sandboxed ag
 
 Design: [`research/daemon.md`](../../../research/daemon.md).
 
-**User docs:** `apps/docs/content/docs/alineod/` — published at `/docs/alineod` (quickstart, deployment,
+**User docs:** `apps/docs/content/docs/guide/swarms/` — published at `/docs/guide/swarms` (quickstart, deployment,
 guides, HTTP API and event reference).
 
 ```

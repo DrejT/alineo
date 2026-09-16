@@ -1,0 +1,71 @@
+---
+title: SandboxBuilder
+description: The object passed to every workflow callback — queues operations synchronously, flushes them when the workflow is awaited.
+---
+
+`SandboxBuilder` is the object your callback receives inside `.sandbox()`, `.parallel()`, and `.sequence()`. Every method queues an operation. Nothing runs until the `WorkflowBuilder` is flushed via `.pipe()` or `.result()`.
+
+All methods return `this` for chaining.
+
+## exec
+
+```ts
+sb.exec("npm ci");
+sb.exec("npm test", { strict: false });
+```
+
+Queue a shell command. `strict: true` (default) throws `CommandError` on non-zero exit. `strict: false` captures the exit code instead.
+
+## execCode
+
+```ts
+import { CodeLanguage } from "@alineo-labs/opensandbox";
+
+sb.execCode(`print("hello")`, { context: { id: "my-context", language: CodeLanguage.Python } });
+```
+
+Queue a code snippet via the interpreter. There's no `language` shorthand or `stateful` flag — `ExecCodeOptions` only takes an optional `context: { id, language }`. Reusing the same `id` across calls shares interpreter state between them; a call with no `context` runs stateless.
+
+`SandboxBuilder` has no queued equivalent of `SandboxHandle.createCodeContext()` — you supply the context object directly (as above) rather than obtaining one from execd first. If you need a context created via `createCodeContext()`, use the direct `SandboxHandle` API outside the workflow builder instead (see [Executing code](/docs/guide/sandboxes/exec)).
+
+## writeFile
+
+```ts
+sb.writeFile("/app/config.json", JSON.stringify({ port: 3000 }));
+```
+
+Queue a file write into the sandbox filesystem.
+
+## readFile
+
+```ts
+sb.readFile("/tmp/output.txt", "result");
+```
+
+Queue a file read. The content lands in `WorkflowResult.vars["result"]` after the workflow completes.
+
+## moveFile
+
+```ts
+sb.moveFile("/tmp/build.tar.gz", "/artifacts/build.tar.gz");
+```
+
+Queue a file move within the sandbox.
+
+## deleteFile
+
+```ts
+sb.deleteFile("/tmp/scratch.txt");
+```
+
+Queue a file deletion.
+
+## checkpoint
+
+```ts
+sb.checkpoint("after-install");
+```
+
+Queue a container snapshot. The checkpoint name is optional. After checkpointing, `client.resume(sandboxId)` can restore the container to this state.
+
+See [Snapshots](/docs/guide/sandboxes/snapshots) for the full checkpoint/resume model.

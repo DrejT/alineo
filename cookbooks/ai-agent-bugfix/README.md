@@ -34,7 +34,7 @@ Swap `provider`/`model` for anything in `@alineo-labs/model-providers` to use a 
 Step 3's independent verification is the important part of this recipe: never trust an agent's
 self-report that a fix worked — re-run the check yourself against the sandbox it was working in.
 
-See the [Agent SDK docs](/docs/agent) for the full `alineo` API (`prompt`, `bash`,
+See the [Agent SDK docs](/docs/guide/agents) for the full `alineo` API (`prompt`, `bash`,
 `steer`, `fork`, model switching, and more), and
 [examples/pi-agent](https://github.com/DrejT/alineo/tree/main/examples/pi-agent) for a tour of
 every command it exposes.

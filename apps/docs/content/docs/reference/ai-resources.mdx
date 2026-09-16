@@ -1,0 +1,105 @@
+---
+title: AI Resources
+description: Use the alineo docs with LLMs and coding agents — llms.txt, per-page Markdown, and agent skills.
+---
+
+The entire alineo documentation is published in formats built for LLMs and coding
+agents, not just browsers. These cover every section — Core SDK, Workflow Builder,
+Agent SDK, and the CLI.
+
+## llms.txt
+
+[`/llms.txt`](https://docs.alineo.tech/llms.txt) is a structured index of every
+documentation page, each entry linking to that page's Markdown form. Point an agent
+at it to let it discover and pull only the pages it needs.
+
+[`/llms-full.txt`](https://docs.alineo.tech/llms-full.txt) is the entire
+documentation concatenated into a single Markdown file — drop it into a context
+window whole.
+
+## Per-page Markdown
+
+Every documentation page has a clean Markdown version at the same path under
+`/llms.mdx/`. For example:
+
+```
+https://docs.alineo.tech/docs/guide/quickstart      (HTML)
+https://docs.alineo.tech/llms.mdx/core/getting-started.md   (Markdown)
+```
+
+At the top of any page, the **Copy Markdown** button copies that Markdown to your
+clipboard, and the **Open** menu opens the page directly in ChatGPT, Claude, or
+Cursor, or shows it as raw Markdown.
+
+When citing or linking a page, use its canonical URL — the one without the `.md`
+suffix.
+
+## MCP server
+
+`https://docs.alineo.tech/mcp` is a [Model Context Protocol](https://modelcontextprotocol.io)
+server that lets an MCP client search and read these docs from inside your editor or
+agent. It exposes three tools: `search_docs`, `get_doc`, and `list_docs`. It's
+read-only and covers documentation only.
+
+<Tabs items={["Claude Code", "Cursor", "opencode", "Manual"]}>
+  <Tab value="Claude Code">
+    ```bash
+    claude mcp add --transport http alineo-docs https://docs.alineo.tech/mcp
+    ```
+  </Tab>
+  <Tab value="Cursor">
+    <a href="cursor://anysphere.cursor-deeplink/mcp/install?name=alineo-docs&config=eyJ1cmwiOiJodHRwczovL2RvY3MuYWxpbmVvLnRlY2gvbWNwIn0=">
+      Add alineo docs to Cursor
+    </a>
+
+    Or add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+    ```json
+    {
+      "mcpServers": {
+        "alineo-docs": { "url": "https://docs.alineo.tech/mcp" }
+      }
+    }
+    ```
+
+  </Tab>
+  <Tab value="opencode">
+    Add to `opencode.json`:
+
+    ```json
+    {
+      "mcp": {
+        "alineo-docs": { "type": "remote", "url": "https://docs.alineo.tech/mcp" }
+      }
+    }
+    ```
+
+  </Tab>
+  <Tab value="Manual">
+    Any MCP client that supports a remote (HTTP) server: point it at
+    `https://docs.alineo.tech/mcp`. No authentication.
+  </Tab>
+</Tabs>
+
+This is separate from the alineo SDK/CLI itself, which is what actually _runs_
+sandboxed agents.
+
+## Agent skills
+
+Install the alineo [skill](https://skills.sh) so your coding agent follows the
+SDK's conventions and knows where to look in the docs:
+
+```bash
+npx skills add DrejT/alineo --skill alineo
+```
+
+Two skills are published from the repo:
+
+| Skill    | Covers                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `alineo` | The agent SDK (`load` / `resume` / `attach` / `spawn`, prompt & bash streaming, session control) and the `alineo` CLI. |
+| `bun`    | The Bun runtime, package manager, test runner, and bundler used across the repo.                                       |
+
+Add `--skill bun` (or omit `--skill` to install both). The source lives in
+[`.agents/skills/`](https://github.com/DrejT/alineo/tree/main/.agents/skills) in the
+repo.

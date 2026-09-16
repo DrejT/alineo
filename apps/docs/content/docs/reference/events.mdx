@@ -1,0 +1,77 @@
+---
+title: Events
+description: The run event stream — alineod lifecycle events, forwarded harness events, heartbeats, and reconnection.
+---
+
+```bash
+curl -N localhost:4600/runs/r_3f9a1c20/events
+```
+
+`GET /runs/:runId/events` is a Server-Sent Events stream carrying the entire run: alineod's own lifecycle events
+and the harness events of every agent in the run. Every event's `data` is JSON with an `agentId` field (`null` for
+run-level events).
+
+```
+id: 7
+event: agent_steered
+data: {"agentId":"a_c01d9e3a","message":"Focus only on src/auth."}
+```
+
+## Lifecycle events
+
+These are always persisted to the ledger and carry an `id`.
+
+| Event                    | Fields                                                                                        | When                                                                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `run_started`            | `runId`                                                                                       | A run is created.                                                                                                                   |
+| `agent_spawned`          | `parentAgentId`, `runId`, `specName`, `depth`, `spawnIndex`, `sandboxId`, `waitFor`, `prompt` | An agent is accepted. `sandboxId` is `null` until provisioned.                                                                      |
+| `agent_provisioned`      | `sandboxId`                                                                                   | The agent's sandbox exists and its harness is reachable.                                                                            |
+| `agent_state_changed`    | `from`, `to`, `reason`, `pausedBy`                                                            | A state transition, e.g. `spawning → provisioning` (`deps-settled`) or `running → paused` (`operator`).                             |
+| `agent_steered`          | `message`, `scope`, `roster`, `deliveredAs`                                                   | A steer message was accepted. `roster` and `deliveredAs` are set for a subtree steer.                                               |
+| `handle_settled`         | `outcome`, `resultRef`                                                                        | The agent's result is available.                                                                                                    |
+| `agent_ended`            | `outcome`, `endedAt`, `error`                                                                 | The agent finished, failed, was stopped, or was lost.                                                                               |
+| `budget_denied`          | `dimension` (`spawnDepth` \| `maxAgents`), `remaining`                                        | A spawn under this agent was refused by a budget.                                                                                   |
+| `agent_released`         | `reason`                                                                                      | A finished agent's open sandbox was closed (stop / delete), or a fork landed after its spawn was stopped. Its outcome is unchanged. |
+| `wait_resolved`          | `mode`, `outcome`, `selected`, `settled`, `pending`                                           | A held spawn's `waitFor` resolved. `depfail` / `deadline` end the child without forking.                                            |
+| `wait_blocked_on_paused` | `blockedOn`                                                                                   | A held spawn is still waiting on a dependency that's paused.                                                                        |
+| `subtree_quiescent`      | `memberCount`, `asOf`                                                                         | The subtree rooted at this agent just finished, while someone was waiting on it.                                                    |
+| `notify_registered`      | `on`, `wake`                                                                                  | This agent subscribed to be told when the agents in `on` finish.                                                                    |
+| `inbox_queued`           | `kind`, `aboutAgentId`, `outcome`, `resultRef`, `excerpt`, `again`, `text`                    | A notification (or a queued subtree steer) is waiting for this agent.                                                               |
+| `inbox_delivered`        | `seqs`, `as` (`steer` \| `turn` \| `prompt`)                                                  | Queued items were delivered.                                                                                                        |
+| `inbox_dropped`          | `seqs`, `reason`                                                                              | Queued items were dropped because the recipient closed.                                                                             |
+
+## Harness events
+
+Each agent's stream events (the SDK's [`AgentEvent`](/docs/guide/agents/streaming)) are forwarded onto
+the run stream under their own type names, tagged with the `agentId` that produced them.
+
+**Persisted** — carry an `id` and are replayed on reconnect:
+
+`agent_start`, `agent_end`, `turn_start`, `turn_end`, `tool_start`, `tool_end`, `compaction_start`,
+`compaction_end`, `permission_request`, `permission_resolved`, `auto_retry_start`, `auto_retry_end`,
+`extension_error`
+
+**Ephemeral** — no `id`, never replayed: everything else, including high-volume `text` deltas and `tool_update`.
+
+## Reconnecting
+
+Send the last `id` you received as `Last-Event-ID`:
+
+```bash
+curl -N localhost:4600/runs/r_3f9a1c20/events -H 'Last-Event-ID: 128'
+```
+
+alineod replays every persisted event after that `seq` from the ledger, then switches to live events. Ephemeral
+events emitted while you were disconnected are lost; persisted events are not.
+
+To start from a known snapshot, read `GET /runs/:runId` and use its `asOf` as `Last-Event-ID`.
+
+## Heartbeats
+
+A comment line is sent every 10 seconds so proxies and clients don't treat a quiet run as a dead connection.
+
+## Slow consumers
+
+If a client stops reading, alineod drops ephemeral events for that connection first. If it falls behind by 500
+persisted events in a row, the connection is closed — reconnect with `Last-Event-ID` to continue with nothing
+missed.

@@ -29,7 +29,7 @@ bun start
 
 This generalizes directly to a real repo: install dependencies and discover shard boundaries once
 in the base sandbox, then fork once per shard (or per CPU core) instead of paying setup cost N
-times. See [Forking Sandboxes](/docs/examples/sandbox-fork) for the underlying `sb.fork()` primitive.
+times. See [Forking Sandboxes](/docs/guide/swarms/forking) for the underlying `sb.fork()` primitive.
 
 All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so
 Docker bridge IPs don't need to be reachable directly. Set `USE_SERVER_PROXY=false` to disable

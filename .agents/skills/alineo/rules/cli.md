@@ -69,4 +69,4 @@ gather, `/steer`, `/pause`/`/resume`, SSE `/runs/:id/events`, ...). There is cur
 subcommand that creates a run *through* alineod — you `curl -X POST localhost:4600/runs -d
 '{"spec": ..., "prompt": ...}'` directly, or run a script (`apps/alineod/scripts/demo-swarm.py`,
 any `cookbooks/*/index.ts`). Full API + quickstart: `apps/alineod/README.md` and
-`/docs/alineod`.
+`/docs/guide/swarms`.

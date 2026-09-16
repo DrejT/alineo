@@ -1,0 +1,14 @@
+{
+  "title": "Guide",
+  "pages": [
+    "index",
+    "quickstart",
+    "installation",
+    "agents",
+    "swarms",
+    "control",
+    "durability",
+    "sandboxes",
+    "ship"
+  ]
+}

@@ -16,7 +16,7 @@ description: A swarm of reviewers forked from one checkout — steered and pause
   ]}
 />
 
-A code review run by a swarm of agents, orchestrated entirely through [alineod](/docs/alineod)'s HTTP API. One lead
+A code review run by a swarm of agents, orchestrated entirely through [alineod](/docs/guide/swarms)'s HTTP API. One lead
 agent checks out the repository; three reviewers are forked from its sandbox — each starting with the checkout
 already on disk — to review one concern each; an editor waits for all three and merges their findings into a single
 report.
@@ -169,7 +169,7 @@ tool calls, tagged with the `agentId` that produced them.
 </Callout>
 
 <Callout title="Where to go next">
-  [Fan-out and gather](/docs/alineod/guides/fan-out-gather) and [Steering and
-  pausing](/docs/alineod/guides/steering-and-pausing) cover the mechanics used here, and the [HTTP
-  API](/docs/alineod/api-reference/http-api) lists every route.
+  [Fan-out and gather](/docs/guide/swarms/fan-out-gather) and [Steering and
+  pausing](/docs/guide/agents/steering) cover the mechanics used here, and the [HTTP
+  API](/docs/reference/http-api) lists every route.
 </Callout>

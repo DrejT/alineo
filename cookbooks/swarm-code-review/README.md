@@ -55,4 +55,4 @@ Progress for every agent in the swarm streams over a single `GET /runs/:runId/ev
 To review a different repository, change the clone URL in `agents/lead.json` and the paths and
 concerns in `index.ts`.
 
-See the [alineod docs](https://docs.alineo.tech/docs/alineod) for every route and event.
+See the [alineod docs](https://docs.alineo.tech/docs/guide/swarms) for every route and event.
