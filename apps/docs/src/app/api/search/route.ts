@@ -1,23 +1,12 @@
 import { createSearchAPI } from "fumadocs-core/search/server";
-import {
-  coreSource,
-  workflowSource,
-  alineoSource,
-  agentSource,
-  alineodSource,
-  examplesSource,
-  playgroundSource,
-} from "@/lib/source";
+import { guideSource, referenceSource, cookbooksSource, playgroundSource } from "@/lib/source";
 
 export const dynamic = "force-static";
 
 const allPages = [
-  ...coreSource.getPages(),
-  ...workflowSource.getPages(),
-  ...alineoSource.getPages(),
-  ...agentSource.getPages(),
-  ...alineodSource.getPages(),
-  ...examplesSource.getPages(),
+  ...guideSource.getPages(),
+  ...referenceSource.getPages(),
+  ...cookbooksSource.getPages(),
   ...playgroundSource.getPages(),
 ];
 

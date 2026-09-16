@@ -15,7 +15,7 @@ step until its dependencies settle, and put every agent back together if the pro
 it dies halfway through. Building that yourself means writing a control plane before you've
 written the task.
 
-[alineod](/docs/alineod) is that control plane, run once, driven over HTTP.
+[alineod](/docs/guide/swarms) is that control plane, run once, driven over HTTP.
 
 ## What it does
 
@@ -79,7 +79,7 @@ then gathers all three into one report through an editor.
 Every agent is a live OpenSandbox container, not a child process of the daemon — so alineod
 itself can crash and restart without losing the swarm. On boot it replays its append-only
 ledger, then reconnects to every still-live agent with
-[`Alineo.reattach()`](/docs/agent/api-reference/agent#alineoreattach), which rebinds to the
+[`Alineo.reattach()`](/docs/reference/agent-sdk#alineoreattach), which rebinds to the
 harness bridge already running in the container instead of restarting it. An in-flight turn
 survives the daemon going away.
 
@@ -107,9 +107,9 @@ Every agent alineod runs — lead or child — is spawned from the exact same `A
 uses for a single agent, written to a spec file and handed to the SDK's own `spawn()`. The
 format doesn't change shape to become swarm-friendly. That means anything you've already set up
 per-agent keeps working without a second configuration: an
-[`AgentSpec.permissions`](/docs/agent/getting-started/permissions) gate pausing a risky tool
+[`AgentSpec.permissions`](/docs/guide/control/permissions) gate pausing a risky tool
 call for a human still gates that call inside a forked worker three levels deep; a
-[credential bound with `approval: "hold"`](/docs/agent/getting-started/permissions#holding-network-egress-for-approval) still holds the
+[credential bound with `approval: "hold"`](/docs/guide/control/permissions#holding-network-egress-for-approval) still holds the
 first request to that host until someone approves it, no matter where in the tree the agent
 sits. You don't secure "an agent" once and "a swarm" separately — it's the same spec either way.
 
@@ -148,6 +148,6 @@ just more of the swarm addressable at once.
 
 ## Try it
 
-- [alineod docs](/docs/alineod) — routes, events, budgets, and crash recovery in full.
+- [alineod docs](/docs/guide/swarms) — routes, events, budgets, and crash recovery in full.
 - [`cookbooks/swarm-code-review`](https://github.com/DrejT/alineo/tree/main/cookbooks/swarm-code-review)
   — the run behind the demo above, runnable end to end.

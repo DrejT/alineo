@@ -1,0 +1,18 @@
+{
+  "title": "Reference",
+  "pages": [
+    "index",
+    "agent-sdk",
+    "sandbox-sdk",
+    "workflow-run",
+    "errors",
+    "http-api",
+    "events",
+    "cli",
+    "workflow",
+    "registry",
+    "registry-format",
+    "custom-adapters",
+    "ai-resources"
+  ]
+}

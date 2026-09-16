@@ -35,4 +35,4 @@ bun start
 
 Set `ALINEOD_URL` if the daemon isn't on `http://localhost:4600`.
 
-See the [alineod docs](https://docs.alineo.tech/docs/alineod) for every route and event.
+See the [alineod docs](https://docs.alineo.tech/docs/guide/swarms) for every route and event.

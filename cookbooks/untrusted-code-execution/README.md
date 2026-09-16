@@ -34,7 +34,7 @@ abort the batch. Every sandbox is closed in `finally`, even on timeout or crash.
 
 Reach for this pattern any time you're executing code you didn't write yourself — an LLM's
 generated code, a user-submitted script, a plugin. Swap `runUntrusted()`'s body for
-`execCode()`/`createCodeContext()` (see [Code Interpreter](/docs/examples/exec-code)) if you want a
+`execCode()`/`createCodeContext()` (see [Code Interpreter](/docs/guide/sandboxes/exec)) if you want a
 stateful REPL instead of one-shot scripts.
 
 All examples default to `useServerProxy: true` — traffic routes through the OpenSandbox server so

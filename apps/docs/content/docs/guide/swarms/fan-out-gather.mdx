@@ -1,0 +1,101 @@
+---
+title: Fan-out and gather
+description: Fork workers from a live agent, hold a child until they finish, and hand it their results.
+---
+
+Fan-out/gather is the core swarm pattern: split a task across parallel workers, then combine their results in one
+agent. In alineod, fan-out is several spawns under one parent, and gather is a spawn with `waitFor`.
+
+## Fan out
+
+Spawn each worker under a live parent:
+
+```http
+POST /runs/r_3f9a1c20/agents
+content-type: application/json
+
+{
+  "parentAgentId": "a_7b2e44d1",
+  "spec": { "name": "worker-auth", "cli": "pi", "...": "..." },
+  "prompt": "Review the auth module for injection bugs. Report findings as a list."
+}
+```
+
+Each spawn returns `202` with the child's `agentId` right away, so starting many workers costs one short request
+each; the forks proceed in parallel in the background.
+
+## Gather with `waitFor`
+
+```http
+POST /runs/r_3f9a1c20/agents
+content-type: application/json
+
+{
+  "parentAgentId": "a_7b2e44d1",
+  "waitFor": ["a_c01d9e3a", "a_5e8f2b71", "a_91aa0c4d"],
+  "spec": { "name": "gather", "cli": "pi", "...": "..." },
+  "prompt": "Read /inputs.json and merge the three reports into one prioritized list."
+}
+```
+
+What happens:
+
+1. The request is validated synchronously. Every ID in `waitFor` must be an agent **in the same run**, otherwise
+   the request fails with `400`.
+2. The child is recorded in the `spawning` state and the route returns `202`.
+3. alineod waits until every listed agent's result has settled — successfully or not.
+4. The child moves to `provisioning` and is forked from its parent.
+5. Each dependency's result is written into the child's sandbox, then its `prompt` runs.
+
+### Inputs written into the child
+
+| Path                    | Contents                                                    |
+| ----------------------- | ----------------------------------------------------------- |
+| `/inputs/<agentId>.txt` | The dependency's result text.                               |
+| `/inputs.json`          | A manifest mapping each dependency to its file and outcome. |
+
+```json
+{
+  "a_c01d9e3a": { "path": "/inputs/a_c01d9e3a.txt", "outcome": "success" },
+  "a_5e8f2b71": { "path": "/inputs/a_5e8f2b71.txt", "outcome": "success" },
+  "a_91aa0c4d": { "path": "/inputs/a_91aa0c4d.txt", "outcome": "failed" }
+}
+```
+
+A dependency that failed still releases the gather — check `outcome` in the manifest and tell the gather agent
+how to treat missing work in its prompt.
+
+<Callout type="info">
+  A child can only wait on agents that already exist, so waits always form a DAG and can't deadlock.
+</Callout>
+
+## Collect the final result
+
+```bash
+curl -s 'localhost:4600/agents/a_e4b7d210/result?wait=240'
+```
+
+Without `wait`, a pending result returns `202` with `"state": "pending"` immediately. With `wait`, the request is
+held until the result settles or the timeout passes (maximum 240 seconds), then returns whichever applies — loop
+on it for longer turns.
+
+## Retrying a spawn safely
+
+Spawns are asynchronous, but the HTTP response can still be lost. Pass an `idempotencyKey` and a retried request
+with the same key returns the original child instead of creating a second one:
+
+```json
+{
+  "parentAgentId": "a_7b2e44d1",
+  "idempotencyKey": "review-auth-1",
+  "spec": { "...": "..." }
+}
+```
+
+Keys are scoped to the run.
+
+## Budgets in a fan-out
+
+Spawning requires a budget. Every worker consumes budget from its parent's lineage. Give the root a `spawnDepth` of at least `1` for a flat
+fan-out, and at least `2` if workers will fan out further themselves. See
+[Budgets](/docs/guide/swarms/how-it-works#budgets).

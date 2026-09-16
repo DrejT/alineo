@@ -1,25 +1,12 @@
-import {
-  coreSource,
-  workflowSource,
-  agentSource,
-  alineodSource,
-  alineoSource,
-  examplesSource,
-  cookbooksSource,
-  playgroundSource,
-} from "@/lib/source";
+import { guideSource, referenceSource, cookbooksSource, playgroundSource } from "@/lib/source";
 import { getLLMText } from "@/lib/get-llm-text";
 
 export const dynamic = "force-static";
 
 export async function GET() {
   const allPages = [
-    ...coreSource.getPages(),
-    ...workflowSource.getPages(),
-    ...agentSource.getPages(),
-    ...alineodSource.getPages(),
-    ...alineoSource.getPages(),
-    ...examplesSource.getPages(),
+    ...guideSource.getPages(),
+    ...referenceSource.getPages(),
     ...cookbooksSource.getPages(),
     ...playgroundSource.getPages(),
   ];

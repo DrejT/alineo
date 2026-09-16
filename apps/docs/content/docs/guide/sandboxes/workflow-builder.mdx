@@ -1,0 +1,53 @@
+---
+title: The workflow builder
+description: "@alineo-labs/workflow adds a lazy declarative layer over the Core SDK — one await at the end, lifecycle managed automatically."
+---
+
+`@alineo-labs/workflow` is a separate package that sits on top of the `alineo` Core SDK. It gives you a builder API where you describe what should happen synchronously, then flush everything with a single `await` at the end.
+
+```ts
+import { workflow } from "@alineo-labs/workflow";
+
+await workflow(client)
+  .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "512Mi" } }, (sb) => {
+    sb.exec("npm ci");
+    sb.exec("npm test");
+  })
+  .pipe(process.stdout);
+```
+
+## Core SDK vs Workflow Builder
+
+|               | Core SDK (`alineo`)                     | Workflow Builder (`@alineo-labs/workflow`) |
+| ------------- | --------------------------------------- | ------------------------------------------ |
+| Style         | Imperative — hold objects, call methods | Declarative — describe ops, flush once     |
+| Await         | Per-operation                           | Once at the end                            |
+| Lifecycle     | Manual `try/finally sb.close()`         | Managed automatically                      |
+| Multi-sandbox | Multiple variables                      | `.parallel()`, `.sequence()`               |
+| Streaming     | `ExecHandle.pipe()`                     | `.pipe(writable)` on the workflow          |
+| Values        | `await sb.exec(...)`                    | `readFile(path, as)` → `vars`              |
+
+## When to use the Workflow Builder
+
+Use `@alineo-labs/workflow` when:
+
+- You want the simplest possible multi-sandbox orchestration
+- You need `.parallel()` across N containers without managing each one manually
+- You want to sequence sandboxes where each step depends on the previous result
+- You want a single `await` regardless of how many sandboxes and operations are involved
+
+Use the Core SDK directly when:
+
+- You need fine-grained control over individual exec results mid-flow
+- You're integrating sandbox execution into existing imperative async code
+- You want to stream output interleaved with other async work
+
+## Installation
+
+```bash
+npm install @alineo-labs/workflow
+# or
+bun add @alineo-labs/workflow
+```
+
+The workflow builder requires `alineo` as a peer dependency — you'll already have it if you're using the Core SDK.

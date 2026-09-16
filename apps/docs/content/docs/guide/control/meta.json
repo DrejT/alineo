@@ -1,0 +1,4 @@
+{
+  "title": "Control & safety",
+  "pages": ["permissions", "egress", "credentials", "audit-trail"]
+}

@@ -1,0 +1,18 @@
+{
+  "title": "CLI commands",
+  "pages": [
+    "index",
+    "init",
+    "add",
+    "remove",
+    "list",
+    "spawn",
+    "prompt",
+    "steer",
+    "fork",
+    "agents",
+    "logs",
+    "kill",
+    "telemetry"
+  ]
+}

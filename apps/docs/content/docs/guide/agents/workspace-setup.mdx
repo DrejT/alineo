@@ -1,0 +1,87 @@
+---
+title: Workspace setup
+description: Declarative bash steps that run after Pi install and are baked into the snapshot.
+---
+
+The `setup` field in an agent spec lets you declare a list of named bash commands that run inside the sandbox after the Pi CLI is installed, before the snapshot is taken. Because the steps are baked into the snapshot, they only run once — subsequent `Alineo.load()` calls restore the prepared workspace in seconds.
+
+## Defining setup steps
+
+```json title="agents/workspace-agent.json"
+{
+  "name": "workspace-agent",
+  "cli": "pi",
+  "model": "gemini-flash-latest",
+  "packages": ["git", "python3"],
+  "env": { "GEMINI_API_KEY": "${GEMINI_API_KEY}" },
+  "resources": { "cpu": "1000m", "memory": "2Gi" },
+  "setup": [
+    { "name": "Clone repo", "run": "git clone https://github.com/owner/repo /workspace" },
+    { "name": "Install deps", "run": "npm install", "cwd": "/workspace" },
+    { "name": "Seed test data", "run": "node scripts/seed.js", "cwd": "/workspace" }
+  ]
+}
+```
+
+`env` values are normally plain strings, but any entry can instead be an object describing a credential to inject rather than a container environment variable — the value never becomes part of the sandbox's own `env` at all:
+
+```json
+"env": {
+  "GEMINI_API_KEY": "${GEMINI_API_KEY}",
+  "GITHUB_TOKEN": {
+    "credential": "${GH_TOKEN}",
+    "host": "api.github.com",
+    "injection": { "type": "header", "name": "Authorization" }
+  }
+}
+```
+
+See [Credentials](/docs/guide/control/credentials) for what injection means and how it behaves across `resume()`/`fork()`/spawned children.
+
+Each step is a `SetupStep`:
+
+| Field  | Type     | Required | Description                                                       |
+| ------ | -------- | -------- | ----------------------------------------------------------------- |
+| `name` | `string` | yes      | Human-readable label shown in logs and included in the setup hash |
+| `run`  | `string` | yes      | Bash command to execute                                           |
+| `cwd`  | `string` | no       | Working directory. The command runs as `cd <cwd> && <run>`        |
+
+## Log output
+
+Setup steps are logged with timing between the Pi install and the checkpoint:
+
+```
+[agent] installing Pi CLI...
+[agent] Pi CLI ready    28000ms
+[agent] setup: Clone repo...
+[agent] setup done      4200ms (Clone repo)
+[agent] setup: Install deps...
+[agent] setup done      12300ms (Install deps)
+[agent] setup: Seed test data...
+[agent] setup done      980ms (Seed test data)
+[agent] checkpointing...
+[agent] checkpoint done 9800ms
+```
+
+On subsequent loads, none of these lines appear — the workspace is already in the snapshot.
+
+## Cache invalidation
+
+Any change to a step's `name`, `run`, or `cwd` is included in the [setup hash](/docs/guide/agents/snapshots) and automatically invalidates the snapshot. The next `Alineo.load()` will run all steps again from scratch and create a new checkpoint.
+
+## Self-contained steps
+
+Setup steps that fetch from the internet (e.g. `git clone`, `npm install`) will re-fetch on every cache bust. For reproducible builds, pin versions explicitly:
+
+```json
+{ "name": "Install deps", "run": "npm ci", "cwd": "/workspace" }
+```
+
+For fully self-contained steps that don't require network access at all:
+
+```json
+[
+  { "name": "Create workspace", "run": "mkdir -p /workspace" },
+  { "name": "Write config", "run": "echo '{\"debug\":true}' > config.json", "cwd": "/workspace" }
+]
+```

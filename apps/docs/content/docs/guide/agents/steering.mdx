@@ -1,0 +1,108 @@
+---
+title: Steering and pausing
+description: Redirect a running turn, freeze and thaw an agent's container, and stop agents or whole runs.
+---
+
+alineod has four ways to intervene in a live agent. They act on **one named agent** — none of them cascades to
+its children.
+
+| Action | Route                     | Effect                                                     |
+| ------ | ------------------------- | ---------------------------------------------------------- |
+| Steer  | `POST /agents/:id/steer`  | Redirects the current turn, without restarting it.         |
+| Pause  | `POST /agents/:id/pause`  | Freezes the agent's container in place.                    |
+| Resume | `POST /agents/:id/resume` | Thaws a paused container; work continues where it stopped. |
+| Stop   | `POST /agents/:id/stop`   | Aborts the turn and closes the sandbox.                    |
+
+## Steer
+
+```bash
+curl -s -X POST localhost:4600/agents/a_c01d9e3a/steer \
+  -H 'content-type: application/json' \
+  -d '{"message": "Skip the tests directory — focus only on src/auth."}'
+```
+
+The route returns `202` once the agent's harness has accepted the message, and an `agent_steered` event is
+recorded on the run stream.
+
+### When the message lands
+
+A steer message is delivered **after the tool calls in the current turn finish and before the model's next
+call**. It does not interrupt a tool call that is already running — a long build or test run completes first.
+This is the harness's own steering behaviour (Pi's `steer` RPC), which alineod passes through unchanged.
+
+- To add work _after_ the current turn instead, send a new turn with `POST /agents/:id/prompt`.
+- To cut an agent off immediately, `stop` it.
+
+### Steering a subtree
+
+Steer deliberately targets one agent. To redirect an agent **and** the work it has delegated, steer the parent:
+it holds the context about how the task was split, so it can decide what each child should now do — steer some,
+stop others, or spawn new ones — instead of every child receiving the same raw message.
+
+Agents running inside a sandbox can do this themselves with the CLI, addressing a child by the `sandboxId` that
+`alineo fork --json` reported:
+
+```bash
+alineo steer <child-sandbox-id> "Drop the performance section; the security review is the priority now."
+```
+
+See [alineo steer](/docs/reference/cli/steer).
+
+### Errors
+
+| Status | When                                                                |
+| ------ | ------------------------------------------------------------------- |
+| `404`  | No such agent.                                                      |
+| `409`  | The agent isn't live (not provisioned yet, or its sandbox is gone). |
+| `502`  | The agent's harness rejected or didn't accept the message.          |
+
+## Pause and resume
+
+```bash
+curl -s -X POST localhost:4600/agents/a_c01d9e3a/pause
+# … later
+curl -s -X POST localhost:4600/agents/a_c01d9e3a/resume
+```
+
+Pause freezes the agent's container — the harness process and any tool it's running are suspended. Resume thaws
+it and it carries on from exactly where it stopped. A turn's stream simply goes quiet while paused; it doesn't
+error. Each transition emits `agent_state_changed` with `reason: "operator"`.
+
+- Pausing an already-paused agent is a no-op.
+- Resuming an agent that isn't paused returns `409`.
+- While paused, `GET /agents/:id` omits `sessionStats` rather than waiting on the frozen harness.
+- Resume returns the agent to the state it had before the pause.
+- Spawning a child under a paused agent is accepted: the child waits in `spawning` until the parent resumes,
+  then forks. If the parent is stopped instead, the child fails.
+- If alineod restarts while an agent is paused, the agent stays paused and resumes normally; a turn that was
+  running when it was paused is followed to completion after the resume.
+
+<Callout type="info" title="Pauses don't end turns">
+  A paused turn's stream goes quiet, and a pause can outlast `ALINEOD_PROMPT_INACTIVITY_MS` (default
+  180 s). alineod then follows the turn by polling the agent instead of reading its stream, and
+  paused time doesn't count toward `ALINEOD_TURN_MAX_MS`, so the turn finishes normally after resume
+  with its full result.
+</Callout>
+
+<Callout type="info" title="Runtime differences">
+  On Docker-backed OpenSandbox, pause is a true in-place freeze. On Kubernetes, pause and resume are
+  snapshot-based and in-memory state does not survive.
+</Callout>
+
+## Stop
+
+```bash
+curl -s -X POST localhost:4600/agents/a_c01d9e3a/stop \
+  -H 'content-type: application/json' -d '{"mode": "abort"}'
+```
+
+Stop aborts the agent's current turn, closes its sandbox, and ends it with outcome `aborted`. Its handle settles,
+so anything waiting on it is released. The body is optional. `mode` accepts `abort` (default) or `drain`; `drain` currently behaves the same as `abort`.
+
+To stop everything at once, delete the run:
+
+```bash
+curl -s -X DELETE localhost:4600/runs/r_3f9a1c20
+```
+
+This aborts and closes every live agent in the run. The run's ledger is kept.

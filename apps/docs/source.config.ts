@@ -5,12 +5,11 @@ import { z } from "zod";
 
 const docs = { postprocess: { includeProcessedMarkdown: true } };
 
-export const coreDocs = defineDocs({ dir: "content/docs/core", docs });
-export const alineoDocs = defineDocs({ dir: "content/docs/alineo", docs });
-export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });
-export const agentDocs = defineDocs({ dir: "content/docs/agent", docs });
-export const alineodDocs = defineDocs({ dir: "content/docs/alineod", docs });
-export const examplesDocs = defineDocs({ dir: "content/docs/examples", docs });
+// Four collections, one per reading mode — not one per npm package. `guide` is the
+// narrative path (product concepts, grouped by what you're trying to do); `reference`
+// is the exhaustive API surface, deliberately kept off that path.
+export const guideDocs = defineDocs({ dir: "content/docs/guide", docs });
+export const referenceDocs = defineDocs({ dir: "content/docs/reference", docs });
 export const cookbooksDocs = defineDocs({ dir: "content/docs/cookbooks", docs });
 export const playgroundDocs = defineDocs({ dir: "content/docs/playground", docs });
 
