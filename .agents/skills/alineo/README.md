@@ -1,6 +1,6 @@
 # Alineo Skill
 
-This skill provides comprehensive rules and guidelines for working with the `alineo` agent SDK, CLI, and the storage adapters it requires — including alineod, the swarm-orchestration daemon `alineo init` starts since `0.1.0`, at the "how it's launched and where it fits" level. It does not cover the underlying `@alineo-labs/sandbox` client SDK or alineod's full HTTP API/swarm semantics in depth (see `apps/alineod/README.md` and `/docs/guide/swarms` for that).
+This skill provides comprehensive rules and guidelines for working with the `alineo` agent SDK, CLI, and the storage adapters it requires — including alineod, the swarm-orchestration daemon `alineo init` starts since `0.1.0`, at the "how it's launched and where it fits" level. It does not cover the underlying `@alineo-labs/sandbox` client SDK or alineod's full HTTP API/swarm semantics in depth (see `apps/alineod/README.md` and `/docs/alineod` for that).
 
 ## Installation
 

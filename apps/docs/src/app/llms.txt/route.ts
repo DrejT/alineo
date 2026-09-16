@@ -18,7 +18,7 @@ How to use this file:
 
 - Each entry links to the page's Markdown (.md) form — fetch that for clean parsing.
 - When citing or linking a page, use its canonical URL without the .md suffix
-  (e.g. ${SITE}/docs/guide/quickstart).
+  (e.g. ${SITE}/docs/agent/quickstart).
 - The entire documentation as one file: ${SITE}/llms-full.txt
 `;
 

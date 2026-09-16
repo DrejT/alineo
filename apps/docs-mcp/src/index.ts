@@ -40,7 +40,7 @@ const handler = createMcpHandler(() => {
         "Fetch the full Markdown of one alineo documentation page. Accepts a canonical " +
         "URL, a `/docs/...` path, or a `collection/slug` pair (from search_docs results).",
       inputSchema: z.object({
-        path: z.string().min(1).describe("e.g. /docs/guide/quickstart or guide/quickstart"),
+        path: z.string().min(1).describe("e.g. /docs/agent/quickstart or agent/quickstart"),
       }),
     },
     async ({ path }) => {
@@ -101,7 +101,7 @@ export default {
             "Add this endpoint to an MCP client:\n\n" +
             `  ${url.origin}/mcp\n\n` +
             "Tools: search_docs, get_doc, list_docs\n" +
-            "Docs:  https://docs.alineo.tech/docs/reference/ai-resources\n",
+            "Docs:  https://docs.alineo.tech/docs/core/ai-resources\n",
           { headers: { "Content-Type": "text/plain; charset=utf-8" } },
         ),
       );

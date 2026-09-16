@@ -1,4 +1,0 @@
-{
-  "title": "Workflow builder",
-  "pages": ["builder", "sandbox-builder", "control-flow", "parallel-sequence", "capturing-values"]
-}

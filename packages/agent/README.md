@@ -6,7 +6,7 @@ Run [Pi](https://pi.ai) coding agents inside isolated [alineo](https://alineo.te
 bun add alineo
 ```
 
-**[Full documentation →](https://docs.alineo.tech/docs/guide/agents)**
+**[Full documentation →](https://docs.alineo.tech/docs/agent)**
 
 ---
 

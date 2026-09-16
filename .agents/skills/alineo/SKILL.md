@@ -26,7 +26,7 @@ where it fits and how it differs from everything else in this skill.
 
 > This skill covers the `alineo` **agent SDK**, CLI, and (at a "how it's launched and where it
 > fits" level) alineod — not the underlying `@alineo-labs/sandbox` client SDK, and not alineod's
-> full HTTP API/swarm semantics in depth (see `apps/alineod/README.md` and `/docs/guide/swarms` for
+> full HTTP API/swarm semantics in depth (see `apps/alineod/README.md` and `/docs/alineod` for
 > that).
 
 ---

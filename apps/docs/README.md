@@ -18,7 +18,7 @@ src/
   lib/source.ts   — Fumadocs content source config
 ```
 
-Each top-level folder under `content/docs/` has its own `meta.json` controlling sidebar order; page routing follows the file path (e.g. `content/docs/reference/registry.mdx` → `/docs/reference/registry`).
+Each top-level folder under `content/docs/` has its own `meta.json` controlling sidebar order; page routing follows the file path (e.g. `content/docs/cli/registry/schema.mdx` → `/docs/cli/registry/schema`).
 
 ## Commands
 
