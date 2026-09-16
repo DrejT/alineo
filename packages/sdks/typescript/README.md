@@ -6,7 +6,7 @@ Sandboxes as objects. Spawn live containers, run code, checkpoint state — from
 bun add @alineo-labs/sandbox @alineo-labs/sqlite
 ```
 
-**[Full documentation →](https://docs.alineo.tech/docs/overview)**
+**[Full documentation →](https://docs.alineo.tech/docs/core)**
 
 ---
 

@@ -1,5 +1,4 @@
 import {
-  overviewDocs,
   coreDocs,
   agentDocs,
   workflowDocs,
@@ -11,11 +10,6 @@ import {
 } from "collections/server";
 import { loader } from "fumadocs-core/source";
 import { toFumadocsSource } from "fumadocs-mdx/runtime/server";
-
-export const overviewSource = loader({
-  baseUrl: "/docs/overview",
-  source: overviewDocs.toFumadocsSource(),
-});
 
 export const coreSource = loader({ baseUrl: "/docs/core", source: coreDocs.toFumadocsSource() });
 

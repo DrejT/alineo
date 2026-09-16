@@ -125,4 +125,4 @@
 # it as an error-boundary shell that a client script replaces via router.replace()
 # after hydration, which a no-JS client or crawler would see as the actual response.
 # An edge-level 301 here sidesteps that.
-/                                            /docs/overview                               301
+/                                            /docs/agent                                  301

@@ -7,7 +7,7 @@
 
 **A control plane for swarms of sandboxed agents.**
 
-[Docs](https://docs.alineo.tech/docs/overview) ·
+[Docs](https://docs.alineo.tech/docs/agent) ·
 [Quickstart](https://docs.alineo.tech/docs/agent/quickstart) ·
 [Cookbooks](https://docs.alineo.tech/docs/cookbooks) ·
 [Discord](https://discord.com/invite/XGkPu3YBH4)

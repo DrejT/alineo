@@ -1,6 +1,5 @@
 import { createSearchAPI } from "fumadocs-core/search/server";
 import {
-  overviewSource,
   coreSource,
   agentSource,
   workflowSource,
@@ -13,7 +12,6 @@ import {
 export const dynamic = "force-static";
 
 const allPages = [
-  ...overviewSource.getPages(),
   ...coreSource.getPages(),
   ...agentSource.getPages(),
   ...workflowSource.getPages(),

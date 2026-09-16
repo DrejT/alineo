@@ -5,11 +5,9 @@ import { z } from "zod";
 
 const docs = { postprocess: { includeProcessedMarkdown: true } };
 
-// One collection per product, plus the platform overview and the two
-// non-product sections. The switcher in the docs sidebar picks a product;
+// One collection per product, plus the two non-product sections. The switcher in the docs sidebar picks a product;
 // each product's own pages are then organised by its concepts, not by the
 // files they happen to live in.
-export const overviewDocs = defineDocs({ dir: "content/docs/overview", docs });
 export const coreDocs = defineDocs({ dir: "content/docs/core", docs });
 export const agentDocs = defineDocs({ dir: "content/docs/agent", docs });
 export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });

@@ -282,13 +282,13 @@ The TypeScript sandbox client SDK (`packages/sdks/typescript`, published as `@al
 
 ## Docs: the switcher is products, the sidebar is that product's concepts
 
-`apps/docs/content/docs/` has one collection per product, plus the platform overview and the two
-sections that cut across products:
+`apps/docs/content/docs/` has one collection per product, plus the two sections that cut across
+products. There is no separate overview or landing page — `/docs/agent` is the front door, because
+the Agent SDK is what someone arriving at alineo is most likely here for:
 
 | Collection | URL | In the switcher? |
 |---|---|---|
-| `overview/` | `/docs/overview` | No — it sits above the products. `/` and the header "Docs" link land here. |
-| `agent/` | `/docs/agent` | Yes — Agent SDK (`alineo`) |
+| `agent/` | `/docs/agent` | Yes — Agent SDK (`alineo`). `/` and the header "Docs" link land here. |
 | `alineod/` | `/docs/alineod` | Yes — `@alineo-labs/alineod` |
 | `core/` | `/docs/core` | Yes — Core SDK (`@alineo-labs/sandbox`) |
 | `cli/` | `/docs/cli` | Yes — `alineo-cli` |

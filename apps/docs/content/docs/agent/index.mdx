@@ -80,12 +80,26 @@ const reviewer = await agent.spawn("./agents/reviewer.json");
 ```
 
 The child is forked from the parent's **live** sandbox — the checkout, the installed packages, the
-files the parent wrote are already on its disk. Clone a repository once and review it three ways at
-the same time.
+files the parent wrote are already on its disk. So you clone a repository once and review it three
+ways at the same time:
+
+![A lead agent clones expressjs/cors, forks three reviewer agents from its live sandbox, pauses one and steers another mid-review, then an editor waits for all three and merges their findings.](/docs-assets/swarm-demo.gif)
+
+<sub>
+  A sped-up replay of a real run — the [swarm code review](/docs/cookbooks/swarm-code-review)
+  cookbook.
+</sub>
 
 For more than a couple of children — budgets, `waitFor` gathering, one event stream for the whole
 tree, recovery when the host dies — that's [alineod](/docs/alineod), which drives this SDK
 in-process and exposes it over HTTP.
+
+## Everything is on the record
+
+The `adapter` on `load()` isn't bookkeeping you can skip. Every exec, tool call and state
+transition is appended to a SQLite or Postgres ledger before anything derived from it is updated,
+and that is what makes the rest work: `reattach()` finds the agent again, a crashed run replays
+instead of restarting, and an auditor gets the whole session rather than a summary of it.
 
 <Cards>
   <Card

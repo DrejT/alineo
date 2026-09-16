@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 import {
-  overviewSource,
   coreSource,
   agentSource,
   workflowSource,
@@ -12,7 +11,6 @@ import {
 import { loadOgFonts, ogImageSize, renderOgImage } from "@/lib/og-image";
 
 const SOURCES = {
-  overview: overviewSource,
   core: coreSource,
   agent: agentSource,
   workflow: workflowSource,

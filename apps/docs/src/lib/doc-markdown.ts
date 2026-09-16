@@ -1,5 +1,4 @@
 import {
-  overviewSource,
   coreSource,
   agentSource,
   workflowSource,
@@ -15,7 +14,6 @@ import {
  * "Open in ChatGPT" page actions next to each page title.
  */
 export const docCollections = {
-  overview: overviewSource,
   core: coreSource,
   agent: agentSource,
   workflow: workflowSource,
