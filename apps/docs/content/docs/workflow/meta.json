@@ -1,4 +1,4 @@
 {
-  "title": "Workflow Builder",
-  "pages": ["getting-started", "building", "api-reference"]
+  "title": "Workflow SDK",
+  "pages": ["index", "concepts", "api-reference"]
 }

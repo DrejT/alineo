@@ -1,10 +1,9 @@
 import {
   coreSource,
-  workflowSource,
   agentSource,
+  workflowSource,
+  cliSource,
   alineodSource,
-  alineoSource,
-  examplesSource,
   cookbooksSource,
   playgroundSource,
 } from "@/lib/source";
@@ -15,11 +14,10 @@ export const dynamic = "force-static";
 export async function GET() {
   const allPages = [
     ...coreSource.getPages(),
-    ...workflowSource.getPages(),
     ...agentSource.getPages(),
+    ...workflowSource.getPages(),
+    ...cliSource.getPages(),
     ...alineodSource.getPages(),
-    ...alineoSource.getPages(),
-    ...examplesSource.getPages(),
     ...cookbooksSource.getPages(),
     ...playgroundSource.getPages(),
   ];

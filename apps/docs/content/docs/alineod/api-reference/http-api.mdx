@@ -113,7 +113,7 @@ Spawn a child by forking a live parent's sandbox. Returns `202`.
 | `409`  | The parent isn't live.                                     |
 
 A spawn refused by a budget still returns `202`; the child then ends with outcome `budget-exceeded` and a
-`budget_denied` event is emitted. See [Fan-out and gather](/docs/alineod/guides/fan-out-gather).
+`budget_denied` event is emitted. See [Fan-out and gather](/docs/alineod/concepts/fan-out-gather).
 
 ### GET /agents/:agentId
 
@@ -145,7 +145,7 @@ Returns `202` and emits `agent_steered`. Applies to this agent only.
 | `409`  | The agent isn't live.                  |
 | `502`  | The harness didn't accept the message. |
 
-See [Steering and pausing](/docs/alineod/guides/steering-and-pausing#steer).
+See [Steering and pausing](/docs/agent/concepts/steering#steer).
 
 ### POST /agents/:agentId/pause
 

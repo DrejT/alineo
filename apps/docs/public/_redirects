@@ -1,33 +1,128 @@
 # Cloudflare Pages redirects. apps/docs is a static export (output: "export"), so
 # these can't live in next.config.ts's redirects() — that API is unsupported for
 # static export. Cloudflare Pages reads this file at the edge instead, ahead of
-# Next's own routing.
+# Next's own routing. First matching rule wins, so specific rules precede globs.
 #
-# core and alineo docs were versioned for a while (content/docs/{core,alineo}/vX.Y/,
-# URLs like /docs/core/0.3) — that's been removed in favor of a single unversioned
-# tree per product, same as workflow/agent/examples always were. These rules keep
-# already-indexed versioned URLs (both the current "vX.Y"-dropped scheme and the
-# older "vX.Y"-prefixed one) resolving to the live unversioned page instead of 404ing.
-/docs/core/v0.1          /docs/core                301
-/docs/core/v0.1/*         /docs/core/:splat         301
-/docs/core/0.1           /docs/core                301
-/docs/core/0.1/*          /docs/core/:splat         301
-/docs/core/0.2           /docs/core                301
-/docs/core/0.2/*          /docs/core/:splat         301
-/docs/core/0.3           /docs/core                301
-/docs/core/0.3/*          /docs/core/:splat         301
+# ── The 2026-09 restructure ────────────────────────────────────────────────────
+# The product switcher still picks a product (Agent SDK / alineod / Core SDK /
+# alineo CLI / Workflow SDK), but each product's own pages moved from a
+# file-shaped layout (getting-started / building / patterns / concepts) to a
+# concept-shaped one: Overview → Quickstart → Concepts → API reference. The CLI
+# also moved from /docs/alineo to /docs/cli, which no longer collides with the
+# `alineo` package name used by the Agent SDK.
 
-/docs/alineo/v0.1         /docs/alineo               301
-/docs/alineo/v0.1/*        /docs/alineo/:splat        301
-/docs/alineo/0.1          /docs/alineo               301
-/docs/alineo/0.1/*         /docs/alineo/:splat        301
-/docs/alineo/0.2          /docs/alineo               301
-/docs/alineo/0.2/*         /docs/alineo/:splat        301
-/docs/alineo/0.3          /docs/alineo               301
-/docs/alineo/0.3/*         /docs/alineo/:splat        301
+/docs/agent/api-reference/agent              /docs/agent/api-reference/alineo             301
+/docs/agent/getting-started/permissions      /docs/agent/concepts/permissions             301
+/docs/agent/getting-started/quickstart       /docs/agent/quickstart                       301
+/docs/agent/getting-started/reliability      /docs/agent/concepts/reliability             301
+/docs/agent/getting-started/session-inspection /docs/agent/concepts/session-inspection      301
+/docs/agent/getting-started/snapshotting     /docs/agent/concepts/snapshots               301
+/docs/agent/getting-started/streaming        /docs/agent/concepts/streaming               301
+/docs/agent/getting-started/workspace-setup  /docs/agent/concepts/workspace-setup         301
+/docs/alineo/commands                        /docs/cli/commands                           301
+/docs/alineo/commands/add                    /docs/cli/commands/add                       301
+/docs/alineo/commands/agents                 /docs/cli/commands/agents                    301
+/docs/alineo/commands/fork                   /docs/cli/commands/fork                      301
+/docs/alineo/commands/init                   /docs/cli/commands/init                      301
+/docs/alineo/commands/kill                   /docs/cli/commands/kill                      301
+/docs/alineo/commands/list                   /docs/cli/commands/list                      301
+/docs/alineo/commands/logs                   /docs/cli/commands/logs                      301
+/docs/alineo/commands/prompt                 /docs/cli/commands/prompt                    301
+/docs/alineo/commands/remove                 /docs/cli/commands/remove                    301
+/docs/alineo/commands/spawn                  /docs/cli/commands/spawn                     301
+/docs/alineo/commands/steer                  /docs/cli/commands/steer                     301
+/docs/alineo/commands/telemetry              /docs/cli/commands/telemetry                 301
+/docs/alineo/getting-started/quickstart      /docs/cli/quickstart                         301
+/docs/alineo/registry                        /docs/cli/registry                           301
+/docs/alineo/registry/schema                 /docs/cli/registry/schema                    301
+/docs/alineo/using-sandboxes                 /docs/agent/concepts/spec                    301
+/docs/alineod/getting-started/deployment     /docs/alineod/deployment                     301
+/docs/alineod/getting-started/quickstart     /docs/alineod/quickstart                     301
+/docs/alineod/guides/crash-recovery          /docs/alineod/concepts/crash-recovery        301
+/docs/alineod/guides/fan-out-gather          /docs/alineod/concepts/fan-out-gather        301
+/docs/alineod/guides/how-it-works            /docs/alineod/concepts/how-it-works          301
+/docs/alineod/guides/steering-and-pausing    /docs/agent/concepts/steering                301
+/docs/core/adapters/custom                   /docs/core/storage/custom                    301
+/docs/core/adapters/postgres                 /docs/core/storage/postgres                  301
+/docs/core/adapters/sqlite                   /docs/core/storage/sqlite                    301
+/docs/core/api-reference/alineo-client       /docs/core/api-reference/sandbox             301
+/docs/core/api-reference/workflow-run        /docs/core/api-reference/exec-handle         301
+/docs/core/building/control-flow             /docs/core/concepts/control-flow             301
+/docs/core/building/exec                     /docs/core/concepts/exec                     301
+/docs/core/building/file-ops                 /docs/core/concepts/file-ops                 301
+/docs/core/building/snapshots                /docs/core/concepts/snapshots                301
+/docs/core/concepts/storage-adapters         /docs/core/storage/ledger                    301
+/docs/core/getting-started/how-it-works      /docs/core/concepts/how-it-works             301
+/docs/core/getting-started/installation      /docs/core/installation                      301
+/docs/core/patterns/error-handling           /docs/core/concepts/error-handling           301
+/docs/core/patterns/flue                     /docs/core/storage/flue                      301
+/docs/core/patterns/fork                     /docs/alineod/concepts/forking               301
+/docs/core/patterns/named-checkpoints        /docs/core/storage/checkpoints               301
+/docs/core/patterns/observability            /docs/core/storage/observability             301
+/docs/core/patterns/run-management           /docs/core/storage/run-management            301
+/docs/core/patterns/timeouts-and-cancellation /docs/core/concepts/timeouts                 301
+/docs/workflow/building/capturing-values     /docs/workflow/concepts/capturing-values     301
+/docs/workflow/building/control-flow         /docs/workflow/concepts/control-flow         301
+/docs/workflow/building/parallel-sequence    /docs/workflow/concepts/parallel-sequence    301
+/docs/workflow/building/sandbox-builder      /docs/workflow/concepts/sandbox-builder      301
+
+# Section landing pages — card grids that only restated the sidebar.
+/docs/core/getting-started                   /docs/core/installation                      301
+/docs/core/getting-started/quickstart        /docs/core                                   301
+/docs/core/getting-started/what-is-alineo    /docs/core                                   301
+/docs/core/concepts                          /docs/core/concepts/sandboxes                301
+/docs/core/building                          /docs/core/concepts/exec                     301
+/docs/core/patterns                          /docs/core/concepts/error-handling           301
+/docs/core/adapters                          /docs/core/storage/ledger                    301
+/docs/core/api-reference                     /docs/core/api-reference/sandbox             301
+/docs/agent/getting-started                  /docs/agent/quickstart                       301
+/docs/agent/api-reference                    /docs/agent/api-reference/alineo             301
+/docs/alineod/getting-started                /docs/alineod/quickstart                     301
+/docs/alineod/guides                         /docs/alineod/concepts/how-it-works          301
+/docs/alineod/api-reference                  /docs/alineod/api-reference/http-api         301
+/docs/workflow/getting-started               /docs/workflow                               301
+/docs/workflow/getting-started/quickstart    /docs/workflow                               301
+/docs/workflow/building                      /docs/workflow/concepts/sandbox-builder      301
+/docs/workflow/api-reference                 /docs/workflow/api-reference/builder         301
+
+# The CLI moved off /docs/alineo, which read as the `alineo` package rather than
+# the `alineo-cli` one. Specific pages first, then the whole subtree.
+/docs/alineo                                 /docs/cli                                    301
+/docs/alineo/getting-started                 /docs/cli/quickstart                         301
+/docs/alineo/commands                        /docs/cli/commands                           301
+/docs/alineo/registry                        /docs/cli/registry                           301
+/docs/alineo/v0.1/*                          /docs/cli                                    301
+/docs/alineo/0.1/*                           /docs/cli                                    301
+/docs/alineo/v0.2/*                          /docs/cli                                    301
+/docs/alineo/0.2/*                           /docs/cli                                    301
+/docs/alineo/v0.3/*                          /docs/cli                                    301
+/docs/alineo/0.3/*                           /docs/cli                                    301
+/docs/alineo/*                               /docs/cli                                    301
+
+# The Examples section was 15 six-line pages that each only <include>'d a repo
+# README. The runnable sources still live in the repo; Cookbooks is the docs home
+# for "show me a real one".
+/docs/examples                               /docs/cookbooks                              301
+/docs/examples/*                             /docs/cookbooks                              301
+
+# core docs were versioned for a while (content/docs/core/vX.Y/, URLs like
+# /docs/core/0.3). That scheme was removed; these keep already-indexed versioned
+# URLs resolving instead of 404ing.
+/docs/core/v0.1/*                            /docs/core                                   301
+/docs/core/0.1/*                             /docs/core                                   301
+/docs/core/v0.2/*                            /docs/core                                   301
+/docs/core/0.2/*                             /docs/core                                   301
+/docs/core/v0.3/*                            /docs/core                                   301
+/docs/core/0.3/*                             /docs/core                                   301
+
+# Catch-alls for any old deep link not named above. Must stay last.
+/docs/core/*                                 /docs/core                                   301
+/docs/agent/*                                /docs/agent                                  301
+/docs/alineod/*                              /docs/alineod                                301
+/docs/workflow/*                             /docs/workflow                               301
 
 # Static export can't perform a real server redirect for "/" — Next instead bakes
 # it as an error-boundary shell that a client script replaces via router.replace()
 # after hydration, which a no-JS client or crawler would see as the actual response.
 # An edge-level 301 here sidesteps that.
-/                      /docs/core                301
+/                                            /docs/agent                                  301
