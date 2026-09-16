@@ -57,9 +57,6 @@ try {
 }
 ```
 
-A spec is plain data — keep it in a file instead with
-`Alineo.load(await Bun.file("./agents/hello-agent.json").json())`.
-
 Agents run [Pi](https://pi.ai) inside [OpenSandbox](https://opensandbox.ai) containers.
 [Full quickstart →](https://docs.alineo.tech/docs/agent/getting-started/quickstart)
 
