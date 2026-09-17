@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { buildServer } from "../src/server.js";
-import { writeConfig } from "../src/config.js";
+import { writeConfig } from "@alineo-labs/cli-shared";
 import { stubFetch } from "./fetch-stub.js";
 
 const EXPECTED_TOOLS = [

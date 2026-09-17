@@ -2,7 +2,7 @@ import { createCliRenderer, BoxRenderable } from "@opentui/core";
 import type { SandboxDetails } from "@alineo-labs/sandbox";
 import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
-import { readConfig } from "../config.js";
+import { readConfig } from "@alineo-labs/cli-shared";
 import { createDashboardView, type DashboardView } from "./dashboard.js";
 import { createChatView, type ChatView } from "./chat.js";
 import { createNewSessionView, type NewSessionView } from "./new-session.js";

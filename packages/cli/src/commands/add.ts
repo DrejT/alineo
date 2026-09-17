@@ -1,7 +1,7 @@
 import { existsSync } from "fs";
 import { mkdir } from "fs/promises";
 import { join } from "path";
-import { readConfig } from "../config.js";
+import { readConfig } from "@alineo-labs/cli-shared";
 import { validateAgentSpec, type AgentSpec } from "../schema.js";
 import { flag } from "./args.js";
 import type { CliCommand } from "./types.js";

@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { addSpec, listSpecs, removeSpec } from "../src/specs.js";
-import { writeConfig } from "../src/config.js";
+import { writeConfig } from "@alineo-labs/cli-shared";
 import { expectRejects } from "./assertions.js";
 
 let tempDir: string;

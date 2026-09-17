@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { pollHealth, isReachable } from "../src/docker.js";
 import { stubFetch } from "./fetch-stub.ts";
+import { expectRejects } from "./assertions.js";
 
 describe("pollHealth", () => {
   let originalFetch: typeof globalThis.fetch;
@@ -18,7 +19,7 @@ describe("pollHealth", () => {
       return new Response(JSON.stringify({ status: "healthy" }), { status: 200 });
     });
 
-    await expect(pollHealth("http://localhost:8080/health", 5_000)).resolves.toBeUndefined();
+    expect(await pollHealth("http://localhost:8080/health", 5_000)).toBeUndefined();
   });
 
   it("throws after timeout if server never becomes healthy", async () => {
@@ -26,9 +27,8 @@ describe("pollHealth", () => {
       return new Response(JSON.stringify({ status: "starting" }), { status: 200 });
     });
 
-    await expect(pollHealth("http://localhost:8080/health", 100)).rejects.toThrow(
-      /did not become healthy/,
-    );
+    const err = await expectRejects(pollHealth("http://localhost:8080/health", 100));
+    expect((err as Error).message).toMatch(/did not become healthy/);
   });
 
   it("throws after timeout if server is unreachable", async () => {
@@ -36,9 +36,8 @@ describe("pollHealth", () => {
       throw new Error("ECONNREFUSED");
     });
 
-    await expect(pollHealth("http://localhost:8080/health", 100)).rejects.toThrow(
-      /did not become healthy/,
-    );
+    const err = await expectRejects(pollHealth("http://localhost:8080/health", 100));
+    expect((err as Error).message).toMatch(/did not become healthy/);
   });
 });
 
@@ -58,9 +57,12 @@ describe("isReachable", () => {
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
 
-    await expect(
-      isReachable("http://localhost:4600/health", (b) => (b as { ok?: boolean }).ok === true, 100),
-    ).resolves.toBe(true);
+    const result = await isReachable(
+      "http://localhost:4600/health",
+      (b) => (b as { ok?: boolean }).ok === true,
+      100,
+    );
+    expect(result).toBe(true);
   });
 
   it("returns false instead of throwing when the health check never succeeds — this is what lets ensureAlineod distinguish 'running per Docker' from 'actually reachable'", async () => {
@@ -68,6 +70,7 @@ describe("isReachable", () => {
       throw new Error("ECONNREFUSED");
     });
 
-    await expect(isReachable("http://localhost:4600/health", undefined, 100)).resolves.toBe(false);
+    const result = await isReachable("http://localhost:4600/health", undefined, 100);
+    expect(result).toBe(false);
   });
 });

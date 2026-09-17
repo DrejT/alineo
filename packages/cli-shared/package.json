@@ -1,0 +1,30 @@
+{
+  "name": "@alineo-labs/cli-shared",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Internal only: Docker orchestration, project/server config, and the alineo init / alineo_init bootstrap logic shared by alineo-cli and alineo-mcp. Never published — alineo-cli only publishes its bin, so this is consumed at build time (workspace:* devDependency, bundled into each consumer's dist) rather than as a public library entry point.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrejT/alineo.git",
+    "directory": "packages/cli-shared"
+  },
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "bun-types": "1.3.14",
+    "tsdown": "0.23.0",
+    "typescript": "6.0.3"
+  }
+}

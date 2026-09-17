@@ -9,7 +9,7 @@ import {
   type SelectOption,
 } from "@opentui/core";
 import type { AgentSpec } from "alineo";
-import { readConfig, type AlineoConfig } from "../config.js";
+import { readConfig, type AlineoConfig } from "@alineo-labs/cli-shared";
 
 const REGISTRY_INDEX_URL = "https://registry.alineo.dev/agents/index.json";
 

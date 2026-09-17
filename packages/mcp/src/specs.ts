@@ -7,7 +7,7 @@ import { existsSync, readdirSync } from "fs";
 import { mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { validateAgentSpec, type AgentSpec } from "alineo";
-import { readConfig } from "./config.js";
+import { readConfig } from "@alineo-labs/cli-shared";
 
 export interface AddSpecResult {
   name: string;

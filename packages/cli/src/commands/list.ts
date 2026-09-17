@@ -1,6 +1,6 @@
 import { readdirSync, existsSync } from "fs";
 import { join } from "path";
-import { readConfig } from "../config.js";
+import { readConfig } from "@alineo-labs/cli-shared";
 import type { AgentSpec } from "../schema.js";
 import type { CliCommand } from "./types.js";
 
