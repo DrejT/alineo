@@ -115,11 +115,11 @@ recipe using `@modelcontextprotocol/client`'s `StdioClientTransport`.
 
 ## Configuration reference
 
-| Setting                | Where                                                                                                                              | Default                  | Affects                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------- |
-| `ALINEOD_URL`          | env var on the `alineo-mcp` process                                                                                                | `http://127.0.0.1:4600`  | Every `alineod_*` tool                                           |
-| `alineo.config.json`   | project-local file, or `~/.config/alineo/config.json` global fallback (same resolution as `alineo-cli`)                            | written by `alineo_init` | `agentsDir` for `alineo_add_spec` / `list_specs` / `remove_spec` |
-| Docker                 | must be installed and running                                                                                                      | —                        | `alineo_init` only                                               |
+| Setting                | Where                                                                                                                                                      | Default                  | Affects                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------- |
+| `ALINEOD_URL`          | env var on the `alineo-mcp` process                                                                                                                        | `http://127.0.0.1:4600`  | Every `alineod_*` tool                                           |
+| `alineo.config.json`   | project-local file, or `~/.config/alineo/config.json` global fallback (same resolution as `alineo-cli`)                                                    | written by `alineo_init` | `agentsDir` for `alineo_add_spec` / `list_specs` / `remove_spec` |
+| Docker                 | must be installed and running                                                                                                                              | —                        | `alineo_init` only                                               |
 | Model provider API key | in the _caller's_ shell when running `alineo_init` (forwarded into the alineod container) — see the list in `@alineo-labs/cli-shared`'s `pi-model-keys.ts` | none                     | Whether spawned agents can actually call a model                 |
 
 `alineo.config.json`'s `agentsDir` is shared with `alineo-cli` — specs added via either tool show
