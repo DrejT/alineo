@@ -87,11 +87,14 @@ export async function pollHealth(
 
 /** A quick one-shot version of `pollHealth` for deciding whether an already-`running`
  * container is actually reachable, not just started — a container can report "running" to
- * Docker while its service is unreachable (wrong network mode, crashed process, stale config). */
+ * Docker while its service is unreachable (wrong network mode, crashed process, stale config).
+ * 10s (not 3s) so a slow-but-healthy service (host under load, cold Bun startup after reboot,
+ * bridge networking still settling) doesn't get misread as unreachable and trigger a destructive
+ * `docker rm -f` of an otherwise-fine container. */
 export async function isReachable(
   url: string,
   isHealthy?: (body: unknown) => boolean,
-  timeoutMs = 3_000,
+  timeoutMs = 10_000,
 ): Promise<boolean> {
   try {
     await pollHealth(url, timeoutMs, isHealthy);

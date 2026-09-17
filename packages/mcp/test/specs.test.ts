@@ -74,6 +74,27 @@ describe("addSpec / listSpecs / removeSpec", () => {
     expect(specs).toEqual(["dep", "root"]);
   });
 
+  it("rejects a self-referencing registryDependency instead of looping forever", async () => {
+    const selfRef = join(tempDir, "self-ref-spec.json");
+    await Bun.write(
+      selfRef,
+      JSON.stringify({ name: "self", cli: "pi", registryDependencies: [selfRef] }),
+    );
+
+    const err = await expectRejects(addSpec(selfRef));
+    expect((err as Error).message).toContain("Circular registryDependencies");
+  });
+
+  it("rejects a circular chain of registryDependencies (A -> B -> A)", async () => {
+    const specA = join(tempDir, "a-spec.json");
+    const specB = join(tempDir, "b-spec.json");
+    await Bun.write(specA, JSON.stringify({ name: "a", cli: "pi", registryDependencies: [specB] }));
+    await Bun.write(specB, JSON.stringify({ name: "b", cli: "pi", registryDependencies: [specA] }));
+
+    const err = await expectRejects(addSpec(specA));
+    expect((err as Error).message).toContain("Circular registryDependencies");
+  });
+
   it("rejects a spec missing required fields", async () => {
     const source = join(tempDir, "bad-spec.json");
     await Bun.write(source, JSON.stringify({ title: "no name or cli" }));

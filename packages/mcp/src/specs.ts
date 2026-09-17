@@ -16,14 +16,31 @@ export interface AddSpecResult {
 }
 
 export async function addSpec(url: string, name?: string): Promise<AddSpecResult> {
+  return addSpecResolving(url, name, []);
+}
+
+/**
+ * `ancestry` is the chain of `registryDependencies` URLs currently being resolved (not every URL
+ * ever seen — a diamond dependency shared by two specs is fine to fetch twice). Checking it
+ * before doing any work catches a circular dependency (A→B→A, or a spec depending on itself)
+ * before it can stack-overflow or loop unbounded HTTP fetches.
+ */
+async function addSpecResolving(
+  url: string,
+  name: string | undefined,
+  ancestry: string[],
+): Promise<AddSpecResult> {
   if (!url) throw new Error("A spec URL or local file path is required.");
+  if (ancestry.includes(url)) {
+    throw new Error(`Circular registryDependencies: ${[...ancestry, url].join(" -> ")}`);
+  }
 
   const config = await readConfig();
   const spec = await fetchSpec(url);
 
   const resolvedDependencies: string[] = [];
   for (const depUrl of spec.registryDependencies ?? []) {
-    await addSpec(depUrl);
+    await addSpecResolving(depUrl, undefined, [...ancestry, url]);
     resolvedDependencies.push(depUrl);
   }
 

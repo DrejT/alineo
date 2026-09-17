@@ -1,4 +1,6 @@
-import { describe, it, expect } from "bun:test";
+import { afterEach, beforeEach, describe, it, expect } from "bun:test";
+import { mkdtemp, rm } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 import {
   serverConfigContent,
@@ -6,6 +8,7 @@ import {
   serverConfigDir,
   serverDataDir,
   configPath,
+  readConfig,
 } from "../src/config.js";
 
 describe("serverConfigContent", () => {
@@ -66,5 +69,37 @@ describe("serverDataDir", () => {
 describe("configPath", () => {
   it("equals alineo.config.json", () => {
     expect(configPath()).toBe("alineo.config.json");
+  });
+});
+
+describe("readConfig", () => {
+  let tempDir: string;
+  let originalCwd: string;
+
+  beforeEach(async () => {
+    originalCwd = process.cwd();
+    tempDir = await mkdtemp(join(tmpdir(), "alineo-cli-config-test-"));
+    process.chdir(tempDir);
+  });
+
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("fills resource defaults when `defaults` is present but empty", async () => {
+    await Bun.write("alineo.config.json", JSON.stringify({ defaults: {} }));
+
+    const config = await readConfig();
+
+    expect(config.defaults.resources).toEqual({ cpu: "1000m", memory: "1Gi" });
+  });
+
+  it("fills resource defaults when `defaults.resources` is null", async () => {
+    await Bun.write("alineo.config.json", JSON.stringify({ defaults: { resources: null } }));
+
+    const config = await readConfig();
+
+    expect(config.defaults.resources).toEqual({ cpu: "1000m", memory: "1Gi" });
   });
 });

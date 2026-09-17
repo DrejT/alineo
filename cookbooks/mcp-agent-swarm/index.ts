@@ -59,7 +59,7 @@ async function watch(runId: string, stopSignal: { stopped: boolean }): Promise<v
     const events = await mcp.call("alineod_watch_events", {
       runId,
       sinceEventId,
-      maxWaitSeconds: 5,
+      maxWaitSeconds: 20,
     });
     for (const e of events as { id?: number; event: string; data: any }[]) {
       if (e.id !== undefined) sinceEventId = Math.max(sinceEventId, e.id);
@@ -141,6 +141,7 @@ const final = await mcp.call("alineod_spawn_agent", {
   parentAgentId: run.rootAgentId,
   spec: editor,
   waitFor: Object.values(reviewers),
+  idempotencyKey: "editor", // a retried call can't fork a duplicate editor
   prompt:
     `Use your bash tool to run \`cat /inputs.json /inputs/*.txt\` — that's every reviewer's findings ` +
     `in one place. The files map to areas as follows: ${JSON.stringify(areaOf)}. ` +

@@ -32,6 +32,11 @@ const ALINEOD_IMAGE = "ghcr.io/drejt/alineod:latest";
 const ALINEOD_URL = "http://127.0.0.1:4600";
 const isAlineodHealthy = (body: unknown): boolean => (body as { ok?: boolean } | null)?.ok === true;
 
+// Bridge-network fallback address for both alineod (to reach OpenSandbox) and OpenSandbox's own
+// `eip` (see `usesHostNetworking`'s doc comment) — computed once and threaded through so the two
+// can never drift apart.
+const HOST_DOCKER_INTERNAL_SERVER_URL = "http://host.docker.internal:8080";
+
 /**
  * `--network host` (which makes alineod see `127.0.0.1` exactly as the host does, matching
  * OpenSandbox's configured `eip` — see `ensureAlineod`'s doc comment) only works out of the box
@@ -42,7 +47,9 @@ const isAlineodHealthy = (body: unknown): boolean => (body as { ok?: boolean } |
  * exactly what catches this class of failure). Keying off `process.platform` instead of probing
  * Docker's own networking capabilities is a heuristic, not a guarantee (e.g. Docker Desktop for
  * Linux may behave like Windows/Mac here too) — but it matches how the overwhelming majority of
- * each platform's users actually run Docker.
+ * each platform's users actually run Docker. `ensureAlineod` backs this guess with a live
+ * reachability probe and falls back to bridge networking on the spot if it's wrong, so a bad
+ * guess self-heals instead of leaving alineod permanently unreachable.
  */
 const usesHostNetworking = process.platform !== "win32" && process.platform !== "darwin";
 
@@ -156,7 +163,6 @@ async function ensureAlineod(openSandboxConfigChanged: boolean): Promise<void> {
 
   console.log(`Pulling ${ALINEOD_IMAGE}...`);
   await pullImage(ALINEOD_IMAGE);
-  console.log("Starting alineod in Docker...");
 
   // Model-agnostic: forward whatever Pi-supported provider key(s) are already in the
   // operator's shell. An AgentSpec's env map (e.g. `{ NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }`)
@@ -175,12 +181,37 @@ async function ensureAlineod(openSandboxConfigChanged: boolean): Promise<void> {
     );
   }
 
-  const networkArgs = usesHostNetworking
+  console.log("Starting alineod in Docker...");
+  await startAlineodContainer(usesHostNetworking, modelKeyArgs);
+  console.log("Waiting for alineod to be ready...");
+
+  if (usesHostNetworking && !(await isReachable(`${ALINEOD_URL}/health`, isAlineodHealthy))) {
+    // The platform guess (see `usesHostNetworking`'s doc comment) turned out wrong for this
+    // Docker install (e.g. Docker Desktop for Linux) — fall back to bridge networking instead of
+    // leaving alineod permanently unreachable until someone notices and recreates it by hand.
+    console.log(
+      "alineod isn't reachable over host networking on this Docker install — falling back to " +
+        "bridge networking + host.docker.internal...",
+    );
+    await removeContainer(ALINEOD_CONTAINER_NAME);
+    if (await ensureServerEip(HOST_DOCKER_INTERNAL_SERVER_URL)) {
+      console.log("OpenSandbox eip changed to match — restarting to apply it...");
+      await restartContainer(OPENSANDBOX_CONTAINER_NAME);
+      await pollHealth(`${SERVER_URL}/health`);
+    }
+    await startAlineodContainer(false, modelKeyArgs);
+  }
+
+  await pollHealth(`${ALINEOD_URL}/health`, 60_000, isAlineodHealthy);
+}
+
+function startAlineodContainer(useHostNetworking: boolean, modelKeyArgs: string[]): Promise<void> {
+  const networkArgs = useHostNetworking
     ? ["--network", "host"]
     : ["-p", "4600:4600", "--add-host", "host.docker.internal:host-gateway"];
-  const alineodServerUrl = usesHostNetworking ? SERVER_URL : "http://host.docker.internal:8080";
+  const alineodServerUrl = useHostNetworking ? SERVER_URL : HOST_DOCKER_INTERNAL_SERVER_URL;
 
-  await runContainer(
+  return runContainer(
     [
       "-d",
       "--name",
@@ -197,23 +228,40 @@ async function ensureAlineod(openSandboxConfigChanged: boolean): Promise<void> {
     ],
     "alineod container",
   );
-
-  console.log("Waiting for alineod to be ready...");
-  await pollHealth(`${ALINEOD_URL}/health`, 60_000, isAlineodHealthy);
 }
 
-/** Writes `server.toml` if missing or if its `eip` doesn't match what this platform needs (see
- * `ensureAlineod`'s doc comment) — returns whether it changed, so callers can restart whatever
- * already-running containers depend on it. */
+/** Ensures `server.toml`'s `eip` matches what this platform needs (see `ensureAlineod`'s doc
+ * comment) — returns whether it changed, so callers can restart whatever already-running
+ * containers depend on it. */
 async function ensureServerConfig(): Promise<boolean> {
   const dir = serverConfigDir();
   if (!existsSync(dir)) await mkdir(dir, { recursive: true });
+  const eip = usesHostNetworking ? SERVER_URL : HOST_DOCKER_INTERNAL_SERVER_URL;
+  return ensureServerEip(eip);
+}
+
+/**
+ * Creates `server.toml` from the default template if it doesn't exist yet, or otherwise patches
+ * only its `eip = "..."` line in place — the rest of an existing file is left untouched, since
+ * its own header comments invite hand-editing it for `networkPolicy`/`credentialProxy`/egress
+ * tuning, and clobbering that on every `init` would silently discard it. Returns whether the eip
+ * actually changed.
+ */
+async function ensureServerEip(eip: string): Promise<boolean> {
   const path = serverConfigPath();
-  const eip = usesHostNetworking ? SERVER_URL : "http://host.docker.internal:8080";
-  const desired = serverConfigContent(eip);
-  const existing = existsSync(path) ? await Bun.file(path).text() : null;
-  if (existing === desired) return false;
-  await Bun.write(path, desired);
+  if (!existsSync(path)) {
+    await Bun.write(path, serverConfigContent(eip));
+    return true;
+  }
+
+  const existing = await Bun.file(path).text();
+  const eipLine = /^eip\s*=\s*"([^"]*)"/m;
+  if (existing.match(eipLine)?.[1] === eip) return false;
+
+  const updated = eipLine.test(existing)
+    ? existing.replace(eipLine, `eip = "${eip}"`)
+    : existing.replace(/^\[server\]/m, `[server]\neip = "${eip}"`);
+  await Bun.write(path, updated);
   return true;
 }
 

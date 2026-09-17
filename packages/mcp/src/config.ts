@@ -32,7 +32,19 @@ export function globalConfigPath(): string {
   return join(serverConfigDir(), "config.json");
 }
 
-function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
+/**
+ * What an on-disk `alineo.config.json` might actually contain — unlike `Partial<AlineoConfig>`,
+ * every field is optional at every level, since the file is hand-editable and JSON.parse gives no
+ * structural guarantee. A hand-edit like `{"defaults": {}}` or an interrupted `writeConfig` is a
+ * realistic partial shape, not just a missing top-level field.
+ */
+type RawAlineoConfig = {
+  [K in keyof AlineoConfig]?: K extends "defaults"
+    ? { resources?: Partial<AlineoConfig["defaults"]["resources"]> }
+    : AlineoConfig[K];
+};
+
+function fillDefaults(data: RawAlineoConfig): AlineoConfig {
   return {
     serverUrl: data.serverUrl ?? "http://127.0.0.1:8080",
     useServerProxy: data.useServerProxy ?? true,
@@ -41,8 +53,8 @@ function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
     agentsDir: data.agentsDir ?? "./agents",
     defaults: {
       resources: {
-        cpu: data.defaults?.resources.cpu ?? "1000m",
-        memory: data.defaults?.resources.memory ?? "1Gi",
+        cpu: data.defaults?.resources?.cpu ?? "1000m",
+        memory: data.defaults?.resources?.memory ?? "1Gi",
       },
     },
   };
@@ -52,13 +64,13 @@ function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
 export async function readConfig(): Promise<AlineoConfig> {
   const localFile = Bun.file(configPath());
   if (await localFile.exists()) {
-    return fillDefaults((await localFile.json()) as Partial<AlineoConfig>);
+    return fillDefaults((await localFile.json()) as RawAlineoConfig);
   }
 
   const globalPath = globalConfigPath();
   const globalFile = Bun.file(globalPath);
   if (await globalFile.exists()) {
-    return fillDefaults((await globalFile.json()) as Partial<AlineoConfig>);
+    return fillDefaults((await globalFile.json()) as RawAlineoConfig);
   }
 
   const dir = serverConfigDir();
@@ -88,10 +100,31 @@ export function serverConfigPath(): string {
   return join(serverConfigDir(), "server.toml");
 }
 
+/**
+ * Host directory bind-mounted into the OpenSandbox container at `/data` (see `init.ts`), backing
+ * the `[store].path` set below. OpenSandbox itself persists snapshot metadata durably (a SQLite
+ * db, meant to survive the server process restarting), but that guarantee is only as good as
+ * where the db file actually lives: without this mount, it sits in the `alineo-opensandbox`
+ * container's own writable layer, so restart is fine but any time the container itself is
+ * recreated (host reboot with no restart policy, `docker system prune`, a stray `docker rm`)
+ * silently loses every cached snapshot record — every `Alineo.load()` snapshot fast path pays a
+ * full cold rebuild next time, indistinguishable from a genuinely changed spec (see issue #20).
+ * Bind-mounting this directory makes that data outlive the container's own lifecycle, matching
+ * OpenSandbox's own intent.
+ */
 export function serverDataDir(): string {
   return join(serverConfigDir(), "opensandbox-data");
 }
 
+/**
+ * `egress.image`/`egress.mode` are configured unconditionally, not opt-in. Per OpenSandbox's own
+ * control flow, a configured `egress.image` is inert for any sandbox created without a
+ * `networkPolicy` — no sidecar is attached, no behavior changes for anyone not touching
+ * `SandboxOptions.networkPolicy`/`credentialProxy`. Without this block, a fresh `alineo init`
+ * server rejects any `networkPolicy`/`credentialProxy` request outright with "egress.image must
+ * be configured" — this is what closes that gap (see issue #203). `dns+nft` (rather than `dns`)
+ * is required for `credentialProxy`'s Credential Vault to activate at all.
+ */
 export function serverConfigContent(eip: string): string {
   return `[server]
 host = "0.0.0.0"

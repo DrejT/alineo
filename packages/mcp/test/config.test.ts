@@ -30,6 +30,22 @@ describe("readConfig", () => {
     expect(config.defaults.resources).toEqual({ cpu: "1000m", memory: "1Gi" });
   });
 
+  it("fills resource defaults when `defaults` is present but empty", async () => {
+    await Bun.write("alineo.config.json", JSON.stringify({ defaults: {} }));
+
+    const config = await readConfig();
+
+    expect(config.defaults.resources).toEqual({ cpu: "1000m", memory: "1Gi" });
+  });
+
+  it("fills resource defaults when `defaults.resources` is null", async () => {
+    await Bun.write("alineo.config.json", JSON.stringify({ defaults: { resources: null } }));
+
+    const config = await readConfig();
+
+    expect(config.defaults.resources).toEqual({ cpu: "1000m", memory: "1Gi" });
+  });
+
   it("round-trips through writeConfig", async () => {
     await writeConfig({
       serverUrl: "http://example.test:8080",
