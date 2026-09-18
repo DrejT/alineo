@@ -9,7 +9,7 @@ import {
 import { Sandbox } from "@alineo-labs/sandbox";
 import type { SandboxDetails } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
-import { readConfig } from "../config.js";
+import { readConfig } from "@alineo-labs/cli-shared";
 import { getSessions, formatAge } from "../sessions-data.js";
 
 export interface DashboardView {

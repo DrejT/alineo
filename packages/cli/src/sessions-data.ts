@@ -1,7 +1,7 @@
 import { Sandbox, SandboxStatus, type SandboxDetails } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { ControlClient, SandboxState } from "@alineo-labs/opensandbox";
-import { readConfig, type AlineoConfig } from "./config.js";
+import { readConfig, type AlineoConfig } from "@alineo-labs/cli-shared";
 
 export interface SessionSnapshot {
   tracked: SandboxDetails[];

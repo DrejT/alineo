@@ -5,7 +5,7 @@
  * command file in commands/ stays untouched.
  */
 import { join } from "node:path";
-import { serverConfigDir } from "./config.js";
+import { serverConfigDir } from "@alineo-labs/cli-shared";
 
 export interface TelemetryConfig {
   enabled: boolean;

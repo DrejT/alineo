@@ -34,8 +34,8 @@ hands back sandbox proxy URLs built from its own configured `eip` (`127.0.0.1:80
 bridge-network container can't resolve.
 
 **Model API key**: `init` scans the shell it's run from for any of these Pi-supported provider key
-env vars (`packages/cli/src/pi-model-keys.ts`, mirroring pi's own `env-api-keys.ts` — keep both in
-sync as pi adds providers) and forwards whichever are set into the container:
+env vars (`packages/cli-shared/src/pi-model-keys.ts`, mirroring pi's own `env-api-keys.ts` — keep
+in sync as pi adds providers) and forwards whichever are set into the container:
 
 `ANTHROPIC_API_KEY` / `ANTHROPIC_OAUTH_TOKEN` / `ANTHROPIC_AUTH_TOKEN`, `OPENAI_API_KEY`,
 `AZURE_OPENAI_API_KEY`, `GEMINI_API_KEY`, `NVIDIA_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`,

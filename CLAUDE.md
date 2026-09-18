@@ -161,6 +161,19 @@ packages/agent/                   — Alineo SDK (published to npm as "alineo")
                                       PromptStream (deprecated alias), PiModel, ThinkingLevel, PiMessage, CompactResult
   src/index.ts                     — barrel exports
 
+packages/cli-shared/               — internal only, never published (alineo-cli only publishes its bin — see
+                                    below); Docker orchestration, project/server config, and the `alineo init` /
+                                    `alineo_init` bootstrap logic shared by alineo-cli and alineo-mcp. Consumed as a
+                                    workspace:* devDependency and bundled into each consumer's own dist at build
+                                    time, not resolved at the published package's runtime.
+  src/config.ts                   — AlineoConfig, readConfig(), writeConfig(), serverConfigContent()
+  src/docker.ts                   — checkDocker(), getContainerState(), startContainer(), runContainer(), pollHealth(),
+                                    isReachable()
+  src/pi-model-keys.ts             — PI_MODEL_API_KEY_ENV_VARS forwarded into the alineod container on init
+  src/init.ts                     — runInit(log): the actual `alineo init` / `alineo_init` orchestration, logging
+                                    through an injectable callback so alineo-cli (console.log) and alineo-mcp (a
+                                    collected log array — its stdout is the JSON-RPC channel) can share it verbatim
+
 packages/cli/                     — alineo CLI (published to npm as "alineo-cli", changeset-tracked like every other package)
   src/index.ts                    — CLI entry point (shebang, TTY→TUI launch, dispatch via commands/registry.ts)
   src/commands/registry.ts        — CliCommand metadata (name/group/usage/summary) for every subcommand, each with
@@ -168,7 +181,7 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
                                     dispatch table and the generated help text are driven off this one list
   src/commands/types.ts           — CliCommand, CommandVariant interfaces
   src/commands/args.ts            — flag() argv helper shared by every command file
-  src/commands/init.ts            — alineo init: starts OpenSandbox in Docker, writes alineo.config.json
+  src/commands/init.ts            — alineo init: thin wrapper around @alineo-labs/cli-shared's runInit()
   src/commands/add.ts             — alineo add <url>: fetches an agent spec, saves it locally
   src/commands/list.ts            — alineo list: lists saved agent specs
   src/commands/remove.ts          — alineo remove <name>: deletes a saved agent spec
@@ -180,10 +193,8 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
   src/commands/kill.ts            — alineo kill <sandbox-id>: closes a sandbox by ID
   src/commands/logs.ts            — alineo logs <name>: prints ledger events for a session
   src/schema.ts                   — RegistryItem interface + validateRegistryItem()
-  src/config.ts                   — AlineoConfig, readConfig(), writeConfig(), serverConfigContent()
   src/sessions-data.ts            — getSessions(): ledger "Running" entries cross-checked against a live
                                     ControlClient query; formatAge()
-  src/docker.ts                   — checkDocker(), getContainerState(), startContainer(), runContainer(), pollHealth()
   pi-extension/alineo.ts          — the Pi extension that bootstraps alineo and injects spawn/fork CLI guidance into
                                     a Pi session's system prompt — see plans/pi-extension-rlm-flow.md
 ```
@@ -232,7 +243,7 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
 
 When using a server started this way, pass `useServerProxy: true` to `new Sandbox(...)` — direct container IPs are not reachable from the host over Docker's bridge network.
 
-OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/alineo/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli/src/config.ts`), so `Alineo.load()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
+OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/alineo/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli-shared/src/config.ts`), so `Alineo.load()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
 
 ### Option 2 — uvx (manual)
 

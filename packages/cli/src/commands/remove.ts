@@ -1,7 +1,7 @@
 import { existsSync } from "fs";
 import { unlink } from "fs/promises";
 import { join } from "path";
-import { readConfig } from "../config.js";
+import { readConfig } from "@alineo-labs/cli-shared";
 import type { CliCommand } from "./types.js";
 
 export async function remove(name: string): Promise<void> {
