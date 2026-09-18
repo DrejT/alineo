@@ -1,0 +1,172 @@
+---
+title: MCP Agent Swarm
+description: The same swarm code review as swarm-code-review, driven entirely through alineo-mcp's tools instead of raw alineod HTTP calls.
+---
+
+<CookbookMeta
+  difficulty="Advanced"
+  time="~15 min"
+  primitives={[
+    "alineod_create_run",
+    "alineod_spawn_agent",
+    "alineod_pause_agent",
+    "alineod_resume_agent",
+    "alineod_steer_agent",
+    "alineod_watch_events",
+    "alineod_get_result",
+  ]}
+/>
+
+The same code review swarm as [Swarm Code Review](/docs/cookbooks/swarm-code-review), driven entirely through
+[`alineo-mcp`](/docs/mcp)'s tools instead of raw `alineod` HTTP calls — the MCP client counterpart, useful for
+comparing `index.ts` in each recipe side by side line for line. Every tool call below is the same one a chat
+client (Claude Code, Claude Desktop, Cursor) would make if you asked it to run this review for you, once
+`alineo-mcp` is in its `mcpServers` config.
+
+```
+review-lead ── clones expressjs/cors once
+  ├── reviewer: security      ┐
+  └── reviewer: correctness   ┘─ forked from the lead's sandbox — the checkout is already there
+  editor ── waits for both, merges their findings into one report
+```
+
+## Setup
+
+<Steps>
+<Step>
+
+Start OpenSandbox in Docker (one-time setup), build the workspace, and build `alineo-mcp`:
+
+```bash
+bunx alineo-cli init
+bun install && bun run build
+bun run --cwd packages/mcp build
+```
+
+</Step>
+<Step>
+
+Get a free API key from [build.nvidia.com](https://build.nvidia.com) and start alineod with it in **its**
+environment. The agent specs reference `${NVIDIA_API_KEY}`, which the daemon resolves — the key never travels in
+an MCP tool call.
+
+```bash
+cd apps/alineod
+NVIDIA_API_KEY=nvapi-... bun run start
+```
+
+</Step>
+</Steps>
+
+## Run it
+
+Every other cookbook on this site shows its "Run it" section as a scripted, simulated terminal replay. This one
+is a real recording instead — an actual run of `cookbooks/mcp-agent-swarm`, captured end to end against a live
+`alineod`, because this recipe's whole point is proving that `alineo-mcp`'s tools produce the same swarm a chat
+client would drive, and a genuine recording is stronger evidence of that than a canned transcript.
+
+<img
+  src="/cookbook-assets/mcp-agent-swarm/demo.gif"
+  alt="A terminal recording of running the mcp-agent-swarm cookbook: the review lead checks out expressjs/cors, two reviewers are forked and one is paused/resumed and the other steered, then an editor merges both reviews into one report — every step driven by an alineo-mcp tool call over stdio."
+  style={{ borderRadius: "8px", border: "1px solid var(--fd-border)" }}
+/>
+
+Every line above is copied verbatim from a real run against a live `alineod`. The pacing is sped up for
+watchability — the actual run took about 15 minutes, most of it spent waiting on NVIDIA's free-tier model
+latency across four agents, not on anything `alineo-mcp` itself does.
+
+```bash
+cd cookbooks/mcp-agent-swarm
+bun install
+bun start
+```
+
+Set `ALINEOD_URL` if the daemon isn't on `http://localhost:4600` — `mcp-client.ts` passes it through to
+`alineo-mcp` as the env var the server itself reads.
+
+## What it does
+
+<Steps>
+<Step>
+
+### Connect over stdio
+
+`mcp-client.ts` spawns the built `alineo-mcp` binary and connects with
+[`@modelcontextprotocol/client`](https://www.npmjs.com/package/@modelcontextprotocol/client)'s
+`StdioClientTransport` — the same transport a chat client uses when it launches `alineo-mcp` from its
+`mcpServers` config.
+
+</Step>
+<Step>
+
+### Check out the repository once
+
+`alineod_create_run` loads `agents/lead.json` (which installs `git` and clones `expressjs/cors` as a setup step)
+with an initial prompt. The lead's first turn reports the commit under review, read back with
+`alineod_get_result`.
+
+</Step>
+<Step>
+
+### Fork a reviewer per concern
+
+Two `alineod_spawn_agent` calls fork the lead's live sandbox into reviewers for security and correctness. Each
+starts with `/workspace/cors` already present, so the repository is cloned exactly once. Every spawn carries an
+`idempotencyKey`, so a retried call can't fork a duplicate reviewer. The lead's `spawnDepth: 1` and `maxAgents: 4`
+cap how far the swarm can grow.
+
+</Step>
+<Step>
+
+### Intervene mid-review
+
+`alineod_pause_agent` / `alineod_resume_agent` freeze and thaw the correctness reviewer's container for five
+seconds without restarting it; `alineod_steer_agent` narrows the security reviewer's brief mid-turn — the steer
+lands after its current tool call finishes, before its next model call.
+
+</Step>
+<Step>
+
+### Gather with `waitFor`
+
+One more `alineod_spawn_agent` call spawns the editor with `waitFor` on both reviewers. alineod holds it until
+they finish, then writes each reviewer's findings into its sandbox under `/inputs/`, plus an `/inputs.json`
+manifest carrying each outcome. The editor merges them into one report.
+
+<Callout title="This call needs more time than the client's default" type="warn">
+  `waitFor` doesn't return until both reviewers finish their own model turns, which can comfortably
+  exceed the MCP client's 60-second default request timeout. The recipe passes a longer per-call
+  timeout for this one tool call (`mcp-client.ts`'s `call()` takes an optional `timeoutMs`) — worth
+  knowing if you build your own client against `alineo-mcp` and hit a `REQUEST_TIMEOUT` on a
+  `waitFor` spawn.
+</Callout>
+
+</Step>
+<Step>
+
+### Report and tear down
+
+The merged report comes back from `alineod_get_result`, is printed and written to `review.md`, followed by the
+final agent tree from `alineod_get_run`. `alineod_delete_run` then closes every sandbox in the swarm while keeping
+the run's history.
+
+</Step>
+</Steps>
+
+Progress for every agent streams via repeated `alineod_watch_events` calls, each a bounded 20-second window
+resuming from the last event id seen (`sinceEventId`) — since an MCP tool call is request/response, this is a
+poll-and-collect loop rather than one held-open SSE connection, which is what
+[Swarm Code Review](/docs/cookbooks/swarm-code-review)'s raw-HTTP version uses instead. Compare `watch()` in each
+recipe's `index.ts` side by side.
+
+<Callout title="Adapt it">
+  To review a different repository, change the clone URL in `agents/lead.json`, and the paths and
+  concerns in `index.ts` — same as [Swarm Code Review](/docs/cookbooks/swarm-code-review).
+</Callout>
+
+<Callout title="Where to go next">
+  [`alineo-mcp`](/docs/mcp) covers every tool and how to configure it in Claude Code, Claude
+  Desktop, or Cursor; [Fan-out and gather](/docs/alineod/guides/fan-out-gather) and [Steering and
+  pausing](/docs/alineod/guides/steering-and-pausing) cover the mechanics used here; the [HTTP
+  API](/docs/alineod/api-reference/http-api) lists every underlying route.
+</Callout>
