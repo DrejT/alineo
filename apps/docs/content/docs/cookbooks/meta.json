@@ -8,6 +8,7 @@
     "ai-agent-bugfix",
     "persistent-agent-memory",
     "credential-scoped-agent",
-    "swarm-code-review"
+    "swarm-code-review",
+    "mcp-agent-swarm"
   ]
 }

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "review-lead",
+  "title": "Review Lead",
+  "description": "Checks out the repository under review; every reviewer is forked from this sandbox.",
+  "author": "alineo",
+  "cli": "pi",
+  "provider": "nvidia",
+  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "packages": ["git"],
+  "setup": [
+    {
+      "name": "Clone the repository under review",
+      "run": "git clone --depth 1 https://github.com/expressjs/cors /workspace/cors"
+    }
+  ],
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
+  },
+  "resources": { "cpu": "1000m", "memory": "2Gi" },
+  "spawnDepth": 1,
+  "maxAgents": 4
+}

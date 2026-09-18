@@ -1,0 +1,14 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "editor",
+  "title": "Editor",
+  "description": "Merges every reviewer's findings, delivered under /inputs, into one report.",
+  "author": "alineo",
+  "cli": "pi",
+  "provider": "nvidia",
+  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
+  },
+  "resources": { "cpu": "1000m", "memory": "2Gi" }
+}

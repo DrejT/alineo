@@ -17,6 +17,18 @@ export interface AlineoConfig {
 const CONFIG_DIR = ".alineo";
 const CONFIG_FILE = "alineo.config.json";
 
+/**
+ * What an on-disk `alineo.config.json` might actually contain — unlike `Partial<AlineoConfig>`,
+ * every field is optional at every level, since the file is hand-editable and JSON.parse gives no
+ * structural guarantee. A hand-edit like `{"defaults": {}}` or an interrupted `writeConfig` is a
+ * realistic partial shape, not just a missing top-level field.
+ */
+type RawAlineoConfig = {
+  [K in keyof AlineoConfig]?: K extends "defaults"
+    ? { resources?: Partial<AlineoConfig["defaults"]["resources"]> }
+    : AlineoConfig[K];
+};
+
 export function configPath(): string {
   return CONFIG_FILE;
 }
@@ -25,7 +37,7 @@ export function globalConfigPath(): string {
   return join(serverConfigDir(), "config.json");
 }
 
-function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
+function fillDefaults(data: RawAlineoConfig): AlineoConfig {
   return {
     serverUrl: data.serverUrl ?? "http://127.0.0.1:8080",
     useServerProxy: data.useServerProxy ?? true,
@@ -34,8 +46,8 @@ function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
     agentsDir: data.agentsDir ?? "./agents",
     defaults: {
       resources: {
-        cpu: data.defaults?.resources.cpu ?? "1000m",
-        memory: data.defaults?.resources.memory ?? "1Gi",
+        cpu: data.defaults?.resources?.cpu ?? "1000m",
+        memory: data.defaults?.resources?.memory ?? "1Gi",
       },
     },
   };
@@ -50,13 +62,13 @@ function fillDefaults(data: Partial<AlineoConfig>): AlineoConfig {
 export async function readConfig(): Promise<AlineoConfig> {
   const localFile = Bun.file(configPath());
   if (await localFile.exists()) {
-    return fillDefaults((await localFile.json()) as Partial<AlineoConfig>);
+    return fillDefaults((await localFile.json()) as RawAlineoConfig);
   }
 
   const globalPath = globalConfigPath();
   const globalFile = Bun.file(globalPath);
   if (await globalFile.exists()) {
-    return fillDefaults((await globalFile.json()) as Partial<AlineoConfig>);
+    return fillDefaults((await globalFile.json()) as RawAlineoConfig);
   }
 
   const dir = serverConfigDir();
@@ -87,8 +99,8 @@ export function serverConfigPath(): string {
 }
 
 /**
- * Host directory bind-mounted into the OpenSandbox container at `/data` (see
- * `commands/init.ts`), backing the `[store].path` set below. OpenSandbox itself persists
+ * Host directory bind-mounted into the OpenSandbox container at `/data` (see `init.ts`),
+ * backing the `[store].path` set below. OpenSandbox itself persists
  * snapshot metadata durably (a SQLite db, meant to survive the server process restarting —
  * see opensandbox-group/OpenSandbox's `PersistedSnapshotService`), but that guarantee is
  * only as good as where the db file actually lives: without this mount, it sits in the
@@ -121,11 +133,11 @@ export function serverDataDir(): string {
  * plans/credential-injection.md Phase 4). `dns+nft` (rather than `dns`) is required for
  * `credentialProxy`'s Credential Vault to activate at all.
  */
-export function serverConfigContent(): string {
+export function serverConfigContent(eip: string): string {
   return `[server]
 host = "0.0.0.0"
 port = 8080
-eip = "http://127.0.0.1:8080"
+eip = "${eip}"
 
 [runtime]
 type = "docker"

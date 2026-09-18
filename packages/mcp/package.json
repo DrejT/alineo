@@ -1,0 +1,45 @@
+{
+  "name": "alineo-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing alineod's swarm-control API (and local agent-spec management) as tools for MCP clients (Claude Code, Claude Desktop, Cursor, …).",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrejT/alineo.git",
+    "directory": "packages/mcp"
+  },
+  "bin": {
+    "alineo-mcp": "./dist/index.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "alineo": "workspace:*",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@alineo-labs/cli-shared": "workspace:*",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "bun-types": "1.3.14",
+    "tsdown": "0.22.3",
+    "typescript": "6.0.3"
+  }
+}

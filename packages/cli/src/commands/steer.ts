@@ -1,7 +1,7 @@
 import { Sandbox } from "@alineo-labs/sandbox";
 import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
-import { readConfig } from "../config.js";
+import { readConfig } from "@alineo-labs/cli-shared";
 import { flag } from "./args.js";
 import type { CliCommand } from "./types.js";
 

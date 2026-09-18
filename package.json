@@ -19,6 +19,8 @@
     "packages/memory",
     "packages/model-providers",
     "packages/cli",
+    "packages/cli-shared",
+    "packages/mcp",
     "examples/*",
     "cookbooks/*",
     "tests/integration",
