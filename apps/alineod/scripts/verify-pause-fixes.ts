@@ -669,10 +669,26 @@ async function t7(): Promise<void> {
     obs.subResult = { outcome: r.outcome, text: r.result };
     obs.inbox = inbox.delivered;
     const delivered = (inbox.delivered as Json[])[0];
+    // Did the steered notification actually land in the agent's conversation? Pi's own session
+    // log inside the sandbox is the ground truth, independent of what the model chose to say.
+    const sandboxId = (await agentView(sub)).sandboxId as string;
+    const grep = Bun.spawnSync([
+      "docker",
+      "exec",
+      `sandbox-${sandboxId}`,
+      "sh",
+      "-c",
+      "grep -rho 'Update from agents you.re watching[^\\\\]*' /root/.pi/agent/sessions | head -1",
+    ]);
+    obs.sessionLine = grep.stdout.toString().trim();
+    obs.sessionHasNotification = String(obs.sessionLine).includes(dep);
+    obs.modelRelayedIt = String(r.result).includes(dep);
+    // The mechanism: delivered by steer AND in the agent's session. Whether the model then repeats
+    // the id is model behaviour, reported separately.
     obs.pass =
       delivered?.deliveredAs === "steer" &&
       r.outcome === "success" &&
-      String(r.result).includes(dep);
+      obs.sessionHasNotification === true;
     log(
       "T7:",
       obs.pass ? "PASS" : "FAIL",
