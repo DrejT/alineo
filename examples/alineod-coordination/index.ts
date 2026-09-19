@@ -146,8 +146,9 @@ console.log(`lead replied:\n${await waitResult(lead)}\n`);
 const judge = await spawn(run.rootAgentId, "coord-judge", {
   waitFor: { agents: drafters, mode: "quorum", k: 2, deadlineSec: 600 },
   prompt:
-    "Read /inputs.json and the tagline files it lists. Output the best tagline, then one short " +
-    "sentence on why. /inputs.json's __wait entry says which drafters were still pending.",
+    "Use your bash tool to run exactly: cat /inputs/*.txt\n" +
+    "Then reply with only the tagline you like best, copied exactly. (/inputs.json lists the " +
+    "files; its __wait entry names the drafters that were still pending.)",
 });
 
 // ── 5. notifyOn ─────────────────────────────────────────────────────────────
@@ -156,7 +157,8 @@ const editor = await spawn(run.rootAgentId, "coord-editor", {
   notifyOn: [slow],
   prompt:
     "Use your bash tool to run exactly: sleep 150\n" +
-    "Then reply with the tagline from any update you received about other agents, or NONE.",
+    "Then, without running anything else, reply with only the quoted tagline from any " +
+    '"[alineo] Update from agents you\'re watching" message in this conversation, or NONE.',
 });
 
 // ── 6. wait without spawning ────────────────────────────────────────────────
