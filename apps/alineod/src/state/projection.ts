@@ -27,6 +27,23 @@ const setPausedFrom = db.query(
 
 const clearPausedBy = db.query(`UPDATE agents SET paused_by = NULL WHERE agent_id = $agentId`);
 
+const upsertSubscription = db.query(
+  `INSERT INTO notify_subscriptions (subscriber_id, on_agent_id, run_id, wake)
+   VALUES ($subscriber, $on, $runId, $wake)
+   ON CONFLICT(subscriber_id, on_agent_id) DO UPDATE SET wake = excluded.wake`,
+);
+
+const insertInbox = db.query(
+  `INSERT OR IGNORE INTO inbox
+     (seq, run_id, agent_id, kind, about_agent_id, about_spec, outcome, result_ref, excerpt, again, text)
+   VALUES ($seq, $runId, $agentId, $kind, $about, $aboutSpec, $outcome, $resultRef, $excerpt, $again, $text)`,
+);
+
+const settleInbox = db.query(
+  `UPDATE inbox SET state = $state, delivered_as = $as, settled_at = $at
+   WHERE seq = $seq AND state = 'pending'`,
+);
+
 const setAgentSandbox = db.query(
   `UPDATE agents SET sandbox_id = $sandboxId WHERE agent_id = $agentId`,
 );
@@ -98,6 +115,42 @@ export function apply(row: LedgerRow): void {
         $settledAt: row.ts,
       });
       break;
+    case "notify_registered":
+      for (const on of (p.on as string[] | undefined) ?? []) {
+        upsertSubscription.run({
+          $subscriber: row.agent_id,
+          $on: on,
+          $runId: row.run_id,
+          $wake: p.wake ? 1 : 0,
+        });
+      }
+      break;
+    case "inbox_queued":
+      insertInbox.run({
+        $seq: row.seq,
+        $runId: row.run_id,
+        $agentId: row.agent_id,
+        $kind: (p.kind as string) ?? "notification",
+        $about: (p.aboutAgentId as string | null) ?? null,
+        $aboutSpec: (p.aboutSpec as string | null) ?? null,
+        $outcome: (p.outcome as string | null) ?? null,
+        $resultRef: (p.resultRef as string | null) ?? null,
+        $excerpt: (p.excerpt as string | null) ?? null,
+        $again: p.again ? 1 : 0,
+        $text: (p.text as string | null) ?? null,
+      });
+      break;
+    case "inbox_delivered":
+    case "inbox_dropped":
+      for (const seq of (p.seqs as number[] | undefined) ?? []) {
+        settleInbox.run({
+          $seq: seq,
+          $state: row.event === "inbox_delivered" ? "delivered" : "dropped",
+          $as: ((row.event === "inbox_delivered" ? p.as : p.reason) as string | undefined) ?? null,
+          $at: row.ts,
+        });
+      }
+      break;
     case "agent_ended":
       endAgentRow.run({
         $agentId: row.agent_id,
@@ -131,7 +184,9 @@ function mapOutcomeToState(outcome: string): string {
 
 /** Wipe and refold from the whole ledger. Called once at boot. */
 export function rebuild(): void {
-  db.exec("DELETE FROM agents; DELETE FROM handles;");
+  db.exec(
+    "DELETE FROM agents; DELETE FROM handles; DELETE FROM notify_subscriptions; DELETE FROM inbox;",
+  );
   for (const row of readAllLedger()) apply(row);
 }
 
@@ -261,6 +316,58 @@ export function reconnectableTerminalAgents(): AgentRow[] {
         !LIVE_STATES.has(r.state) && r.sandbox_id !== null && !CLOSED_OUTCOMES.has(r.outcome ?? ""),
     );
 }
+
+// ── notifications ───────────────────────────────────────────────────────────
+
+export interface SubscriptionRow {
+  subscriber_id: string;
+  on_agent_id: string;
+  run_id: string;
+  wake: number;
+}
+
+export interface InboxRow {
+  seq: number;
+  run_id: string;
+  agent_id: string;
+  kind: "notification" | "steer";
+  about_agent_id: string | null;
+  about_spec: string | null;
+  outcome: string | null;
+  result_ref: string | null;
+  excerpt: string | null;
+  again: number;
+  text: string | null;
+  state: "pending" | "delivered" | "dropped";
+  delivered_as: string | null;
+  settled_at: number | null;
+}
+
+const qSubscribersOf = db.query<SubscriptionRow, [string]>(
+  `SELECT * FROM notify_subscriptions WHERE on_agent_id = ?`,
+);
+const qSubscription = db.query<SubscriptionRow, [string, string]>(
+  `SELECT * FROM notify_subscriptions WHERE subscriber_id = ? AND on_agent_id = ?`,
+);
+const qInbox = db.query<InboxRow, [string]>(`SELECT * FROM inbox WHERE agent_id = ? ORDER BY seq`);
+const qPendingInbox = db.query<InboxRow, [string]>(
+  `SELECT * FROM inbox WHERE agent_id = ? AND state = 'pending' ORDER BY seq`,
+);
+const qNotifiedBefore = db.query<{ n: number }, [string, string]>(
+  `SELECT COUNT(*) AS n FROM inbox WHERE agent_id = ? AND about_agent_id = ? AND kind = 'notification'`,
+);
+const qAgentsWithPending = db.query<{ agent_id: string }, []>(
+  `SELECT DISTINCT agent_id FROM inbox WHERE state = 'pending'`,
+);
+
+export const subscribersOf = (agentId: string) => qSubscribersOf.all(agentId);
+export const subscription = (subscriberId: string, onAgentId: string) =>
+  qSubscription.get(subscriberId, onAgentId) ?? null;
+export const inboxOf = (agentId: string) => qInbox.all(agentId);
+export const pendingInbox = (agentId: string) => qPendingInbox.all(agentId);
+export const notifiedBefore = (subscriberId: string, aboutId: string) =>
+  (qNotifiedBefore.get(subscriberId, aboutId)?.n ?? 0) > 0;
+export const agentsWithPendingInbox = () => qAgentsWithPending.all().map((r) => r.agent_id);
 
 // ── handles ─────────────────────────────────────────────────────────────────
 

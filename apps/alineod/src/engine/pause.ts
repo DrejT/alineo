@@ -22,6 +22,7 @@ import { getAgentRow, getHandle, type AgentRow } from "../state/projection";
 import { attempt, sweepSubtree, type MemberResult } from "./subtree";
 import { emit } from "./emit";
 import { catchUpTurn, driveTurn, isTurnActive } from "./stream";
+import { deliverPending, withInbox } from "./notify";
 import { HttpError } from "./errors";
 import { withTimeout } from "../util";
 import { RESUME_BRIDGE_TIMEOUT_MS } from "../../config";
@@ -125,8 +126,11 @@ export async function resumeAgent(agentId: string, opts: { by?: PausedBy } = {})
     getHandle(agentId)?.state === "pending" &&
     !isTurnActive(agentId)
   ) {
-    void driveTurn(agentId, row.prompt);
+    void driveTurn(agentId, withInbox(agentId, row.prompt));
   }
+
+  // Anything that arrived for it while it was paused (notifications, a queued subtree steer).
+  void deliverPending(agentId);
 }
 
 // ── subtree scope ─────────────────────────────────────────────────────────────
