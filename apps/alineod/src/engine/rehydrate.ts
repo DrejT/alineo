@@ -29,6 +29,7 @@ import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
 import { provisionRoot } from "./runs";
 import { provisionChild } from "./spawn";
+import { parseStoredWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
 
@@ -198,7 +199,6 @@ async function retryProvision(a: AgentRow): Promise<void> {
   const body: SpawnAgentBody = {
     spec,
     parentAgentId: a.parent_agent_id,
-    waitFor: a.wait_for ? (JSON.parse(a.wait_for) as string[]) : undefined,
     prompt: a.prompt ?? undefined,
   };
   await provisionChild(
@@ -208,6 +208,7 @@ async function retryProvision(a: AgentRow): Promise<void> {
     a.spawn_budget ?? undefined,
     a.max_agents_budget ?? undefined,
     body,
+    parseStoredWait(a.wait_for),
   );
 }
 
