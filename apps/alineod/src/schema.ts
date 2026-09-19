@@ -128,6 +128,12 @@ export const SpawnAgentBody = z.object({
       'Hold the spawn until the named agents resolve (hold-then-spawn, D-c). A plain array means mode "settled": every agent terminal, any outcome.',
     ),
   prompt: z.string().optional(),
+  notifyOn: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Tell this child when each named agent finishes, without blocking it (per-agent inbox): steered in if it's running, held while paused, prepended to its next prompt if idle.",
+    ),
   budget: BudgetOverride.optional(),
   idempotencyKey: z
     .string()
@@ -205,6 +211,18 @@ export const SubtreeOpResult = z
   })
   .describe("Best-effort, per member: one member failing doesn't undo or block the rest.");
 export type SubtreeOpResult = z.infer<typeof SubtreeOpResult>;
+
+// ── notifications (POST /agents/:id/notify-on, GET /agents/:id/inbox) ───────────
+
+export const NotifyOnBody = z.object({
+  agents: z.array(z.string()).min(1),
+  wake: z
+    .boolean()
+    .optional()
+    .describe(
+      "If the subscriber is idle when a notification arrives, start a turn with it instead of queueing it.",
+    ),
+});
 
 // ── POST /agents/:id/stop ────────────────────────────────────────────────────
 
@@ -313,6 +331,34 @@ export const AlineodEvent = z.discriminatedUnion("event", [
   }).describe(
     "The subtree rooted at agentId just became quiescent (only tracked while someone awaits it).",
   ),
+  EventBase.extend({
+    event: z.literal("notify_registered"),
+    on: z.array(z.string()),
+    wake: z.boolean(),
+  }).describe("agentId subscribed to be told when each agent in `on` finishes."),
+  EventBase.extend({
+    event: z.literal("inbox_queued"),
+    kind: z.enum(["notification", "steer"]),
+    aboutAgentId: z.string().nullable().optional(),
+    aboutSpec: z.string().nullable().optional(),
+    outcome: z.string().nullable().optional(),
+    resultRef: z.string().nullable().optional(),
+    excerpt: z.string().nullable().optional(),
+    again: z.boolean().optional(),
+    text: z.string().optional(),
+  }).describe(
+    "Something for agentId to be told — a notification, or a steer waiting for it to resume.",
+  ),
+  EventBase.extend({
+    event: z.literal("inbox_delivered"),
+    seqs: z.array(z.number().int()),
+    as: z.enum(["steer", "turn", "prompt"]),
+  }),
+  EventBase.extend({
+    event: z.literal("inbox_dropped"),
+    seqs: z.array(z.number().int()),
+    reason: z.string(),
+  }),
   EventBase.extend({
     event: z.literal("agent_released"),
     reason: z.string(),

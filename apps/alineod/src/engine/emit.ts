@@ -17,7 +17,26 @@ export function emit(
   const row = appendRow(runId, agentId, event, { agentId, ...payload });
   apply(row);
   publish(runId, { id: row.seq, event, data: { agentId, ...payload } });
+  for (const listener of listeners) listener(runId, agentId, event, payload);
   return row.seq;
+}
+
+type EmitListener = (
+  runId: string,
+  agentId: string | null,
+  event: string,
+  payload: Record<string, unknown>,
+) => void;
+
+const listeners: EmitListener[] = [];
+
+/**
+ * React to persisted alineod events across every run (the bus is per run). For engine modules
+ * that trigger on a state change anywhere — e.g. notify.ts delivering on `agent_ended`. Runs
+ * after the event is in the ledger and the projections.
+ */
+export function onEmit(listener: EmitListener): void {
+  listeners.push(listener);
 }
 
 /**

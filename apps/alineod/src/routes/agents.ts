@@ -1,6 +1,15 @@
 /** Agent routes: spawn under a run, inspect, prompt, steer, pause/resume, stop. */
 import { Elysia } from "elysia";
-import { SpawnAgentBody, StopAgentBody, PromptBody, SteerBody, ControlScopeBody } from "../schema";
+import {
+  SpawnAgentBody,
+  StopAgentBody,
+  PromptBody,
+  SteerBody,
+  ControlScopeBody,
+  NotifyOnBody,
+} from "../schema";
+import { deliverPending, registerNotify, withInbox } from "../engine/notify";
+import { inboxOf, getAgentRow } from "../state/projection";
 import { parseBody, withTimeout } from "./http";
 import { spawnAgent } from "../engine/spawn";
 import { stopAgent, stopSubtree } from "../engine/lifecycle";
@@ -39,7 +48,7 @@ export const agentsRoutes = new Elysia()
     if (isCatchingUp(params.agentId)) {
       throw new HttpError(409, `agent ${params.agentId} is still finishing its previous turn`);
     }
-    void driveTurn(params.agentId, text);
+    void driveTurn(params.agentId, withInbox(params.agentId, text));
     return new Response(null, { status: 202 });
   })
 
@@ -68,4 +77,37 @@ export const agentsRoutes = new Elysia()
     if (scope === "subtree") return stopSubtree(params.agentId, mode);
     await stopAgent(params.agentId, mode);
     return new Response(null, { status: 202 });
+  })
+
+  .post("/agents/:agentId/notify-on", ({ params, body }) => {
+    const { agents, wake } = parseBody(NotifyOnBody, body);
+    const row = getAgentRow(params.agentId);
+    if (!row) throw new HttpError(404, `no agent ${params.agentId}`);
+    registerNotify(row.run_id, params.agentId, agents, wake ?? false);
+    return { subscribed: agents, wake: wake ?? false };
+  })
+
+  .get("/agents/:agentId/inbox", ({ params }) => {
+    if (!getAgentRow(params.agentId)) throw new HttpError(404, `no agent ${params.agentId}`);
+    const items = inboxOf(params.agentId).map((i) => ({
+      seq: i.seq,
+      kind: i.kind,
+      aboutAgentId: i.about_agent_id,
+      outcome: i.outcome,
+      resultRef: i.result_ref,
+      excerpt: i.excerpt,
+      again: i.again === 1,
+      state: i.state,
+      deliveredAs: i.delivered_as,
+    }));
+    return {
+      agentId: params.agentId,
+      pending: items.filter((i) => i.state === "pending"),
+      delivered: items.filter((i) => i.state !== "pending"),
+    };
+  })
+
+  .post("/agents/:agentId/inbox/deliver", async ({ params }) => {
+    if (!getAgentRow(params.agentId)) throw new HttpError(404, `no agent ${params.agentId}`);
+    return { delivery: await deliverPending(params.agentId, { wake: true }) };
   });

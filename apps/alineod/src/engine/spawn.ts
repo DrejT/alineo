@@ -23,6 +23,7 @@ import { get, register } from "./registry";
 import { withParentForkLock } from "./fork-lock";
 import { emit } from "./emit";
 import { driveTurn, setState } from "./stream";
+import { registerNotify, withInbox } from "./notify";
 import { isNotRunningError, waitUntilNotPaused } from "./hold";
 import { sleep } from "../util";
 import {
@@ -62,6 +63,12 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
         throw new HttpError(400, `waitFor references unknown agent ${depId}`);
       }
     }
+  }
+
+  for (const id of body.notifyOn ?? []) {
+    const row = getAgentRow(id);
+    if (!row || row.run_id !== runId)
+      throw new HttpError(400, `notifyOn references unknown agent ${id}`);
   }
 
   // D-f: a client-supplied idempotency key lets a retried POST (e.g. after the response was
@@ -109,6 +116,7 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
     });
   }
   if (body.idempotencyKey) recordIdempotent(runId, body.idempotencyKey, childId);
+  if (body.notifyOn && body.notifyOn.length > 0) registerNotify(runId, childId, body.notifyOn);
 
   void provisionChild(runId, childId, body.parentAgentId, spawnBudget, maxAgentsBudget, body, wait);
 
@@ -190,7 +198,7 @@ export async function provisionChild(
         /* couldn't pause — fall through and start the prompt */
       }
     }
-    if (body.prompt) void driveTurn(childId, body.prompt);
+    if (body.prompt) void driveTurn(childId, withInbox(childId, body.prompt));
   } catch (err) {
     if (isCancelled(childId)) return; // already ended (stopped) — don't overwrite `aborted`
     const message = err instanceof Error ? err.message : String(err);
