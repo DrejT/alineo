@@ -111,6 +111,6 @@ export function wipeState(): void {
     forget(agent_id);
   }
   db.exec(
-    "DELETE FROM ledger; DELETE FROM agents; DELETE FROM handles; DELETE FROM spawn_idempotency;",
+    "DELETE FROM ledger; DELETE FROM agents; DELETE FROM handles; DELETE FROM spawn_idempotency; DELETE FROM notify_subscriptions; DELETE FROM inbox;",
   );
 }

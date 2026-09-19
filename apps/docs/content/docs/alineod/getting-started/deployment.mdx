@@ -77,6 +77,16 @@ agent containers, not alineod.
 alineod has also been run against an OpenSandbox server using gVisor (`runsc`) as its secure container runtime;
 nothing in alineod depends on the runtime.
 
+<Callout type="warn" title="gVisor on Docker: set --overlay2=none">
+  By default, gVisor keeps a container's writes in its own filestore (`--overlay2=root:self`).
+  `docker commit`, which OpenSandbox uses for snapshots and forks, can't see that filestore. So
+  every spawned child and every restored snapshot comes back with none of the parent's files, and
+  the agent inside can't start. Register `runsc` with `"runtimeArgs": ["--overlay2=none"]` in
+  `/etc/docker/daemon.json` (see
+  [OpenSandbox#1831](https://github.com/opensandbox-group/OpenSandbox/issues/1831)). Even then,
+  `/tmp` is a tmpfs under gVisor and isn't carried into forks.
+</Callout>
+
 ## The protocol spec
 
 The wire contract is defined once, as Zod schemas in `apps/alineod/src/schema.ts`. The running daemon serves an

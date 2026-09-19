@@ -70,3 +70,12 @@ export const STATE_PROBE_TIMEOUT_MS = Number(process.env.ALINEOD_STATE_PROBE_TIM
 export const RESUME_BRIDGE_TIMEOUT_MS = Number(
   process.env.ALINEOD_RESUME_BRIDGE_TIMEOUT_MS ?? 10_000,
 );
+
+/**
+ * Upper bound on one member's pause/resume inside a subtree operation, so one unresponsive
+ * sandbox can't stall the whole sweep (it's reported as `failed: timeout`). Resume can include a
+ * bridge check and restart, hence the generous default.
+ */
+export const SUBTREE_MEMBER_TIMEOUT_MS = Number(
+  process.env.ALINEOD_SUBTREE_MEMBER_TIMEOUT_MS ?? 30_000,
+);

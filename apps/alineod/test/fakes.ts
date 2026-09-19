@@ -165,7 +165,11 @@ export class FakeAgent {
         );
       }
       const spec = JSON.parse(readFileSync(specPath, "utf8")) as { name?: string };
-      const child = new FakeAgent({ name: spec.name ?? "agent", runId: this.runId });
+      // Like the real SDK, a forked child gets its own correlation runId — not alineod's run.
+      const child = new FakeAgent({
+        name: spec.name ?? "agent",
+        runId: `sdk-${crypto.randomUUID()}`,
+      });
       this.spawns.push({ specPath, opts, child });
       return child;
     } finally {

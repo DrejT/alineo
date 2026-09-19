@@ -22,6 +22,7 @@ import {
   rebuild,
   liveAgents,
   reconnectableTerminalAgents,
+  agentsWithPendingInbox,
   type AgentRow,
 } from "../state/projection";
 import { sdkAdapter, register, get } from "./registry";
@@ -29,6 +30,8 @@ import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
 import { provisionRoot } from "./runs";
 import { provisionChild } from "./spawn";
+import { deliverPending } from "./notify";
+import { parseStoredWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
 
 export async function rehydrate(): Promise<void> {
@@ -59,6 +62,9 @@ export async function rehydrate(): Promise<void> {
   // Pass 2 — fire-and-backgrounded, same as a fresh spawn: the slow part (an optional waitFor
   // hold, then the fork) shouldn't block the daemon from coming back up and serving requests.
   for (const a of preFork) void retryProvision(a);
+
+  // Notifications that were queued but not yet delivered when the previous process died.
+  for (const id of agentsWithPendingInbox()) void deliverPending(id);
 }
 
 async function reattachOne(a: AgentRow): Promise<void> {
@@ -181,7 +187,6 @@ async function retryProvision(a: AgentRow): Promise<void> {
   const body: SpawnAgentBody = {
     spec,
     parentAgentId: a.parent_agent_id,
-    waitFor: a.wait_for ? (JSON.parse(a.wait_for) as string[]) : undefined,
     prompt: a.prompt ?? undefined,
   };
   await provisionChild(
@@ -191,6 +196,7 @@ async function retryProvision(a: AgentRow): Promise<void> {
     a.spawn_budget ?? undefined,
     a.max_agents_budget ?? undefined,
     body,
+    parseStoredWait(a.wait_for),
   );
 }
 

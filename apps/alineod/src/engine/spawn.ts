@@ -23,12 +23,20 @@ import { get, register } from "./registry";
 import { withParentForkLock } from "./fork-lock";
 import { emit } from "./emit";
 import { driveTurn, setState } from "./stream";
+import { registerNotify, withInbox } from "./notify";
 import { isNotRunningError, waitUntilNotPaused } from "./hold";
 import { sleep } from "../util";
-import { waitForHandles } from "./waitfor";
+import {
+  normalizeWait,
+  validateWait,
+  waitForRegime,
+  type NormalizedWait,
+  type WaitOutcome,
+} from "./waitfor";
 import { writeSpecFile } from "./specfile";
 import { readResult } from "./results";
-import { getAgentRow, childCount, getHandle } from "../state/projection";
+import { getAgentRow, childCount, getHandle, hasPausedAncestor } from "../state/projection";
+import { pauseAgent } from "./pause";
 import { findIdempotent, recordIdempotent } from "../state/db";
 import { HttpError } from "./errors";
 
@@ -45,13 +53,22 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
   if (!get(body.parentAgentId)) {
     throw new HttpError(409, `agent ${body.parentAgentId} is not live (cannot spawn from it)`);
   }
-  if (body.waitFor) {
-    for (const depId of body.waitFor) {
+  const wait = normalizeWait(body.waitFor);
+  if (wait) {
+    const problem = validateWait(wait);
+    if (problem) throw new HttpError(400, problem);
+    for (const depId of wait.agents) {
       const depRow = getAgentRow(depId);
       if (!depRow || depRow.run_id !== runId) {
         throw new HttpError(400, `waitFor references unknown agent ${depId}`);
       }
     }
+  }
+
+  for (const id of body.notifyOn ?? []) {
+    const row = getAgentRow(id);
+    if (!row || row.run_id !== runId)
+      throw new HttpError(400, `notifyOn references unknown agent ${id}`);
   }
 
   // D-f: a client-supplied idempotency key lets a retried POST (e.g. after the response was
@@ -64,7 +81,7 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
     }
   }
 
-  const hasWaitFor = !!body.waitFor && body.waitFor.length > 0;
+  const hasWaitFor = wait !== null;
   const childId = newAgentId();
   const specName = (body.spec.name as string | undefined) ?? "agent";
 
@@ -88,7 +105,7 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
     maxAgentsBudget: maxAgentsBudget !== undefined ? maxAgentsBudget - 1 : null,
     // Persisted so rehydrate() can retry this spawn if alineod crashes before it forks —
     // otherwise a still-pending waitFor hold only ever lived in this process's memory.
-    waitFor: body.waitFor ?? null,
+    waitFor: wait,
     prompt: body.prompt ?? null,
   });
   if (hasWaitFor) {
@@ -99,8 +116,9 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
     });
   }
   if (body.idempotencyKey) recordIdempotent(runId, body.idempotencyKey, childId);
+  if (body.notifyOn && body.notifyOn.length > 0) registerNotify(runId, childId, body.notifyOn);
 
-  void provisionChild(runId, childId, body.parentAgentId, spawnBudget, maxAgentsBudget, body);
+  void provisionChild(runId, childId, body.parentAgentId, spawnBudget, maxAgentsBudget, body, wait);
 
   return { agentId: childId, state: hasWaitFor ? "spawning" : "provisioning" };
 }
@@ -117,10 +135,28 @@ export async function provisionChild(
   spawnBudget: number | undefined,
   maxAgentsBudget: number | undefined,
   body: SpawnAgentBody,
+  wait: NormalizedWait | null,
 ): Promise<void> {
   try {
-    if (body.waitFor && body.waitFor.length > 0) {
-      await waitForHandles(runId, body.waitFor);
+    let waited: WaitOutcome | null = null;
+    if (wait) {
+      waited = await waitForRegime(runId, childId, wait);
+      if (isCancelled(childId)) return; // stopped while it waited — leave its ended state alone
+      emit(runId, childId, "wait_resolved", {
+        mode: wait.mode,
+        outcome: waited.outcome,
+        selected: waited.selected,
+        settled: waited.settled,
+        pending: waited.pending,
+      });
+      if (waited.outcome === "depfail" || waited.outcome === "deadline") {
+        const error =
+          waited.outcome === "depfail"
+            ? `dep-failed: ${waited.failed.join(", ") || "quorum unreachable"}`
+            : `wait-deadline: still waiting on ${waited.pending.join(", ")}`;
+        emit(runId, childId, "agent_ended", { outcome: "failed", endedAt: Date.now(), error });
+        return;
+      }
       emit(runId, childId, "agent_state_changed", {
         from: "spawning",
         to: "provisioning",
@@ -133,13 +169,38 @@ export async function provisionChild(
       spawnDepth: spawnBudget,
       maxAgents: maxAgentsBudget,
     });
+    if (!child) return; // stopped while waiting on its paused parent
+
+    if (isCancelled(childId)) {
+      // Stopped while the fork was in flight — nothing else will ever close this sandbox.
+      try {
+        await child.close();
+      } catch {
+        /* ignore */
+      }
+      emit(runId, childId, "agent_released", { reason: "stopped-before-provisioned" });
+      return;
+    }
 
     register(childId, child);
     emit(runId, childId, "agent_provisioned", { sandboxId: child.sandboxId });
 
-    if (body.waitFor && body.waitFor.length > 0) await injectInputs(child, body.waitFor);
-    if (body.prompt) void driveTurn(childId, body.prompt);
+    if (wait && waited) await injectInputs(child, wait, waited);
+
+    // A subtree pause reached this child before it existed (an ancestor above its direct parent is
+    // paused — a paused direct parent would have held the fork above). Join the pause now, and
+    // leave the first prompt for resumeAgent() to start. If the pause itself fails, run normally.
+    if (hasPausedAncestor(childId)) {
+      try {
+        await pauseAgent(childId, { pausedBy: "cascade" });
+        return;
+      } catch {
+        /* couldn't pause — fall through and start the prompt */
+      }
+    }
+    if (body.prompt) void driveTurn(childId, withInbox(childId, body.prompt));
   } catch (err) {
+    if (isCancelled(childId)) return; // already ended (stopped) — don't overwrite `aborted`
     const message = err instanceof Error ? err.message : String(err);
     let outcome = "failed";
     if (/refused|budget|spawn-depth|max-agents/i.test(message)) {
@@ -149,6 +210,11 @@ export async function provisionChild(
     }
     emit(runId, childId, "agent_ended", { outcome, endedAt: Date.now(), error: message });
   }
+}
+
+/** A spawn is cancelled once its agent has ended — i.e. it was stopped before it forked (B9). */
+function isCancelled(childId: string): boolean {
+  return getAgentRow(childId)?.ended_at != null;
 }
 
 /** Retries of a fork OpenSandbox refused as "not running" while the projection says it's running. */
@@ -173,14 +239,16 @@ async function forkFromParent(
   parentAgentId: string,
   specPath: string,
   opts: { spawnDepth: number | undefined; maxAgents: number | undefined },
-): Promise<Alineo> {
+): Promise<Alineo | null> {
   let held = false;
   for (let retries = 0; ;) {
+    if (isCancelled(childId)) return null;
     if (getAgentRow(parentAgentId)?.state === "paused") {
       held = true;
       setState(childId, "spawning", "parent-paused");
       await waitUntilNotPaused(runId, parentAgentId);
     }
+    if (isCancelled(childId)) return null;
 
     const parent = get(parentAgentId);
     if (!parent) throw new Error(`parent ${parentAgentId} is no longer live`);
@@ -205,9 +273,13 @@ async function forkFromParent(
  * Write each resolved dependency's result into the child's sandbox as a file, plus an
  * `/inputs.json` manifest the child's harness can read (research/daemon.md §8).
  */
-async function injectInputs(child: Alineo, waitFor: string[]): Promise<void> {
-  const manifest: Record<string, { path: string; outcome: string | null }> = {};
-  for (const depId of waitFor) {
+async function injectInputs(
+  child: Alineo,
+  wait: NormalizedWait,
+  waited: WaitOutcome,
+): Promise<void> {
+  const manifest: Record<string, unknown> = {};
+  for (const depId of waited.selected) {
     const handle = getHandle(depId);
     const text = readResult(depId) ?? "";
     const path = `/inputs/${depId}.txt`;
@@ -217,6 +289,11 @@ async function injectInputs(child: Alineo, waitFor: string[]): Promise<void> {
     } catch {
       // best-effort
     }
+  }
+  // Anything beyond a plain, fully-satisfied `settled` wait also says how the wait resolved, so the
+  // child can tell a partial or a race result from a complete one.
+  if (wait.mode !== "settled" || waited.outcome !== "satisfied") {
+    manifest.__wait = { mode: wait.mode, outcome: waited.outcome, pending: waited.pending };
   }
   try {
     await child.sandbox.writeFile("/inputs.json", JSON.stringify(manifest, null, 2));

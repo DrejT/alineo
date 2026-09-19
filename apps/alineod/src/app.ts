@@ -9,6 +9,7 @@ import { toErrorResponse } from "./routes/http";
 import { runsRoutes } from "./routes/runs";
 import { agentsRoutes } from "./routes/agents";
 import { resultsRoutes } from "./routes/results";
+import { awaitRoutes } from "./routes/await";
 
 export function createApp() {
   return new Elysia({
@@ -20,5 +21,6 @@ export function createApp() {
     .get("/health", () => ({ ok: true }))
     .use(runsRoutes)
     .use(agentsRoutes)
-    .use(resultsRoutes);
+    .use(resultsRoutes)
+    .use(awaitRoutes);
 }

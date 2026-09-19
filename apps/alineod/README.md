@@ -121,13 +121,18 @@ disturb a running swarm.
   a restart. It tries `Alineo.reattach()` first, falling back to `Alineo.resume()` (which
   restarts the bridge, dropping an in-flight turn) only if the bridge doesn't answer (D-a). If
   both fail: a still-live agent ends `lost`; a finished agent keeps its real outcome.
-- **Control verbs are single-agent.** `steer`, `pause`, `resume`, and `stop` act on the named
-  agent only; `DELETE /runs/:id` is the one whole-run operation.
+- **Pause, resume and stop can take a subtree.** `{"scope": "subtree"}` acts on an agent and every
+  descendant (pause parents first; resume and stop leaves first), returning one result per member.
+  `pausedBy` records whether each was the target (`operator`) or reached by the cascade. Steer's
+  subtree form delivers one message to the parent (plus a roster of its children) — never a
+  broadcast. Stopping a finished agent emits `agent_released` and keeps its outcome.
+- **Coordination.** `waitFor` modes (`settled`/`all`/`any`/`quorum`) plus deadlines; quiescence and
+  operator await routes; `notifyOn` with a per-agent inbox delivered by the subscriber's state.
 
 ## Not yet supported
 
-Selectors beyond one agent (incl. subtree pause) · checkpoint & rollback · `interrupt` /
-`rebudget` · context-policy knobs · channels / `notifyWhen` / quiescence · the authority model.
+Agent-initiated coordination (an agent's own `await` / `notifyWhen`) · checkpoint & rollback · `interrupt` /
+`rebudget` · context-policy knobs · channels · the authority model.
 See [`research/open-questions.md`](../../../research/open-questions.md).
 
 ## Known issues

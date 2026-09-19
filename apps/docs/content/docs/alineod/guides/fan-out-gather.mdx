@@ -69,6 +69,9 @@ how to treat missing work in its prompt.
   A child can only wait on agents that already exist, so waits always form a DAG and can't deadlock.
 </Callout>
 
+A plain `waitFor` list waits for **every** dependency to finish. To start on the first one, on a quorum, or after
+a deadline, see [Coordination](/docs/alineod/guides/coordination#waitfor-modes).
+
 ## Collect the final result
 
 ```bash

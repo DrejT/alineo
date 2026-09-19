@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS agents (
   prompt          TEXT,
   -- State before the most recent pause, restored on resume.
   paused_from     TEXT,
+  -- Who paused it: operator (the target of a pause) or cascade (a descendant of one). NULL when not paused.
+  paused_by       TEXT,
   created_at      INTEGER NOT NULL,
   ended_at        INTEGER,
   outcome         TEXT                    -- success|failed|aborted|budget-exceeded|lost
@@ -87,6 +89,7 @@ for (const alter of [
   "ALTER TABLE agents ADD COLUMN wait_for TEXT",
   "ALTER TABLE agents ADD COLUMN prompt TEXT",
   "ALTER TABLE agents ADD COLUMN paused_from TEXT",
+  "ALTER TABLE agents ADD COLUMN paused_by TEXT",
 ]) {
   try {
     db.exec(alter);
@@ -94,6 +97,37 @@ for (const alter of [
     /* column already present */
   }
 }
+
+// Tier 2 notifications (research/tier-1-2-plan.md #5) — both are ledger projections like
+// agents/handles: rebuilt from notify_registered / inbox_* events, never written directly.
+db.exec(`
+CREATE TABLE IF NOT EXISTS notify_subscriptions (
+  subscriber_id TEXT NOT NULL,
+  on_agent_id   TEXT NOT NULL,
+  run_id        TEXT NOT NULL,
+  wake          INTEGER NOT NULL DEFAULT 0,  -- start a turn on an idle subscriber instead of queueing
+  PRIMARY KEY (subscriber_id, on_agent_id)
+);
+CREATE INDEX IF NOT EXISTS notify_on ON notify_subscriptions (on_agent_id);
+
+CREATE TABLE IF NOT EXISTS inbox (
+  seq            INTEGER PRIMARY KEY,         -- the ledger seq of its inbox_queued event
+  run_id         TEXT NOT NULL,
+  agent_id       TEXT NOT NULL,               -- the recipient
+  kind           TEXT NOT NULL,               -- notification | steer
+  about_agent_id TEXT,
+  about_spec     TEXT,
+  outcome        TEXT,
+  result_ref     TEXT,
+  excerpt        TEXT,
+  again          INTEGER NOT NULL DEFAULT 0,
+  text           TEXT,                        -- steer: the message to deliver verbatim
+  state          TEXT NOT NULL DEFAULT 'pending', -- pending | delivered | dropped
+  delivered_as   TEXT,                        -- steer | turn | prompt, or the drop reason
+  settled_at     INTEGER
+);
+CREATE INDEX IF NOT EXISTS inbox_agent ON inbox (agent_id, state);
+`);
 
 export interface LedgerRow {
   seq: number;

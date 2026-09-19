@@ -14,6 +14,7 @@ import { newRunId, newAgentId } from "../ids";
 import { sdkAdapter, register } from "./registry";
 import { emit } from "./emit";
 import { driveTurn } from "./stream";
+import { withInbox } from "./notify";
 
 export interface CreateRunResult {
   runId: string;
@@ -74,7 +75,7 @@ export async function provisionRoot(
     register(rootAgentId, agent);
     emit(runId, rootAgentId, "agent_provisioned", { sandboxId: agent.sandboxId });
 
-    if (body.prompt) void driveTurn(rootAgentId, body.prompt);
+    if (body.prompt) void driveTurn(rootAgentId, withInbox(rootAgentId, body.prompt));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     emit(runId, rootAgentId, "agent_ended", {
