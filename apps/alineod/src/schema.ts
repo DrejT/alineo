@@ -38,15 +38,95 @@ export const CreateRunResponse = z.object({
     ),
 });
 
+// ── waits (spawn-time waitFor, POST /runs/:runId/await) ─────────────────────────
+
+export const WaitMode = z
+  .enum(["settled", "all", "any", "quorum"])
+  .describe(
+    "settled: every agent terminal, any outcome · all: every agent succeeded · any: the first to settle · quorum: k successes.",
+  );
+
+export const WaitForSpec = z.object({
+  agents: z.array(z.string()).min(1),
+  mode: WaitMode.optional(),
+  k: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("quorum: how many successes are needed (default: all)."),
+  onDepFailure: z
+    .enum(["fail", "proceed"])
+    .optional()
+    .describe(
+      "all / quorum: what a failed dependency (or an unreachable quorum) does. Default fail.",
+    ),
+  deadlineSec: z.number().positive().optional(),
+  onDeadline: z
+    .enum(["proceed", "fail"])
+    .optional()
+    .describe(
+      "At the deadline: proceed with whatever settled (partial), or fail. Default proceed.",
+    ),
+});
+
+export const RunAwaitBody = z
+  .object({
+    agents: z.array(z.string()).min(1).optional(),
+    subtree: z
+      .string()
+      .optional()
+      .describe("Wait for this agent's subtree to become quiescent instead."),
+    mode: WaitMode.optional(),
+    k: z.number().int().positive().optional(),
+    onDepFailure: z.enum(["fail", "proceed"]).optional(),
+    wait: z
+      .number()
+      .min(0)
+      .optional()
+      .describe("Seconds to hold the request (capped server-side)."),
+  })
+  .refine((b) => (b.agents ? !b.subtree : !!b.subtree), {
+    message: "give exactly one of agents or subtree",
+  });
+
+export const RunAwaitResponse = z.object({
+  outcome: z.enum(["satisfied", "partial", "depfail", "pending"]),
+  selected: z.array(z.string()),
+  settled: z.array(z.object({ agentId: z.string(), outcome: z.string().nullable() })),
+  pending: z.array(z.string()),
+});
+
+export const QuiescenceView = z.object({
+  rootAgentId: z.string(),
+  quiescent: z
+    .boolean()
+    .describe(
+      "Every member terminal and none still being spawned. Paused members count as not quiescent.",
+    ),
+  asOf: z.number(),
+  members: z.array(
+    z.object({
+      agentId: z.string(),
+      state: z.string(),
+      outcome: z.string().nullable(),
+      resultRef: z.string().nullable(),
+    }),
+  ),
+  blockedOnPaused: z.array(z.string()),
+});
+
 // ── POST /runs/:runId/agents ──────────────────────────────────────────────────
 
 export const SpawnAgentBody = z.object({
   spec: AgentSpec,
   parentAgentId: z.string(),
   waitFor: z
-    .array(z.string())
+    .union([z.array(z.string()), WaitForSpec])
     .optional()
-    .describe("Hold the spawn until every named agent's handle is settled (hold-then-spawn, D-c)."),
+    .describe(
+      'Hold the spawn until the named agents resolve (hold-then-spawn, D-c). A plain array means mode "settled": every agent terminal, any outcome.',
+    ),
   prompt: z.string().optional(),
   budget: BudgetOverride.optional(),
   idempotencyKey: z
@@ -210,6 +290,29 @@ export const AlineodEvent = z.discriminatedUnion("event", [
     event: z.literal("agent_steered"),
     message: z.string(),
   }),
+  EventBase.extend({
+    event: z.literal("wait_resolved"),
+    mode: WaitMode,
+    outcome: z.enum(["satisfied", "partial", "deadline", "depfail"]),
+    selected: z.array(z.string()),
+    settled: z.array(z.object({ agentId: z.string(), outcome: z.string().nullable() })),
+    pending: z.array(z.string()),
+  }).describe(
+    "A held spawn's waitFor resolved. depfail / deadline end the child failed without forking.",
+  ),
+  EventBase.extend({
+    event: z.literal("wait_blocked_on_paused"),
+    blockedOn: z.string(),
+  }).describe(
+    "A held spawn is still waiting on a dependency that's paused — emitted once per dependency.",
+  ),
+  EventBase.extend({
+    event: z.literal("subtree_quiescent"),
+    memberCount: z.number().int(),
+    asOf: z.number(),
+  }).describe(
+    "The subtree rooted at agentId just became quiescent (only tracked while someone awaits it).",
+  ),
   EventBase.extend({
     event: z.literal("agent_released"),
     reason: z.string(),
