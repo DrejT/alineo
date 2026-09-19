@@ -79,6 +79,12 @@ export const AgentView = z.object({
   createdAt: z.number(),
   endedAt: z.number().nullable(),
   outcome: z.string().nullable(),
+  pausedBy: z
+    .string()
+    .nullable()
+    .describe(
+      'While paused: "operator" (it was the target) or "cascade" (a subtree pause reached it).',
+    ),
 });
 export type AgentView = z.infer<typeof AgentView>;
 
@@ -92,6 +98,33 @@ export const TreeView = z.object({
 export const AgentDetail = AgentView.extend({
   sessionStats: z.unknown().optional(),
 });
+
+// ── POST /agents/:id/{pause,resume} ─────────────────────────────────────────
+
+export const ControlScopeBody = z
+  .object({
+    scope: z
+      .enum(["agent", "subtree"])
+      .default("agent")
+      .describe(
+        '"agent" (default): the named agent only. "subtree": the agent and every descendant — pause parents-first, resume children-first.',
+      ),
+  })
+  .default({ scope: "agent" });
+
+export const SubtreeOpResult = z
+  .object({
+    asOf: z.number().describe("Highest ledger seq when the subtree's membership was resolved."),
+    results: z.array(
+      z.object({
+        agentId: z.string(),
+        outcome: z.enum(["applied", "skipped", "failed"]),
+        reason: z.string().optional(),
+      }),
+    ),
+  })
+  .describe("Best-effort, per member: one member failing doesn't undo or block the rest.");
+export type SubtreeOpResult = z.infer<typeof SubtreeOpResult>;
 
 // ── POST /agents/:id/stop ────────────────────────────────────────────────────
 
@@ -152,6 +185,12 @@ export const AlineodEvent = z.discriminatedUnion("event", [
     from: z.string(),
     to: z.string(),
     reason: z.string().optional(),
+    pausedBy: z
+      .enum(["operator", "cascade"])
+      .optional()
+      .describe(
+        "On a transition to paused: whether this agent was the target, or reached by a subtree pause.",
+      ),
   }),
   EventBase.extend({
     event: z.literal("agent_provisioned"),

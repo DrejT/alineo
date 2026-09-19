@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS agents (
   prompt          TEXT,
   -- State before the most recent pause, restored on resume.
   paused_from     TEXT,
+  -- Who paused it: operator (the target of a pause) or cascade (a descendant of one). NULL when not paused.
+  paused_by       TEXT,
   created_at      INTEGER NOT NULL,
   ended_at        INTEGER,
   outcome         TEXT                    -- success|failed|aborted|budget-exceeded|lost
@@ -87,6 +89,7 @@ for (const alter of [
   "ALTER TABLE agents ADD COLUMN wait_for TEXT",
   "ALTER TABLE agents ADD COLUMN prompt TEXT",
   "ALTER TABLE agents ADD COLUMN paused_from TEXT",
+  "ALTER TABLE agents ADD COLUMN paused_by TEXT",
 ]) {
   try {
     db.exec(alter);

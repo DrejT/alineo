@@ -102,6 +102,14 @@
         },
         "reason": {
           "type": "string"
+        },
+        "pausedBy": {
+          "description": "On a transition to paused: whether this agent was the target, or reached by a subtree pause.",
+          "type": "string",
+          "enum": [
+            "operator",
+            "cascade"
+          ]
         }
       },
       "required": [
