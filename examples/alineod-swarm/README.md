@@ -35,4 +35,7 @@ bun start
 
 Set `ALINEOD_URL` if the daemon isn't on `http://localhost:4600`.
 
+For subtree pause/stop/steer, quorum waits and `notifyOn`, see
+[`alineod-coordination`](../alineod-coordination).
+
 See the [alineod docs](https://docs.alineo.tech/docs/alineod) for every route and event.
