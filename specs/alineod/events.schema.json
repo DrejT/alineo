@@ -160,6 +160,27 @@
         },
         "message": {
           "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "subtree"
+          ]
+        },
+        "roster": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deliveredAs": {
+          "type": "string",
+          "enum": [
+            "steer",
+            "turn",
+            "queued"
+          ]
         }
       },
       "required": [
@@ -168,6 +189,322 @@
         "message"
       ],
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "wait_resolved"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "settled",
+            "all",
+            "any",
+            "quorum"
+          ],
+          "description": "settled: every agent terminal, any outcome · all: every agent succeeded · any: the first to settle · quorum: k successes."
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "satisfied",
+            "partial",
+            "deadline",
+            "depfail"
+          ]
+        },
+        "selected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "settled": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agentId": {
+                "type": "string"
+              },
+              "outcome": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "agentId",
+              "outcome"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "mode",
+        "outcome",
+        "selected",
+        "settled",
+        "pending"
+      ],
+      "additionalProperties": false,
+      "description": "A held spawn's waitFor resolved. depfail / deadline end the child failed without forking."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "wait_blocked_on_paused"
+          ]
+        },
+        "blockedOn": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "blockedOn"
+      ],
+      "additionalProperties": false,
+      "description": "A held spawn is still waiting on a dependency that's paused — emitted once per dependency."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "subtree_quiescent"
+          ]
+        },
+        "memberCount": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "asOf": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "memberCount",
+        "asOf"
+      ],
+      "additionalProperties": false,
+      "description": "The subtree rooted at agentId just became quiescent (only tracked while someone awaits it)."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "notify_registered"
+          ]
+        },
+        "on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "wake": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "on",
+        "wake"
+      ],
+      "additionalProperties": false,
+      "description": "agentId subscribed to be told when each agent in `on` finishes."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox_queued"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "notification",
+            "steer"
+          ]
+        },
+        "aboutAgentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "aboutSpec": {
+          "nullable": true,
+          "type": "string"
+        },
+        "outcome": {
+          "nullable": true,
+          "type": "string"
+        },
+        "resultRef": {
+          "nullable": true,
+          "type": "string"
+        },
+        "excerpt": {
+          "nullable": true,
+          "type": "string"
+        },
+        "again": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "Something for agentId to be told — a notification, or a steer waiting for it to resume."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox_delivered"
+          ]
+        },
+        "seqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "as": {
+          "type": "string",
+          "enum": [
+            "steer",
+            "turn",
+            "prompt"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "seqs",
+        "as"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox_dropped"
+          ]
+        },
+        "seqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "seqs",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent_released"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "agentId",
+        "event",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "description": "A finished agent's still-open sandbox was closed (stop / DELETE /runs), or a fork that landed after its spawn was stopped. The recorded outcome is unchanged."
     },
     {
       "type": "object",

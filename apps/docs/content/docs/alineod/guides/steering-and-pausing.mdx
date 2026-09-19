@@ -3,8 +3,9 @@ title: Steering and pausing
 description: Redirect a running turn, freeze and thaw an agent's container, and stop agents or whole runs.
 ---
 
-alineod has four ways to intervene in a live agent. They act on **one named agent** — none of them cascades to
-its children.
+alineod has four ways to intervene in a live agent. By default each acts on **one named agent**. Pause, resume
+and stop take `"scope": "subtree"` to act on the agent and everything under it. Steer's subtree form goes to the
+parent only, so it can redirect its own children.
 
 | Action | Route                     | Effect                                                     |
 | ------ | ------------------------- | ---------------------------------------------------------- |
@@ -35,18 +36,47 @@ This is the harness's own steering behaviour (Pi's `steer` RPC), which alineod p
 
 ### Steering a subtree
 
-Steer deliberately targets one agent. To redirect an agent **and** the work it has delegated, steer the parent:
-it holds the context about how the task was split, so it can decide what each child should now do — steer some,
-stop others, or spawn new ones — instead of every child receiving the same raw message.
+Steer never broadcasts: the same words rarely fit a parent and its workers. To redirect an agent **and** the work
+it has delegated, steer the parent with `"scope": "subtree"`:
 
-Agents running inside a sandbox can do this themselves with the CLI, addressing a child by the `sandboxId` that
-`alineo fork --json` reported:
+```bash
+curl -s -X POST localhost:4600/agents/a_7b2e44d1/steer \
+  -H 'content-type: application/json' \
+  -d '{"message": "Security review is the priority now; drop performance.", "scope": "subtree"}'
+```
+
+The parent gets **one** message:
+
+- your text;
+- a table of its direct children, showing each one's `agentId`, `sandboxId`, spec, state, outcome and what it was
+  asked to do;
+- instructions to re-plan and act on each child.
+
+It decides what each child should now do (redirect it, stop it, leave it, or fork new ones), and writes each child
+a message for that child's own task. The children receive nothing directly.
+
+How the message reaches the parent depends on its state. The response says which happened:
+
+| Parent is | `deliveredAs` | Delivery                                                 |
+| --------- | ------------- | -------------------------------------------------------- |
+| running   | `steer`       | Into its current turn, after its running tool call.      |
+| idle      | `turn`        | As a new turn.                                           |
+| paused    | `queued`      | Held in its inbox and delivered as soon as it's resumed. |
+
+The parent acts on its children with the `alineo` CLI inside its sandbox, addressing each child by `sandboxId`:
 
 ```bash
 alineo steer <child-sandbox-id> "Drop the performance section; the security review is the priority now."
 ```
 
 See [alineo steer](/docs/alineo/commands/steer).
+
+<Callout type="warn" title="The parent's own actions aren't tracked by alineod yet">
+  The CLI talks to OpenSandbox directly. So the steers and stops the parent issues aren't in
+  alineod's event stream, and children it forks itself aren't part of alineod's tree: subtree pause,
+  stop and steer won't reach them. Routing the CLI through alineod needs per-agent credentials,
+  which are planned.
+</Callout>
 
 ### Errors
 
@@ -142,7 +172,25 @@ curl -s -X POST localhost:4600/agents/a_c01d9e3a/stop \
 ```
 
 Stop aborts the agent's current turn, closes its sandbox, and ends it with outcome `aborted`. Its handle settles,
-so anything waiting on it is released. The body is optional. `mode` accepts `abort` (default) or `drain`; `drain` currently behaves the same as `abort`.
+so anything waiting on it is released. The body is optional. `mode` accepts `abort` (default) or `drain`; `drain`
+currently behaves the same as `abort`.
+
+- **A finished agent** keeps its sandbox open so it can be prompted again or spawned from. Stopping it closes that
+  sandbox and emits `agent_released`, and its recorded outcome, e.g. `success`, is kept.
+- **A paused agent** is closed directly, without an abort, since its frozen harness can't answer.
+- **A child that hasn't forked yet**, one still waiting on `waitFor` or on a paused parent, is cancelled: it
+  never forks.
+
+### Stopping a subtree
+
+```bash
+curl -s -X POST localhost:4600/agents/a_7b2e44d1/stop \
+  -H 'content-type: application/json' -d '{"scope": "subtree"}'
+```
+
+This stops the agent and every descendant, **leaves first**, so no parent is torn down under a child still using
+it. Like subtree pause, it returns one result per member: `applied`, `skipped` (already ended and closed), or
+`failed` with a reason.
 
 To stop everything at once, delete the run:
 
