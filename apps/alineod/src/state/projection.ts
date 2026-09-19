@@ -22,8 +22,10 @@ const upsertAgent = db.query(
 const setAgentState = db.query(`UPDATE agents SET state = $state WHERE agent_id = $agentId`);
 
 const setPausedFrom = db.query(
-  `UPDATE agents SET paused_from = $pausedFrom WHERE agent_id = $agentId`,
+  `UPDATE agents SET paused_from = $pausedFrom, paused_by = $pausedBy WHERE agent_id = $agentId`,
 );
+
+const clearPausedBy = db.query(`UPDATE agents SET paused_by = NULL WHERE agent_id = $agentId`);
 
 const setAgentSandbox = db.query(
   `UPDATE agents SET sandbox_id = $sandboxId WHERE agent_id = $agentId`,
@@ -76,7 +78,13 @@ export function apply(row: LedgerRow): void {
     case "agent_state_changed":
       setAgentState.run({ $agentId: row.agent_id, $state: p.to as string });
       if (p.to === "paused") {
-        setPausedFrom.run({ $agentId: row.agent_id, $pausedFrom: (p.from as string) ?? null });
+        setPausedFrom.run({
+          $agentId: row.agent_id,
+          $pausedFrom: (p.from as string) ?? null,
+          $pausedBy: (p.pausedBy as string | undefined) ?? "operator",
+        });
+      } else if (p.from === "paused") {
+        clearPausedBy.run({ $agentId: row.agent_id });
       }
       break;
     case "agent_provisioned":
@@ -141,6 +149,7 @@ const rowToView = (r: AgentRow): AgentView => ({
   createdAt: r.created_at,
   endedAt: r.ended_at,
   outcome: r.outcome,
+  pausedBy: r.paused_by,
 });
 
 export interface AgentRow {
@@ -158,6 +167,7 @@ export interface AgentRow {
   wait_for: string | null;
   prompt: string | null;
   paused_from: string | null;
+  paused_by: string | null;
   created_at: number;
   ended_at: number | null;
   outcome: string | null;
@@ -190,6 +200,33 @@ export function getRunAgentViews(runId: string): AgentView[] {
 
 export function childCount(parentAgentId: string): number {
   return qChildCount.get(parentAgentId)?.n ?? 0;
+}
+
+// An agent plus every descendant, parents before children (`depth`, then `spawn_index`).
+const qSubtree = db.query<AgentRow, [string]>(
+  `WITH RECURSIVE sub(agent_id) AS (
+     SELECT agent_id FROM agents WHERE agent_id = ?
+     UNION ALL
+     SELECT a.agent_id FROM agents a JOIN sub ON a.parent_agent_id = sub.agent_id
+   )
+   SELECT agents.* FROM agents JOIN sub USING (agent_id) ORDER BY depth ASC, spawn_index ASC`,
+);
+
+/** `subtree(agentId)` (research/swarm-control.md §5a): the agent and all its descendants. */
+export function resolveSubtree(agentId: string): AgentRow[] {
+  return qSubtree.all(agentId);
+}
+
+/** True if any ancestor of the agent (not the agent itself) is paused. */
+export function hasPausedAncestor(agentId: string): boolean {
+  let parentId = getAgentRow(agentId)?.parent_agent_id ?? null;
+  while (parentId) {
+    const parent = getAgentRow(parentId);
+    if (!parent) return false;
+    if (parent.state === "paused") return true;
+    parentId = parent.parent_agent_id;
+  }
+  return false;
 }
 
 export function runAsOf(runId: string): number {

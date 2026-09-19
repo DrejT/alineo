@@ -22,6 +22,8 @@ import {
   TreeView,
   AgentDetail,
   StopAgentBody,
+  ControlScopeBody,
+  SubtreeOpResult,
   PromptBody,
   SteerBody,
   ResultResponse,
@@ -145,10 +147,19 @@ const openapi = {
     },
     "/agents/{agentId}/pause": {
       post: {
-        summary: "Freeze the agent's sandbox container",
+        summary:
+          "Freeze the agent's sandbox container (or, with scope: subtree, it and every descendant)",
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: false,
+          content: { "application/json": { schema: json(ControlScopeBody) } },
+        },
         responses: {
-          "202": { description: "Accepted" },
+          "200": {
+            description: "scope: subtree — one result per member, parents paused first",
+            content: { "application/json": { schema: json(SubtreeOpResult) } },
+          },
+          "202": { description: "Accepted (scope: agent)" },
           "409": { description: "Agent not live" },
           "502": { description: "The sandbox rejected the pause" },
         },
@@ -156,10 +167,19 @@ const openapi = {
     },
     "/agents/{agentId}/resume": {
       post: {
-        summary: "Unfreeze the agent's sandbox container",
+        summary:
+          "Unfreeze the agent's sandbox container (or, with scope: subtree, it and every paused descendant)",
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: false,
+          content: { "application/json": { schema: json(ControlScopeBody) } },
+        },
         responses: {
-          "202": { description: "Accepted" },
+          "200": {
+            description: "scope: subtree — one result per member, children resumed first",
+            content: { "application/json": { schema: json(SubtreeOpResult) } },
+          },
+          "202": { description: "Accepted (scope: agent)" },
           "409": { description: "Agent not paused, or not live" },
           "502": { description: "The sandbox rejected the resume" },
         },

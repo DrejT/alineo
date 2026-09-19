@@ -28,7 +28,8 @@ import { sleep } from "../util";
 import { waitForHandles } from "./waitfor";
 import { writeSpecFile } from "./specfile";
 import { readResult } from "./results";
-import { getAgentRow, childCount, getHandle } from "../state/projection";
+import { getAgentRow, childCount, getHandle, hasPausedAncestor } from "../state/projection";
+import { pauseAgent } from "./pause";
 import { findIdempotent, recordIdempotent } from "../state/db";
 import { HttpError } from "./errors";
 
@@ -138,6 +139,18 @@ export async function provisionChild(
     emit(runId, childId, "agent_provisioned", { sandboxId: child.sandboxId });
 
     if (body.waitFor && body.waitFor.length > 0) await injectInputs(child, body.waitFor);
+
+    // A subtree pause reached this child before it existed (an ancestor above its direct parent is
+    // paused — a paused direct parent would have held the fork above). Join the pause now, and
+    // leave the first prompt for resumeAgent() to start. If the pause itself fails, run normally.
+    if (hasPausedAncestor(childId)) {
+      try {
+        await pauseAgent(childId, { pausedBy: "cascade" });
+        return;
+      } catch {
+        /* couldn't pause — fall through and start the prompt */
+      }
+    }
     if (body.prompt) void driveTurn(childId, body.prompt);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

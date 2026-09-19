@@ -6,6 +6,9 @@
  *   T1 (B1+B2)  pause a turn mid tool call for 3x the inactivity timeout → resume → full result
  *   T2 (B4)     spawn under a paused parent → child holds with no sandbox → resume → child answers
  *   T3 (B7)     pause mid-turn → kill -9 alineod → restart → still paused → resume → full result
+ *   T4 (#1)     3-level swarm (root → c1 → g1), pause the root's SUBTREE mid-turn for ~200s with a
+ *               kill -9 + restart in the middle → resume the subtree → every turn's full result
+ *               (run explicitly: `... verify-pause-fixes.ts t4`)
  *
  * Usage (on the OpenSandbox host, from the repo root, with NVIDIA_API_KEY in the environment):
  *   set -a; . ./.env; set +a
@@ -124,7 +127,13 @@ const sleepPrompt = (marker: string, secs: number) =>
 
 async function agentView(agentId: string): Promise<Json> {
   const v = await api("GET", `/agents/${agentId}`);
-  return { state: v.state, outcome: v.outcome, sandboxId: v.sandboxId, endedAt: v.endedAt };
+  return {
+    state: v.state,
+    outcome: v.outcome,
+    sandboxId: v.sandboxId,
+    endedAt: v.endedAt,
+    pausedBy: v.pausedBy,
+  };
 }
 
 async function waitLive(agentId: string, timeoutMs = 600_000): Promise<void> {
@@ -398,6 +407,104 @@ async function t3(): Promise<void> {
   save();
 }
 
+// ── T4: subtree pause across a restart ────────────────────────────────────────
+
+async function t4(): Promise<void> {
+  const obs: Json = {};
+  results.t4 = obs;
+  const views = async (ids: Record<string, string>) =>
+    Object.fromEntries(
+      await Promise.all(Object.entries(ids).map(async ([k, id]) => [k, await agentView(id)])),
+    );
+  try {
+    const r = await api("POST", "/runs", { spec: spec("verify-subtree-root", { spawnDepth: 3 }) });
+    const runId = r.runId as string;
+    const root = r.rootAgentId as string;
+    runs.push(runId);
+    await waitLive(root);
+
+    const c1 = (
+      await api("POST", `/runs/${runId}/agents`, {
+        parentAgentId: root,
+        spec: spec("verify-subtree-c1"),
+        prompt: sleepPrompt("C1_SLEPT_OK", 120),
+      })
+    ).agentId as string;
+    await waitLive(c1);
+    const g1 = (
+      await api("POST", `/runs/${runId}/agents`, {
+        parentAgentId: c1,
+        spec: spec("verify-subtree-g1"),
+        prompt: sleepPrompt("G1_SLEPT_OK", 120),
+      })
+    ).agentId as string;
+    await waitLive(g1);
+    await api("POST", `/agents/${root}/prompt`, { text: sleepPrompt("ROOT_SLEPT_OK", 120) });
+    const ids = { root, c1, g1 };
+    Object.assign(obs, { runId, ids });
+    for (const id of Object.values(ids)) await waitState(id, "running");
+    log("T4: 3-level swarm running");
+    await sleep(10_000); // mid-turn for all three (model thinking, or inside the sleep)
+
+    const paused = await api("POST", `/agents/${root}/pause`, { scope: "subtree" });
+    obs.pauseResults = paused.results;
+    obs.afterPause = await views(ids);
+    log("T4: subtree paused", JSON.stringify(paused.results));
+
+    await sleep(60_000);
+    daemon?.kill(9);
+    await daemon?.exited;
+    await sleep(5_000);
+    await startDaemon("t4-restart");
+    obs.afterRestart = await views(ids);
+    log("T4: daemon restarted while the subtree was paused");
+
+    await sleep(135_000); // ~200s paused in total — 10x the 20s inactivity timeout
+    obs.beforeResume = await views(ids);
+
+    const resumed = await api("POST", `/agents/${root}/resume`, { scope: "subtree" });
+    obs.resumeResults = resumed.results;
+    log("T4: subtree resumed", JSON.stringify(resumed.results));
+
+    const res: Record<string, Json> = {};
+    for (const [k, id] of Object.entries(ids)) {
+      const out = await waitResult(id);
+      res[k] = { outcome: out.outcome, text: out.result };
+    }
+    obs.results = res;
+    obs.lifecycle = Object.fromEntries(
+      await Promise.all(
+        Object.entries(ids).map(async ([k, id]) => [k, lifecycle(await ledger(runId), id)]),
+      ),
+    );
+
+    const allApplied = (xs: unknown) =>
+      Array.isArray(xs) && xs.length === 3 && xs.every((x) => (x as Json).outcome === "applied");
+    const stillPaused = (v: Json) =>
+      Object.values(v).every((a) => (a as Json).state === "paused" && (a as Json).outcome === null);
+    const markers: Record<string, string> = {
+      root: "ROOT_SLEPT_OK",
+      c1: "C1_SLEPT_OK",
+      g1: "G1_SLEPT_OK",
+    };
+    obs.pass =
+      allApplied(obs.pauseResults) &&
+      stillPaused(obs.afterPause as Json) &&
+      stillPaused(obs.afterRestart as Json) &&
+      stillPaused(obs.beforeResume as Json) &&
+      allApplied(obs.resumeResults) &&
+      Object.entries(markers).every(
+        ([k, m]) => res[k]?.outcome === "success" && String(res[k]?.text).includes(m),
+      );
+    log("T4:", obs.pass ? "PASS" : "FAIL", JSON.stringify(res));
+  } catch (e) {
+    obs.error = errMsg(e);
+    obs.pass = false;
+    log("T4: ERROR", errMsg(e));
+  }
+  save();
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 
 try {
@@ -408,6 +515,7 @@ try {
   if (only.has("t2")) parallel.push(t2());
   await Promise.all(parallel);
   if (only.has("t3")) await t3();
+  if (only.has("t4")) await t4();
 } catch (e) {
   results.fatal = errMsg(e);
   log("FATAL", errMsg(e));

@@ -121,12 +121,14 @@ disturb a running swarm.
   a restart. It tries `Alineo.reattach()` first, falling back to `Alineo.resume()` (which
   restarts the bridge, dropping an in-flight turn) only if the bridge doesn't answer (D-a). If
   both fail: a still-live agent ends `lost`; a finished agent keeps its real outcome.
-- **Control verbs are single-agent.** `steer`, `pause`, `resume`, and `stop` act on the named
-  agent only; `DELETE /runs/:id` is the one whole-run operation.
+- **Pause and resume can take a subtree.** `{"scope": "subtree"}` pauses an agent and every descendant
+  (parents first) or resumes them (children first), returning one result per member. `pausedBy`
+  records whether each was the target (`operator`) or reached by the cascade. `steer` and `stop` still
+  act on the named agent only; `DELETE /runs/:id` is the whole-run operation.
 
 ## Not yet supported
 
-Selectors beyond one agent (incl. subtree pause) · checkpoint & rollback · `interrupt` /
+Subtree `stop` / `steer` · checkpoint & rollback · `interrupt` /
 `rebudget` · context-policy knobs · channels / `notifyWhen` / quiescence · the authority model.
 See [`research/open-questions.md`](../../../research/open-questions.md).
 

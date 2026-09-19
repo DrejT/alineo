@@ -3,7 +3,7 @@
   "info": {
     "title": "alineod — swarm control API",
     "version": "0.0.0",
-    "description": "Initiate and orchestrate agent swarms. alineod drives OpenSandbox through the alineo SDK; this is the language-neutral wire contract. Prototype."
+    "description": "Initiate and orchestrate agent swarms. alineod drives OpenSandbox through the alineo SDK; this is the language-neutral wire contract."
   },
   "paths": {
     "/runs": {
@@ -159,6 +159,11 @@
                           "outcome": {
                             "nullable": true,
                             "type": "string"
+                          },
+                          "pausedBy": {
+                            "nullable": true,
+                            "description": "While paused: \"operator\" (it was the target) or \"cascade\" (a subtree pause reached it).",
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -172,7 +177,8 @@
                           "sandboxId",
                           "createdAt",
                           "endedAt",
-                          "outcome"
+                          "outcome",
+                          "pausedBy"
                         ],
                         "additionalProperties": false
                       }
@@ -400,6 +406,11 @@
                       "nullable": true,
                       "type": "string"
                     },
+                    "pausedBy": {
+                      "nullable": true,
+                      "description": "While paused: \"operator\" (it was the target) or \"cascade\" (a subtree pause reached it).",
+                      "type": "string"
+                    },
                     "sessionStats": {}
                   },
                   "required": [
@@ -413,7 +424,8 @@
                     "sandboxId",
                     "createdAt",
                     "endedAt",
-                    "outcome"
+                    "outcome",
+                    "pausedBy"
                   ],
                   "additionalProperties": false
                 }
@@ -513,7 +525,7 @@
     },
     "/agents/{agentId}/pause": {
       "post": {
-        "summary": "Freeze the agent's sandbox container",
+        "summary": "Freeze the agent's sandbox container (or, with scope: subtree, it and every descendant)",
         "parameters": [
           {
             "name": "agentId",
@@ -524,9 +536,86 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "default": {
+                  "scope": "agent"
+                },
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "default": "agent",
+                    "description": "\"agent\" (default): the named agent only. \"subtree\": the agent and every descendant — pause parents-first, resume children-first.",
+                    "type": "string",
+                    "enum": [
+                      "agent",
+                      "subtree"
+                    ]
+                  }
+                },
+                "required": [
+                  "scope"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
+          "200": {
+            "description": "scope: subtree — one result per member, parents paused first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "asOf": {
+                      "type": "number",
+                      "description": "Highest ledger seq when the subtree's membership was resolved."
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "applied",
+                              "skipped",
+                              "failed"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "outcome"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "asOf",
+                    "results"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Best-effort, per member: one member failing doesn't undo or block the rest."
+                }
+              }
+            }
+          },
           "202": {
-            "description": "Accepted"
+            "description": "Accepted (scope: agent)"
           },
           "409": {
             "description": "Agent not live"
@@ -539,7 +628,7 @@
     },
     "/agents/{agentId}/resume": {
       "post": {
-        "summary": "Unfreeze the agent's sandbox container",
+        "summary": "Unfreeze the agent's sandbox container (or, with scope: subtree, it and every paused descendant)",
         "parameters": [
           {
             "name": "agentId",
@@ -550,9 +639,86 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "default": {
+                  "scope": "agent"
+                },
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "default": "agent",
+                    "description": "\"agent\" (default): the named agent only. \"subtree\": the agent and every descendant — pause parents-first, resume children-first.",
+                    "type": "string",
+                    "enum": [
+                      "agent",
+                      "subtree"
+                    ]
+                  }
+                },
+                "required": [
+                  "scope"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
+          "200": {
+            "description": "scope: subtree — one result per member, children resumed first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "asOf": {
+                      "type": "number",
+                      "description": "Highest ledger seq when the subtree's membership was resolved."
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "applied",
+                              "skipped",
+                              "failed"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "outcome"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "asOf",
+                    "results"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Best-effort, per member: one member failing doesn't undo or block the rest."
+                }
+              }
+            }
+          },
           "202": {
-            "description": "Accepted"
+            "description": "Accepted (scope: agent)"
           },
           "409": {
             "description": "Agent not paused, or not live"
@@ -659,7 +825,7 @@
                     },
                     "result": {
                       "nullable": true,
-                      "description": "Prototype convenience: the inline result text.",
+                      "description": "The result text, inline.",
                       "type": "string"
                     }
                   },
@@ -702,7 +868,7 @@
                     },
                     "result": {
                       "nullable": true,
-                      "description": "Prototype convenience: the inline result text.",
+                      "description": "The result text, inline.",
                       "type": "string"
                     }
                   },

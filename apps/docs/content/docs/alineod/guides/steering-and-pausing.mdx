@@ -77,6 +77,51 @@ error. Each transition emits `agent_state_changed` with `reason: "operator"`.
 - If alineod restarts while an agent is paused, the agent stays paused and resumes normally; a turn that was
   running when it was paused is followed to completion after the resume.
 
+### Pausing a subtree
+
+Pass `scope: "subtree"` to pause or resume an agent together with everything under it:
+
+```bash
+curl -s -X POST localhost:4600/agents/a_c01d9e3a/pause \
+  -H 'content-type: application/json' -d '{"scope": "subtree"}'
+# … later
+curl -s -X POST localhost:4600/agents/a_c01d9e3a/resume \
+  -H 'content-type: application/json' -d '{"scope": "subtree"}'
+```
+
+The response lists every member and what happened to it:
+
+```json
+{
+  "asOf": 42,
+  "results": [
+    { "agentId": "a_c01d9e3a", "outcome": "applied" },
+    { "agentId": "a_5b1e0f22", "outcome": "skipped", "reason": "already-paused" },
+    {
+      "agentId": "a_9d7c3b10",
+      "outcome": "applied",
+      "reason": "pending: pauses as soon as it forks"
+    }
+  ]
+}
+```
+
+- **Order:** pause goes parents first, so a parent stops spawning before its children freeze. Resume goes children
+  first, and the agent you named wakes last. Members at the same depth are handled in parallel.
+- **Best-effort:** one member failing (`"failed"`, with a reason) doesn't undo or block the others.
+- **Who paused it:** each paused agent records it in `pausedBy`, which shows on `GET /agents/:id`. It's `operator`
+  for the agent you named, and `cascade` for a descendant the subtree pause reached. A member that was already
+  paused keeps its own `pausedBy` and is reported `skipped`.
+- **New and in-flight children:**
+  - A child that hasn't forked yet (still waiting on `waitFor`, or on its paused parent) is reported
+    `applied` as pending. It joins the pause as soon as it forks.
+  - A child spawned under a paused ancestor does the same: it forks, pauses immediately, and runs its first
+    prompt only once it's resumed.
+- **Membership drift:** after the sweep, the subtree is resolved once more, and anything spawned during the
+  operation gets the same treatment.
+
+A `scope` of `"agent"` (the default, or no body at all) acts on the named agent only, exactly as above.
+
 <Callout type="info" title="Pauses don't end turns">
   A paused turn's stream goes quiet, and a pause can outlast `ALINEOD_PROMPT_INACTIVITY_MS` (default
   180 s). alineod then follows the turn by polling the agent instead of reading its stream, and
