@@ -18,18 +18,13 @@
  */
 import { Alineo } from "alineo";
 import { get, register, sdkAdapter } from "./registry";
-import {
-  getAgentRow,
-  getHandle,
-  resolveSubtree,
-  runAsOf,
-  type AgentRow,
-} from "../state/projection";
+import { getAgentRow, getHandle, type AgentRow } from "../state/projection";
+import { attempt, sweepSubtree, type MemberResult } from "./subtree";
 import { emit } from "./emit";
 import { catchUpTurn, driveTurn, isTurnActive } from "./stream";
 import { HttpError } from "./errors";
 import { withTimeout } from "../util";
-import { RESUME_BRIDGE_TIMEOUT_MS, SUBTREE_MEMBER_TIMEOUT_MS } from "../../config";
+import { RESUME_BRIDGE_TIMEOUT_MS } from "../../config";
 import type { SubtreeOpResult } from "../schema";
 
 export type PausedBy = "operator" | "cascade";
@@ -133,8 +128,6 @@ export async function resumeAgent(agentId: string, opts: { by?: PausedBy } = {})
 
 // ── subtree scope ─────────────────────────────────────────────────────────────
 
-type MemberResult = SubtreeOpResult["results"][number];
-
 const CLOSED_STATES = new Set(["aborted", "lost"]);
 
 /**
@@ -159,35 +152,6 @@ export async function resumeSubtree(rootId: string): Promise<SubtreeOpResult> {
   return sweepSubtree(rootId, "children-first", (m) =>
     resumeMember(m, m.agent_id === rootId ? "operator" : "cascade"),
   );
-}
-
-async function sweepSubtree(
-  rootId: string,
-  order: "parents-first" | "children-first",
-  act: (member: AgentRow) => Promise<MemberResult>,
-): Promise<SubtreeOpResult> {
-  const root = getAgentRow(rootId);
-  if (!root) throw new HttpError(404, `no agent ${rootId}`);
-  const asOf = runAsOf(root.run_id);
-  const results = new Map<string, MemberResult>();
-
-  const sweep = async (members: AgentRow[]) => {
-    const depths = [...new Set(members.map((m) => m.depth))].sort((a, b) =>
-      order === "parents-first" ? a - b : b - a,
-    );
-    for (const depth of depths) {
-      const level = members.filter((m) => m.depth === depth);
-      const done = await Promise.all(level.map((m) => act(m)));
-      for (const r of done) results.set(r.agentId, r);
-    }
-  };
-
-  await sweep(resolveSubtree(rootId));
-  // Membership drift: anything spawned into the subtree while the sweep ran gets the same treatment.
-  const late = resolveSubtree(rootId).filter((m) => !results.has(m.agent_id));
-  if (late.length > 0) await sweep(late);
-
-  return { asOf, results: [...results.values()] };
 }
 
 async function pauseMember(
@@ -216,23 +180,4 @@ async function resumeMember(member: AgentRow, by: PausedBy): Promise<MemberResul
     return { agentId, outcome: "skipped", reason: `paused-by-${row.paused_by}` };
   }
   return attempt(agentId, () => resumeAgent(agentId, { by }));
-}
-
-async function attempt(agentId: string, op: () => Promise<void>): Promise<MemberResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      op(),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error(`timeout after ${SUBTREE_MEMBER_TIMEOUT_MS}ms`));
-        }, SUBTREE_MEMBER_TIMEOUT_MS);
-      }),
-    ]);
-    return { agentId, outcome: "applied" };
-  } catch (err) {
-    return { agentId, outcome: "failed", reason: err instanceof Error ? err.message : String(err) };
-  } finally {
-    clearTimeout(timer);
-  }
 }

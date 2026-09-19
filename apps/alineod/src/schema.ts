@@ -129,8 +129,16 @@ export type SubtreeOpResult = z.infer<typeof SubtreeOpResult>;
 // ── POST /agents/:id/stop ────────────────────────────────────────────────────
 
 export const StopAgentBody = z
-  .object({ mode: z.enum(["abort", "drain"]).default("abort") })
-  .default({ mode: "abort" });
+  .object({
+    mode: z.enum(["abort", "drain"]).default("abort"),
+    scope: z
+      .enum(["agent", "subtree"])
+      .default("agent")
+      .describe(
+        '"subtree": the agent and every descendant, leaves first, with one result per member.',
+      ),
+  })
+  .default({ mode: "abort", scope: "agent" });
 
 // ── POST /agents/:id/prompt ──────────────────────────────────────────────────
 
@@ -202,6 +210,12 @@ export const AlineodEvent = z.discriminatedUnion("event", [
     event: z.literal("agent_steered"),
     message: z.string(),
   }),
+  EventBase.extend({
+    event: z.literal("agent_released"),
+    reason: z.string(),
+  }).describe(
+    "A finished agent's still-open sandbox was closed (stop / DELETE /runs), or a fork that landed after its spawn was stopped. The recorded outcome is unchanged.",
+  ),
   EventBase.extend({
     event: z.literal("agent_ended"),
     outcome: z.string(),

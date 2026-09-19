@@ -122,6 +122,7 @@ export async function provisionChild(
   try {
     if (body.waitFor && body.waitFor.length > 0) {
       await waitForHandles(runId, body.waitFor);
+      if (isCancelled(childId)) return; // stopped while it waited — leave its ended state alone
       emit(runId, childId, "agent_state_changed", {
         from: "spawning",
         to: "provisioning",
@@ -134,6 +135,18 @@ export async function provisionChild(
       spawnDepth: spawnBudget,
       maxAgents: maxAgentsBudget,
     });
+    if (!child) return; // stopped while waiting on its paused parent
+
+    if (isCancelled(childId)) {
+      // Stopped while the fork was in flight — nothing else will ever close this sandbox.
+      try {
+        await child.close();
+      } catch {
+        /* ignore */
+      }
+      emit(runId, childId, "agent_released", { reason: "stopped-before-provisioned" });
+      return;
+    }
 
     register(childId, child);
     emit(runId, childId, "agent_provisioned", { sandboxId: child.sandboxId });
@@ -153,6 +166,7 @@ export async function provisionChild(
     }
     if (body.prompt) void driveTurn(childId, body.prompt);
   } catch (err) {
+    if (isCancelled(childId)) return; // already ended (stopped) — don't overwrite `aborted`
     const message = err instanceof Error ? err.message : String(err);
     let outcome = "failed";
     if (/refused|budget|spawn-depth|max-agents/i.test(message)) {
@@ -162,6 +176,11 @@ export async function provisionChild(
     }
     emit(runId, childId, "agent_ended", { outcome, endedAt: Date.now(), error: message });
   }
+}
+
+/** A spawn is cancelled once its agent has ended — i.e. it was stopped before it forked (B9). */
+function isCancelled(childId: string): boolean {
+  return getAgentRow(childId)?.ended_at != null;
 }
 
 /** Retries of a fork OpenSandbox refused as "not running" while the projection says it's running. */
@@ -186,14 +205,16 @@ async function forkFromParent(
   parentAgentId: string,
   specPath: string,
   opts: { spawnDepth: number | undefined; maxAgents: number | undefined },
-): Promise<Alineo> {
+): Promise<Alineo | null> {
   let held = false;
   for (let retries = 0; ;) {
+    if (isCancelled(childId)) return null;
     if (getAgentRow(parentAgentId)?.state === "paused") {
       held = true;
       setState(childId, "spawning", "parent-paused");
       await waitUntilNotPaused(runId, parentAgentId);
     }
+    if (isCancelled(childId)) return null;
 
     const parent = get(parentAgentId);
     if (!parent) throw new Error(`parent ${parentAgentId} is no longer live`);

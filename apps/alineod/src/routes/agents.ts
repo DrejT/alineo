@@ -3,7 +3,7 @@ import { Elysia } from "elysia";
 import { SpawnAgentBody, StopAgentBody, PromptBody, SteerBody, ControlScopeBody } from "../schema";
 import { parseBody, withTimeout } from "./http";
 import { spawnAgent } from "../engine/spawn";
-import { stopAgent } from "../engine/lifecycle";
+import { stopAgent, stopSubtree } from "../engine/lifecycle";
 import { steerAgent } from "../engine/steer";
 import { pauseAgent, resumeAgent, pauseSubtree, resumeSubtree } from "../engine/pause";
 import { driveTurn, isCatchingUp } from "../engine/stream";
@@ -64,7 +64,8 @@ export const agentsRoutes = new Elysia()
   })
 
   .post("/agents/:agentId/stop", async ({ params, body }) => {
-    const { mode } = parseBody(StopAgentBody, body ?? {});
+    const { mode, scope } = parseBody(StopAgentBody, body ?? {});
+    if (scope === "subtree") return stopSubtree(params.agentId, mode);
     await stopAgent(params.agentId, mode);
     return new Response(null, { status: 202 });
   });
