@@ -672,16 +672,18 @@ async function t7(): Promise<void> {
     // Did the steered notification actually land in the agent's conversation? Pi's own session
     // log inside the sandbox is the ground truth, independent of what the model chose to say.
     const sandboxId = (await agentView(sub)).sandboxId as string;
+    // Pi stores messages as JSON, so the notification's lines are joined by escaped newlines —
+    // look for the dependency's id anywhere in the session files, not on one grepped line.
     const grep = Bun.spawnSync([
       "docker",
       "exec",
       `sandbox-${sandboxId}`,
       "sh",
       "-c",
-      "grep -rho 'Update from agents you.re watching[^\\\\]*' /root/.pi/agent/sessions | head -1",
+      `grep -rlF "Update from agents you" /root/.pi/agent/sessions | xargs -r grep -lF "${dep}" | head -1`,
     ]);
-    obs.sessionLine = grep.stdout.toString().trim();
-    obs.sessionHasNotification = String(obs.sessionLine).includes(dep);
+    obs.sessionFile = grep.stdout.toString().trim();
+    obs.sessionHasNotification = String(obs.sessionFile).length > 0;
     obs.modelRelayedIt = String(r.result).includes(dep);
     // The mechanism: delivered by steer AND in the agent's session. Whether the model then repeats
     // the id is model behaviour, reported separately.
