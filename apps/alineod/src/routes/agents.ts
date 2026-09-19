@@ -13,7 +13,7 @@ import { inboxOf, getAgentRow } from "../state/projection";
 import { parseBody, withTimeout } from "./http";
 import { spawnAgent } from "../engine/spawn";
 import { stopAgent, stopSubtree } from "../engine/lifecycle";
-import { steerAgent } from "../engine/steer";
+import { steerAgent, steerSubtree } from "../engine/steer";
 import { pauseAgent, resumeAgent, pauseSubtree, resumeSubtree } from "../engine/pause";
 import { driveTurn, isCatchingUp } from "../engine/stream";
 import { get } from "../engine/registry";
@@ -53,7 +53,8 @@ export const agentsRoutes = new Elysia()
   })
 
   .post("/agents/:agentId/steer", async ({ params, body }) => {
-    const { message } = parseBody(SteerBody, body);
+    const { message, scope } = parseBody(SteerBody, body);
+    if (scope === "subtree") return steerSubtree(params.agentId, message);
     await steerAgent(params.agentId, message);
     return new Response(null, { status: 202 });
   })

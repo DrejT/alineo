@@ -245,10 +245,33 @@ export const PromptBody = z.object({ text: z.string().min(1) });
 // ── POST /agents/:id/steer ───────────────────────────────────────────────────
 
 export const SteerBody = z
-  .object({ message: z.string().min(1) })
-  .describe(
-    "Injected into the agent's current turn (research/swarm-control.md §8) — the named agent only, never a subtree.",
-  );
+  .object({
+    message: z.string().min(1),
+    scope: z
+      .enum(["agent", "subtree"])
+      .default("agent")
+      .describe(
+        '"subtree": deliver ONE message to this agent — your text plus a roster of its direct children — so it re-plans and redirects each child itself. Never a broadcast.',
+      ),
+  })
+  .describe("Injected into the agent's current turn (research/swarm-control.md §8).");
+
+export const SubtreeSteerResponse = z.object({
+  deliveredAs: z
+    .enum(["steer", "turn", "queued"])
+    .describe(
+      "steer: into its running turn · turn: a new turn (it was idle) · queued: it's paused; delivered on resume",
+    ),
+  roster: z.array(
+    z.object({
+      agentId: z.string(),
+      sandboxId: z.string().nullable(),
+      specName: z.string(),
+      state: z.string(),
+      outcome: z.string().nullable(),
+    }),
+  ),
+});
 
 // ── GET /agents/:id/result ───────────────────────────────────────────────────
 
@@ -307,6 +330,9 @@ export const AlineodEvent = z.discriminatedUnion("event", [
   EventBase.extend({
     event: z.literal("agent_steered"),
     message: z.string(),
+    scope: z.enum(["agent", "subtree"]).optional(),
+    roster: z.array(z.string()).optional(),
+    deliveredAs: z.enum(["steer", "turn", "queued"]).optional(),
   }),
   EventBase.extend({
     event: z.literal("wait_resolved"),
