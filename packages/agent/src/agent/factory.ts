@@ -300,7 +300,7 @@ export async function resumeAgent(
     spec?: AgentSpec | Record<string, unknown>;
     specPath?: string;
     runId?: string;
- 
+
     /**
      * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
      * tests that must not depend on the working directory.
@@ -442,7 +442,7 @@ export async function reattachAgent(
     specPath?: string;
     runId?: string;
     skipReadyCheck?: boolean;
- 
+
     /**
      * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
      * tests that must not depend on the working directory.
@@ -535,7 +535,7 @@ export async function attachAgent(
     adapter: IStorageAdapter;
     name: string;
     resources?: { cpu: string; memory: string; gpu?: string };
- 
+
     /**
      * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
      * tests that must not depend on the working directory.

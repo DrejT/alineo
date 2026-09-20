@@ -58,7 +58,9 @@ describe("alineo-mcp server", () => {
   it("round-trips a successful alineod_create_run call", async () => {
     const fetchImpl = stubFetch(async (url, init) => {
       expect(String(url)).toBe("http://test.local:4600/runs");
-      expect(JSON.parse(String(init?.body))).toEqual({ spec: { name: "root", cli: "pi", model: "some-model" } });
+      expect(JSON.parse(String(init?.body))).toEqual({
+        spec: { name: "root", cli: "pi", model: "some-model" },
+      });
       return new Response(
         JSON.stringify({ runId: "r1", rootAgentId: "a1", state: "provisioning" }),
         { status: 202 },

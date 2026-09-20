@@ -77,12 +77,22 @@ describe("validateAgentSpec", () => {
   });
 
   it("accepts a valid spawnDepth", () => {
-    const spec = validateAgentSpec({ name: "master", cli: "pi", model: "some-model", spawnDepth: 1 });
+    const spec = validateAgentSpec({
+      name: "master",
+      cli: "pi",
+      model: "some-model",
+      spawnDepth: 1,
+    });
     expect(spec.spawnDepth).toBe(1);
   });
 
   it("accepts spawnDepth of 0", () => {
-    const spec = validateAgentSpec({ name: "worker", cli: "pi", model: "some-model", spawnDepth: 0 });
+    const spec = validateAgentSpec({
+      name: "worker",
+      cli: "pi",
+      model: "some-model",
+      spawnDepth: 0,
+    });
     expect(spec.spawnDepth).toBe(0);
   });
 
@@ -92,28 +102,40 @@ describe("validateAgentSpec", () => {
   });
 
   it("throws for a negative spawnDepth", () => {
-    expect(() => validateAgentSpec({ name: "x", cli: "pi", model: "some-model", spawnDepth: -1 })).toThrow(/spawnDepth/);
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", spawnDepth: -1 }),
+    ).toThrow(/spawnDepth/);
   });
 
   it("throws for a non-integer spawnDepth", () => {
-    expect(() => validateAgentSpec({ name: "x", cli: "pi", model: "some-model", spawnDepth: 1.5 })).toThrow(
-      /spawnDepth/,
-    );
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", spawnDepth: 1.5 }),
+    ).toThrow(/spawnDepth/);
   });
 
   it("throws for a non-numeric spawnDepth", () => {
-    expect(() => validateAgentSpec({ name: "x", cli: "pi", model: "some-model", spawnDepth: "1" })).toThrow(
-      /spawnDepth/,
-    );
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", spawnDepth: "1" }),
+    ).toThrow(/spawnDepth/);
   });
 
   it("accepts a valid maxAgents", () => {
-    const spec = validateAgentSpec({ name: "master", cli: "pi", model: "some-model", maxAgents: 5 });
+    const spec = validateAgentSpec({
+      name: "master",
+      cli: "pi",
+      model: "some-model",
+      maxAgents: 5,
+    });
     expect(spec.maxAgents).toBe(5);
   });
 
   it("accepts maxAgents of 0", () => {
-    const spec = validateAgentSpec({ name: "worker", cli: "pi", model: "some-model", maxAgents: 0 });
+    const spec = validateAgentSpec({
+      name: "worker",
+      cli: "pi",
+      model: "some-model",
+      maxAgents: 0,
+    });
     expect(spec.maxAgents).toBe(0);
   });
 
@@ -123,15 +145,21 @@ describe("validateAgentSpec", () => {
   });
 
   it("throws for a negative maxAgents", () => {
-    expect(() => validateAgentSpec({ name: "x", cli: "pi", model: "some-model", maxAgents: -1 })).toThrow(/maxAgents/);
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", maxAgents: -1 }),
+    ).toThrow(/maxAgents/);
   });
 
   it("throws for a non-integer maxAgents", () => {
-    expect(() => validateAgentSpec({ name: "x", cli: "pi", model: "some-model", maxAgents: 1.5 })).toThrow(/maxAgents/);
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", maxAgents: 1.5 }),
+    ).toThrow(/maxAgents/);
   });
 
   it("throws for a non-numeric maxAgents", () => {
-    expect(() => validateAgentSpec({ name: "x", cli: "pi", model: "some-model", maxAgents: "1" })).toThrow(/maxAgents/);
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", maxAgents: "1" }),
+    ).toThrow(/maxAgents/);
   });
 
   // -- #185: aggregated, structured validation errors ------------------------------------------
@@ -189,10 +217,14 @@ describe("validateAgentSpec", () => {
   });
 
   it("accepts a permissions mode shorthand", () => {
-    expect(validateAgentSpec({ name: "x", cli: "pi", model: "some-model", permissions: "readonly" }).permissions).toBe(
-      "readonly",
-    );
-    expect(validateAgentSpec({ name: "x", cli: "pi", model: "some-model", permissions: "ask" }).permissions).toBe("ask");
+    expect(
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", permissions: "readonly" })
+        .permissions,
+    ).toBe("readonly");
+    expect(
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", permissions: "ask" })
+        .permissions,
+    ).toBe("ask");
   });
 
   it("accepts a full permissions policy", () => {
@@ -220,9 +252,9 @@ describe("validateAgentSpec", () => {
   });
 
   it("rejects an unknown permissions mode / action", () => {
-    expect(() => validateAgentSpec({ name: "x", cli: "pi", model: "some-model", permissions: "yolo" })).toThrow(
-      /permissions/,
-    );
+    expect(() =>
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model", permissions: "yolo" }),
+    ).toThrow(/permissions/);
     expect(() =>
       validateAgentSpec({
         name: "x",
@@ -234,7 +266,9 @@ describe("validateAgentSpec", () => {
   });
 
   it("leaves permissions undefined when omitted", () => {
-    expect(validateAgentSpec({ name: "x", cli: "pi", model: "some-model" }).permissions).toBeUndefined();
+    expect(
+      validateAgentSpec({ name: "x", cli: "pi", model: "some-model" }).permissions,
+    ).toBeUndefined();
   });
 
   it("passes unknown top-level fields through untouched (forward-compat)", () => {

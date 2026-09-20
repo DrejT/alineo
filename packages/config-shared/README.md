@@ -14,7 +14,7 @@ runtime.
 
 This is not a style preference, it is what makes the package safe to bundle. Because each
 consumer bundles its own copy, a singleton here would mean `alineo` and `alineo-cli` each having
-a *different* registry inside one process, drifting apart silently. `@alineo-labs/logger` has
+a _different_ registry inside one process, drifting apart silently. `@alineo-labs/logger` has
 exactly that kind of state, which is why it is published and listed in every consumer's
 `neverBundle` instead.
 
@@ -56,8 +56,9 @@ replaced, rather than failing validation and taking the daemon down.
 ```ts
 import { loadProjectConfig } from "@alineo-labs/config-shared";
 
-const config = loadProjectConfig();            // discover everything
-const pinned = loadProjectConfig({             // no ambient input
+const config = loadProjectConfig(); // discover everything
+const pinned = loadProjectConfig({
+  // no ambient input
   discover: false,
   overrides: { serverUrl: "http://127.0.0.1:8080" },
 });

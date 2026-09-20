@@ -2,7 +2,7 @@
   "name": "@alineo-labs/alineod",
   "version": "0.1.0",
   "private": true,
-  "description": "alineod \u2014 the swarm control daemon: HTTP + SSE orchestration for swarms of sandboxed agents.",
+  "description": "alineod — the swarm control daemon: HTTP + SSE orchestration for swarms of sandboxed agents.",
   "type": "module",
   "scripts": {
     "start": "bun server.ts",

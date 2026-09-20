@@ -10,7 +10,10 @@ import { ProjectConfigObjectSchema, PROJECT_CONFIG_SCHEMA_URL } from "./project"
  * generate-from-Zod approach the component registry already uses.
  */
 export function projectConfigJsonSchema(): Record<string, unknown> {
-  const schema = z.toJSONSchema(ProjectConfigObjectSchema, { io: "input" }) as Record<string, unknown>;
+  const schema = z.toJSONSchema(ProjectConfigObjectSchema, { io: "input" }) as Record<
+    string,
+    unknown
+  >;
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: PROJECT_CONFIG_SCHEMA_URL,
