@@ -6,7 +6,7 @@
  * See research/daemon.md for the design.
  */
 import { getLogger, installLoggerFromEnv } from "@alineo-labs/logger";
-import { PORT } from "./config";
+import { PORT, configWarnings } from "./config";
 import "./src/state/db"; // side effect: open the db, create tables
 import { connectSdkAdapter } from "./src/engine/registry";
 import { rehydrate } from "./src/engine/rehydrate";
@@ -16,6 +16,9 @@ import { createApp } from "./src/app";
 // (see @alineo-labs/logger). The libraries it drives stay silent unless told otherwise.
 installLoggerFromEnv({ defaultLevel: "info" });
 const log = getLogger("alineod");
+
+// ./config is evaluated on import, before the logger exists, so it queues its warnings instead.
+for (const warning of configWarnings) log.warn(warning);
 
 await connectSdkAdapter();
 await rehydrate();

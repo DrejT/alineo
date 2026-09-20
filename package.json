@@ -5,6 +5,7 @@
     "packages/core",
     "packages/opensandbox",
     "packages/logger",
+    "packages/config-shared",
     "packages/sdks/typescript",
     "packages/workflow",
     "packages/adapters/postgres",

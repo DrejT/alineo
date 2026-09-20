@@ -65,7 +65,8 @@ export const PORT = Number(process.env.PORT ?? 3000);
  * docs-site playground are each deployed separately (Cloudflare Pages, different
  * origins from this API), so CORS is required — `cors()` reflects the request's
  * `Origin` back only when it appears here. Extra origins (a preview deploy, a
- * different local dev port) can be added via `ALLOWED_ORIGINS` (comma-separated).
+ * different local dev port) can be added via `ALLOWED_ORIGINS` (comma-separated),
+ * or `ALLOWED_ORIGIN` for a single one. Both are read, and both add to this list.
  */
 export const ALLOWED_ORIGINS: readonly string[] = [
   "https://sandbox.alineo.tech",

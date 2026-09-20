@@ -16,6 +16,7 @@
       "name": "@alineo-labs/alineod",
       "version": "0.1.0",
       "dependencies": {
+        "@alineo-labs/config-shared": "workspace:*",
         "@alineo-labs/core": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -404,7 +405,7 @@
     },
     "packages/adapters/otel": {
       "name": "@alineo-labs/otel",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
       },
@@ -420,7 +421,7 @@
     },
     "packages/adapters/postgres": {
       "name": "@alineo-labs/postgres",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "postgres": "3.4.9",
@@ -433,7 +434,7 @@
     },
     "packages/adapters/postgres-memory": {
       "name": "@alineo-labs/postgres-memory",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/memory": "workspace:*",
         "postgres": "3.4.9",
@@ -446,7 +447,7 @@
     },
     "packages/adapters/sqlite": {
       "name": "@alineo-labs/sqlite",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
       },
@@ -458,7 +459,7 @@
     },
     "packages/adapters/sqlite-memory": {
       "name": "@alineo-labs/sqlite-memory",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/memory": "workspace:*",
         "sqlite-vec": "^0.1.9",
@@ -471,7 +472,7 @@
     },
     "packages/adapters/vault": {
       "name": "@alineo-labs/vault",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
@@ -484,7 +485,7 @@
     },
     "packages/agent": {
       "name": "alineo",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
@@ -493,6 +494,7 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@alineo-labs/config-shared": "workspace:*",
         "bun-types": "1.4.2",
         "tsdown": "0.23.0",
         "typescript": "6.0.3",
@@ -513,7 +515,7 @@
     },
     "packages/cli": {
       "name": "alineo-cli",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "bin": {
         "alineo": "./dist/index.mjs",
       },
@@ -524,6 +526,7 @@
         "@alineo-labs/sqlite": "workspace:*",
         "@opentui/core": "^0.4.3",
         "alineo": "workspace:*",
+        "zod": "^4.4.3",
       },
       "devDependencies": {
         "@alineo-labs/cli-shared": "workspace:*",
@@ -536,15 +539,30 @@
     "packages/cli-shared": {
       "name": "@alineo-labs/cli-shared",
       "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/config-shared": "workspace:*",
+      },
       "devDependencies": {
         "bun-types": "1.3.14",
         "tsdown": "0.23.0",
         "typescript": "6.0.3",
       },
     },
+    "packages/config-shared": {
+      "name": "@alineo-labs/config-shared",
+      "version": "0.0.1",
+      "dependencies": {
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "tsdown": "0.23.0",
+        "typescript": "6.0.3",
+      },
+    },
     "packages/core": {
       "name": "@alineo-labs/core",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "dependencies": {
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
@@ -566,7 +584,7 @@
     },
     "packages/logger": {
       "name": "@alineo-labs/logger",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "devDependencies": {
         "bun-types": "1.4.2",
         "tsdown": "0.23.0",
@@ -576,7 +594,7 @@
     },
     "packages/mcp": {
       "name": "alineo-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "bin": {
         "alineo-mcp": "./dist/index.mjs",
       },
@@ -595,7 +613,7 @@
     },
     "packages/memory": {
       "name": "@alineo-labs/memory",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
       },
@@ -623,7 +641,7 @@
     },
     "packages/opensandbox": {
       "name": "@alineo-labs/opensandbox",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "devDependencies": {
         "bun-types": "1.4.2",
         "tsdown": "0.23.0",
@@ -633,7 +651,7 @@
     },
     "packages/sdks/typescript": {
       "name": "@alineo-labs/sandbox",
-      "version": "0.4.2",
+      "version": "0.4.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
@@ -648,7 +666,7 @@
     },
     "packages/workflow": {
       "name": "@alineo-labs/workflow",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
       },
@@ -696,6 +714,8 @@
     "@alineo-labs/alineod": ["@alineo-labs/alineod@workspace:apps/alineod"],
 
     "@alineo-labs/cli-shared": ["@alineo-labs/cli-shared@workspace:packages/cli-shared"],
+
+    "@alineo-labs/config-shared": ["@alineo-labs/config-shared@workspace:packages/config-shared"],
 
     "@alineo-labs/core": ["@alineo-labs/core@workspace:packages/core"],
 

@@ -2,6 +2,7 @@ import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import type { PiAdapter } from "../adapters/pi";
 import type { AgentSpec } from "../schema";
+import type { AlineoAgentConfig } from "../config";
 import type { AgentSnapshotRecord } from "../snapshots";
 import type {
   AgentStream,
@@ -184,6 +185,11 @@ export class Alineo {
       /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
       memory?: Memory;
       /**
+       * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
+       * tests that must not depend on the working directory.
+       */
+      config?: AlineoAgentConfig;
+      /**
        * Required when the spec has `approval: "hold"` credential bindings — decides each
        * first outbound request to a held host: return `"allow-once"` (reverts at turn end),
        * `"allow-always"` (permanent for this agent's life), or `"deny"`. Enforcement is
@@ -253,6 +259,11 @@ export class Alineo {
       runId?: string;
       /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
       memory?: Memory;
+      /**
+       * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
+       * tests that must not depend on the working directory.
+       */
+      config?: AlineoAgentConfig;
     },
   ): Promise<Alineo> {
     const r = await factory.resumeAgent(sandboxId, opts);
@@ -299,6 +310,11 @@ export class Alineo {
       runId?: string;
       /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
       memory?: Memory;
+      /**
+       * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
+       * tests that must not depend on the working directory.
+       */
+      config?: AlineoAgentConfig;
       /**
        * Don't probe the bridge before returning, and accept a Paused sandbox. For a paused
        * sandbox, whose frozen bridge can't answer until `agent.sandbox.resume()` — check it
@@ -352,6 +368,11 @@ export class Alineo {
       resources?: { cpu: string; memory: string; gpu?: string };
       /** Wire a `Memory` instance onto the returned agent — see `Alineo.memory`. */
       memory?: Memory;
+      /**
+       * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
+       * tests that must not depend on the working directory.
+       */
+      config?: AlineoAgentConfig;
     },
   ): Promise<Alineo> {
     const r = await factory.attachAgent(sandboxId, opts);

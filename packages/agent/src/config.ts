@@ -1,66 +1,57 @@
-import { existsSync } from "fs";
-
-/** Shape of `alineo.config.json` in the project root, merged with built-in defaults. */
-export interface AlineoAgentConfig {
-  /** OpenSandbox server URL. Default: `http://127.0.0.1:8080`. */
-  serverUrl: string;
-  /** OpenSandbox API key. Pass an empty string for local dev with no auth. */
-  apiKey: string;
-  /**
-   * Anchor path used to derive the agent snapshot store location
-   * (`agent-snapshots.json` is written next to this path). Does not select
-   * the ledger storage adapter — pass that directly via `Alineo.load`'s
-   * `opts.adapter` / `Alineo.resume`'s `opts.adapter`.
-   * Default: `./.alineo/ledger.db`.
-   */
-  adapterPath: string;
-  /**
-   * Route execd and proxy traffic through the OpenSandbox server.
-   * Required when the server runs in Docker (e.g. started via `alineo init`).
-   * Default: `true`.
-   */
-  useServerProxy: boolean;
-  /** Directory containing agent spec files. Default: `./agents`. */
-  agentsDir: string;
-  /** Default values applied when an agent spec omits a field. */
-  defaults: {
-    resources: { cpu: string; memory: string };
-  };
-}
-
-const CONFIG_FILE = "alineo.config.json";
-
-const DEFAULT_CONFIG: AlineoAgentConfig = {
-  // 127.0.0.1, not "localhost" — some hosts resolve "localhost" to ::1 first,
-  // and OpenSandbox typically only listens on IPv4.
-  serverUrl: "http://127.0.0.1:8080",
-  apiKey: "",
-  adapterPath: "./.alineo/ledger.db",
-  useServerProxy: true,
-  agentsDir: "./agents",
-  defaults: {
-    resources: { cpu: "1000m", memory: "1Gi" },
-  },
-};
+import { loadProjectConfig, type ProjectConfig } from "@alineo-labs/config-shared";
 
 /**
- * Read `alineo.config.json` from the current working directory and merge it with
- * built-in defaults. Missing fields fall back to the defaults — the config file
- * is fully optional.
+ * Shape of `alineo.config.json`, merged with built-in defaults.
+ *
+ * The schema and the merge live in `@alineo-labs/config-shared` because three consumers read
+ * this same file (this package, `@alineo-labs/cli-shared`, and alineod through its Docker
+ * entrypoint). That package is private and bundled at build time, so nothing new is resolved at
+ * runtime for anyone installing `alineo`.
+ */
+export type AlineoAgentConfig = ProjectConfig;
+
+/**
+ * Resolved configs, keyed by the directory they were resolved from.
+ *
+ * The previous implementation re-read the file on every `load`/`resume`/`attach`/`spawn`. The
+ * cache lives here rather than in `config-shared` on purpose: that package is bundled separately
+ * into each consumer, so a cache inside it would be a different cache per copy. Keeping the
+ * state here means one cache per process that actually uses it.
+ */
+const cache = new Map<string, AlineoAgentConfig>();
+
+/**
+ * Resolve the project config once per working directory.
+ *
+ * Unlike the old reader, this walks up from the current directory to find
+ * `alineo.config.json` (bounded by a `.git` directory, `$HOME`, or the filesystem root), so
+ * running a script from a subdirectory no longer silently falls back to defaults. Pass
+ * `override` — `opts.config` on the public methods — to skip file and environment discovery
+ * entirely, which is what an embedded caller or a test wants.
+ */
+export function resolveProjectConfig(override?: AlineoAgentConfig): AlineoAgentConfig {
+  if (override) return override;
+
+  const cwd = process.cwd();
+  const cached = cache.get(cwd);
+  if (cached) return cached;
+
+  const config = loadProjectConfig({ cwd });
+  cache.set(cwd, config);
+  return config;
+}
+
+/**
+ * Read `alineo.config.json`, merged with built-in defaults.
+ *
+ * Kept `async` because every caller already awaits it; the read itself is synchronous and
+ * cached.
  */
 export async function readProjectConfig(): Promise<AlineoAgentConfig> {
-  if (!existsSync(CONFIG_FILE)) return DEFAULT_CONFIG;
-  const data = (await Bun.file(CONFIG_FILE).json()) as Partial<AlineoAgentConfig>;
-  return {
-    ...DEFAULT_CONFIG,
-    ...data,
-    defaults: {
-      ...DEFAULT_CONFIG.defaults,
-      ...(data.defaults ?? {}),
-      resources: {
-        ...DEFAULT_CONFIG.defaults.resources,
-        ...(data.defaults?.resources ?? {}),
-      },
-    },
-  };
+  return resolveProjectConfig();
+}
+
+/** Drop cached configs. For tests that change the working directory or the file on disk. */
+export function clearProjectConfigCache(): void {
+  cache.clear();
 }

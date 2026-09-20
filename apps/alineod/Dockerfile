@@ -48,6 +48,7 @@ USER bun
 VOLUME /data
 EXPOSE 4600
 
-# The entrypoint writes /data/alineo.config.json from the ALINEO_* env, then execs the CMD.
+# The entrypoint exports ALINEO_CONFIG_CONTENT (container paths) and execs the CMD; the
+# ALINEO_* env vars override it. No config file is written.
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["bun", "/app/apps/alineod/server.ts"]

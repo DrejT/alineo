@@ -1,15 +1,14 @@
 {
-  "name": "alineo",
-  "version": "0.6.0",
+  "name": "@alineo-labs/config-shared",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Internal only: how every alineo setting is found, merged, validated and frozen. Never published — consumed at build time (workspace:* devDependency, bundled into each consumer's dist) like @alineo-labs/cli-shared. Holds NO module-level state: loadConfig() is pure and the caller keeps the result, so two bundled copies can never diverge.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DrejT/alineo.git",
-    "directory": "packages/agent"
+    "directory": "packages/config-shared"
   },
-  "files": [
-    "dist"
-  ],
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
@@ -19,23 +18,14 @@
       "types": "./dist/index.d.mts"
     }
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
   "scripts": {
     "build": "tsdown",
     "test": "bun test"
   },
   "dependencies": {
-    "@alineo-labs/core": "workspace:*",
-    "@alineo-labs/logger": "workspace:*",
-    "@alineo-labs/memory": "workspace:*",
-    "@alineo-labs/sandbox": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@alineo-labs/config-shared": "workspace:*",
     "bun-types": "1.4.2",
     "tsdown": "0.23.0",
     "typescript": "6.0.3"
