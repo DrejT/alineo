@@ -1,4 +1,7 @@
+import { getLogger } from "@alineo-labs/logger";
 import type { LanguageModel } from "ai";
+
+const log = getLogger("model-providers");
 
 export interface ProviderModel {
   id: string;
@@ -47,9 +50,11 @@ export async function fetchProviderModels(
   if (!apiKey) return [];
   const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
   if (!res.ok) {
-    console.error(
-      `${label} models request failed: ${res.status} ${await res.text().catch(() => "")}`,
-    );
+    log.warn("models request failed", {
+      provider: label,
+      status: res.status,
+      body: await res.text().catch(() => ""),
+    });
     return [];
   }
   const data = (await res.json()) as { data: ProviderModel[] };

@@ -23,6 +23,9 @@ import {
   STATE_PROBE_TIMEOUT_MS,
   TURN_MAX_MS,
 } from "../../config";
+import { getLogger } from "@alineo-labs/logger";
+
+const log = getLogger("alineod");
 
 /** Agents whose turn alineod is following by reading its stream. */
 const driving = new Set<string>();
@@ -60,9 +63,10 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     emit(runId, agentId, "agent_ended", { outcome: "success", endedAt: Date.now() });
   } catch (err) {
     if (isStreamTimeout(err)) {
-      console.log(
-        `[alineod] ${agentId}: no stream activity for ${PROMPT_INACTIVITY_TIMEOUT_MS}ms — following the turn by polling instead`,
-      );
+      log.warn("no stream activity — following the turn by polling instead", {
+        agentId,
+        inactivityMs: PROMPT_INACTIVITY_TIMEOUT_MS,
+      });
       driving.delete(agentId);
       void catchUpTurn(runId, agentId, { afterStream: true });
       return;

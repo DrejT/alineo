@@ -79,27 +79,29 @@ try {
 bun run.ts
 ```
 
-`Alineo.load()` logs timing for each phase. The first run installs the Pi CLI and checkpoints the sandbox — on the order of a minute. Subsequent runs restore from that snapshot in a few seconds:
+`Alineo.load()` reports timing for each phase. It is silent by default — set `ALINEO_LOG_LEVEL=info` to see it (`ALINEO_LOG_LEVEL=info bun run.ts`); the `alineo` CLI turns it on for you. The first run installs the Pi CLI and checkpoints the sandbox — on the order of a minute. Subsequent runs restore from that snapshot in a few seconds:
 
 ```
 # First run
-[agent] starting sandbox (hello-agent)...
-[agent] sandbox ready   12340ms (abc-123...)
-[agent] installing Pi CLI...
-[agent] Pi CLI ready    28000ms
-[agent] checkpointing...
-[agent] checkpoint done 10000ms
-[agent] starting bridge...
-[agent] bridge ready    3210ms
-[agent] total           54s
+[agent] starting sandbox name=hello-agent
+[agent] sandbox ready name=hello-agent elapsed=12340ms sandboxId=abc-123...
+[agent] installing Pi CLI name=hello-agent
+[agent] Pi CLI ready name=hello-agent elapsed=28000ms
+[agent] checkpointing name=hello-agent
+[agent] checkpoint done name=hello-agent elapsed=10000ms
+[agent] starting bridge name=hello-agent
+[agent] bridge ready name=hello-agent elapsed=3210ms
+[agent] total name=hello-agent elapsed=54000ms fromSnapshot=false
 
 # Second run
-[agent] restoring from snapshot...
-[agent] snapshot ready  1900ms (def-456...)
-[agent] starting bridge...
-[agent] bridge ready    2800ms
-[agent] total           5s (from snapshot)
+[agent] restoring from snapshot name=hello-agent
+[agent] snapshot ready name=hello-agent elapsed=1900ms sandboxId=def-456...
+[agent] starting bridge name=hello-agent
+[agent] bridge ready name=hello-agent elapsed=2800ms
+[agent] total name=hello-agent elapsed=5000ms fromSnapshot=true
 ```
+
+Lines go to **stderr** — this pretty form on a terminal, JSON lines when piped (`ALINEO_LOG_FORMAT=pretty|json` to choose). Every line carries the agent's `name`, so output from several agents loading at once stays attributable.
 
 See [Snapshotting](/docs/agent/getting-started/snapshotting) for details.
 

@@ -30,6 +30,9 @@ import { catchUpTurn } from "./stream";
 import { provisionRoot } from "./runs";
 import { provisionChild } from "./spawn";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
+import { getLogger } from "@alineo-labs/logger";
+
+const log = getLogger("alineod");
 
 export async function rehydrate(): Promise<void> {
   rebuild();
@@ -47,10 +50,12 @@ export async function rehydrate(): Promise<void> {
   const reattachSet = new Map(withSandbox.map((a) => [a.agent_id, a]));
   for (const a of finished) reattachSet.set(a.agent_id, a);
 
-  console.log(
-    `[alineod] rehydrating ${live.length} live + ${finished.length} finished-but-open agent(s) — ` +
-      `${reattachSet.size} to reconnect, ${preFork.length} still pre-fork...`,
-  );
+  log.info("rehydrating", {
+    live: live.length,
+    finishedButOpen: finished.length,
+    toReconnect: reattachSet.size,
+    preFork: preFork.length,
+  });
 
   // Pass 1 — awaited: fast (~100-200ms each, verified live), and pass 2 needs these parents
   // registered before it can retry a spawn under them.
@@ -74,19 +79,20 @@ async function reattachOne(a: AgentRow): Promise<void> {
   try {
     const agent = await Alineo.reattach(a.sandbox_id!, opts);
     register(a.agent_id, agent);
-    console.log(`[alineod]   reattached ${a.agent_id} (${a.sandbox_id}) — bridge preserved`);
+    log.info("reattached — bridge preserved", { agentId: a.agent_id, sandboxId: a.sandbox_id });
     if (wasRunning) void catchUpTurn(a.run_id, a.agent_id);
     return;
   } catch (reattachErr) {
-    console.log(
-      `[alineod]   reattach failed for ${a.agent_id} (${describeError(reattachErr)}) — falling back to resume`,
-    );
+    log.warn("reattach failed — falling back to resume", {
+      agentId: a.agent_id,
+      error: describeError(reattachErr),
+    });
   }
 
   try {
     const agent = await Alineo.resume(a.sandbox_id!, opts);
     register(a.agent_id, agent);
-    console.log(`[alineod]   resumed ${a.agent_id} (${a.sandbox_id}) — bridge restarted`);
+    log.info("resumed — bridge restarted", { agentId: a.agent_id, sandboxId: a.sandbox_id });
   } catch (err) {
     const message = describeError(err);
     // An agent that had already ended (this is the "finished-but-open" reconnect case, not the
@@ -99,11 +105,14 @@ async function reattachOne(a: AgentRow): Promise<void> {
         endedAt: Date.now(),
         error: message,
       });
-      console.log(`[alineod]   lost ${a.agent_id}: ${message}`);
+      log.warn("lost", { agentId: a.agent_id, error: message });
     } else {
-      console.log(
-        `[alineod]   ${a.agent_id} (${a.sandbox_id}) is unreachable (${message}) — its recorded outcome (${a.outcome}) stands`,
-      );
+      log.warn("unreachable — its recorded outcome stands", {
+        agentId: a.agent_id,
+        sandboxId: a.sandbox_id,
+        error: message,
+        outcome: a.outcome,
+      });
     }
   }
 }
@@ -125,9 +134,10 @@ async function reattachPaused(
       skipReadyCheck: true,
     });
     register(a.agent_id, agent);
-    console.log(
-      `[alineod]   reattached ${a.agent_id} (${a.sandbox_id}) — paused, bridge not probed`,
-    );
+    log.info("reattached — paused, bridge not probed", {
+      agentId: a.agent_id,
+      sandboxId: a.sandbox_id,
+    });
   } catch (err) {
     const message = describeError(err);
     if (a.ended_at === null) {
@@ -136,11 +146,14 @@ async function reattachPaused(
         endedAt: Date.now(),
         error: message,
       });
-      console.log(`[alineod]   lost ${a.agent_id} (paused): ${message}`);
+      log.warn("lost (paused)", { agentId: a.agent_id, error: message });
     } else {
-      console.log(
-        `[alineod]   ${a.agent_id} (${a.sandbox_id}, paused) is unreachable (${message}) — its recorded outcome (${a.outcome}) stands`,
-      );
+      log.warn("unreachable (paused) — its recorded outcome stands", {
+        agentId: a.agent_id,
+        sandboxId: a.sandbox_id,
+        error: message,
+        outcome: a.outcome,
+      });
     }
   }
 }
@@ -149,9 +162,9 @@ async function retryProvision(a: AgentRow): Promise<void> {
   const spec = JSON.parse(a.spec_json);
 
   if (!a.parent_agent_id) {
-    console.log(
-      `[alineod]   retrying provision for root ${a.agent_id} (was still inside Alineo.load())...`,
-    );
+    log.info("retrying provision for root (was still inside Alineo.load())", {
+      agentId: a.agent_id,
+    });
     const body: CreateRunBody = {
       spec,
       prompt: a.prompt ?? undefined,
@@ -171,13 +184,17 @@ async function retryProvision(a: AgentRow): Promise<void> {
       endedAt: Date.now(),
       error: `parent ${a.parent_agent_id} did not come back — cannot retry this spawn`,
     });
-    console.log(`[alineod]   lost ${a.agent_id}: parent ${a.parent_agent_id} unavailable`);
+    log.warn("lost: parent unavailable", {
+      agentId: a.agent_id,
+      parentAgentId: a.parent_agent_id,
+    });
     return;
   }
 
-  console.log(
-    `[alineod]   retrying provision for ${a.agent_id} (parent ${a.parent_agent_id} is live)...`,
-  );
+  log.info("retrying provision (parent is live)", {
+    agentId: a.agent_id,
+    parentAgentId: a.parent_agent_id,
+  });
   const body: SpawnAgentBody = {
     spec,
     parentAgentId: a.parent_agent_id,

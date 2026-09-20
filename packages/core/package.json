@@ -29,6 +29,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@alineo-labs/logger": "workspace:*",
     "@alineo-labs/opensandbox": "workspace:*"
   },
   "devDependencies": {

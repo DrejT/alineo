@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": { "correctness": "off" },
+  "env": { "node": true },
+  "rules": { "no-console": "error" },
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.d.ts"],
+  "overrides": [
+    {
+      "files": ["**/test/**", "**/*.test.ts", "**/scripts/**"],
+      "rules": { "no-console": "off" }
+    }
+  ]
+}
