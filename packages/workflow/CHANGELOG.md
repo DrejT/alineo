@@ -1,5 +1,11 @@
 # @drej/workflow
 
+## 0.1.6
+
+### Patch Changes
+
+- @alineo-labs/sandbox@0.4.3
+
 ## 0.1.5
 
 ### Patch Changes

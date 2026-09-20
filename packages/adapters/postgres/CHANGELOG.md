@@ -1,5 +1,12 @@
 # @drej/postgres
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [7f0d5c2]
+  - @alineo-labs/core@0.4.2
+
 ## 0.2.2
 
 ### Patch Changes

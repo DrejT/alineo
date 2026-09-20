@@ -1,6 +1,6 @@
 {
   "name": "@alineo-labs/logger",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Tiny, dependency-free logger for alineo: silent by default, one switch, child loggers",
   "license": "Apache-2.0",
   "repository": {
