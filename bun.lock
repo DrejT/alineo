@@ -197,6 +197,10 @@
         "alineo": "workspace:*",
       },
     },
+    "examples/alineod-autoresearch": {
+      "name": "alineo-example-alineod-autoresearch",
+      "version": "0.0.1",
+    },
     "examples/alineod-coordination": {
       "name": "alineo-example-alineod-coordination",
       "version": "0.0.1",
@@ -1878,6 +1882,8 @@
     "alineo-cookbook-untrusted-code-execution": ["alineo-cookbook-untrusted-code-execution@workspace:cookbooks/untrusted-code-execution"],
 
     "alineo-example-agent-egress-approval": ["alineo-example-agent-egress-approval@workspace:examples/agent-egress-approval"],
+
+    "alineo-example-alineod-autoresearch": ["alineo-example-alineod-autoresearch@workspace:examples/alineod-autoresearch"],
 
     "alineo-example-alineod-coordination": ["alineo-example-alineod-coordination@workspace:examples/alineod-coordination"],
 
