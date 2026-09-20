@@ -7,9 +7,10 @@
  *      close the sandbox, so it stays promptable / usable as a spawn parent, and a fresh
  *      process needs its own connection object for that to keep working post-restart):
  *      `Alineo.reattach()` (preserves the bridge, see D-a), falling back to `Alineo.resume()`
- *      (restarts it) if that fails. A reattached agent that was mid-turn at crash time gets a
- *      background catch-up poll (`catchUpTurn`) so its handle still settles once Pi finishes —
- *      otherwise the projection would say "running" forever even though the turn is long done.
+ *      (restarts it) if that fails. An agent that was mid-turn at crash time gets a background
+ *      catch-up poll (`catchUpTurn`) either way, so its handle still settles — once Pi finishes
+ *      if the bridge was preserved, at once if it had to be restarted (the turn died with it).
+ *      Otherwise the projection would say "running" forever.
  *   3. Pass 2 — every live agent still stuck *before* its fork (no sandbox yet: a child
  *      queued behind `waitFor`, or a root still inside `Alineo.load()`): retry the spawn
  *      from what was persisted in its `agent_spawned` event (`wait_for`/`prompt` in db.ts —
@@ -93,6 +94,9 @@ async function reattachOne(a: AgentRow): Promise<void> {
     const agent = await Alineo.resume(a.sandbox_id!, opts);
     register(a.agent_id, agent);
     log.info("resumed — bridge restarted", { agentId: a.agent_id, sandboxId: a.sandbox_id });
+    // The turn that was running died with the old bridge process, and nothing is following it:
+    // catch-up sees the new (idle) bridge, records whatever text survived, and settles the handle.
+    if (wasRunning) void catchUpTurn(a.run_id, a.agent_id);
   } catch (err) {
     const message = describeError(err);
     // An agent that had already ended (this is the "finished-but-open" reconnect case, not the
