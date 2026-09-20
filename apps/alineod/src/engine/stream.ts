@@ -46,7 +46,11 @@ export function isCatchingUp(agentId: string): boolean {
 export async function driveTurn(agentId: string, message: string): Promise<void> {
   const agent = get(agentId);
   if (!agent) return;
-  const runId = agent.runId;
+  // alineod's run, from the projection — NOT `agent.runId`, which is the SDK's own correlation id:
+  // the same for a root (alineod passes it to Alineo.load()), but a forked child picks its own,
+  // which filed every event of a child's turn under a run nobody is watching.
+  const runId = getAgentRow(agentId)?.run_id;
+  if (!runId) return;
 
   setState(agentId, "running", "prompt");
   driving.add(agentId);

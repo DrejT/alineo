@@ -11,23 +11,33 @@
  * time doesn't count toward that. On Kubernetes, `@alineo-labs/core`'s own docs note
  * pause/resume is snapshot-based instead — in-memory state does not survive.
  *
- * Scope (research/swarm-control.md has the fuller design — `pausedBy` provenance,
- * cascade-to-subtree, etc.): operator-only, the named agent only, no cascade. Resume restores
- * the state the agent had before the pause (`paused_from`).
+ * Scope: `pauseAgent`/`resumeAgent` act on the named agent; `pauseSubtree`/`resumeSubtree` act on it
+ * and every descendant (research/swarm-control.md §5c, §6). Resume restores the state the agent had
+ * before the pause (`paused_from`). Each pause records who caused it (`paused_by`): `operator` for the
+ * target of the call, `cascade` for a descendant a subtree pause reached.
  */
 import { Alineo } from "alineo";
 import { get, register, sdkAdapter } from "./registry";
-import { getAgentRow } from "../state/projection";
+import { getAgentRow, getHandle, type AgentRow } from "../state/projection";
+import { attempt, sweepSubtree, type MemberResult } from "./subtree";
 import { emit } from "./emit";
-import { catchUpTurn, isTurnActive } from "./stream";
+import { catchUpTurn, driveTurn, isTurnActive } from "./stream";
+import { deliverPending, withInbox } from "./notify";
 import { HttpError } from "./errors";
 import { withTimeout } from "../util";
 import { RESUME_BRIDGE_TIMEOUT_MS } from "../../config";
+import type { SubtreeOpResult } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
 
 const log = getLogger("alineod");
 
-export async function pauseAgent(agentId: string): Promise<void> {
+export type PausedBy = "operator" | "cascade";
+
+export async function pauseAgent(
+  agentId: string,
+  opts: { pausedBy?: PausedBy } = {},
+): Promise<void> {
+  const pausedBy = opts.pausedBy ?? "operator";
   const row = getAgentRow(agentId);
   if (!row) throw new HttpError(404, `no agent ${agentId}`);
   if (row.state === "paused") return; // idempotent
@@ -45,11 +55,12 @@ export async function pauseAgent(agentId: string): Promise<void> {
   emit(row.run_id, agentId, "agent_state_changed", {
     from: row.state,
     to: "paused",
-    reason: "operator",
+    reason: pausedBy,
+    pausedBy,
   });
 }
 
-export async function resumeAgent(agentId: string): Promise<void> {
+export async function resumeAgent(agentId: string, opts: { by?: PausedBy } = {}): Promise<void> {
   const row = getAgentRow(agentId);
   if (!row) throw new HttpError(404, `no agent ${agentId}`);
   if (row.state !== "paused") {
@@ -70,7 +81,7 @@ export async function resumeAgent(agentId: string): Promise<void> {
   emit(row.run_id, agentId, "agent_state_changed", {
     from: "paused",
     to: pausedFrom,
-    reason: "operator",
+    reason: opts.by ?? "operator",
   });
 
   // An agent reconnected while paused (after a restart) was registered without probing its
@@ -106,4 +117,74 @@ export async function resumeAgent(agentId: string): Promise<void> {
   if (pausedFrom === "running" && !isTurnActive(agentId)) {
     void catchUpTurn(row.run_id, agentId, { afterStream: true });
   }
+
+  // A child that forked while an ancestor was paused joined the pause before its first prompt ran
+  // (spawn.ts) — start that prompt now.
+  if (
+    pausedFrom === "provisioning" &&
+    row.prompt &&
+    getHandle(agentId)?.state === "pending" &&
+    !isTurnActive(agentId)
+  ) {
+    void driveTurn(agentId, withInbox(agentId, row.prompt));
+  }
+
+  // Anything that arrived for it while it was paused (notifications, a queued subtree steer).
+  void deliverPending(agentId);
+}
+
+// ── subtree scope ─────────────────────────────────────────────────────────────
+
+const CLOSED_STATES = new Set(["aborted", "lost"]);
+
+/**
+ * Pause an agent and every descendant — parents first, so a parent stops spawning before its
+ * children freeze; members at one depth in parallel. Best-effort: every member gets its own
+ * result, and one failing doesn't stop the rest. A member that hasn't forked yet can't be frozen;
+ * it joins the pause as soon as it forks (spawn.ts), so it's reported `applied` with a reason.
+ * Membership is resolved again once after the sweep, to catch agents spawned during it.
+ */
+export async function pauseSubtree(rootId: string): Promise<SubtreeOpResult> {
+  return sweepSubtree(rootId, "parents-first", (m) =>
+    pauseMember(m, m.agent_id === rootId ? "operator" : "cascade", m.agent_id === rootId),
+  );
+}
+
+/**
+ * Resume an agent and every paused descendant — children first, the target last, so a parent
+ * wakes into a subtree that's already moving. Lifts `operator` and `cascade` pauses; anything
+ * not paused is skipped.
+ */
+export async function resumeSubtree(rootId: string): Promise<SubtreeOpResult> {
+  return sweepSubtree(rootId, "children-first", (m) =>
+    resumeMember(m, m.agent_id === rootId ? "operator" : "cascade"),
+  );
+}
+
+async function pauseMember(
+  member: AgentRow,
+  pausedBy: PausedBy,
+  isRoot: boolean,
+): Promise<MemberResult> {
+  const agentId = member.agent_id;
+  const row = getAgentRow(agentId) ?? member;
+  if (row.state === "paused") return { agentId, outcome: "skipped", reason: "already-paused" };
+  if (CLOSED_STATES.has(row.state)) return { agentId, outcome: "skipped", reason: "not-live" };
+  if (!row.sandbox_id) {
+    return isRoot
+      ? { agentId, outcome: "skipped", reason: "not-provisioned" }
+      : { agentId, outcome: "applied", reason: "pending: pauses as soon as it forks" };
+  }
+  if (!get(agentId)) return { agentId, outcome: "skipped", reason: "not-live" };
+  return attempt(agentId, () => pauseAgent(agentId, { pausedBy }));
+}
+
+async function resumeMember(member: AgentRow, by: PausedBy): Promise<MemberResult> {
+  const agentId = member.agent_id;
+  const row = getAgentRow(agentId) ?? member;
+  if (row.state !== "paused") return { agentId, outcome: "skipped", reason: "not-paused" };
+  if (row.paused_by && row.paused_by !== "operator" && row.paused_by !== "cascade") {
+    return { agentId, outcome: "skipped", reason: `paused-by-${row.paused_by}` };
+  }
+  return attempt(agentId, () => resumeAgent(agentId, { by }));
 }

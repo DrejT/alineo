@@ -1,4 +1,10 @@
 {
   "title": "Guides",
-  "pages": ["how-it-works", "fan-out-gather", "steering-and-pausing", "crash-recovery"]
+  "pages": [
+    "how-it-works",
+    "fan-out-gather",
+    "coordination",
+    "steering-and-pausing",
+    "crash-recovery"
+  ]
 }

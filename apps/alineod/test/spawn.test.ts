@@ -122,6 +122,19 @@ describe("spawning a child", () => {
   });
 });
 
+test("a forked child's turn events are filed under alineod's run, not the SDK's own run id", async () => {
+  const run = await startRun(root);
+  const child = await spawnChild(run.runId, run.rootAgentId, { prompt: "hello" });
+  expect(child.agent.runId).not.toBe(run.runId); // the SDK's correlation id differs
+  await until(
+    () => events(run.runId).some((e) => e.event === "agent_ended" && e.agentId === child.agentId),
+    "the child's agent_ended in its run",
+  );
+  expect(
+    events(run.runId).some((e) => e.event === "handle_settled" && e.agentId === child.agentId),
+  ).toBe(true);
+});
+
 describe("budgets", () => {
   test("hands the parent's remaining budget to spawn() and records one less on the child", async () => {
     const run = await startRun({ spec: spec("root", { spawnDepth: 2, maxAgents: 5 }) });
