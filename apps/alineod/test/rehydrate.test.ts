@@ -94,6 +94,10 @@ describe("agents with a sandbox", () => {
     expect(get(id)).toBeUndefined();
     expect(getAgentRow(id)).toMatchObject({ state: "lost", outcome: "lost" });
     expect(getHandle(id)?.state).toBe("settled");
+    // OpenSandbox's raw JSON body is unwrapped to a sentence before it reaches the ledger.
+    expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+      error: `Sandbox ${sandbox.sandboxId} not found. (DOCKER::SANDBOX_NOT_FOUND)`,
+    });
   });
 
   test("a turn that was in flight is caught up and its result recorded exactly once", async () => {

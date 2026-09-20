@@ -8,6 +8,7 @@
 import { getAgentRow, resolveSubtree, runAsOf, type AgentRow } from "../state/projection";
 import { HttpError } from "./errors";
 import { SUBTREE_MEMBER_TIMEOUT_MS } from "../../config";
+import { errorMessage } from "../util";
 import type { SubtreeOpResult } from "../schema";
 
 export type MemberResult = SubtreeOpResult["results"][number];
@@ -57,7 +58,7 @@ export async function attempt(
     ]);
     return reason ? { agentId, outcome: "applied", reason } : { agentId, outcome: "applied" };
   } catch (err) {
-    return { agentId, outcome: "failed", reason: err instanceof Error ? err.message : String(err) };
+    return { agentId, outcome: "failed", reason: errorMessage(err) };
   } finally {
     clearTimeout(timer);
   }

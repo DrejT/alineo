@@ -241,7 +241,13 @@ export const FakeAlineo = {
     fakeSdk.calls.resume.push(sandboxId);
     const agent = fakeSdk.sandboxes.get(sandboxId);
     if (!agent || fakeSdk.resumeFails.has(sandboxId)) {
-      throw new Error(`sandbox ${sandboxId} not found`);
+      // What OpenSandbox's client really throws: the raw response body as the message.
+      throw new Error(
+        JSON.stringify({
+          code: "DOCKER::SANDBOX_NOT_FOUND",
+          message: `Sandbox ${sandboxId} not found.`,
+        }),
+      );
     }
     // Restarting the bridge execs into the container, which fails while it's frozen.
     if (agent.paused) throw new Error(`sandbox ${sandboxId} is paused`);

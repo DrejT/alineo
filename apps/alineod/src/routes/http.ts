@@ -6,6 +6,7 @@
 import type { ZodType } from "zod";
 import { getLogger } from "@alineo-labs/logger";
 import { HttpError } from "../engine/errors";
+import { errorMessage } from "../util";
 
 const log = getLogger("alineod");
 
@@ -43,7 +44,7 @@ export function parseBody<T>(schema: ZodType<T>, value: unknown): T {
   if (!r.success) {
     throw new HttpError(
       400,
-      `invalid request body: ${r.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+      `invalid request body: ${r.error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ")}`,
     );
   }
   return r.data;
@@ -72,7 +73,7 @@ export function toErrorResponse(
     log.debug("request rejected", { ...where, status: err.status, error: err.message });
     return Response.json({ error: err.message }, { status: err.status });
   }
-  const message = err instanceof Error ? err.message : String(err);
+  const message = errorMessage(err);
   const clientStatus = elysiaClientStatus(context.code);
   if (clientStatus !== undefined) {
     log.debug("request failed", {

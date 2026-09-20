@@ -16,6 +16,7 @@ import { emit } from "./emit";
 import { HttpError } from "./errors";
 import { driveTurn, isTurnActive } from "./stream";
 import { queueSteer, withInbox } from "./notify";
+import { errorMessage } from "../util";
 
 export async function steerAgent(agentId: string, message: string): Promise<void> {
   const row = getAgentRow(agentId);
@@ -27,7 +28,7 @@ export async function steerAgent(agentId: string, message: string): Promise<void
   try {
     await agent.steer(message);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errorMessage(err);
     throw new HttpError(502, `steer failed: ${msg}`);
   }
 
@@ -85,7 +86,7 @@ export async function steerSubtree(parentId: string, message: string): Promise<S
     try {
       await agent.steer(envelope);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errorMessage(err);
       throw new HttpError(502, `steer failed: ${msg}`);
     }
     deliveredAs = "steer";

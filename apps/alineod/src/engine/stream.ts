@@ -15,7 +15,7 @@ import type { Alineo } from "alineo";
 import { get } from "./registry";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
-import { sleep, withTimeout } from "../util";
+import { errorMessage, sleep, withTimeout } from "../util";
 import { getAgentRow, getHandle } from "../state/projection";
 import {
   CATCH_UP_POLL_MS,
@@ -75,7 +75,7 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
       void catchUpTurn(runId, agentId, { afterStream: true });
       return;
     }
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     // A failed turn may still have produced partial assistant text — keep it.
     const partial = await safeLastText(agent);
     const resultRef = writeResult(agentId, partial);

@@ -25,7 +25,7 @@ import { emit } from "./emit";
 import { driveTurn, setState } from "./stream";
 import { registerNotify, withInbox } from "./notify";
 import { isNotRunningError, waitUntilNotPaused } from "./hold";
-import { sleep } from "../util";
+import { errorMessage, sleep } from "../util";
 import {
   normalizeWait,
   validateWait,
@@ -201,7 +201,7 @@ export async function provisionChild(
     if (body.prompt) void driveTurn(childId, withInbox(childId, body.prompt));
   } catch (err) {
     if (isCancelled(childId)) return; // already ended (stopped) — don't overwrite `aborted`
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     let outcome = "failed";
     if (/refused|budget|spawn-depth|max-agents/i.test(message)) {
       const dimension = /max-agents/i.test(message) ? "maxAgents" : "spawnDepth";
