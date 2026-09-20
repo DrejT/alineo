@@ -118,6 +118,62 @@ describe("agents with a sandbox", () => {
     ).toHaveLength(1);
   }, 10_000);
 
+  describe("a turn in flight when the bridge process died (reattach fails, resume restarts it)", () => {
+    // The restarted bridge is idle — the turn died with the old one — so catch-up settles the
+    // handle at once instead of leaving the agent "running" for a turn nothing is following.
+    test("with no text to keep, it settles as failed", async () => {
+      const runId = newRunId();
+      const sandbox = container(runId);
+      const id = seed({ runId, sandbox, state: "running" });
+      fakeSdk.reattachFails.add(sandbox.sandboxId);
+
+      await rehydrate();
+      expect(fakeSdk.calls.resume).toEqual([sandbox.sandboxId]);
+
+      await until(() => getHandle(id)?.state === "settled", "catch-up settle after resume", 6_000);
+      expect(getAgentRow(id)).toMatchObject({ state: "failed", outcome: "failed" });
+      expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+        agentId: id,
+        outcome: "failed",
+        error: "catch-up: no retrievable result",
+      });
+    }, 10_000);
+
+    test("partial text is kept, as for any other failed turn", async () => {
+      const runId = newRunId();
+      const sandbox = container(runId);
+      sandbox.lastText = "got as far as this";
+      const id = seed({ runId, sandbox, state: "running" });
+      fakeSdk.reattachFails.add(sandbox.sandboxId);
+
+      await rehydrate();
+
+      await until(() => getHandle(id)?.state === "settled", "catch-up settle after resume", 6_000);
+      expect(getHandle(id)).toMatchObject({
+        outcome: "success",
+        result_ref: `fs://${id}/result.md`,
+      });
+      expect(getAgentRow(id)).toMatchObject({ state: "done", outcome: "success" });
+      expect(
+        events(runId).filter((e) => e.event === "handle_settled" && e.agentId === id),
+      ).toHaveLength(1);
+    }, 10_000);
+
+    test("an agent that wasn't mid-turn is not settled by the resume", async () => {
+      const runId = newRunId();
+      const sandbox = container(runId);
+      const id = seed({ runId, sandbox }); // provisioned, no turn started
+      fakeSdk.reattachFails.add(sandbox.sandboxId);
+
+      await rehydrate();
+      await Bun.sleep(150);
+
+      expect(get(id)).toBe(sandbox as never);
+      expect(getHandle(id)?.state).not.toBe("settled");
+      expect(getAgentRow(id)?.state).toBe("provisioning");
+    });
+  });
+
   test("a finished agent with an open sandbox is reconnected so it can be prompted again", async () => {
     const runId = newRunId();
     const sandbox = container(runId);
