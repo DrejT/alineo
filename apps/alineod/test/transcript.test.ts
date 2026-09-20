@@ -119,7 +119,7 @@ test("long output is cut unless ?full=1, which also returns the model's thinking
 test("skips a damaged row and messages it doesn't recognise", async () => {
   const { runId, rootAgentId } = await startRun({ prompt: "work" });
   appendRow(runId, rootAgentId, "agent_end", "not an object");
-  rawAgentEnd(runId, rootAgentId, "{not json");
+  const damaged = rawAgentEnd(runId, rootAgentId, "{not json");
   endTurn(runId, rootAgentId, [
     { role: "system", content: "?" },
     null,
@@ -127,6 +127,9 @@ test("skips a damaged row and messages it doesn't recognise", async () => {
   ]);
 
   const res = await call("GET", `/agents/${rootAgentId}/transcript`);
+  // The ledger is shared by every test file, and a boot-time replay JSON.parses every row, so
+  // don't leave the unparseable one behind.
+  db.query("DELETE FROM ledger WHERE seq = ?").run(damaged);
   expect(res.status).toBe(200);
   const withMessages = res.body.turns.filter((t: { messages: unknown[] }) => t.messages.length > 0);
   expect(withMessages).toHaveLength(1);
@@ -135,7 +138,10 @@ test("skips a damaged row and messages it doesn't recognise", async () => {
 
 // A payload that isn't valid JSON can't go through appendRow (it serialises), so write the row.
 function rawAgentEnd(runId: string, agentId: string, payload: string) {
-  db.query(
-    "INSERT INTO ledger (run_id, agent_id, ts, event, payload) VALUES (?, ?, ?, 'agent_end', ?)",
-  ).run(runId, agentId, Date.now(), payload);
+  const { seq } = db
+    .query<{ seq: number }, [string, string, number, string]>(
+      "INSERT INTO ledger (run_id, agent_id, ts, event, payload) VALUES (?, ?, ?, 'agent_end', ?) RETURNING seq",
+    )
+    .get(runId, agentId, Date.now(), payload)!;
+  return seq;
 }
