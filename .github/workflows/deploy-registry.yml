@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "apps/registry/**"
+      - ".github/workflows/deploy-registry.yml"
 
 jobs:
   deploy:
@@ -29,10 +30,10 @@ jobs:
         working-directory: apps/registry
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: alineo-registry
-          directory: apps/registry/dist
+          packageManager: bun
+          command: pages deploy apps/registry/dist --project-name=alineo-registry --branch=${{ github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
