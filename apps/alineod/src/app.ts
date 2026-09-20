@@ -16,7 +16,7 @@ export function createApp() {
     serve: { idleTimeout: IDLE_TIMEOUT_SECONDS },
   })
     .use(openapi())
-    .onError(({ error }) => toErrorResponse(error))
+    .onError(({ error, request, code }) => toErrorResponse(error, { request, code }))
     .get("/health", () => ({ ok: true }))
     .use(runsRoutes)
     .use(agentsRoutes)

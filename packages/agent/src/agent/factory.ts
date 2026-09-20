@@ -1,7 +1,7 @@
 import { Sandbox } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
 import { LedgerEvent, type IStorageAdapter, type SandboxHandle } from "@alineo-labs/core";
-import { getLogger } from "@alineo-labs/logger";
+import { getLogger, type Logger } from "@alineo-labs/logger";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { readProjectConfig } from "../config";
 import { validateAgentSpec, type AgentSpec } from "../schema";
@@ -22,7 +22,17 @@ import {
 import type { AgentInternal } from "./internal";
 import { EgressApprovalGate, type EgressRequestHandler } from "./egress-approval";
 
-const log = getLogger("agent");
+const agentLog = getLogger("agent");
+
+/** Best-effort cleanup that failed: say so — the sandbox may now be leaked. */
+function cleanupFailed(
+  log: Logger,
+  which: { sandboxId?: string; resourceId?: string },
+): (err: unknown) => void {
+  return (err) => {
+    log.warn("cleanup failed: could not close sandbox — it may be leaked", { ...which, err });
+  };
+}
 
 function elapsed(t: number) {
   return `${Date.now() - t}ms`;
@@ -78,6 +88,7 @@ export async function loadAgent(
   // always present — call-time only, never a spec field: a run identity is inherently
   // per-invocation.
   const runId = opts.runId ?? crypto.randomUUID();
+  const log = agentLog.child(opts.runId ? { name: spec.name, runId } : { name: spec.name });
   resolvedEnv.ALINEO_RUN_ID = runId;
   const resources = { ...config.defaults.resources, ...(spec.resources ?? {}) };
 
@@ -180,7 +191,7 @@ export async function loadAgent(
 
   // ── Full install path ─────────────────────────────────────────────────────
   if (!fromSnapshot) {
-    log.info("starting sandbox", { name: spec.name });
+    log.info("starting sandbox");
     const t1 = Date.now();
     sb = await client.sandbox({
       image: "node:22",
@@ -224,7 +235,7 @@ export async function loadAgent(
       log.info("checkpoint done", { elapsed: elapsed(t3) });
     } catch (err) {
       // Nothing else holds this sandbox yet — don't leave it running.
-      await created.close().catch(() => {});
+      await created.close().catch(cleanupFailed(log, { sandboxId: created.sandboxId }));
       await egressGate?.stop().catch(() => {});
       throw err;
     }
@@ -256,7 +267,7 @@ export async function loadAgent(
     await adapter.waitReady();
     log.info("bridge ready", { elapsed: elapsed(t4) });
   } catch (err) {
-    await sb.close().catch(() => {});
+    await sb.close().catch(cleanupFailed(log, { sandboxId: sb.sandboxId }));
     await egressGate?.stop().catch(() => {});
     if (!fromSnapshot) throw err;
     // The snapshot restored, but the agent inside it doesn't start — e.g. a snapshot taken on a
@@ -328,6 +339,7 @@ export async function resumeAgent(
   // agent that doesn't get an explicit override starts a fresh run identity rather than
   // trying to recover the original invocation's exact value.
   const runId = opts.runId ?? crypto.randomUUID();
+  const log = agentLog.child(opts.runId ? { name: spec.name, runId } : { name: spec.name });
   resolvedEnv.ALINEO_RUN_ID = runId;
 
   log.info("reconnecting", { sandboxId });
@@ -457,6 +469,7 @@ export async function reattachAgent(
     resolvedEnv.ALINEO_SPAWN_DEPTH = String(spec.spawnDepth);
   }
   const runId = opts.runId ?? crypto.randomUUID();
+  const log = agentLog.child(opts.runId ? { name: spec.name, runId } : { name: spec.name });
   resolvedEnv.ALINEO_RUN_ID = runId;
   resolvedEnv.ALINEO_SANDBOX_ID = sandboxId;
 
@@ -567,6 +580,9 @@ export async function spawnChild(
   // and passed explicitly to fork() because a freshly-`Alineo.attach()`ed self (the
   // `alineo fork` self-attach case) has no in-memory closure carrying it forward.
   const runId = process.env.ALINEO_RUN_ID ?? crypto.randomUUID();
+  const log = agentLog.child(
+    process.env.ALINEO_RUN_ID ? { name: childSpec.name, runId } : { name: childSpec.name },
+  );
   childEnv.ALINEO_RUN_ID = runId;
 
   // Distinct from whatever `self` (the parent) already has bound — `fork()` carries the
@@ -583,7 +599,7 @@ export async function spawnChild(
 
   const childResourceId = resolveChildResourceId(childSpec);
 
-  log.info("forking sandbox for spawn", { name: childSpec.name });
+  log.info("forking sandbox for spawn");
   const t0 = Date.now();
   const forkedSb = await self.sandbox.fork(childSpec.name, runId, {
     credentialProxy: childCredentialBindings.length > 0,
@@ -608,7 +624,7 @@ export async function spawnChild(
     log.info("bridge ready", { elapsed: elapsed(t1) });
   } catch (err) {
     // The fork exists but the child never became usable — nothing else will ever close it.
-    await forkedSb.close().catch(() => {});
+    await forkedSb.close().catch(cleanupFailed(log, { sandboxId: forkedSb.sandboxId }));
     throw err;
   }
 
@@ -658,7 +674,9 @@ export async function forkChildMemory(
   try {
     await parentMemory.fork(parentRef, child.resourceRef.resourceId);
   } catch (err) {
-    await child.close().catch(() => {});
+    await child
+      .close()
+      .catch(cleanupFailed(agentLog, { resourceId: child.resourceRef.resourceId }));
     throw err;
   }
 }

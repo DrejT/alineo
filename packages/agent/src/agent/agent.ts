@@ -170,7 +170,8 @@ export class Alineo {
    * `--depth` CLI flag) — standard flag-beats-config precedence. Same for
    * `{ maxAgents }` and `--max`.
    *
-   * Logs timing for each phase to stdout via `[agent]` prefixed lines.
+   * Reports timing for each phase through `@alineo-labs/logger` (component `agent`, tagged with
+   * the spec `name`). Silent by default — set `ALINEO_LOG_LEVEL=info` to see it.
    */
   static async load(
     spec: AgentSpec | Record<string, unknown>,

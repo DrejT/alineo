@@ -1,4 +1,5 @@
 import { LedgerEvent } from "@alineo-labs/core";
+import { getLogger } from "@alineo-labs/logger";
 import type {
   AgentStream,
   PendingPermission,
@@ -6,6 +7,8 @@ import type {
   PermissionRequest,
 } from "../types";
 import type { AgentInternal } from "./internal";
+
+const log = getLogger("agent");
 
 /**
  * Called for each `permission_request` on a `prompt()`/`bash()` stream when passed as
@@ -43,7 +46,9 @@ async function* instrument(
           };
           void Promise.resolve(onPermission(req))
             .then((decision) => a.adapter.resolvePermission(ev.requestId, decision))
-            .catch(() => {});
+            .catch((err) => {
+              log.warn("onPermission handler failed", { requestId: ev.requestId, err });
+            });
         }
       } else if (ev.type === "permission_resolved") {
         void a.sandbox.emit(LedgerEvent.PermissionResolved, -1, {

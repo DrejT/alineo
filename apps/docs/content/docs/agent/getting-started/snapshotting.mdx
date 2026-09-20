@@ -46,4 +46,4 @@ This is useful after updating a package version that isn't tracked through the s
 
 Snapshot records are stored in `agent-snapshots.json` alongside the ledger database (`.alineo/agent-snapshots.json` by default). Each record maps `specName + setupHash` → `snapshotId`. On restore, `client.restoreSnapshot(snapshotId)` recreates the container from the saved image.
 
-If the snapshot no longer exists on the OpenSandbox server (e.g. after a server restart), `Alineo.load()` detects the failure, logs `[agent] snapshot stale, rebuilding...`, and falls back to a full install automatically.
+If the snapshot no longer exists on the OpenSandbox server (e.g. after a server restart), `Alineo.load()` detects the failure, logs a `warn` (`snapshot restore failed, rebuilding`, with the underlying `reason`), and falls back to a full install automatically.
