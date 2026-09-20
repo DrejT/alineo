@@ -119,10 +119,11 @@ try {
     log(`researcher-${i + 1} forked (${agentId}): ${direction.split(":")[0]}`);
   }
 
-  // A researcher is "done" when its turn ends, which is not the same as having a result: a model
-  // API that answers "overloaded" ends the turn too, and alineod records that turn as `success`.
-  // So each researcher gets a supervisor: wait for the turn to end, check the result, and if it
-  // isn't a real one, tell the agent to carry on. Stop everyone else once QUORUM are valid.
+  // A researcher's turn ending is not the same as it having a result: the agent can stop without
+  // printing the RESULT line, and a model API that answers "overloaded" ends the turn too (alineod
+  // now records that as `failed`; older versions recorded `success`). So each researcher gets a
+  // supervisor: wait for the turn to end, check the result, and if it isn't a real one, tell the
+  // agent to carry on. Stop everyone else once QUORUM are valid.
   const MAX_NUDGES = Number(process.env.MAX_NUDGES ?? 4);
   const NUDGE =
     "Your last turn ended early because of an error, not because you finished. Your work is in /work " +

@@ -100,12 +100,21 @@ better.
 Pi, the coding agent inside each sandbox, keeps a session log. In it, the last assistant message
 of a cut-off turn has `stopReason: "error"`, with `Service temporarily overloaded` or
 `429 status code (no body)` as the message. A single agent's log held between 1 and 17 of these.
-The model API was refusing requests, and four agents on one key were too many for it.
+The model API was refusing requests, and four agents on one key were too many for it. Pi retries
+these errors itself by default (three times, waiting 2, 4 and 8 seconds; I read this in its source
+and didn't watch it happen), so a turn that ends on one has used up those retries, and prompting
+the agent again straight away meets the same overload.
 
-alineod recorded what it was told. Some of those turns ended `success` with an empty result, and
-others ended `failed`. Either way, **the outcome alone doesn't say whether the agent finished**,
-and a `waitFor` quorum counts agents whose turn ended. In an earlier test with a different model, a
-quorum picked two agents that had only run the baseline.
+When these runs happened, alineod recorded some of those turns as `success` with an empty result,
+and others as `failed`. That was a bug, fixed in
+[#296](https://github.com/DrejT/alineo/pull/296): a turn that ends on a model API error is now
+`failed`, with the provider's message in the `error` field of its `agent_ended` event, and a
+`waitFor` quorum no longer counts it. **The runs and numbers on this page are from before that
+fix.** In an earlier test with a different model, a quorum picked two agents that had only run the
+baseline.
+
+The outcome still doesn't prove the agent finished, because a turn can also end normally without a
+result. Check the result yourself, as the next section does.
 
 ## How do I supervise agents when the model API is flaky?
 
@@ -175,7 +184,10 @@ GPU training in one, so we can't say how it behaves.
 
 Four was too many for one API key on the day: every run hit overload or 429 errors, and we haven't
 measured where the limit is. The host wasn't the limit, since one vCPU carried them. Start with
-fewer, and read Pi's session log for `stopReason: "error"`.
+fewer, and watch for agents that end `failed`. The provider's message is in the `error` field of the
+agent's `agent_ended` event, and
+[`GET /agents/:agentId/transcript`](/docs/alineod/api-reference/http-api) shows the turn's messages,
+including Pi's `stopReason: "error"`.
 
 ### Where do the scores come from?
 

@@ -59,9 +59,11 @@ its snapshot.
 ## Why the orchestrator supervises
 
 An agent's turn ending isn't the same as it finishing. If the model API answers "overloaded" or
-returns a 429, the turn ends anyway, and alineod may record it as `success` with an empty result.
-So `index.ts` checks each agent's final message for the `RESULT` line, waits with a growing pause,
-and prompts the agent to carry on, up to `MAX_NUDGES` times. See the blog post
+returns a 429, the turn ends anyway. alineod records that as `failed` (versions before
+[#296](https://github.com/DrejT/alineo/pull/296) recorded `success` with an empty result), and a
+turn can also end normally without a result. So `index.ts` checks each agent's final message for
+the `RESULT` line, waits with a growing pause, and prompts the agent to carry on, up to
+`MAX_NUDGES` times. See the blog post
 [How to run autoresearch with multiple AI agents in parallel](https://docs.alineo.tech/blog/parallel-autoresearch-agents).
 
 ## Limits
