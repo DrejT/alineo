@@ -4,7 +4,9 @@
  * errors (unknown route, unparseable body) used to fall through to a blanket 500.
  */
 import { describe, expect, test } from "bun:test";
-import { toErrorResponse } from "../src/routes/http";
+import { z } from "zod";
+import { HttpError } from "../src/engine/errors";
+import { parseBody, toErrorResponse } from "../src/routes/http";
 import { app, call } from "./helpers";
 
 async function raw(method: string, path: string, body?: string) {
@@ -72,5 +74,35 @@ describe("toErrorResponse", () => {
 
   test("no code (the old call shape) is a 500", () => {
     expect(toErrorResponse(new Error("x")).status).toBe(500);
+  });
+});
+
+describe("parseBody messages", () => {
+  const schema = z.object({ spec: z.object({ name: z.string() }) });
+  const message = (value: unknown): string => {
+    try {
+      parseBody(schema, value);
+    } catch (err) {
+      if (err instanceof HttpError) return err.message;
+      throw err;
+    }
+    throw new Error("expected parseBody to throw");
+  };
+
+  test("a nested failure names the field", () => {
+    expect(message({ spec: { name: 1 } })).toStartWith("invalid request body: spec.name: ");
+  });
+
+  test("a body that is the wrong type overall has no dangling ': '", () => {
+    const m = message("nope");
+    expect(m).toStartWith("invalid request body: ");
+    expect(m).not.toContain(": :");
+    expect(m).not.toMatch(/: $/);
+  });
+
+  test("several issues are joined with '; ' and each is named when it has a path", () => {
+    expect(message({ spec: {} })).toStartWith("invalid request body: spec.name: ");
+    const two = z.object({ a: z.string(), b: z.string() });
+    expect(() => parseBody(two, {})).toThrow(/a: .*; b: /);
   });
 });

@@ -15,6 +15,7 @@ import { sdkAdapter, register } from "./registry";
 import { emit } from "./emit";
 import { driveTurn } from "./stream";
 import { withInbox } from "./notify";
+import { errorMessage } from "../util";
 
 export interface CreateRunResult {
   runId: string;
@@ -77,7 +78,7 @@ export async function provisionRoot(
 
     if (body.prompt) void driveTurn(rootAgentId, withInbox(rootAgentId, body.prompt));
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     emit(runId, rootAgentId, "agent_ended", {
       outcome: "failed",
       endedAt: Date.now(),

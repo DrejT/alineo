@@ -24,7 +24,7 @@ import { emit } from "./emit";
 import { catchUpTurn, driveTurn, isTurnActive } from "./stream";
 import { deliverPending, withInbox } from "./notify";
 import { HttpError } from "./errors";
-import { withTimeout } from "../util";
+import { errorMessage, withTimeout } from "../util";
 import { RESUME_BRIDGE_TIMEOUT_MS } from "../../config";
 import type { SubtreeOpResult } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
@@ -48,7 +48,7 @@ export async function pauseAgent(
   try {
     await agent.sandbox.pause();
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errorMessage(err);
     throw new HttpError(502, `pause failed: ${msg}`);
   }
 
@@ -73,7 +73,7 @@ export async function resumeAgent(agentId: string, opts: { by?: PausedBy } = {})
   try {
     await agent.sandbox.resume();
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errorMessage(err);
     throw new HttpError(502, `resume failed: ${msg}`);
   }
 
@@ -100,7 +100,7 @@ export async function resumeAgent(agentId: string, opts: { by?: PausedBy } = {})
       register(agentId, restarted);
       log.info("bridge didn't answer after resume — restarted it", { agentId });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = errorMessage(err);
       if (row.ended_at === null) {
         emit(row.run_id, agentId, "agent_ended", {
           outcome: "lost",

@@ -20,3 +20,21 @@ export async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | und
 }
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * An error as one line of text. OpenSandbox's client puts the raw response body in `message`
+ * (`{"code":"DOCKER::SANDBOX_NOT_FOUND","message":"Sandbox … not found."}`), which reads badly in
+ * a log line or a ledger `error` field — unwrap it to `Sandbox … not found. (DOCKER::SANDBOX_NOT_FOUND)`.
+ * Anything that isn't that shape is returned unchanged.
+ */
+export function errorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (!raw.startsWith("{")) return raw;
+  try {
+    const body = JSON.parse(raw) as { code?: unknown; message?: unknown };
+    if (typeof body.message !== "string" || body.message === "") return raw;
+    return typeof body.code === "string" ? `${body.message} (${body.code})` : body.message;
+  } catch {
+    return raw;
+  }
+}

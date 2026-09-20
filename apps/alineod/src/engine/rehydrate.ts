@@ -35,6 +35,7 @@ import { deliverPending } from "./notify";
 import { parseStoredWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
+import { errorMessage } from "../util";
 
 const log = getLogger("alineod");
 
@@ -92,7 +93,7 @@ async function reattachOne(a: AgentRow): Promise<void> {
   } catch (reattachErr) {
     log.warn("reattach failed — falling back to resume", {
       agentId: a.agent_id,
-      error: describeError(reattachErr),
+      error: errorMessage(reattachErr),
     });
   }
 
@@ -104,7 +105,7 @@ async function reattachOne(a: AgentRow): Promise<void> {
     // catch-up sees the new (idle) bridge, records whatever text survived, and settles the handle.
     if (wasRunning) void catchUpTurn(a.run_id, a.agent_id);
   } catch (err) {
-    const message = describeError(err);
+    const message = errorMessage(err);
     // An agent that had already ended (this is the "finished-but-open" reconnect case, not the
     // live one) keeps its real outcome — a failed reconnect only means it can't be prompted or
     // spawned-from again THIS boot, not that its already-recorded, already-settled turn is now
@@ -149,7 +150,7 @@ async function reattachPaused(
       sandboxId: a.sandbox_id,
     });
   } catch (err) {
-    const message = describeError(err);
+    const message = errorMessage(err);
     if (a.ended_at === null) {
       emit(a.run_id, a.agent_id, "agent_ended", {
         outcome: "lost",
@@ -219,8 +220,4 @@ async function retryProvision(a: AgentRow): Promise<void> {
     body,
     parseStoredWait(a.wait_for),
   );
-}
-
-function describeError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
