@@ -21,6 +21,7 @@ Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors ar
 | `POST`   | `/agents/:agentId/resume`        | Thaw a paused container.                          |
 | `POST`   | `/agents/:agentId/stop`          | Abort and close the agent.                        |
 | `GET`    | `/agents/:agentId/result`        | Get, or wait for, the agent's result.             |
+| `GET`    | `/agents/:agentId/transcript`    | What the agent said and did, turn by turn.        |
 | `GET`    | `/agents/:agentId/await`         | Wait for the agent's subtree to finish.           |
 | `POST`   | `/runs/:runId/await`             | Wait on a set of agents, or a subtree.            |
 | `POST`   | `/agents/:agentId/notify-on`     | Tell this agent when others finish.               |
@@ -210,6 +211,41 @@ Still pending after `wait` — `202`:
 ```
 
 `404` if the agent doesn't exist. `resultRef` is `null` when a turn failed without producing any text.
+
+### GET /agents/:agentId/transcript
+
+What the agent said and did, read from the ledger: one entry per finished turn, each with its messages.
+
+| Query  | Description                                                                                               |
+| ------ | --------------------------------------------------------------------------------------------------------- |
+| `full` | `1` to keep long text whole and include the model's thinking. Default: text over 2,000 characters is cut. |
+
+```json
+{
+  "agentId": "a_e4b7d210",
+  "turns": [
+    {
+      "seq": 41,
+      "ts": 1789910400000,
+      "messages": [
+        { "role": "user", "text": "Run the judge." },
+        {
+          "role": "assistant",
+          "text": "Running it.",
+          "toolCalls": [{ "name": "bash", "arguments": { "command": "python3 evaluate.py" } }],
+          "stopReason": "toolUse",
+          "errorMessage": null
+        },
+        { "role": "tool", "toolName": "bash", "text": "val_bpc: 2.51", "isError": false }
+      ]
+    }
+  ]
+}
+```
+
+Use it to see why an agent did what it did, including a model API error (`stopReason: "error"` with the
+provider's `errorMessage`). A turn appears once it ends, so an agent mid-turn shows its earlier turns only.
+`404` if the agent doesn't exist.
 
 ## Coordination
 

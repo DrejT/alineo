@@ -32,6 +32,7 @@ import {
   PromptBody,
   SteerBody,
   ResultResponse,
+  TranscriptResponse,
   AlineodEvent,
 } from "../src/schema";
 
@@ -277,6 +278,28 @@ const openapi = {
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           "200": { description: "{ delivery: steer | turn | held | dropped | none }" },
+        },
+      },
+    },
+    "/agents/{agentId}/transcript": {
+      get: {
+        summary: "What the agent said and did, turn by turn (messages, tool calls, errors)",
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "full",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["1"] },
+            description: "Don't shorten long text; include the model's thinking.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "One entry per finished turn",
+            content: { "application/json": { schema: json(TranscriptResponse) } },
+          },
+          "404": { description: "No such agent" },
         },
       },
     },

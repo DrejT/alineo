@@ -1298,6 +1298,188 @@
         }
       }
     },
+    "/agents/{agentId}/transcript": {
+      "get": {
+        "summary": "What the agent said and did, turn by turn (messages, tool calls, errors)",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "full",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            },
+            "description": "Don't shorten long text; include the model's thinking."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One entry per finished turn",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agentId": {
+                      "type": "string"
+                    },
+                    "turns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seq": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Ledger seq of the turn's `agent_end`."
+                          },
+                          "ts": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Epoch ms."
+                          },
+                          "messages": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "role": {
+                                      "type": "string",
+                                      "enum": [
+                                        "user"
+                                      ]
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "role",
+                                    "text"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "role": {
+                                      "type": "string",
+                                      "enum": [
+                                        "assistant"
+                                      ]
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    },
+                                    "toolCalls": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "name": {
+                                            "type": "string"
+                                          },
+                                          "arguments": {}
+                                        },
+                                        "required": [
+                                          "name",
+                                          "arguments"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "stopReason": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "errorMessage": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "thinking": {
+                                      "description": "Only with `?full=1`.",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "role",
+                                    "text",
+                                    "toolCalls",
+                                    "stopReason",
+                                    "errorMessage"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "role": {
+                                      "type": "string",
+                                      "enum": [
+                                        "tool"
+                                      ]
+                                    },
+                                    "toolName": {
+                                      "type": "string"
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    },
+                                    "isError": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "role",
+                                    "toolName",
+                                    "text",
+                                    "isError"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "seq",
+                          "ts",
+                          "messages"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "agentId",
+                    "turns"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such agent"
+          }
+        }
+      }
+    },
     "/agents/{agentId}/result": {
       "get": {
         "summary": "Resolve a handle",
