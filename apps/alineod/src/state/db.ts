@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS ledger (
   payload   TEXT                          -- JSON
 );
 CREATE INDEX IF NOT EXISTS ledger_run ON ledger (run_id, seq);
+CREATE INDEX IF NOT EXISTS ledger_agent_event ON ledger (agent_id, event, seq);
 
 CREATE TABLE IF NOT EXISTS agents (
   agent_id        TEXT PRIMARY KEY,
@@ -171,6 +172,16 @@ const selectRunLedger = db.query<LedgerRow, [string]>(
 
 export function readRunLedger(runId: string): LedgerRow[] {
   return selectRunLedger.all(runId);
+}
+
+const selectAgentEvents = db.query<LedgerRow, [string, string]>(
+  `SELECT seq, run_id, agent_id, ts, event, payload FROM ledger
+   WHERE agent_id = ? AND event = ? ORDER BY seq ASC`,
+);
+
+/** One agent's rows of a single event type, oldest first (e.g. every `agent_end` it emitted). */
+export function readAgentEvents(agentId: string, event: string): LedgerRow[] {
+  return selectAgentEvents.all(agentId, event);
 }
 
 /** Replay the entire ledger, oldest first — used once at boot to rebuild the projections. */

@@ -283,6 +283,37 @@ export const ResultResponse = z.object({
   result: z.string().nullable().describe("The result text, inline."),
 });
 
+// ── GET /agents/:id/transcript ───────────────────────────────────────────────
+
+export const TranscriptMessage = z.discriminatedUnion("role", [
+  z.object({ role: z.literal("user"), text: z.string() }),
+  z.object({
+    role: z.literal("assistant"),
+    text: z.string(),
+    toolCalls: z.array(z.object({ name: z.string(), arguments: z.unknown() })),
+    stopReason: z.string().nullable(),
+    errorMessage: z.string().nullable(),
+    thinking: z.string().optional().describe("Only with `?full=1`."),
+  }),
+  z.object({
+    role: z.literal("tool"),
+    toolName: z.string(),
+    text: z.string(),
+    isError: z.boolean(),
+  }),
+]);
+
+export const TranscriptResponse = z.object({
+  agentId: z.string(),
+  turns: z.array(
+    z.object({
+      seq: z.number().int().describe("Ledger seq of the turn's `agent_end`."),
+      ts: z.number().int().describe("Epoch ms."),
+      messages: z.array(TranscriptMessage),
+    }),
+  ),
+});
+
 // ── the event union (research/daemon.md §7) ──────────────────────────────────
 //
 // alineod's own agent-lifecycle events. Forwarded harness events (`text`, `tool_start`, …)

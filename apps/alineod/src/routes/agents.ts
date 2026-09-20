@@ -19,6 +19,7 @@ import { driveTurn, isCatchingUp } from "../engine/stream";
 import { get } from "../engine/registry";
 import { getAgentView } from "../state/projection";
 import { HttpError } from "../engine/errors";
+import { buildTranscript } from "../engine/transcript";
 
 export const agentsRoutes = new Elysia()
   .post("/runs/:runId/agents", ({ params, body, set }) => {
@@ -38,6 +39,11 @@ export const agentsRoutes = new Elysia()
         ? await withTimeout(agent.getSessionStats(), 2_000)
         : undefined;
     return { ...view, sessionStats };
+  })
+
+  .get("/agents/:agentId/transcript", ({ params, query }) => {
+    if (!getAgentRow(params.agentId)) throw new HttpError(404, `no agent ${params.agentId}`);
+    return buildTranscript(params.agentId, { full: query.full === "1" });
   })
 
   .post("/agents/:agentId/prompt", async ({ params, body }) => {
