@@ -20,6 +20,8 @@
     "anti-slop/no-unknown-type-aliases": "error",
     "anti-slop/no-module-mocking": "error",
 
+    "no-console": "error",
+
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": "warn",
 
@@ -61,6 +63,22 @@
   },
   "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.d.ts"],
   "overrides": [
+    {
+      "files": [
+        "packages/logger/**",
+        "packages/cli/**",
+        "**/test/**",
+        "**/*.test.ts",
+        "**/pi-bridge.js",
+        "**/pi-permission-gate.js",
+        "examples/**",
+        "cookbooks/**",
+        "scripts/**"
+      ],
+      "rules": {
+        "no-console": "off"
+      }
+    },
     {
       "files": ["**/adapters/sqlite/src/adapter.ts"],
       "rules": {

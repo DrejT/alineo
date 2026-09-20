@@ -8,6 +8,7 @@ on:
       - "apps/docs/**"
       - "packages/sdks/typescript/CHANGELOG.md"
       - "packages/cli/CHANGELOG.md"
+      - ".github/workflows/deploy-docs.yml"
 
 jobs:
   deploy:
@@ -35,10 +36,10 @@ jobs:
         working-directory: apps/docs
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: alineo-docs
-          directory: apps/docs/out
+          packageManager: bun
+          command: pages deploy apps/docs/out --project-name=alineo-docs --branch=${{ github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

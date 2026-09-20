@@ -32,10 +32,30 @@ export class OpenSandboxError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    /** OpenSandbox's error code, e.g. `DOCKER::SANDBOX_NOT_FOUND`, when the response carried one. */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "OpenSandboxError";
   }
+}
+
+/**
+ * OpenSandbox answers an error with a JSON body, `{"code": "...", "message": "..."}`. Put the
+ * sentence in `message` (with the code after it), keep the code on `.code`, and fall back to the
+ * raw text when the body isn't that shape.
+ */
+function errorFromBody(text: string, status: number): OpenSandboxError {
+  try {
+    const body = JSON.parse(text) as { code?: unknown; message?: unknown } | null;
+    if (typeof body?.message === "string" && body.message) {
+      const code = typeof body.code === "string" && body.code ? body.code : undefined;
+      return new OpenSandboxError(code ? `${body.message} (${code})` : body.message, status, code);
+    }
+  } catch {
+    // not JSON: use the raw text below
+  }
+  return new OpenSandboxError(text || "OpenSandbox API error", status);
 }
 
 export class ControlClient {
@@ -66,7 +86,7 @@ export class ControlClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new OpenSandboxError(text || "OpenSandbox API error", res.status);
+      throw errorFromBody(text, res.status);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;

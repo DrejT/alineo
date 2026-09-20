@@ -48,19 +48,19 @@ Each step is a `SetupStep`:
 
 ## Log output
 
-Setup steps are logged with timing between the Pi install and the checkpoint:
+Setup steps are logged with timing between the Pi install and the checkpoint (silent unless `ALINEO_LOG_LEVEL=info` is set — the `alineo` CLI enables it by default):
 
 ```
-[agent] installing Pi CLI...
-[agent] Pi CLI ready    28000ms
-[agent] setup: Clone repo...
-[agent] setup done      4200ms (Clone repo)
-[agent] setup: Install deps...
-[agent] setup done      12300ms (Install deps)
-[agent] setup: Seed test data...
-[agent] setup done      980ms (Seed test data)
-[agent] checkpointing...
-[agent] checkpoint done 9800ms
+[agent] installing Pi CLI name=my-agent
+[agent] Pi CLI ready name=my-agent elapsed=28000ms
+[agent] setup step name=my-agent step="Clone repo"
+[agent] setup step done name=my-agent step="Clone repo" elapsed=4200ms
+[agent] setup step name=my-agent step="Install deps"
+[agent] setup step done name=my-agent step="Install deps" elapsed=12300ms
+[agent] setup step name=my-agent step="Seed test data"
+[agent] setup step done name=my-agent step="Seed test data" elapsed=980ms
+[agent] checkpointing name=my-agent
+[agent] checkpoint done name=my-agent elapsed=9800ms
 ```
 
 On subsequent loads, none of these lines appear — the workspace is already in the snapshot.

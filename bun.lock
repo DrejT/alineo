@@ -17,6 +17,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@elysiajs/openapi": "^1.4.9",
         "alineo": "workspace:*",
@@ -85,6 +86,7 @@
       "name": "@alineo-labs/sandbox-app",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@fontsource-variable/geist": "^5.1.1",
@@ -194,6 +196,10 @@
         "@alineo-labs/sqlite": "workspace:*",
         "alineo": "workspace:*",
       },
+    },
+    "examples/alineod-coordination": {
+      "name": "alineo-example-alineod-coordination",
+      "version": "0.0.1",
     },
     "examples/alineod-swarm": {
       "name": "alineo-example-alineod-swarm",
@@ -481,6 +487,7 @@
       "version": "0.5.1",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/memory": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
         "zod": "^4.4.3",
@@ -511,6 +518,7 @@
         "alineo": "./dist/index.mjs",
       },
       "dependencies": {
+        "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -538,6 +546,7 @@
       "name": "@alineo-labs/core",
       "version": "0.4.1",
       "dependencies": {
+        "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
       },
       "devDependencies": {
@@ -553,6 +562,16 @@
       "devDependencies": {
         "bun-types": "1.4.2",
         "typescript": "6.0.3",
+      },
+    },
+    "packages/logger": {
+      "name": "@alineo-labs/logger",
+      "version": "0.0.0",
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "tsdown": "0.23.0",
+        "typescript": "6.0.3",
+        "vitest": "5.0.0",
       },
     },
     "packages/mcp": {
@@ -594,6 +613,7 @@
         "@ai-sdk/google": "^4.0.50",
         "@ai-sdk/groq": "^4.0.30",
         "@ai-sdk/openai": "^4.0.46",
+        "@alineo-labs/logger": "workspace:*",
         "ai": "^7.0.77",
       },
       "devDependencies": {
@@ -686,6 +706,8 @@
     "@alineo-labs/harness": ["@alineo-labs/harness@workspace:packages/harness"],
 
     "@alineo-labs/integration-tests": ["@alineo-labs/integration-tests@workspace:tests/integration"],
+
+    "@alineo-labs/logger": ["@alineo-labs/logger@workspace:packages/logger"],
 
     "@alineo-labs/memory": ["@alineo-labs/memory@workspace:packages/memory"],
 
@@ -1856,6 +1878,8 @@
     "alineo-cookbook-untrusted-code-execution": ["alineo-cookbook-untrusted-code-execution@workspace:cookbooks/untrusted-code-execution"],
 
     "alineo-example-agent-egress-approval": ["alineo-example-agent-egress-approval@workspace:examples/agent-egress-approval"],
+
+    "alineo-example-alineod-coordination": ["alineo-example-alineod-coordination@workspace:examples/alineod-coordination"],
 
     "alineo-example-alineod-swarm": ["alineo-example-alineod-swarm@workspace:examples/alineod-swarm"],
 

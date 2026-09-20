@@ -6,6 +6,15 @@
  *   T1 (B1+B2)  pause a turn mid tool call for 3x the inactivity timeout → resume → full result
  *   T2 (B4)     spawn under a paused parent → child holds with no sandbox → resume → child answers
  *   T3 (B7)     pause mid-turn → kill -9 alineod → restart → still paused → resume → full result
+ *   T4 (#1)     3-level swarm (root → c1 → g1), pause the root's SUBTREE mid-turn for ~200s with a
+ *               kill -9 + restart in the middle → resume the subtree → every turn's full result
+ *               (run explicitly: `... verify-pause-fixes.ts t4`)
+ *   T5 (#2)     batch stop: 3-level swarm + a finished sibling → stop the subtree → every member
+ *               applied, the finished one keeps success, every sandbox gone
+ *   T6 (#3/#4)  waitFor any / quorum / deadline against real workers; operator await + quiescence
+ *   T7 (#5)     notifyOn: a subscriber mid tool call is steered when its dependency finishes
+ *   T8 (#6)     subtree steer: a running parent gets one message with its children's roster
+ *               (run explicitly: `... verify-pause-fixes.ts t5,t6,t7,t8`)
  *
  * Usage (on the OpenSandbox host, from the repo root, with NVIDIA_API_KEY in the environment):
  *   set -a; . ./.env; set +a
@@ -124,7 +133,13 @@ const sleepPrompt = (marker: string, secs: number) =>
 
 async function agentView(agentId: string): Promise<Json> {
   const v = await api("GET", `/agents/${agentId}`);
-  return { state: v.state, outcome: v.outcome, sandboxId: v.sandboxId, endedAt: v.endedAt };
+  return {
+    state: v.state,
+    outcome: v.outcome,
+    sandboxId: v.sandboxId,
+    endedAt: v.endedAt,
+    pausedBy: v.pausedBy,
+  };
 }
 
 async function waitLive(agentId: string, timeoutMs = 600_000): Promise<void> {
@@ -398,6 +413,334 @@ async function t3(): Promise<void> {
   save();
 }
 
+// ── T4: subtree pause across a restart ────────────────────────────────────────
+
+async function t4(): Promise<void> {
+  const obs: Json = {};
+  results.t4 = obs;
+  const views = async (ids: Record<string, string>) =>
+    Object.fromEntries(
+      await Promise.all(Object.entries(ids).map(async ([k, id]) => [k, await agentView(id)])),
+    );
+  try {
+    const r = await api("POST", "/runs", { spec: spec("verify-subtree-root", { spawnDepth: 3 }) });
+    const runId = r.runId as string;
+    const root = r.rootAgentId as string;
+    runs.push(runId);
+    await waitLive(root);
+
+    const c1 = (
+      await api("POST", `/runs/${runId}/agents`, {
+        parentAgentId: root,
+        spec: spec("verify-subtree-c1"),
+        prompt: sleepPrompt("C1_SLEPT_OK", 120),
+      })
+    ).agentId as string;
+    await waitLive(c1);
+    const g1 = (
+      await api("POST", `/runs/${runId}/agents`, {
+        parentAgentId: c1,
+        spec: spec("verify-subtree-g1"),
+        prompt: sleepPrompt("G1_SLEPT_OK", 120),
+      })
+    ).agentId as string;
+    await waitLive(g1);
+    await api("POST", `/agents/${root}/prompt`, { text: sleepPrompt("ROOT_SLEPT_OK", 120) });
+    const ids = { root, c1, g1 };
+    Object.assign(obs, { runId, ids });
+    for (const id of Object.values(ids)) await waitState(id, "running");
+    log("T4: 3-level swarm running");
+    await sleep(10_000); // mid-turn for all three (model thinking, or inside the sleep)
+
+    const paused = await api("POST", `/agents/${root}/pause`, { scope: "subtree" });
+    obs.pauseResults = paused.results;
+    obs.afterPause = await views(ids);
+    log("T4: subtree paused", JSON.stringify(paused.results));
+
+    await sleep(60_000);
+    daemon?.kill(9);
+    await daemon?.exited;
+    await sleep(5_000);
+    await startDaemon("t4-restart");
+    obs.afterRestart = await views(ids);
+    log("T4: daemon restarted while the subtree was paused");
+
+    await sleep(135_000); // ~200s paused in total — 10x the 20s inactivity timeout
+    obs.beforeResume = await views(ids);
+
+    const resumed = await api("POST", `/agents/${root}/resume`, { scope: "subtree" });
+    obs.resumeResults = resumed.results;
+    log("T4: subtree resumed", JSON.stringify(resumed.results));
+
+    const res: Record<string, Json> = {};
+    for (const [k, id] of Object.entries(ids)) {
+      const out = await waitResult(id);
+      res[k] = { outcome: out.outcome, text: out.result };
+    }
+    obs.results = res;
+    obs.lifecycle = Object.fromEntries(
+      await Promise.all(
+        Object.entries(ids).map(async ([k, id]) => [k, lifecycle(await ledger(runId), id)]),
+      ),
+    );
+
+    const allApplied = (xs: unknown) =>
+      Array.isArray(xs) && xs.length === 3 && xs.every((x) => (x as Json).outcome === "applied");
+    const stillPaused = (v: Json) =>
+      Object.values(v).every((a) => (a as Json).state === "paused" && (a as Json).outcome === null);
+    const markers: Record<string, string> = {
+      root: "ROOT_SLEPT_OK",
+      c1: "C1_SLEPT_OK",
+      g1: "G1_SLEPT_OK",
+    };
+    obs.pass =
+      allApplied(obs.pauseResults) &&
+      stillPaused(obs.afterPause as Json) &&
+      stillPaused(obs.afterRestart as Json) &&
+      stillPaused(obs.beforeResume as Json) &&
+      allApplied(obs.resumeResults) &&
+      Object.entries(markers).every(
+        ([k, m]) => res[k]?.outcome === "success" && String(res[k]?.text).includes(m),
+      );
+    log("T4:", obs.pass ? "PASS" : "FAIL", JSON.stringify(res));
+  } catch (e) {
+    obs.error = errMsg(e);
+    obs.pass = false;
+    log("T4: ERROR", errMsg(e));
+  }
+  save();
+}
+
+// ── T5–T8: batch stop, coordination, notifyOn, subtree steer ─────────────────────
+
+async function newRun(name: string): Promise<{ runId: string; root: string }> {
+  const r = await api("POST", "/runs", { spec: spec(name, { spawnDepth: 3 }) });
+  const runId = r.runId as string;
+  runs.push(runId);
+  await waitLive(r.rootAgentId as string);
+  return { runId, root: r.rootAgentId as string };
+}
+
+async function spawnUnder(
+  runId: string,
+  parentId: string,
+  name: string,
+  prompt?: string,
+  extra: Json = {},
+): Promise<string> {
+  const r = await api("POST", `/runs/${runId}/agents`, {
+    parentAgentId: parentId,
+    spec: spec(name),
+    ...(prompt ? { prompt } : {}),
+    ...extra,
+  });
+  return r.agentId as string;
+}
+
+function containerExists(sandboxId: string | null | undefined): boolean {
+  if (!sandboxId) return false;
+  const r = Bun.spawnSync(["docker", "ps", "-a", "-q", "--filter", `name=sandbox-${sandboxId}`]);
+  return r.stdout.toString().trim().length > 0;
+}
+
+async function t5(): Promise<void> {
+  const obs: Json = {};
+  results.t5 = obs;
+  try {
+    const { runId, root } = await newRun("verify-t5-root");
+    const c1 = await spawnUnder(runId, root, "verify-t5-c1", sleepPrompt("C1_SLEPT_OK", 120));
+    await waitLive(c1);
+    const g1 = await spawnUnder(runId, c1, "verify-t5-g1", sleepPrompt("G1_SLEPT_OK", 120));
+    const quick = await spawnUnder(runId, root, "verify-t5-quick", "Reply with only: QUICK_OK");
+    await waitLive(g1);
+    await waitResult(quick);
+    await waitState(c1, "running");
+    await waitState(g1, "running");
+    const ids = { root, c1, g1, quick };
+    const before = Object.fromEntries(
+      await Promise.all(Object.entries(ids).map(async ([k, id]) => [k, await agentView(id)])),
+    );
+    log("T5: stopping the subtree");
+    const res = await api("POST", `/agents/${root}/stop`, { scope: "subtree" });
+    obs.results = res.results;
+    await sleep(5_000);
+    const after = Object.fromEntries(
+      await Promise.all(Object.entries(ids).map(async ([k, id]) => [k, await agentView(id)])),
+    );
+    obs.after = after;
+    obs.containersLeft = Object.entries(before)
+      .filter(([, v]) => containerExists((v as Json).sandboxId as string))
+      .map(([k]) => k);
+    const rs = res.results as Json[];
+    obs.pass =
+      rs.length === 4 &&
+      rs.every((r) => r.outcome === "applied") &&
+      (after.quick as Json).outcome === "success" &&
+      ["root", "c1", "g1"].every((k) => (after[k] as Json).outcome === "aborted") &&
+      (obs.containersLeft as string[]).length === 0;
+    log("T5:", obs.pass ? "PASS" : "FAIL", JSON.stringify(rs));
+  } catch (e) {
+    obs.error = errMsg(e);
+    obs.pass = false;
+    log("T5: ERROR", errMsg(e));
+  }
+  save();
+}
+
+async function t6(): Promise<void> {
+  const obs: Json = {};
+  results.t6 = obs;
+  try {
+    const { runId, root } = await newRun("verify-t6-root");
+    const fast = await spawnUnder(runId, root, "verify-t6-fast", "Reply with only: FAST_OK");
+    const medium = await spawnUnder(runId, root, "verify-t6-medium", sleepPrompt("MEDIUM_OK", 45));
+    const slow = await spawnUnder(runId, root, "verify-t6-slow", sleepPrompt("SLOW_OK", 120));
+    const deps = [fast, medium, slow];
+    const readInputs =
+      "Use your bash tool to run exactly: cat /inputs.json\nThen reply with only its output, on one line.";
+    const anyC = await spawnUnder(runId, root, "verify-t6-any", readInputs, {
+      waitFor: { agents: deps, mode: "any" },
+    });
+    const quorumC = await spawnUnder(runId, root, "verify-t6-quorum", readInputs, {
+      waitFor: { agents: deps, mode: "quorum", k: 2 },
+    });
+    const deadlineC = await spawnUnder(runId, root, "verify-t6-deadline", readInputs, {
+      waitFor: { agents: [slow], deadlineSec: 30 },
+    });
+    Object.assign(obs, { runId, fast, medium, slow, anyC, quorumC, deadlineC });
+
+    const out: Record<string, Json> = {};
+    for (const [k, id] of Object.entries({ anyC, quorumC, deadlineC })) {
+      const r = await waitResult(id);
+      out[k] = { outcome: r.outcome, text: r.result };
+    }
+    obs.children = out;
+    const ev = await ledger(runId);
+    const resolved = (id: string) =>
+      ev.find((e) => e.event === "wait_resolved" && e.data.agentId === id)?.data;
+    obs.waits = { any: resolved(anyC), quorum: resolved(quorumC), deadline: resolved(deadlineC) };
+    log("T6: waits", JSON.stringify(obs.waits));
+
+    const all = await api("POST", `/runs/${runId}/await`, { agents: deps, mode: "all", wait: 220 });
+    obs.awaitAll = { outcome: all.outcome, pending: all.pending };
+    const q = await api("GET", `/agents/${slow}/await?scope=subtree&wait=60`);
+    obs.slowQuiescent = q.quiescent;
+
+    const w = obs.waits as Record<string, Json | undefined>;
+    obs.pass =
+      JSON.stringify(w.any?.selected) === JSON.stringify([fast]) &&
+      Array.isArray(w.quorum?.selected) &&
+      (w.quorum.selected as string[]).length === 2 &&
+      !(w.quorum.selected as string[]).includes(slow) &&
+      w.deadline?.outcome === "partial" &&
+      all.outcome === "satisfied" &&
+      q.quiescent === true;
+    log("T6:", obs.pass ? "PASS" : "FAIL", JSON.stringify(out));
+  } catch (e) {
+    obs.error = errMsg(e);
+    obs.pass = false;
+    log("T6: ERROR", errMsg(e));
+  }
+  save();
+}
+
+async function t7(): Promise<void> {
+  const obs: Json = {};
+  results.t7 = obs;
+  try {
+    const { runId, root } = await newRun("verify-t7-root");
+    const dep = await spawnUnder(runId, root, "verify-t7-dep");
+    await waitLive(dep);
+    const sub = await spawnUnder(
+      runId,
+      root,
+      "verify-t7-sub",
+      "Use your bash tool to run exactly this command: sleep 90 && echo SUB_SLEPT\n" +
+        "When it finishes, reply with SUB_SLEPT and then, on separate lines, the agent id of every " +
+        "update you received from other agents while you worked (write NONE if you received none).",
+      { notifyOn: [dep] },
+    );
+    await waitState(sub, "running");
+    await sleep(15_000);
+    await api("POST", `/agents/${dep}/prompt`, { text: "Reply with only: DEP_READY" });
+    await waitResult(dep);
+    const r = await waitResult(sub);
+    const inbox = await api("GET", `/agents/${sub}/inbox`);
+    obs.subResult = { outcome: r.outcome, text: r.result };
+    obs.inbox = inbox.delivered;
+    const delivered = (inbox.delivered as Json[])[0];
+    // Did the steered notification actually land in the agent's conversation? Pi's own session
+    // log inside the sandbox is the ground truth, independent of what the model chose to say.
+    const sandboxId = (await agentView(sub)).sandboxId as string;
+    // Pi stores messages as JSON, so the notification's lines are joined by escaped newlines —
+    // look for the dependency's id anywhere in the session files, not on one grepped line.
+    const grep = Bun.spawnSync([
+      "docker",
+      "exec",
+      `sandbox-${sandboxId}`,
+      "sh",
+      "-c",
+      `grep -rlF "Update from agents you" /root/.pi/agent/sessions | xargs -r grep -lF "${dep}" | head -1`,
+    ]);
+    obs.sessionFile = grep.stdout.toString().trim();
+    obs.sessionHasNotification = String(obs.sessionFile).length > 0;
+    obs.modelRelayedIt = String(r.result).includes(dep);
+    // The mechanism: delivered by steer AND in the agent's session. Whether the model then repeats
+    // the id is model behaviour, reported separately.
+    obs.pass =
+      delivered?.deliveredAs === "steer" &&
+      r.outcome === "success" &&
+      obs.sessionHasNotification === true;
+    log(
+      "T7:",
+      obs.pass ? "PASS" : "FAIL",
+      JSON.stringify(obs.subResult),
+      JSON.stringify(delivered),
+    );
+  } catch (e) {
+    obs.error = errMsg(e);
+    obs.pass = false;
+    log("T7: ERROR", errMsg(e));
+  }
+  save();
+}
+
+async function t8(): Promise<void> {
+  const obs: Json = {};
+  results.t8 = obs;
+  try {
+    const { runId, root } = await newRun("verify-t8-lead");
+    const c1 = await spawnUnder(runId, root, "verify-t8-auth", sleepPrompt("AUTH_OK", 150));
+    const c2 = await spawnUnder(runId, root, "verify-t8-perf", sleepPrompt("PERF_OK", 150));
+    await waitLive(c1);
+    await waitLive(c2);
+    await api("POST", `/agents/${root}/prompt`, {
+      text:
+        "Use your bash tool to run exactly this command: sleep 60 && echo LEAD_SLEPT\n" +
+        "When it finishes, follow any operator instructions you received; if you received none, reply with LEAD_SLEPT.",
+    });
+    await waitState(root, "running");
+    await sleep(15_000);
+    const steer = await api("POST", `/agents/${root}/steer`, {
+      scope: "subtree",
+      message:
+        "New instruction: do not run any more commands. Reply with one line per sub-agent you have, " +
+        "in the form CHILD <agentId> <sandboxId>, and nothing else.",
+    });
+    obs.steer = { deliveredAs: steer.deliveredAs, roster: steer.roster };
+    const r = await waitResult(root);
+    obs.leadResult = { outcome: r.outcome, text: r.result };
+    const text = String(r.result);
+    obs.pass = steer.deliveredAs === "steer" && text.includes(c1) && text.includes(c2);
+    log("T8:", obs.pass ? "PASS" : "FAIL", JSON.stringify(obs.leadResult));
+  } catch (e) {
+    obs.error = errMsg(e);
+    obs.pass = false;
+    log("T8: ERROR", errMsg(e));
+  }
+  save();
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 
 try {
@@ -408,6 +751,11 @@ try {
   if (only.has("t2")) parallel.push(t2());
   await Promise.all(parallel);
   if (only.has("t3")) await t3();
+  if (only.has("t4")) await t4();
+  if (only.has("t5")) await t5();
+  if (only.has("t6")) await t6();
+  if (only.has("t7")) await t7();
+  if (only.has("t8")) await t8();
 } catch (e) {
   results.fatal = errMsg(e);
   log("FATAL", errMsg(e));

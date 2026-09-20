@@ -22,9 +22,17 @@ import {
   TreeView,
   AgentDetail,
   StopAgentBody,
+  ControlScopeBody,
+  SubtreeOpResult,
+  SubtreeSteerResponse,
+  RunAwaitBody,
+  RunAwaitResponse,
+  QuiescenceView,
+  NotifyOnBody,
   PromptBody,
   SteerBody,
   ResultResponse,
+  TranscriptResponse,
   AlineodEvent,
 } from "../src/schema";
 
@@ -130,14 +138,18 @@ const openapi = {
       post: {
         summary: "Redirect the agent's current turn",
         description:
-          "The named agent only — steer never cascades to a subtree (research/swarm-control.md §8a).",
+          'Steer never broadcasts (research/swarm-control.md §8a). With scope: "subtree", the agent gets one message — the steer plus a roster of its direct children — and redirects them itself.',
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
         requestBody: {
           required: true,
           content: { "application/json": { schema: json(SteerBody) } },
         },
         responses: {
-          "202": { description: "Accepted" },
+          "200": {
+            description: "scope: subtree — how the parent got the message, and its roster",
+            content: { "application/json": { schema: json(SubtreeSteerResponse) } },
+          },
+          "202": { description: "Accepted (scope: agent)" },
           "409": { description: "Agent not live" },
           "502": { description: "The bridge rejected the steer" },
         },
@@ -145,10 +157,19 @@ const openapi = {
     },
     "/agents/{agentId}/pause": {
       post: {
-        summary: "Freeze the agent's sandbox container",
+        summary:
+          "Freeze the agent's sandbox container (or, with scope: subtree, it and every descendant)",
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: false,
+          content: { "application/json": { schema: json(ControlScopeBody) } },
+        },
         responses: {
-          "202": { description: "Accepted" },
+          "200": {
+            description: "scope: subtree — one result per member, parents paused first",
+            content: { "application/json": { schema: json(SubtreeOpResult) } },
+          },
+          "202": { description: "Accepted (scope: agent)" },
           "409": { description: "Agent not live" },
           "502": { description: "The sandbox rejected the pause" },
         },
@@ -156,10 +177,19 @@ const openapi = {
     },
     "/agents/{agentId}/resume": {
       post: {
-        summary: "Unfreeze the agent's sandbox container",
+        summary:
+          "Unfreeze the agent's sandbox container (or, with scope: subtree, it and every paused descendant)",
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: false,
+          content: { "application/json": { schema: json(ControlScopeBody) } },
+        },
         responses: {
-          "202": { description: "Accepted" },
+          "200": {
+            description: "scope: subtree — one result per member, children resumed first",
+            content: { "application/json": { schema: json(SubtreeOpResult) } },
+          },
+          "202": { description: "Accepted (scope: agent)" },
           "409": { description: "Agent not paused, or not live" },
           "502": { description: "The sandbox rejected the resume" },
         },
@@ -167,10 +197,110 @@ const openapi = {
     },
     "/agents/{agentId}/stop": {
       post: {
-        summary: "Abort + close an agent",
+        summary: "Abort + close an agent (or, with scope: subtree, it and every descendant)",
+        description:
+          "Stopping an agent that already finished closes its sandbox and emits agent_released, keeping its outcome.",
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
         requestBody: { content: { "application/json": { schema: json(StopAgentBody) } } },
-        responses: { "202": { description: "Accepted" } },
+        responses: {
+          "200": {
+            description: "scope: subtree — one result per member, leaves stopped first",
+            content: { "application/json": { schema: json(SubtreeOpResult) } },
+          },
+          "202": { description: "Accepted (scope: agent)" },
+        },
+      },
+    },
+    "/agents/{agentId}/await": {
+      get: {
+        summary: "Wait until the agent's subtree is quiescent",
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          { name: "scope", in: "query", schema: { type: "string", enum: ["subtree"] } },
+          {
+            name: "wait",
+            in: "query",
+            description: "Seconds to hold the request (max 240).",
+            schema: { type: "number" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The subtree's quiescence — returned early once it's quiescent",
+            content: { "application/json": { schema: json(QuiescenceView) } },
+          },
+          "404": { description: "No such agent" },
+        },
+      },
+    },
+    "/runs/{runId}/await": {
+      post: {
+        summary: "Wait on a set of agents (waitFor modes) or a subtree, without spawning",
+        parameters: [{ name: "runId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: json(RunAwaitBody) } },
+        },
+        responses: {
+          "200": {
+            description: "Resolved, or pending once `wait` ran out",
+            content: { "application/json": { schema: json(RunAwaitResponse) } },
+          },
+          "400": { description: "Invalid body, k, or an agent not in this run" },
+        },
+      },
+    },
+    "/agents/{agentId}/notify-on": {
+      post: {
+        summary: "Tell this agent when each listed agent finishes (per-agent inbox)",
+        parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: json(NotifyOnBody) } },
+        },
+        responses: {
+          "200": { description: "Subscribed" },
+          "400": { description: "Unknown agent, or self-subscription" },
+          "404": { description: "No such agent" },
+        },
+      },
+    },
+    "/agents/{agentId}/inbox": {
+      get: {
+        summary: "This agent's pending and delivered notifications",
+        parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "{ agentId, pending, delivered }" } },
+      },
+    },
+    "/agents/{agentId}/inbox/deliver": {
+      post: {
+        summary: "Deliver pending notifications now (a new turn if the agent is idle)",
+        parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "{ delivery: steer | turn | held | dropped | none }" },
+        },
+      },
+    },
+    "/agents/{agentId}/transcript": {
+      get: {
+        summary: "What the agent said and did, turn by turn (messages, tool calls, errors)",
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "full",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["1"] },
+            description: "Don't shorten long text; include the model's thinking.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "One entry per finished turn",
+            content: { "application/json": { schema: json(TranscriptResponse) } },
+          },
+          "404": { description: "No such agent" },
+        },
       },
     },
     "/agents/{agentId}/result": {

@@ -2,7 +2,8 @@
  * `POST /runs` — create a run: register the root agent immediately, provision it (sandbox
  * fork/install/checkpoint) in the background, drive the first turn once it's ready.
  *
- * Async by design (Track A hardening, 2026-09-11): `Alineo.load()` on a cold spec takes ~70s.
+ * Async by design (Track A hardening, 2026-09-11): `Alineo.load()` on a cold spec takes from about
+ * a minute to nearly three (72-165 s measured on a one-vCPU VPS with a small spec's setup steps).
  * Blocking the HTTP request for that made every client either time out or hold a connection
  * for a minute+. The route now returns 202 the instant the row exists in the projection; the
  * caller polls `GET /runs/:id` or `GET /agents/:id` (state "provisioning" → "running"/"failed")
@@ -14,6 +15,8 @@ import { newRunId, newAgentId } from "../ids";
 import { sdkAdapter, register } from "./registry";
 import { emit } from "./emit";
 import { driveTurn } from "./stream";
+import { withInbox } from "./notify";
+import { errorMessage } from "../util";
 
 export interface CreateRunResult {
   runId: string;
@@ -74,9 +77,9 @@ export async function provisionRoot(
     register(rootAgentId, agent);
     emit(runId, rootAgentId, "agent_provisioned", { sandboxId: agent.sandboxId });
 
-    if (body.prompt) void driveTurn(rootAgentId, body.prompt);
+    if (body.prompt) void driveTurn(rootAgentId, withInbox(rootAgentId, body.prompt));
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     emit(runId, rootAgentId, "agent_ended", {
       outcome: "failed",
       endedAt: Date.now(),

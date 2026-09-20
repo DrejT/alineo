@@ -31,6 +31,31 @@ Fixed limits, set in `apps/alineod/config.ts`:
 - SSE heartbeat: every **10 s**.
 - `GET /agents/:id/result?wait=` is capped at **240 s**.
 
+## Logging
+
+alineod logs to **stderr** — never stdout — at `info` by default:
+
+- the run and agent lifecycle (`run_started`, `agent_spawned`, `agent_provisioned`, `agent_state_changed`, `agent_ended`, `handle_settled`) — each line carries `runId`, `agentId` and the event's `seq`, so it lines up with the [event stream](/docs/alineod/api-reference/events);
+- the crash-recovery pass at boot (`rehydrating …`, then one line per agent reattached, resumed or lost);
+- problems: a failed, lost or budget-denied agent logs at `warn`; an unexpected request error logs at `error` with its method and path.
+
+```
+[alineod] listening url=http://localhost:4600 openapi=/openapi
+[alineod] agent_spawned runId=r_b72c6e9c agentId=a_9f89972f seq=4 specName=worker-ocean parentAgentId=a_7fb804cd depth=1 spawnIndex=0
+[alineod] agent_ended runId=r_b72c6e9c agentId=a_9f89972f seq=19 outcome=success
+```
+
+The SDK's own progress lines (`[agent] …`) appear alongside, tagged with the agent's `name`. Prompts, specs, steer messages and results are never logged — they stay in the ledger.
+
+The format is pretty on a terminal and JSON lines otherwise, so `docker logs` shows JSON.
+
+| Variable            | Meaning                                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ALINEO_LOG_LEVEL`  | `debug`, `info` (default), `warn`, `error` or `silent`.                                                                                     |
+| `ALINEO_LOG`        | Per-component levels, e.g. `agent=warn,alineod=debug` — `agent` is the SDK's progress lines; `debug` adds turn/tool events and bookkeeping. |
+| `ALINEO_LOG_FORMAT` | `pretty` or `json`.                                                                                                                         |
+| `ALINEO_LOG_FILE`   | Write to this file instead of stderr.                                                                                                       |
+
 ## Docker
 
 The image builds the whole monorepo (alineod depends on the SDK workspace packages), so build from the repo root:
@@ -76,6 +101,16 @@ agent containers, not alineod.
 
 alineod has also been run against an OpenSandbox server using gVisor (`runsc`) as its secure container runtime;
 nothing in alineod depends on the runtime.
+
+<Callout type="warn" title="gVisor on Docker: set --overlay2=none">
+  By default, gVisor keeps a container's writes in its own filestore (`--overlay2=root:self`).
+  `docker commit`, which OpenSandbox uses for snapshots and forks, can't see that filestore. So
+  every spawned child and every restored snapshot comes back with none of the parent's files, and
+  the agent inside can't start. Register `runsc` with `"runtimeArgs": ["--overlay2=none"]` in
+  `/etc/docker/daemon.json` (see
+  [OpenSandbox#1831](https://github.com/opensandbox-group/OpenSandbox/issues/1831)). Even then,
+  `/tmp` is a tmpfs under gVisor and isn't carried into forks.
+</Callout>
 
 ## The protocol spec
 

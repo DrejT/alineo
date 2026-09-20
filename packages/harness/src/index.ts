@@ -80,6 +80,8 @@ class HarnessImpl implements Harness {
   }
 
   log(): void {
+    // Printing is this method's whole purpose (a console.log for a harness).
+    // oxlint-disable-next-line no-console
     console.log(this.toMarkdown());
   }
 

@@ -9,6 +9,7 @@ import { toErrorResponse } from "./routes/http";
 import { runsRoutes } from "./routes/runs";
 import { agentsRoutes } from "./routes/agents";
 import { resultsRoutes } from "./routes/results";
+import { awaitRoutes } from "./routes/await";
 
 export function createApp() {
   return new Elysia({
@@ -16,9 +17,10 @@ export function createApp() {
     serve: { idleTimeout: IDLE_TIMEOUT_SECONDS },
   })
     .use(openapi())
-    .onError(({ error }) => toErrorResponse(error))
+    .onError(({ error, request, code }) => toErrorResponse(error, { request, code }))
     .get("/health", () => ({ ok: true }))
     .use(runsRoutes)
     .use(agentsRoutes)
-    .use(resultsRoutes);
+    .use(resultsRoutes)
+    .use(awaitRoutes);
 }

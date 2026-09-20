@@ -1,7 +1,10 @@
 import { Sandbox, SandboxStatus, type SandboxHandle } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
+import { getLogger } from "@alineo-labs/logger";
 import { Alineo } from "alineo";
 import * as config from "./config";
+
+const log = getLogger("sandbox");
 
 export class CapacityError extends Error {
   constructor(message: string) {
@@ -117,8 +120,12 @@ export async function reconcile(): Promise<void> {
         sandboxes.set(sb.sandboxId, sb);
       }
     } catch (err) {
-      console.error(`[reconcile] failed to reattach ${record.sandboxId} (${record.name}):`, err);
+      log.error("reconcile: failed to reattach", {
+        sandboxId: record.sandboxId,
+        name: record.name,
+        err,
+      });
     }
   }
-  console.log(`[reconcile] reattached ${sandboxes.size} sandbox(es), ${agents.size} agent(s)`);
+  log.info("reconcile: reattached", { sandboxes: sandboxes.size, agents: agents.size });
 }

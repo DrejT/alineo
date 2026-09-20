@@ -20,18 +20,24 @@ repo, installed packages, files the parent wrote — rather than a fresh install
 
 `GET /agents/:id` and `GET /runs/:id` report each agent's `state`:
 
-| State          | Meaning                                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `provisioning` | Accepted, and no turn has started yet. The sandbox may still be being created — once `sandboxId` is set, it exists. |
-| `spawning`     | Held by `waitFor` — not forked until its dependencies settle.                                                       |
-| `running`      | A turn is in progress (or the agent is live and idle between prompts).                                              |
-| `paused`       | The agent's container is frozen.                                                                                    |
-| `done`         | The turn finished successfully.                                                                                     |
-| `failed`       | The turn or the provisioning failed, or a spawn was refused by a budget.                                            |
-| `aborted`      | Stopped by `POST /agents/:id/stop` or `DELETE /runs/:id`.                                                           |
-| `lost`         | alineod restarted and could not reconnect to (or retry) this agent.                                                 |
+| State          | Meaning                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `provisioning` | Accepted, and no turn has started yet. The sandbox may still be being created — once `sandboxId` is set, it exists.             |
+| `spawning`     | Held by `waitFor` — not forked until its dependencies settle.                                                                   |
+| `running`      | A turn is in progress (or the agent is live and idle between prompts).                                                          |
+| `paused`       | The agent's container is frozen.                                                                                                |
+| `done`         | The turn finished successfully.                                                                                                 |
+| `failed`       | The turn or the provisioning failed, the model API refused the request that ended the turn, or a spawn was refused by a budget. |
+| `aborted`      | Stopped by `POST /agents/:id/stop` or `DELETE /runs/:id`.                                                                       |
+| `lost`         | alineod restarted and could not reconnect to (or retry) this agent.                                                             |
 
 An ended agent also carries an `outcome` — `success`, `failed`, `aborted`, `lost`, or `budget-exceeded`.
+
+A turn can end without the agent having finished. When the model API refuses a request (overloaded, rate
+limited, a model your account can't use), Pi stops the turn with an error on its last message. alineod reads
+that message and ends the agent `failed`, with the provider's message in `error`. Any text the agent produced
+before it is still kept as its result. Only the last message counts, so an error that a retry got past doesn't
+fail the turn.
 
 A finished turn does not close the agent's sandbox. An agent in `done` (or `failed`, if its turn failed but its
 sandbox came up) can still be prompted again or used as a spawn parent — including after alineod itself restarts;

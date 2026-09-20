@@ -1,6 +1,7 @@
 import { Sandbox } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
 import { LedgerEvent, type IStorageAdapter, type SandboxHandle } from "@alineo-labs/core";
+import { getLogger, type Logger } from "@alineo-labs/logger";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { readProjectConfig } from "../config";
 import { validateAgentSpec, type AgentSpec } from "../schema";
@@ -20,6 +21,18 @@ import {
 } from "./validation";
 import type { AgentInternal } from "./internal";
 import { EgressApprovalGate, type EgressRequestHandler } from "./egress-approval";
+
+const agentLog = getLogger("agent");
+
+/** Best-effort cleanup that failed: say so — the sandbox may now be leaked. */
+function cleanupFailed(
+  log: Logger,
+  which: { sandboxId?: string; resourceId?: string },
+): (err: unknown) => void {
+  return (err) => {
+    log.warn("cleanup failed: could not close sandbox — it may be leaked", { ...which, err });
+  };
+}
 
 function elapsed(t: number) {
   return `${Date.now() - t}ms`;
@@ -75,6 +88,7 @@ export async function loadAgent(
   // always present — call-time only, never a spec field: a run identity is inherently
   // per-invocation.
   const runId = opts.runId ?? crypto.randomUUID();
+  const log = agentLog.child(opts.runId ? { name: spec.name, runId } : { name: spec.name });
   resolvedEnv.ALINEO_RUN_ID = runId;
   const resources = { ...config.defaults.resources, ...(spec.resources ?? {}) };
 
@@ -148,7 +162,7 @@ export async function loadAgent(
     const record = await store.get(spec.name, setupHash);
     if (record) {
       try {
-        console.log(`[agent] restoring from snapshot...`);
+        log.info("restoring from snapshot");
         const t1 = Date.now();
         sb = await client.restoreSnapshot(record.snapshotId, spec.name, resources, runId, {
           networkPolicy,
@@ -161,7 +175,7 @@ export async function loadAgent(
           resourceId: spec.resourceId ?? spec.name,
           teamId: spec.teamId,
         });
-        console.log(`[agent] snapshot ready  ${elapsed(t1)} (${sb.sandboxId})`);
+        log.info("snapshot ready", { elapsed: elapsed(t1), sandboxId: sb.sandboxId });
         fromSnapshot = true;
       } catch (err) {
         // Surface the real reason instead of a bare "stale" — a genuinely stale record
@@ -169,7 +183,7 @@ export async function loadAgent(
         // OpenSandbox server having lost its snapshot store entirely (issue #20), and
         // only the underlying error tells them apart.
         const reason = err instanceof Error ? err.message : String(err);
-        console.log(`[agent] snapshot restore failed (${reason}), rebuilding...`);
+        log.warn("snapshot restore failed, rebuilding", { reason });
         await store.delete(spec.name);
       }
     }
@@ -177,7 +191,7 @@ export async function loadAgent(
 
   // ── Full install path ─────────────────────────────────────────────────────
   if (!fromSnapshot) {
-    console.log(`[agent] starting sandbox (${spec.name})...`);
+    log.info("starting sandbox");
     const t1 = Date.now();
     sb = await client.sandbox({
       image: "node:22",
@@ -192,24 +206,24 @@ export async function loadAgent(
       resourceId: spec.resourceId ?? spec.name,
       teamId: spec.teamId,
     });
-    console.log(`[agent] sandbox ready   ${elapsed(t1)} (${sb.sandboxId})`);
+    log.info("sandbox ready", { elapsed: elapsed(t1), sandboxId: sb.sandboxId });
 
     const created = sb;
     try {
-      console.log(`[agent] installing Pi CLI...`);
+      log.info("installing Pi CLI");
       const t2 = Date.now();
       await adapter.install(created, spec);
-      console.log(`[agent] Pi CLI ready    ${elapsed(t2)}`);
+      log.info("Pi CLI ready", { elapsed: elapsed(t2) });
 
       for (const step of spec.setup ?? []) {
-        console.log(`[agent] setup: ${step.name}...`);
+        log.info("setup step", { step: step.name });
         const ts = Date.now();
         const cmd = step.cwd ? `cd ${step.cwd} && ${step.run}` : step.run;
         await created.exec(cmd);
-        console.log(`[agent] setup done      ${elapsed(ts)} (${step.name})`);
+        log.info("setup step done", { step: step.name, elapsed: elapsed(ts) });
       }
 
-      console.log(`[agent] checkpointing...`);
+      log.info("checkpointing");
       const t3 = Date.now();
       const snapshotId = await created.checkpoint();
       await store.save({
@@ -218,10 +232,10 @@ export async function loadAgent(
         snapshotId,
         createdAt: Date.now(),
       });
-      console.log(`[agent] checkpoint done ${elapsed(t3)}`);
+      log.info("checkpoint done", { elapsed: elapsed(t3) });
     } catch (err) {
       // Nothing else holds this sandbox yet — don't leave it running.
-      await created.close().catch(() => {});
+      await created.close().catch(cleanupFailed(log, { sandboxId: created.sandboxId }));
       await egressGate?.stop().catch(() => {});
       throw err;
     }
@@ -247,13 +261,13 @@ export async function loadAgent(
     resolvedEnv.ALINEO_SANDBOX_ID = sb.sandboxId;
     await adapter.configure(sb, spec, resolvedEnv);
 
-    console.log(`[agent] starting bridge...`);
+    log.info("starting bridge");
     const t4 = Date.now();
     await adapter.startBridge(sb);
     await adapter.waitReady();
-    console.log(`[agent] bridge ready    ${elapsed(t4)}`);
+    log.info("bridge ready", { elapsed: elapsed(t4) });
   } catch (err) {
-    await sb.close().catch(() => {});
+    await sb.close().catch(cleanupFailed(log, { sandboxId: sb.sandboxId }));
     await egressGate?.stop().catch(() => {});
     if (!fromSnapshot) throw err;
     // The snapshot restored, but the agent inside it doesn't start — e.g. a snapshot taken on a
@@ -261,13 +275,11 @@ export async function loadAgent(
     // rootfs overlay), which restores without the harness. A cache hit must never be worse than
     // a miss: drop the record and do the full install.
     const reason = err instanceof Error ? err.message : String(err);
-    console.log(
-      `[agent] restored snapshot didn't start (${reason}) — discarding it and rebuilding...`,
-    );
+    log.warn("restored snapshot didn't start — discarding it and rebuilding", { reason });
     await store.delete(spec.name);
     return loadAgent(specInput, { ...opts, rebuild: true });
   }
-  console.log(`[agent] total           ${elapsed(t0)}${fromSnapshot ? " (from snapshot)" : ""}`);
+  log.info("total", { elapsed: elapsed(t0), fromSnapshot });
 
   return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot, runId, egressGate };
 }
@@ -327,9 +339,10 @@ export async function resumeAgent(
   // agent that doesn't get an explicit override starts a fresh run identity rather than
   // trying to recover the original invocation's exact value.
   const runId = opts.runId ?? crypto.randomUUID();
+  const log = agentLog.child(opts.runId ? { name: spec.name, runId } : { name: spec.name });
   resolvedEnv.ALINEO_RUN_ID = runId;
 
-  console.log(`[agent] reconnecting to ${sandboxId}...`);
+  log.info("reconnecting", { sandboxId });
   const t1 = Date.now();
   const sb = await client.connect(sandboxId, spec.name, {
     runId,
@@ -346,7 +359,7 @@ export async function resumeAgent(
     resourceId: spec.resourceId ?? spec.name,
     teamId: spec.teamId,
   });
-  console.log(`[agent] connected       ${elapsed(t1)}`);
+  log.info("connected", { elapsed: elapsed(t1) });
 
   // Kill any stale bridge process before starting a fresh one.
   await sb.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; sleep 0.1; true", {
@@ -357,18 +370,18 @@ export async function resumeAgent(
   resolvedEnv.ALINEO_SANDBOX_ID = sandboxId;
   await adapter.configure(sb, spec, resolvedEnv, { resume: true });
 
-  console.log(`[agent] starting bridge...`);
+  log.info("starting bridge");
   const t2 = Date.now();
   await adapter.startBridge(sb);
   await adapter.waitReady();
-  console.log(`[agent] bridge ready    ${elapsed(t2)}`);
+  log.info("bridge ready", { elapsed: elapsed(t2) });
 
   // Resuming starts a fresh Pi process — any tool call that was parked awaiting a human
   // decision in the old process is gone (OpenSandbox restore is rootfs-only). Close out
   // those ledger entries so `alineo logs` doesn't show them dangling forever.
   await reconcileDroppedPermissions(opts.adapter, sb, spec.name, sandboxId);
 
-  console.log(`[agent] total           ${elapsed(t0)}`);
+  log.info("total", { elapsed: elapsed(t0) });
 
   return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false, runId };
 }
@@ -456,10 +469,11 @@ export async function reattachAgent(
     resolvedEnv.ALINEO_SPAWN_DEPTH = String(spec.spawnDepth);
   }
   const runId = opts.runId ?? crypto.randomUUID();
+  const log = agentLog.child(opts.runId ? { name: spec.name, runId } : { name: spec.name });
   resolvedEnv.ALINEO_RUN_ID = runId;
   resolvedEnv.ALINEO_SANDBOX_ID = sandboxId;
 
-  console.log(`[agent] reattaching to ${sandboxId}...`);
+  log.info("reattaching", { sandboxId });
   const t1 = Date.now();
   const sb = await client.connect(sandboxId, spec.name, {
     runId,
@@ -474,7 +488,7 @@ export async function reattachAgent(
     // (verified against OpenSandbox); the handle comes back marked paused until resume().
     allowPaused: opts.skipReadyCheck === true,
   });
-  console.log(`[agent] connected       ${elapsed(t1)}`);
+  log.info("connected", { elapsed: elapsed(t1) });
 
   // No pkill, no configure(), no startBridge() — the bridge (and everything it's holding in
   // memory: the Pi conversation, any tool call parked awaiting a human decision) is exactly
@@ -488,10 +502,8 @@ export async function reattachAgent(
   // `skipReadyCheck`: the caller knows the bridge can't answer right now (a paused sandbox's
   // container is frozen) and will check it itself once it can — e.g. after `sandbox.resume()`.
   if (!opts.skipReadyCheck) await adapter.waitReady(5_000);
-  console.log(
-    `[agent] bridge reattached ${elapsed(t2)}${opts.skipReadyCheck ? " (not probed)" : ""}`,
-  );
-  console.log(`[agent] total           ${elapsed(t0)}`);
+  log.info("bridge reattached", { elapsed: elapsed(t2), probed: !opts.skipReadyCheck });
+  log.info("total", { elapsed: elapsed(t0) });
 
   return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false, runId };
 }
@@ -568,6 +580,9 @@ export async function spawnChild(
   // and passed explicitly to fork() because a freshly-`Alineo.attach()`ed self (the
   // `alineo fork` self-attach case) has no in-memory closure carrying it forward.
   const runId = process.env.ALINEO_RUN_ID ?? crypto.randomUUID();
+  const log = agentLog.child(
+    process.env.ALINEO_RUN_ID ? { name: childSpec.name, runId } : { name: childSpec.name },
+  );
   childEnv.ALINEO_RUN_ID = runId;
 
   // Distinct from whatever `self` (the parent) already has bound — `fork()` carries the
@@ -584,14 +599,14 @@ export async function spawnChild(
 
   const childResourceId = resolveChildResourceId(childSpec);
 
-  console.log(`[agent] forking sandbox for spawn (${childSpec.name})...`);
+  log.info("forking sandbox for spawn");
   const t0 = Date.now();
   const forkedSb = await self.sandbox.fork(childSpec.name, runId, {
     credentialProxy: childCredentialBindings.length > 0,
     resourceId: childResourceId,
     teamId: childSpec.teamId,
   });
-  console.log(`[agent] fork ready      ${elapsed(t0)} (${forkedSb.sandboxId})`);
+  log.info("fork ready", { elapsed: elapsed(t0), sandboxId: forkedSb.sandboxId });
 
   const adapter = new PiAdapter();
   try {
@@ -602,14 +617,14 @@ export async function spawnChild(
     childEnv.ALINEO_SANDBOX_ID = forkedSb.sandboxId;
     await adapter.configure(forkedSb, childSpec, childEnv);
 
-    console.log(`[agent] starting bridge...`);
+    log.info("starting bridge");
     const t1 = Date.now();
     await adapter.startBridge(forkedSb, Object.keys(self.env));
     await adapter.waitReady();
-    console.log(`[agent] bridge ready    ${elapsed(t1)}`);
+    log.info("bridge ready", { elapsed: elapsed(t1) });
   } catch (err) {
     // The fork exists but the child never became usable — nothing else will ever close it.
-    await forkedSb.close().catch(() => {});
+    await forkedSb.close().catch(cleanupFailed(log, { sandboxId: forkedSb.sandboxId }));
     throw err;
   }
 
@@ -659,7 +674,9 @@ export async function forkChildMemory(
   try {
     await parentMemory.fork(parentRef, child.resourceRef.resourceId);
   } catch (err) {
-    await child.close().catch(() => {});
+    await child
+      .close()
+      .catch(cleanupFailed(agentLog, { resourceId: child.resourceRef.resourceId }));
     throw err;
   }
 }

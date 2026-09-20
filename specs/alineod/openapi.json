@@ -3,7 +3,7 @@
   "info": {
     "title": "alineod — swarm control API",
     "version": "0.0.0",
-    "description": "Initiate and orchestrate agent swarms. alineod drives OpenSandbox through the alineo SDK; this is the language-neutral wire contract. Prototype."
+    "description": "Initiate and orchestrate agent swarms. alineod drives OpenSandbox through the alineo SDK; this is the language-neutral wire contract."
   },
   "paths": {
     "/runs": {
@@ -159,6 +159,11 @@
                           "outcome": {
                             "nullable": true,
                             "type": "string"
+                          },
+                          "pausedBy": {
+                            "nullable": true,
+                            "description": "While paused: \"operator\" (it was the target) or \"cascade\" (a subtree pause reached it).",
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -172,7 +177,8 @@
                           "sandboxId",
                           "createdAt",
                           "endedAt",
-                          "outcome"
+                          "outcome",
+                          "pausedBy"
                         ],
                         "additionalProperties": false
                       }
@@ -267,14 +273,79 @@
                     "type": "string"
                   },
                   "waitFor": {
-                    "description": "Hold the spawn until every named agent's handle is settled (hold-then-spawn, D-c).",
+                    "description": "Hold the spawn until the named agents resolve (hold-then-spawn, D-c). A plain array means mode \"settled\": every agent terminal, any outcome.",
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "agents": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "settled",
+                              "all",
+                              "any",
+                              "quorum"
+                            ],
+                            "description": "settled: every agent terminal, any outcome · all: every agent succeeded · any: the first to settle · quorum: k successes."
+                          },
+                          "k": {
+                            "description": "quorum: how many successes are needed (default: all).",
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991
+                          },
+                          "onDepFailure": {
+                            "description": "all / quorum: what a failed dependency (or an unreachable quorum) does. Default fail.",
+                            "type": "string",
+                            "enum": [
+                              "fail",
+                              "proceed"
+                            ]
+                          },
+                          "deadlineSec": {
+                            "type": "number",
+                            "minimum": 0,
+                            "exclusiveMinimum": true
+                          },
+                          "onDeadline": {
+                            "description": "At the deadline: proceed with whatever settled (partial), or fail. Default proceed.",
+                            "type": "string",
+                            "enum": [
+                              "proceed",
+                              "fail"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "agents"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "notifyOn": {
+                    "description": "Tell this child when each named agent finishes, without blocking it (per-agent inbox): steered in if it's running, held while paused, prepended to its next prompt if idle.",
                     "type": "array",
                     "items": {
                       "type": "string"
                     }
-                  },
-                  "prompt": {
-                    "type": "string"
                   },
                   "budget": {
                     "type": "object",
@@ -400,6 +471,11 @@
                       "nullable": true,
                       "type": "string"
                     },
+                    "pausedBy": {
+                      "nullable": true,
+                      "description": "While paused: \"operator\" (it was the target) or \"cascade\" (a subtree pause reached it).",
+                      "type": "string"
+                    },
                     "sessionStats": {}
                   },
                   "required": [
@@ -413,7 +489,8 @@
                     "sandboxId",
                     "createdAt",
                     "endedAt",
-                    "outcome"
+                    "outcome",
+                    "pausedBy"
                   ],
                   "additionalProperties": false
                 }
@@ -466,7 +543,7 @@
     "/agents/{agentId}/steer": {
       "post": {
         "summary": "Redirect the agent's current turn",
-        "description": "The named agent only — steer never cascades to a subtree (research/swarm-control.md §8a).",
+        "description": "Steer never broadcasts (research/swarm-control.md §8a). With scope: \"subtree\", the agent gets one message — the steer plus a roster of its direct children — and redirects them itself.",
         "parameters": [
           {
             "name": "agentId",
@@ -487,20 +564,89 @@
                   "message": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "scope": {
+                    "default": "agent",
+                    "description": "\"subtree\": deliver ONE message to this agent — your text plus a roster of its direct children — so it re-plans and redirects each child itself. Never a broadcast.",
+                    "type": "string",
+                    "enum": [
+                      "agent",
+                      "subtree"
+                    ]
                   }
                 },
                 "required": [
-                  "message"
+                  "message",
+                  "scope"
                 ],
                 "additionalProperties": false,
-                "description": "Injected into the agent's current turn (research/swarm-control.md §8) — the named agent only, never a subtree."
+                "description": "Injected into the agent's current turn (research/swarm-control.md §8)."
               }
             }
           }
         },
         "responses": {
+          "200": {
+            "description": "scope: subtree — how the parent got the message, and its roster",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deliveredAs": {
+                      "type": "string",
+                      "enum": [
+                        "steer",
+                        "turn",
+                        "queued"
+                      ],
+                      "description": "steer: into its running turn · turn: a new turn (it was idle) · queued: it's paused; delivered on resume"
+                    },
+                    "roster": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "sandboxId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "specName": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "sandboxId",
+                          "specName",
+                          "state",
+                          "outcome"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "deliveredAs",
+                    "roster"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
           "202": {
-            "description": "Accepted"
+            "description": "Accepted (scope: agent)"
           },
           "409": {
             "description": "Agent not live"
@@ -513,7 +659,7 @@
     },
     "/agents/{agentId}/pause": {
       "post": {
-        "summary": "Freeze the agent's sandbox container",
+        "summary": "Freeze the agent's sandbox container (or, with scope: subtree, it and every descendant)",
         "parameters": [
           {
             "name": "agentId",
@@ -524,9 +670,86 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "default": {
+                  "scope": "agent"
+                },
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "default": "agent",
+                    "description": "\"agent\" (default): the named agent only. \"subtree\": the agent and every descendant — pause parents-first, resume children-first.",
+                    "type": "string",
+                    "enum": [
+                      "agent",
+                      "subtree"
+                    ]
+                  }
+                },
+                "required": [
+                  "scope"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
+          "200": {
+            "description": "scope: subtree — one result per member, parents paused first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "asOf": {
+                      "type": "number",
+                      "description": "Highest ledger seq when the subtree's membership was resolved."
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "applied",
+                              "skipped",
+                              "failed"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "outcome"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "asOf",
+                    "results"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Best-effort, per member: one member failing doesn't undo or block the rest."
+                }
+              }
+            }
+          },
           "202": {
-            "description": "Accepted"
+            "description": "Accepted (scope: agent)"
           },
           "409": {
             "description": "Agent not live"
@@ -539,7 +762,7 @@
     },
     "/agents/{agentId}/resume": {
       "post": {
-        "summary": "Unfreeze the agent's sandbox container",
+        "summary": "Unfreeze the agent's sandbox container (or, with scope: subtree, it and every paused descendant)",
         "parameters": [
           {
             "name": "agentId",
@@ -550,9 +773,86 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "default": {
+                  "scope": "agent"
+                },
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "default": "agent",
+                    "description": "\"agent\" (default): the named agent only. \"subtree\": the agent and every descendant — pause parents-first, resume children-first.",
+                    "type": "string",
+                    "enum": [
+                      "agent",
+                      "subtree"
+                    ]
+                  }
+                },
+                "required": [
+                  "scope"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
+          "200": {
+            "description": "scope: subtree — one result per member, children resumed first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "asOf": {
+                      "type": "number",
+                      "description": "Highest ledger seq when the subtree's membership was resolved."
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "applied",
+                              "skipped",
+                              "failed"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "outcome"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "asOf",
+                    "results"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Best-effort, per member: one member failing doesn't undo or block the rest."
+                }
+              }
+            }
+          },
           "202": {
-            "description": "Accepted"
+            "description": "Accepted (scope: agent)"
           },
           "409": {
             "description": "Agent not paused, or not live"
@@ -565,7 +865,8 @@
     },
     "/agents/{agentId}/stop": {
       "post": {
-        "summary": "Abort + close an agent",
+        "summary": "Abort + close an agent (or, with scope: subtree, it and every descendant)",
+        "description": "Stopping an agent that already finished closes its sandbox and emits agent_released, keeping its outcome.",
         "parameters": [
           {
             "name": "agentId",
@@ -581,7 +882,8 @@
             "application/json": {
               "schema": {
                 "default": {
-                  "mode": "abort"
+                  "mode": "abort",
+                  "scope": "agent"
                 },
                 "type": "object",
                 "properties": {
@@ -592,10 +894,20 @@
                       "abort",
                       "drain"
                     ]
+                  },
+                  "scope": {
+                    "default": "agent",
+                    "description": "\"subtree\": the agent and every descendant, leaves first, with one result per member.",
+                    "type": "string",
+                    "enum": [
+                      "agent",
+                      "subtree"
+                    ]
                   }
                 },
                 "required": [
-                  "mode"
+                  "mode",
+                  "scope"
                 ],
                 "additionalProperties": false
               }
@@ -603,8 +915,567 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "scope: subtree — one result per member, leaves stopped first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "asOf": {
+                      "type": "number",
+                      "description": "Highest ledger seq when the subtree's membership was resolved."
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "applied",
+                              "skipped",
+                              "failed"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "outcome"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "asOf",
+                    "results"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Best-effort, per member: one member failing doesn't undo or block the rest."
+                }
+              }
+            }
+          },
           "202": {
-            "description": "Accepted"
+            "description": "Accepted (scope: agent)"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/await": {
+      "get": {
+        "summary": "Wait until the agent's subtree is quiescent",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "subtree"
+              ]
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "description": "Seconds to hold the request (max 240).",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The subtree's quiescence — returned early once it's quiescent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rootAgentId": {
+                      "type": "string"
+                    },
+                    "quiescent": {
+                      "type": "boolean",
+                      "description": "Every member terminal and none still being spawned. Paused members count as not quiescent."
+                    },
+                    "asOf": {
+                      "type": "number"
+                    },
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "resultRef": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "state",
+                          "outcome",
+                          "resultRef"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "blockedOnPaused": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "rootAgentId",
+                    "quiescent",
+                    "asOf",
+                    "members",
+                    "blockedOnPaused"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such agent"
+          }
+        }
+      }
+    },
+    "/runs/{runId}/await": {
+      "post": {
+        "summary": "Wait on a set of agents (waitFor modes) or a subtree, without spawning",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "agents": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "subtree": {
+                    "description": "Wait for this agent's subtree to become quiescent instead.",
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "settled",
+                      "all",
+                      "any",
+                      "quorum"
+                    ],
+                    "description": "settled: every agent terminal, any outcome · all: every agent succeeded · any: the first to settle · quorum: k successes."
+                  },
+                  "k": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "onDepFailure": {
+                    "type": "string",
+                    "enum": [
+                      "fail",
+                      "proceed"
+                    ]
+                  },
+                  "wait": {
+                    "description": "Seconds to hold the request (capped server-side).",
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resolved, or pending once `wait` ran out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "satisfied",
+                        "partial",
+                        "depfail",
+                        "pending"
+                      ]
+                    },
+                    "selected": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "settled": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agentId": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "agentId",
+                          "outcome"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "pending": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "outcome",
+                    "selected",
+                    "settled",
+                    "pending"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, k, or an agent not in this run"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/notify-on": {
+      "post": {
+        "summary": "Tell this agent when each listed agent finishes (per-agent inbox)",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "agents": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "wake": {
+                    "description": "If the subscriber is idle when a notification arrives, start a turn with it instead of queueing it.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "agents"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscribed"
+          },
+          "400": {
+            "description": "Unknown agent, or self-subscription"
+          },
+          "404": {
+            "description": "No such agent"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/inbox": {
+      "get": {
+        "summary": "This agent's pending and delivered notifications",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ agentId, pending, delivered }"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/inbox/deliver": {
+      "post": {
+        "summary": "Deliver pending notifications now (a new turn if the agent is idle)",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ delivery: steer | turn | held | dropped | none }"
+          }
+        }
+      }
+    },
+    "/agents/{agentId}/transcript": {
+      "get": {
+        "summary": "What the agent said and did, turn by turn (messages, tool calls, errors)",
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "full",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            },
+            "description": "Don't shorten long text; include the model's thinking."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One entry per finished turn",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agentId": {
+                      "type": "string"
+                    },
+                    "turns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seq": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Ledger seq of the turn's `agent_end`."
+                          },
+                          "ts": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Epoch ms."
+                          },
+                          "messages": {
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "role": {
+                                      "type": "string",
+                                      "enum": [
+                                        "user"
+                                      ]
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "role",
+                                    "text"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "role": {
+                                      "type": "string",
+                                      "enum": [
+                                        "assistant"
+                                      ]
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    },
+                                    "toolCalls": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "name": {
+                                            "type": "string"
+                                          },
+                                          "arguments": {}
+                                        },
+                                        "required": [
+                                          "name",
+                                          "arguments"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "stopReason": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "errorMessage": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "thinking": {
+                                      "description": "Only with `?full=1`.",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "role",
+                                    "text",
+                                    "toolCalls",
+                                    "stopReason",
+                                    "errorMessage"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "role": {
+                                      "type": "string",
+                                      "enum": [
+                                        "tool"
+                                      ]
+                                    },
+                                    "toolName": {
+                                      "type": "string"
+                                    },
+                                    "text": {
+                                      "type": "string"
+                                    },
+                                    "isError": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "role",
+                                    "toolName",
+                                    "text",
+                                    "isError"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "seq",
+                          "ts",
+                          "messages"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "agentId",
+                    "turns"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such agent"
           }
         }
       }
@@ -659,7 +1530,7 @@
                     },
                     "result": {
                       "nullable": true,
-                      "description": "Prototype convenience: the inline result text.",
+                      "description": "The result text, inline.",
                       "type": "string"
                     }
                   },
@@ -702,7 +1573,7 @@
                     },
                     "result": {
                       "nullable": true,
-                      "description": "Prototype convenience: the inline result text.",
+                      "description": "The result text, inline.",
                       "type": "string"
                     }
                   },

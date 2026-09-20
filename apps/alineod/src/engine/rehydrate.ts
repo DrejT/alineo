@@ -7,9 +7,10 @@
  *      close the sandbox, so it stays promptable / usable as a spawn parent, and a fresh
  *      process needs its own connection object for that to keep working post-restart):
  *      `Alineo.reattach()` (preserves the bridge, see D-a), falling back to `Alineo.resume()`
- *      (restarts it) if that fails. A reattached agent that was mid-turn at crash time gets a
- *      background catch-up poll (`catchUpTurn`) so its handle still settles once Pi finishes —
- *      otherwise the projection would say "running" forever even though the turn is long done.
+ *      (restarts it) if that fails. An agent that was mid-turn at crash time gets a background
+ *      catch-up poll (`catchUpTurn`) either way, so its handle still settles — once Pi finishes
+ *      if the bridge was preserved, at once if it had to be restarted (the turn died with it).
+ *      Otherwise the projection would say "running" forever.
  *   3. Pass 2 — every live agent still stuck *before* its fork (no sandbox yet: a child
  *      queued behind `waitFor`, or a root still inside `Alineo.load()`): retry the spawn
  *      from what was persisted in its `agent_spawned` event (`wait_for`/`prompt` in db.ts —
@@ -22,6 +23,7 @@ import {
   rebuild,
   liveAgents,
   reconnectableTerminalAgents,
+  agentsWithPendingInbox,
   type AgentRow,
 } from "../state/projection";
 import { sdkAdapter, register, get } from "./registry";
@@ -29,7 +31,13 @@ import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
 import { provisionRoot } from "./runs";
 import { provisionChild } from "./spawn";
+import { deliverPending } from "./notify";
+import { parseStoredWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
+import { getLogger } from "@alineo-labs/logger";
+import { errorMessage } from "../util";
+
+const log = getLogger("alineod");
 
 export async function rehydrate(): Promise<void> {
   rebuild();
@@ -47,10 +55,12 @@ export async function rehydrate(): Promise<void> {
   const reattachSet = new Map(withSandbox.map((a) => [a.agent_id, a]));
   for (const a of finished) reattachSet.set(a.agent_id, a);
 
-  console.log(
-    `[alineod] rehydrating ${live.length} live + ${finished.length} finished-but-open agent(s) — ` +
-      `${reattachSet.size} to reconnect, ${preFork.length} still pre-fork...`,
-  );
+  log.info("rehydrating", {
+    live: live.length,
+    finishedButOpen: finished.length,
+    toReconnect: reattachSet.size,
+    preFork: preFork.length,
+  });
 
   // Pass 1 — awaited: fast (~100-200ms each, verified live), and pass 2 needs these parents
   // registered before it can retry a spawn under them.
@@ -59,6 +69,9 @@ export async function rehydrate(): Promise<void> {
   // Pass 2 — fire-and-backgrounded, same as a fresh spawn: the slow part (an optional waitFor
   // hold, then the fork) shouldn't block the daemon from coming back up and serving requests.
   for (const a of preFork) void retryProvision(a);
+
+  // Notifications that were queued but not yet delivered when the previous process died.
+  for (const id of agentsWithPendingInbox()) void deliverPending(id);
 }
 
 async function reattachOne(a: AgentRow): Promise<void> {
@@ -74,21 +87,25 @@ async function reattachOne(a: AgentRow): Promise<void> {
   try {
     const agent = await Alineo.reattach(a.sandbox_id!, opts);
     register(a.agent_id, agent);
-    console.log(`[alineod]   reattached ${a.agent_id} (${a.sandbox_id}) — bridge preserved`);
+    log.info("reattached — bridge preserved", { agentId: a.agent_id, sandboxId: a.sandbox_id });
     if (wasRunning) void catchUpTurn(a.run_id, a.agent_id);
     return;
   } catch (reattachErr) {
-    console.log(
-      `[alineod]   reattach failed for ${a.agent_id} (${describeError(reattachErr)}) — falling back to resume`,
-    );
+    log.warn("reattach failed — falling back to resume", {
+      agentId: a.agent_id,
+      error: errorMessage(reattachErr),
+    });
   }
 
   try {
     const agent = await Alineo.resume(a.sandbox_id!, opts);
     register(a.agent_id, agent);
-    console.log(`[alineod]   resumed ${a.agent_id} (${a.sandbox_id}) — bridge restarted`);
+    log.info("resumed — bridge restarted", { agentId: a.agent_id, sandboxId: a.sandbox_id });
+    // The turn that was running died with the old bridge process, and nothing is following it:
+    // catch-up sees the new (idle) bridge, records whatever text survived, and settles the handle.
+    if (wasRunning) void catchUpTurn(a.run_id, a.agent_id);
   } catch (err) {
-    const message = describeError(err);
+    const message = errorMessage(err);
     // An agent that had already ended (this is the "finished-but-open" reconnect case, not the
     // live one) keeps its real outcome — a failed reconnect only means it can't be prompted or
     // spawned-from again THIS boot, not that its already-recorded, already-settled turn is now
@@ -99,11 +116,14 @@ async function reattachOne(a: AgentRow): Promise<void> {
         endedAt: Date.now(),
         error: message,
       });
-      console.log(`[alineod]   lost ${a.agent_id}: ${message}`);
+      log.warn("lost", { agentId: a.agent_id, error: message });
     } else {
-      console.log(
-        `[alineod]   ${a.agent_id} (${a.sandbox_id}) is unreachable (${message}) — its recorded outcome (${a.outcome}) stands`,
-      );
+      log.warn("unreachable — its recorded outcome stands", {
+        agentId: a.agent_id,
+        sandboxId: a.sandbox_id,
+        error: message,
+        outcome: a.outcome,
+      });
     }
   }
 }
@@ -125,22 +145,26 @@ async function reattachPaused(
       skipReadyCheck: true,
     });
     register(a.agent_id, agent);
-    console.log(
-      `[alineod]   reattached ${a.agent_id} (${a.sandbox_id}) — paused, bridge not probed`,
-    );
+    log.info("reattached — paused, bridge not probed", {
+      agentId: a.agent_id,
+      sandboxId: a.sandbox_id,
+    });
   } catch (err) {
-    const message = describeError(err);
+    const message = errorMessage(err);
     if (a.ended_at === null) {
       emit(a.run_id, a.agent_id, "agent_ended", {
         outcome: "lost",
         endedAt: Date.now(),
         error: message,
       });
-      console.log(`[alineod]   lost ${a.agent_id} (paused): ${message}`);
+      log.warn("lost (paused)", { agentId: a.agent_id, error: message });
     } else {
-      console.log(
-        `[alineod]   ${a.agent_id} (${a.sandbox_id}, paused) is unreachable (${message}) — its recorded outcome (${a.outcome}) stands`,
-      );
+      log.warn("unreachable (paused) — its recorded outcome stands", {
+        agentId: a.agent_id,
+        sandboxId: a.sandbox_id,
+        error: message,
+        outcome: a.outcome,
+      });
     }
   }
 }
@@ -149,9 +173,9 @@ async function retryProvision(a: AgentRow): Promise<void> {
   const spec = JSON.parse(a.spec_json);
 
   if (!a.parent_agent_id) {
-    console.log(
-      `[alineod]   retrying provision for root ${a.agent_id} (was still inside Alineo.load())...`,
-    );
+    log.info("retrying provision for root (was still inside Alineo.load())", {
+      agentId: a.agent_id,
+    });
     const body: CreateRunBody = {
       spec,
       prompt: a.prompt ?? undefined,
@@ -171,17 +195,20 @@ async function retryProvision(a: AgentRow): Promise<void> {
       endedAt: Date.now(),
       error: `parent ${a.parent_agent_id} did not come back — cannot retry this spawn`,
     });
-    console.log(`[alineod]   lost ${a.agent_id}: parent ${a.parent_agent_id} unavailable`);
+    log.warn("lost: parent unavailable", {
+      agentId: a.agent_id,
+      parentAgentId: a.parent_agent_id,
+    });
     return;
   }
 
-  console.log(
-    `[alineod]   retrying provision for ${a.agent_id} (parent ${a.parent_agent_id} is live)...`,
-  );
+  log.info("retrying provision (parent is live)", {
+    agentId: a.agent_id,
+    parentAgentId: a.parent_agent_id,
+  });
   const body: SpawnAgentBody = {
     spec,
     parentAgentId: a.parent_agent_id,
-    waitFor: a.wait_for ? (JSON.parse(a.wait_for) as string[]) : undefined,
     prompt: a.prompt ?? undefined,
   };
   await provisionChild(
@@ -191,9 +218,6 @@ async function retryProvision(a: AgentRow): Promise<void> {
     a.spawn_budget ?? undefined,
     a.max_agents_budget ?? undefined,
     body,
+    parseStoredWait(a.wait_for),
   );
-}
-
-function describeError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

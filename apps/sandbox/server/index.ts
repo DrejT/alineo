@@ -7,14 +7,18 @@ import * as metrics from "./ws/metrics";
 import * as chat from "./ws/chat";
 import { cors } from "./cors";
 import type { WSData } from "./ws/types";
+import { getLogger, installLoggerFromEnv } from "@alineo-labs/logger";
+
+installLoggerFromEnv({ defaultLevel: "info" });
+const log = getLogger("sandbox");
 
 // A single bad/racy session (e.g. a WS exec resolving against a sandbox deleted
 // mid-connection) must never take down the whole process for every other user.
 process.on("uncaughtException", (err) => {
-  console.error("[sandbox] uncaught exception", err);
+  log.error("uncaught exception", { err });
 });
 process.on("unhandledRejection", (reason) => {
-  console.error("[sandbox] unhandled rejection", reason);
+  log.error("unhandled rejection", { reason });
 });
 
 const server = Bun.serve({
@@ -150,4 +154,4 @@ const server = Bun.serve({
 
 await registry.reconcile();
 
-console.log(`[sandbox] API listening on http://localhost:${server.port}`);
+log.info("API listening", { url: `http://localhost:${server.port}` });

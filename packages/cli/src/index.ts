@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { installLoggerFromEnv } from "@alineo-labs/logger";
 import { commands } from "./commands/registry.js";
 import type { CliCommand } from "./commands/types.js";
 import { recordTuiLaunch, withTelemetry } from "./telemetry.js";
@@ -58,6 +59,10 @@ async function main(): Promise<void> {
 
   const found = commands.find((c) => c.name === cmd);
   if (found) {
+    // The SDK is silent by default; a CLI run shows its progress ("starting sandbox…") on stderr
+    // (so `--json` output on stdout stays clean). ALINEO_LOG_LEVEL=warn|silent quiets it. Not
+    // installed on the TUI path above — stderr writes would corrupt the TUI's screen.
+    installLoggerFromEnv({ defaultLevel: "info" });
     await withTelemetry(found.name, argv, () => found.run(argv));
     // spawn/fork/prompt deliberately leave their sandbox running (that's the whole point --
     // `alineo agents`/`alineo prompt <id>` interact with it afterward), so we can't clean up

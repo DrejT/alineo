@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@alineo-labs/core": "workspace:*",
+    "@alineo-labs/logger": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
     "@elysiajs/openapi": "^1.4.9",
     "alineo": "workspace:*",
