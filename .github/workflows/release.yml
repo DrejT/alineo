@@ -30,6 +30,13 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Configure npm auth
+        # changesets/action v2 no longer writes ~/.npmrc from NPM_TOKEN (v1 did), so after
+        # #277 `changeset publish` ran unauthenticated and failed with ENEEDAUTH.
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Create Release PR or Publish
         # v2 reads the packages it published from the CHANGESETS_OUTPUT file the CLI
         # writes, instead of grepping "New tag:" lines out of stdout — which
