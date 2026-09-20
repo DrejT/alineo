@@ -1,11 +1,12 @@
 {
-  "name": "alineo",
-  "version": "0.5.1",
+  "name": "@alineo-labs/logger",
+  "version": "0.0.0",
+  "description": "Tiny, dependency-free logger for alineo: silent by default, one switch, child loggers",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DrejT/alineo.git",
-    "directory": "packages/agent"
+    "directory": "packages/logger"
   },
   "files": [
     "dist"
@@ -25,18 +26,13 @@
   },
   "scripts": {
     "build": "tsdown",
-    "test": "bun test"
-  },
-  "dependencies": {
-    "@alineo-labs/core": "workspace:*",
-    "@alineo-labs/logger": "workspace:*",
-    "@alineo-labs/memory": "workspace:*",
-    "@alineo-labs/sandbox": "workspace:*",
-    "zod": "^4.4.3"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "bun-types": "1.4.2",
     "tsdown": "0.23.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "5.0.0"
   }
 }

@@ -23,6 +23,9 @@ import { catchUpTurn, isTurnActive } from "./stream";
 import { HttpError } from "./errors";
 import { withTimeout } from "../util";
 import { RESUME_BRIDGE_TIMEOUT_MS } from "../../config";
+import { getLogger } from "@alineo-labs/logger";
+
+const log = getLogger("alineod");
 
 export async function pauseAgent(agentId: string): Promise<void> {
   const row = getAgentRow(agentId);
@@ -84,7 +87,7 @@ export async function resumeAgent(agentId: string): Promise<void> {
         runId: row.run_id,
       });
       register(agentId, restarted);
-      console.log(`[alineod] ${agentId}: bridge didn't answer after resume — restarted it`);
+      log.info("bridge didn't answer after resume — restarted it", { agentId });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (row.ended_at === null) {

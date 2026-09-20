@@ -10,6 +10,9 @@ import { buildServer } from "./server.js";
 
 serveStdio(() => buildServer(), {
   onerror: (err) => {
+    // Deliberately not the logger (silent by default — a transport error must always surface):
+    // stderr is the only safe channel because stdout is the JSON-RPC stream.
+    // oxlint-disable-next-line no-console
     console.error(`[alineo-mcp] ${err.message}`);
   },
 });
