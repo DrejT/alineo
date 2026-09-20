@@ -3,7 +3,7 @@ import { validateAgentSpec } from "../src/schema.js";
 
 describe("validateAgentSpec", () => {
   it("accepts a valid minimal spec", () => {
-    const spec = validateAgentSpec({ name: "my-agent", cli: "pi" });
+    const spec = validateAgentSpec({ name: "my-agent", cli: "pi", model: "some-model" });
     expect(spec.name).toBe("my-agent");
     expect(spec.cli).toBe("pi");
   });
@@ -12,6 +12,7 @@ describe("validateAgentSpec", () => {
     const spec = validateAgentSpec({
       name: "full-agent",
       cli: "pi",
+      model: "some-model",
       cliVersion: "latest",
       title: "Full Agent",
       description: "An agent with all fields",

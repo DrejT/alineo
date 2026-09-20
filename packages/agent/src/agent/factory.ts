@@ -567,7 +567,17 @@ export async function attachAgent(
   // parseShellExports()'s Record<string, string> is optimistic about which keys are
   // actually present; this specific key genuinely may be missing.
   const runId = (env.ALINEO_RUN_ID as string | undefined) ?? crypto.randomUUID();
-  const stubSpec: AgentSpec = { name: opts.name, cli: "pi" };
+  // `configure()` wrote the model into the sandbox when this agent was created, so read it
+  // back rather than inventing one — an attached agent's spec should say what it is actually
+  // running on. Sandboxes created before that file existed report "unknown".
+  let model = "unknown";
+  try {
+    const piConfig = JSON.parse(await sb.readFile("/etc/alineo-pi.json")) as { model?: string };
+    if (piConfig.model) model = piConfig.model;
+  } catch {
+    // No file, or unreadable — keep "unknown" rather than failing the attach.
+  }
+  const stubSpec: AgentSpec = { name: opts.name, cli: "pi", model };
   return {
     sandbox: sb,
     spec: stubSpec,

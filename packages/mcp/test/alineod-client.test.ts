@@ -17,11 +17,11 @@ describe("AlineodClient requests", () => {
     });
 
     const client = new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl });
-    const result = await client.createRun({ spec: { name: "x", cli: "pi" } });
+    const result = await client.createRun({ spec: { name: "x", cli: "pi", model: "some-model" } });
 
     expect(seenUrl).toBe("http://test.local:4600/runs");
     expect(seenInit?.method).toBe("POST");
-    expect(JSON.parse(String(seenInit?.body))).toEqual({ spec: { name: "x", cli: "pi" } });
+    expect(JSON.parse(String(seenInit?.body))).toEqual({ spec: { name: "x", cli: "pi", model: "some-model" } });
     expect(result).toEqual({ runId: "r1", rootAgentId: "a1", state: "provisioning" });
   });
 

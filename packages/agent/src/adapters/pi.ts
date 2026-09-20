@@ -211,7 +211,8 @@ export class PiAdapter {
   ): Promise<void> {
     const piConfig: Record<string, unknown> = {};
     if (spec.provider) piConfig.provider = spec.provider;
-    if (spec.model) piConfig.model = spec.model;
+    // `model` is required by the spec schema, so Pi is never left to pick its own default.
+    piConfig.model = spec.model;
     if (opts?.resume) piConfig.resume = true;
     const permissions = normalizePermissions(spec.permissions);
     if (permissions) piConfig.permissions = permissions;

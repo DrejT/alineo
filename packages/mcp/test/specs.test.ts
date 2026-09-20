@@ -41,7 +41,7 @@ describe("addSpec / listSpecs / removeSpec", () => {
     const source = join(tempDir, "source-spec.json");
     await Bun.write(
       source,
-      JSON.stringify({ name: "reviewer", cli: "pi", description: "Reviews code" }),
+      JSON.stringify({ name: "reviewer", cli: "pi", model: "some-model", description: "Reviews code" }),
     );
 
     const result = await addSpec(source);
@@ -54,7 +54,7 @@ describe("addSpec / listSpecs / removeSpec", () => {
 
   it("honors an explicit name override for the saved filename", async () => {
     const source = join(tempDir, "source-spec.json");
-    await Bun.write(source, JSON.stringify({ name: "reviewer", cli: "pi" }));
+    await Bun.write(source, JSON.stringify({ name: "reviewer", cli: "pi", model: "some-model" }));
 
     const result = await addSpec(source, "my-reviewer");
     expect(result.name).toBe("my-reviewer");
@@ -63,9 +63,9 @@ describe("addSpec / listSpecs / removeSpec", () => {
 
   it("recursively resolves registryDependencies", async () => {
     const dep = join(tempDir, "dep-spec.json");
-    await Bun.write(dep, JSON.stringify({ name: "dep", cli: "pi" }));
+    await Bun.write(dep, JSON.stringify({ name: "dep", cli: "pi", model: "some-model" }));
     const root = join(tempDir, "root-spec.json");
-    await Bun.write(root, JSON.stringify({ name: "root", cli: "pi", registryDependencies: [dep] }));
+    await Bun.write(root, JSON.stringify({ name: "root", cli: "pi", model: "some-model", registryDependencies: [dep] }));
 
     const result = await addSpec(root);
     expect(result.resolvedDependencies).toEqual([dep]);
@@ -78,7 +78,7 @@ describe("addSpec / listSpecs / removeSpec", () => {
     const selfRef = join(tempDir, "self-ref-spec.json");
     await Bun.write(
       selfRef,
-      JSON.stringify({ name: "self", cli: "pi", registryDependencies: [selfRef] }),
+      JSON.stringify({ name: "self", cli: "pi", model: "some-model", registryDependencies: [selfRef] }),
     );
 
     const err = await expectRejects(addSpec(selfRef));
@@ -88,8 +88,8 @@ describe("addSpec / listSpecs / removeSpec", () => {
   it("rejects a circular chain of registryDependencies (A -> B -> A)", async () => {
     const specA = join(tempDir, "a-spec.json");
     const specB = join(tempDir, "b-spec.json");
-    await Bun.write(specA, JSON.stringify({ name: "a", cli: "pi", registryDependencies: [specB] }));
-    await Bun.write(specB, JSON.stringify({ name: "b", cli: "pi", registryDependencies: [specA] }));
+    await Bun.write(specA, JSON.stringify({ name: "a", cli: "pi", model: "some-model", registryDependencies: [specB] }));
+    await Bun.write(specB, JSON.stringify({ name: "b", cli: "pi", model: "some-model", registryDependencies: [specA] }));
 
     const err = await expectRejects(addSpec(specA));
     expect((err as Error).message).toContain("Circular registryDependencies");
@@ -104,7 +104,7 @@ describe("addSpec / listSpecs / removeSpec", () => {
 
   it("removes a saved spec", async () => {
     const source = join(tempDir, "source-spec.json");
-    await Bun.write(source, JSON.stringify({ name: "reviewer", cli: "pi" }));
+    await Bun.write(source, JSON.stringify({ name: "reviewer", cli: "pi", model: "some-model" }));
     await addSpec(source);
 
     await removeSpec("reviewer");

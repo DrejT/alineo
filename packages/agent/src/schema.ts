@@ -104,11 +104,17 @@ export interface AgentSpec {
    */
   provider?: string;
   /**
-   * Model ID passed to the CLI via `--model`.
+   * Model ID passed to the CLI via `--model`. **Required.**
+   *
+   * This is the model the agent actually runs on, so a spec has to name it. When it was
+   * optional the agent silently inherited the harness's own default, which meant a run's
+   * results couldn't be attributed to a model after the fact — the same class of problem as
+   * a result that reports success without having done the work.
+   *
    * For Pi 0.80.x with a free Google AI Studio key, use `"gemini-flash-latest"`
    * (Pi's alias for gemini-3.5-flash via the direct Google Generative AI API).
    */
-  model?: string;
+  model: string;
   /**
    * APT packages to install in the sandbox before starting the CLI.
    * Example: `["python3", "git"]`. `nodejs_22` and `nodejs` are silently ignored
@@ -290,7 +296,14 @@ const AgentSpecSchema = z
     }),
     cliVersion: z.string().optional(),
     provider: z.string().optional(),
-    model: z.string().optional(),
+    model: z
+      .string({
+        error: (issue) =>
+          issue.input === undefined
+            ? "Agent spec must have a 'model' string — name the model this agent runs on"
+            : "Agent spec 'model' must be a string",
+      })
+      .min(1, "Agent spec must have a 'model' string — name the model this agent runs on"),
     packages: z.array(z.string()).optional(),
     env: z.record(z.string(), z.union([z.string(), CredentialEnvBindingSchema])).optional(),
     resources: z
