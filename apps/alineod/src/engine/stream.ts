@@ -42,6 +42,30 @@ export function isCatchingUp(agentId: string): boolean {
   return catchingUp.has(agentId);
 }
 
+/**
+ * The error a turn ended on, if any. When the model API refuses a request ("overloaded", a 429,
+ * a 404 for a model the account can't use) Pi stops the turn normally, with `stopReason: "error"`
+ * and the provider's text in `errorMessage` on its last assistant message. The stream then ends
+ * without throwing, so only this message says the agent didn't finish. Only the LAST assistant
+ * message counts: Pi retries transient errors, and an earlier error that a retry got past is history.
+ */
+export function turnError(messages: unknown): string | undefined {
+  if (!Array.isArray(messages)) return undefined;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i] as {
+      role?: unknown;
+      stopReason?: unknown;
+      errorMessage?: unknown;
+    } | null;
+    if (m?.role !== "assistant") continue;
+    if (m.stopReason !== "error") return undefined;
+    return typeof m.errorMessage === "string" && m.errorMessage.trim()
+      ? errorMessage(new Error(m.errorMessage))
+      : "the model API returned an error";
+  }
+  return undefined;
+}
+
 /** Runs in the background — callers do not await this. */
 export async function driveTurn(agentId: string, message: string): Promise<void> {
   const agent = get(agentId);
@@ -56,13 +80,30 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
   driving.add(agentId);
 
   try {
+    let endMessages: unknown;
     for await (const ev of agent.prompt(message, {
       inactivityTimeoutMs: PROMPT_INACTIVITY_TIMEOUT_MS,
     })) {
+      if (ev.type === "agent_end") endMessages = (ev as { messages?: unknown }).messages;
       emitHarness(runId, agentId, ev as { type: string } & Record<string, unknown>);
     }
     const text = await safeLastText(agent);
     const resultRef = writeResult(agentId, text);
+    const upstream = turnError(endMessages);
+    if (upstream) {
+      // The model API refused the request and Pi ended the turn. Whatever text came before is kept
+      // as the result, but the agent did not finish, so it is not a success.
+      emit(runId, agentId, "handle_settled", {
+        outcome: "failed",
+        resultRef: text ? resultRef : null,
+      });
+      emit(runId, agentId, "agent_ended", {
+        outcome: "failed",
+        endedAt: Date.now(),
+        error: upstream,
+      });
+      return;
+    }
     emit(runId, agentId, "handle_settled", { outcome: "success", resultRef });
     emit(runId, agentId, "agent_ended", { outcome: "success", endedAt: Date.now() });
   } catch (err) {
@@ -170,8 +211,12 @@ export async function catchUpTurn(
 
     const text = await safeLastText(agent);
     const resultRef = writeResult(agentId, text);
-    const outcome = text ? "success" : "failed";
-    const error = giveUpReason ?? (text ? undefined : "catch-up: no retrievable result");
+    // A turn that ended on a model API error is not a success, whatever text came before it. (Not
+    // when we gave up on a turn that is still running: its last message isn't final.)
+    const upstream = giveUpReason ? undefined : await safeTurnError(agent);
+    const outcome = text && !upstream ? "success" : "failed";
+    const error =
+      giveUpReason ?? upstream ?? (text ? undefined : "catch-up: no retrievable result");
     emit(runId, agentId, "handle_settled", { outcome, resultRef: text ? resultRef : null });
     emit(runId, agentId, "agent_ended", {
       outcome,
@@ -194,6 +239,10 @@ export function setState(agentId: string, to: string, reason?: string): void {
 /** Matched by name, not `instanceof` — the SDK's error class isn't worth importing for this. */
 function isStreamTimeout(err: unknown): boolean {
   return err instanceof Error && err.name === "PromptTimeoutError";
+}
+
+async function safeTurnError(agent: Alineo): Promise<string | undefined> {
+  return turnError(await withTimeout(agent.getMessages(), STATE_PROBE_TIMEOUT_MS));
 }
 
 async function safeLastText(agent: Alineo): Promise<string | null> {
