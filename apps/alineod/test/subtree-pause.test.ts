@@ -97,6 +97,20 @@ describe("pause / resume with scope: subtree", () => {
     t.gate.resolve();
   });
 
+  test("a member's failure reason unwraps OpenSandbox's raw JSON error body", async () => {
+    const t = await tree();
+    t.c1.agent.pauseError = new Error(
+      JSON.stringify({ code: "DOCKER::SANDBOX_NOT_FOUND", message: "Sandbox sb-9 not found." }),
+    );
+
+    const res = await call("POST", `/agents/${t.rootAgentId}/pause`, { scope: "subtree" });
+    expect(outcomes(res.body)[t.c1.agentId]).toMatchObject({
+      outcome: "failed",
+      reason: "pause failed: Sandbox sb-9 not found. (DOCKER::SANDBOX_NOT_FOUND)",
+    });
+    t.gate.resolve();
+  });
+
   test("a child that forks under a paused ancestor joins the pause and runs its prompt on resume", async () => {
     const t = await tree();
     await call("POST", `/agents/${t.rootAgentId}/pause`); // root only — c1 keeps running
