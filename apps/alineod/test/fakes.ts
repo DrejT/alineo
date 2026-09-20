@@ -23,6 +23,13 @@ export interface FakeTurn {
   /** If set, the stream throws this after the gate; `text` (default null) is left as partial output. */
   error?: string;
   /**
+   * Pi's message history at the end of the turn. When set, the stream yields a final `agent_end`
+   * event carrying it, and `getMessages()` returns it. A last assistant message with
+   * `stopReason: "error"` stands in for a model API that refused the request: the stream still
+   * ends normally, as it does with the real Pi.
+   */
+  endMessages?: unknown[];
+  /**
    * Stands in for the SDK's inactivity timeout: after the gate, the stream throws
    * `PromptTimeoutError` while Pi keeps working — `streaming` stays true until the test sets
    * `lastText` and flips `streaming` to false.
@@ -49,6 +56,8 @@ export class FakeAgent {
 
   turn: FakeTurn = {};
   lastText: string | null = null;
+  /** What `getMessages()` returns. Set by a turn's `endMessages`, or directly by a test. */
+  messages: unknown[] = [];
   streaming = false;
   paused = false;
   aborted = false;
@@ -115,6 +124,10 @@ export class FakeAgent {
         throw new Error(turn.error);
       }
       this.lastText = turn.text === undefined ? `reply: ${message}` : turn.text;
+      if (turn.endMessages) {
+        this.messages = turn.endMessages;
+        yield { type: "agent_end", messages: turn.endMessages };
+      }
     } finally {
       if (!detached) this.streaming = false;
     }
@@ -136,6 +149,10 @@ export class FakeAgent {
 
   async getLastAssistantText(): Promise<string | null> {
     return this.lastText;
+  }
+
+  async getMessages(): Promise<unknown[]> {
+    return this.messages;
   }
 
   async getState(): Promise<{ isStreaming: boolean }> {
