@@ -1,5 +1,15 @@
 # drej
 
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [7f0d5c2]
+- Updated dependencies [ab58cce]
+  - @alineo-labs/core@0.4.2
+  - @alineo-labs/opensandbox@0.3.1
+  - @alineo-labs/vault@0.3.2
+
 ## 0.4.2
 
 ### Patch Changes
