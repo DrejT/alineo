@@ -5,6 +5,7 @@
  */
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import pkg from "../package.json" with { type: "json" };
 import { AlineodClient, AlineodError } from "./alineod-client.js";
 import { init } from "./init.js";
 import { addSpec, listSpecs, removeSpec } from "./specs.js";
@@ -54,7 +55,7 @@ export function buildServer(
   const client = new AlineodClient(clientOpts);
 
   const server = new McpServer(
-    { name: "alineo-mcp", version: "0.1.0" },
+    { name: "alineo-mcp", version: pkg.version },
     {
       instructions:
         "Orchestrate swarms of sandboxed coding agents via alineod, alineo's HTTP+SSE control " +
