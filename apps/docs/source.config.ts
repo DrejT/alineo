@@ -5,12 +5,14 @@ import { z } from "zod";
 
 const docs = { postprocess: { includeProcessedMarkdown: true } };
 
+// One collection per product, plus the two non-product sections. The switcher in the docs sidebar picks a product;
+// each product's own pages are then organised by its concepts, not by the
+// files they happen to live in.
 export const coreDocs = defineDocs({ dir: "content/docs/core", docs });
-export const alineoDocs = defineDocs({ dir: "content/docs/alineo", docs });
-export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });
 export const agentDocs = defineDocs({ dir: "content/docs/agent", docs });
+export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });
+export const cliDocs = defineDocs({ dir: "content/docs/cli", docs });
 export const alineodDocs = defineDocs({ dir: "content/docs/alineod", docs });
-export const examplesDocs = defineDocs({ dir: "content/docs/examples", docs });
 export const cookbooksDocs = defineDocs({ dir: "content/docs/cookbooks", docs });
 export const playgroundDocs = defineDocs({ dir: "content/docs/playground", docs });
 

@@ -5,7 +5,7 @@ description: A swarm control daemon — start, fork, steer, pause, and collect r
 
 alineod is a long-running daemon that exposes an HTTP + Server-Sent Events API for orchestrating **swarms** of
 agents. Every agent in a swarm is an `alineo` agent running in its own OpenSandbox container; alineod drives them
-in-process through the [Agent SDK](/docs/agent) and keeps a durable, append-only record of the whole swarm.
+in-process through the [Agent SDK](/docs/agent/api-reference/alineo) and keeps a durable, append-only record of the whole swarm.
 
 ```
 client ── HTTP + SSE ──▶ alineod ── in-process ──▶ alineo SDK ──▶ OpenSandbox + Pi
@@ -22,22 +22,22 @@ an event schema), any language can drive a swarm without an SDK of its own.
 - **Budgets** — `spawnDepth` and `maxAgents` limits, enforced per lineage, refused with a `budget_denied` event.
 - **Live control** — `steer` a running turn, `pause`/`resume` an agent's container, `stop` an agent or delete a whole run.
 - **One event stream per run** — lifecycle events plus every agent's forwarded harness events, resumable with `Last-Event-ID`.
-- **Drive it from any MCP client** — `npx alineo-mcp` exposes these controls as tools for Claude Code, Claude Desktop, and Cursor. See [MCP server](/docs/alineod/getting-started/mcp).
+- **Drive it from any MCP client** — `npx alineo-mcp` exposes these controls as tools for Claude Code, Claude Desktop, and Cursor. See [MCP server](/docs/alineod/mcp).
 - **Crash-only recovery** — agents run in containers, not as child processes; restart alineod and it reconnects to the swarm without interrupting in-flight turns.
 
 <Cards>
   <Card
-    href="/docs/alineod/getting-started"
+    href="/docs/alineod/quickstart"
     title="Getting Started"
     description="Run the daemon, start a run, and fan work out across child agents."
   />
   <Card
-    href="/docs/alineod/guides"
+    href="/docs/alineod/concepts/how-it-works"
     title="Guides"
     description="How runs, budgets, fan-out/gather, steering, pausing, and crash recovery work."
   />
   <Card
-    href="/docs/alineod/api-reference"
+    href="/docs/alineod/api-reference/http-api"
     title="API Reference"
     description="Every HTTP route and every event on the run stream."
   />

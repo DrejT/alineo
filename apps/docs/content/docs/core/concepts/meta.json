@@ -1,14 +1,20 @@
 {
   "title": "Concepts",
   "pages": [
-    "workflows",
     "sandboxes",
+    "how-it-works",
+    "exec",
+    "file-ops",
+    "snapshots",
     "environments",
-    "steps",
+    "control-flow",
+    "error-handling",
+    "timeouts",
     "refs-and-state",
-    "event-stream",
-    "storage-adapters",
+    "steps",
+    "workflows",
     "network-policy",
-    "credentials"
+    "credentials",
+    "event-stream"
   ]
 }

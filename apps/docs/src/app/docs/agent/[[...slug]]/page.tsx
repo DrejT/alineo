@@ -8,19 +8,15 @@ import { DocPageHeader } from "@/components/doc-page-header";
 import { DocStructuredData } from "@/components/doc-structured-data";
 import { githubSourceUrl, pageMarkdownUrl } from "@/lib/doc-markdown";
 
-const OVERVIEW_SLUGS = new Set(["", "getting-started", "api-reference"]);
-
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
   const page = agentSource.getPage(slug);
   if (!page) notFound();
 
   const MDX = page.data.body;
-  const slugStr = (slug ?? []).join("/");
-  const isOverview = OVERVIEW_SLUGS.has(slugStr);
 
   return (
-    <DocsPage toc={isOverview ? [] : page.data.toc} full={isOverview}>
+    <DocsPage toc={page.data.toc}>
       <DocStructuredData page={page} tree={agentSource.pageTree} collection="agent" />
       <DocPageHeader
         title={page.data.title}

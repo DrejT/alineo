@@ -280,19 +280,43 @@ The TypeScript sandbox client SDK (`packages/sdks/typescript`, published as `@al
 
 > **Changeset must be committed** before CI will pass — `bunx changeset status --since origin/main` reads from git history, not disk.
 
-## Docs versioning is decoupled from npm releases — don't assume a version bump updates docs
+## Docs: the switcher is products, the sidebar is that product's concepts
 
-`apps/docs`'s `core`/`alineo` (CLI) sections are versioned per `plans/versioned-docs.md`, but **bumping the npm package version does nothing to the docs site by itself.** The version registry (`source.config.ts`, `src/lib/source.ts`, `public/_redirects`) is generated from whatever `content/docs/<product>/vX.Y/` folders exist on disk (`apps/docs/scripts/{doc-versions,sync-doc-versions,sync-redirects}.ts`, run via `predev`/`prebuild`) — a version cut is "add the content folder, run `bun run build`", but someone still has to write that content. Folders/`defineDocs()` identifiers keep the `v` prefix (`v0.2`); **URLs drop it** (`/docs/core/0.2`, not `/docs/core/v0.2`).
+`apps/docs/content/docs/` has one collection per product, plus the two sections that cut across
+products. There is no separate overview or landing page — `/docs/agent` is the front door, because
+the Agent SDK is what someone arriving at alineo is most likely here for:
 
-**Known-bad pattern, hit twice**: a feature PR documents its new API by editing the *current latest* `content/docs/{core,alineo}/vX.Y/` folder in place — fine while nothing has shipped, but the moment that version publishes to npm, `vX.Y` is silently describing `vX.(Y+1)`'s API and `/docs/core` + `/docs/alineo` + `/` (the "latest" redirects in `public/_redirects`) still point at the stale version.
+| Collection | URL | In the switcher? |
+|---|---|---|
+| `agent/` | `/docs/agent` | Yes — Agent SDK (`alineo`). `/` and the header "Docs" link land here. |
+| `alineod/` | `/docs/alineod` | Yes — `@alineo-labs/alineod` |
+| `core/` | `/docs/core` | Yes — Core SDK (`@alineo-labs/sandbox`) |
+| `cli/` | `/docs/cli` | Yes — `alineo-cli` |
+| `workflow/` | `/docs/workflow` | Yes — `@alineo-labs/workflow` |
+| `cookbooks/` | `/docs/cookbooks` | No — header nav |
+| `playground/` | `/docs/playground` | No — header nav |
 
-- **First time**: #182's `alineo`/agent naming inversion — `5dcb3de` edited `v0.1` in place instead of cutting `v0.2`. Once #190 published `0.2.0`, `v0.1` described `0.2.0` with no real pre-rename snapshot anywhere but git history. Fixed in `docs/dynamic-version-registry` (PR #193): moved that content to `v0.2`, restored the true pre-rename docs (from `5dcb3de~1`) as `v0.1`.
-- **Second time**: #204's credential injection wrote `concepts/credentials.mdx` + edits straight into `v0.2`. Once PR #206 published `@alineo-labs/core@0.3.0`, `v0.2` described `0.3.0` and `/docs/core` still redirected to `0.2`. Fixed in `docs/cut-v0.3` (PR #223): `cp -r v0.2 → v0.3`, repointed the new folder's internal links to `0.3`, let `predev`/`prebuild` regenerate the registry + redirects. `v0.2` left as a frozen snapshot (not scrubbed back to `0.2.0`).
+**Every product follows the same four beats**: `index.mdx` (overview) → `quickstart.mdx` →
+`concepts/` → `api-reference/`. The overview states what the product is in one sentence, shows
+running code immediately, then makes one claim per section with the smallest snippet that proves
+it. Concepts pages are named after ideas, not after the files they came from — never
+`getting-started/`, `building/` or `patterns/` again.
 
-**This is now guarded (PR #225).** The docs "epoch" — the `vX.Y` number on *both* the `core` and `alineo` trees, cut together — tracks `@alineo-labs/sandbox`'s (`packages/sdks/typescript`) published `major.minor`. `apps/docs/scripts/cut-doc-version.ts` does the `cp -r` + internal-link repoint; it runs in the release flow (root `release:version` script → `changesets/action`'s `version:` step) so the `chore: version packages` PR always carries the matching folder, and `ci.yml`'s **Docs version check** job (`… cut-doc-version.ts --check`) fails any PR — the `changeset-release/main` PR included — where the epoch has moved past the latest folder. See `plans/versioned-docs.md` "Docs epoch".
+**Placing a new page**: decide the product first (which package does the reader install?), then
+the beat. A capability that spans products is documented in the product that owns the API and
+linked from the others.
 
-**Rules that still need a human:**
-1. **Writing the new folder's content.** The cut only copies the previous version; someone edits `content/docs/{core,alineo}/v<new>/` to document what actually shipped. A feature PR whose API change goes out next release should cut + document in the new folder itself (`bun apps/docs/scripts/cut-doc-version.ts` once the epoch package is bumped, else `cp -r`), never edit the current-latest folder in place.
-2. **If `cut-doc-version.ts --check` is red on a PR**, a cut is owed — run the script, don't work around the check.
+**Adding a page** means adding it to its folder's `meta.json` too — sidebar order is explicit, not
+alphabetical.
 
-**If a PR touches `content/docs/core/vX.Y/` or `content/docs/alineo/vX.Y/` — where `vX.Y` is the current latest — directly instead of adding a new version folder, stop and check whether that's actually a version cut being done wrong.**
+**Renaming or moving a page** means adding a 301 to `apps/docs/public/_redirects` (a static export
+can't use `next.config.ts` redirects) and updating inbound links. `grep -rn "/docs/<old-path>"`
+across the repo — the README, blog posts, cookbook READMEs, `.agents/skills/`, `apps/docs-mcp`
+and `apps/registry`'s spec JSON all link into the docs.
+
+The CLI lives at `/docs/cli`, not `/docs/alineo` — the old path read as the `alineo` package,
+which is the Agent SDK.
+
+Docs were versioned (`content/docs/{core,alineo}/vX.Y/`) for a while. That system is **gone** —
+no version folders, no `apps/docs/scripts/`, no `predev`/`prebuild` hooks, no CI version check.
+`plans/versioned-docs.md` is history, not current guidance.

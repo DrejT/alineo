@@ -156,7 +156,7 @@ doesn't count toward that limit.
 ### Can I still stop a swarm after alineod restarts?
 
 Yes. On boot, alineod reconnects to each live agent's sandbox. A paused agent stays paused and
-resumes normally. See [Crash recovery](/docs/alineod/guides/crash-recovery).
+resumes normally. See [Crash recovery](/docs/alineod/concepts/crash-recovery).
 
 ### Do my agents need to change?
 
@@ -165,8 +165,8 @@ credential injection you already use apply unchanged, and `alineo init` is the s
 
 ## Try it
 
-- Guide: [Steering and pausing](/docs/alineod/guides/steering-and-pausing), and
-  [Coordination](/docs/alineod/guides/coordination) for waiting on groups of agents.
+- Guide: [Steering and pausing](/docs/agent/concepts/steering), and
+  [Coordination](/docs/alineod/concepts/coordination) for waiting on groups of agents.
 - Example:
   [`alineod-coordination`](https://github.com/DrejT/alineo/tree/main/examples/alineod-coordination)
   pauses, steers and stops a subtree end to end.

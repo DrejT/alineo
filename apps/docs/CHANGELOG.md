@@ -8,7 +8,7 @@
   both now lives under a `v0.1` folder (`/docs/core/v0.1/...`, `/docs/alineo/v0.1/...`), routed
   through a `[version]` segment backed by a per-version loader registry in `src/lib/source.ts` —
   cutting a future version is a content-plus-registry-entry change, not a new route. The
-  unversioned `/docs/core` and `/docs/alineo` URLs (already indexed in production) now redirect
+  unversioned `/docs/guide` and `/docs/guide/ship/cli` URLs (already indexed in production) now redirect
   to the latest version via a Cloudflare Pages `public/_redirects` file, since `next.config.ts`
   redirects aren't available under this app's static export. A hand-rolled version switcher
   (fumadocs' old `RootToggle` was removed from the public API in fumadocs-ui 16.2) sits in each

@@ -70,7 +70,7 @@ abort the batch. Every sandbox is closed in `finally`, even on timeout or crash.
 <Callout title="Reach for this pattern when...">
   You're executing code you didn't write yourself — an LLM's generated code, a user-submitted
   script, a plugin. Swap `runUntrusted()`'s body for `execCode()`/`createCodeContext()` (see [Code
-  Interpreter](/docs/examples/exec-code)) if you want a stateful REPL instead of one-shot scripts.
+  Interpreter](/docs/core/concepts/exec)) if you want a stateful REPL instead of one-shot scripts.
 </Callout>
 
 <Callout type="warn" title="Server proxy">

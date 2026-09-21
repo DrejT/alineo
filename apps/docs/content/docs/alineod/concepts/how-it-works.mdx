@@ -1,0 +1,105 @@
+---
+title: How a swarm works
+description: Runs, spawn trees, agent states, budgets, and the append-only ledger behind them.
+---
+
+## Runs and the spawn tree
+
+A **run** is one swarm. It starts with a single root agent (`POST /runs`) and grows as agents are spawned under
+existing ones (`POST /runs/:runId/agents`). Every agent records its `parentAgentId`, its `depth` in the tree (the
+root is `0`), and its `spawnIndex` among its siblings.
+
+IDs are short and prefixed: runs are `r_…`, agents are `a_…`. An agent's `sandboxId` is the OpenSandbox container
+it runs in, filled in once the container exists.
+
+A child is created with the SDK's [`agent.spawn()`](/docs/agent/api-reference/alineo#agentspawn): the parent's
+**live sandbox is forked**, so the child starts with everything already on the parent's disk — a checked-out
+repo, installed packages, files the parent wrote — rather than a fresh install.
+
+## Agent states
+
+`GET /agents/:id` and `GET /runs/:id` report each agent's `state`:
+
+| State          | Meaning                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `provisioning` | Accepted, and no turn has started yet. The sandbox may still be being created — once `sandboxId` is set, it exists.             |
+| `spawning`     | Held by `waitFor` — not forked until its dependencies settle.                                                                   |
+| `running`      | A turn is in progress (or the agent is live and idle between prompts).                                                          |
+| `paused`       | The agent's container is frozen.                                                                                                |
+| `done`         | The turn finished successfully.                                                                                                 |
+| `failed`       | The turn or the provisioning failed, the model API refused the request that ended the turn, or a spawn was refused by a budget. |
+| `aborted`      | Stopped by `POST /agents/:id/stop` or `DELETE /runs/:id`.                                                                       |
+| `lost`         | alineod restarted and could not reconnect to (or retry) this agent.                                                             |
+
+An ended agent also carries an `outcome` — `success`, `failed`, `aborted`, `lost`, or `budget-exceeded`.
+
+A turn can end without the agent having finished. When the model API refuses a request (overloaded, rate
+limited, a model your account can't use), Pi stops the turn with an error on its last message. alineod reads
+that message and ends the agent `failed`, with the provider's message in `error`. Any text the agent produced
+before it is still kept as its result. Only the last message counts, so an error that a retry got past doesn't
+fail the turn.
+
+A finished turn does not close the agent's sandbox. An agent in `done` (or `failed`, if its turn failed but its
+sandbox came up) can still be prompted again or used as a spawn parent — including after alineod itself restarts;
+see [Crash recovery](/docs/alineod/concepts/crash-recovery).
+
+## Asynchronous requests
+
+`POST /runs` and `POST /runs/:runId/agents` return `202` as soon as the agent is recorded — typically within tens
+of milliseconds. Everything slow (creating or forking the container, waiting on dependencies, the first turn)
+happens in the background. Track progress by polling `GET /agents/:id`, or by watching the run's
+[event stream](/docs/alineod/api-reference/events).
+
+To be used as a spawn parent, steered, or paused, an agent must be **live**: its sandbox exists and alineod holds a
+connection to it. Otherwise these routes return `409`.
+
+## Results and handles
+
+Every agent has a **handle**: `pending` until its turn ends, then `settled` with an `outcome` and a `resultRef`.
+The result is the agent's final assistant message.
+
+- `GET /agents/:id/result?wait=<seconds>` holds the request open until the handle settles.
+- `waitFor` on a spawn uses the same handles to decide when a child may start.
+- If a turn's stream goes quiet for `ALINEOD_PROMPT_INACTIVITY_MS`, alineod stops reading it and polls the agent
+  until the turn actually finishes, so the result is still the full answer. A turn still running after
+  `ALINEOD_TURN_MAX_MS` of unpaused time is ended; any partial text it had produced becomes the result, with
+  outcome `success`.
+
+<Callout type="info">
+  A result is the final message stored as text by alineod, and `resultRef` has the shape
+  `fs://<agentId>/result.md`. Resolving references to arbitrary files inside the agent's sandbox is planned.
+</Callout>
+
+## Budgets
+
+Two limits bound how far a swarm can grow. Both can be set on the root's spec (`spawnDepth`, `maxAgents`) or
+overridden per request with a `budget` object.
+
+<Callout type="info">
+  Spawning is opt-in: a run can only spawn children if its root has a `spawnDepth` of at least `1`.
+  Without one, every spawn is refused as `budget-exceeded`.
+</Callout>
+
+- **`spawnDepth`** — how many more levels of children may be created below an agent. Each child receives its
+  parent's budget minus one; a spawn from an agent with no budget left is refused.
+- **`maxAgents`** — a ceiling on descendants, decremented the same way down each lineage. It is a per-lineage
+  counter, not one global count shared across sibling branches.
+
+A refused spawn ends the child with outcome `budget-exceeded` and emits a `budget_denied` event naming the
+exhausted dimension.
+
+alineod tracks these budgets itself, because it calls `spawn()` from outside any sandbox — the SDK's in-sandbox
+mechanism (the `ALINEO_SPAWN_DEPTH` environment variable used by `alineo fork`) doesn't apply there.
+
+## The ledger
+
+Every state change goes through one path: **append to the ledger → update the derived tables → publish to the
+event stream**.
+
+- **`ledger`** — append-only and the source of truth. Each row's `seq` is also the event's SSE `id`.
+- **`agents`** — the spawn tree, derived from the ledger.
+- **`handles`** — one row per agent, derived from the ledger.
+
+The derived tables are rebuilt from the ledger every time alineod starts, which is what makes
+[crash recovery](/docs/alineod/concepts/crash-recovery) possible. Deleting a run releases its sandboxes but keeps its
+ledger rows.

@@ -1,10 +1,9 @@
 import {
   coreDocs,
-  alineoDocs,
-  workflowDocs,
   agentDocs,
+  workflowDocs,
+  cliDocs,
   alineodDocs,
-  examplesDocs,
   cookbooksDocs,
   playgroundDocs,
   blogPosts,
@@ -14,29 +13,18 @@ import { toFumadocsSource } from "fumadocs-mdx/runtime/server";
 
 export const coreSource = loader({ baseUrl: "/docs/core", source: coreDocs.toFumadocsSource() });
 
-export const alineoSource = loader({
-  baseUrl: "/docs/alineo",
-  source: alineoDocs.toFumadocsSource(),
-});
+export const agentSource = loader({ baseUrl: "/docs/agent", source: agentDocs.toFumadocsSource() });
 
 export const workflowSource = loader({
   baseUrl: "/docs/workflow",
   source: workflowDocs.toFumadocsSource(),
 });
 
-export const agentSource = loader({
-  baseUrl: "/docs/agent",
-  source: agentDocs.toFumadocsSource(),
-});
+export const cliSource = loader({ baseUrl: "/docs/cli", source: cliDocs.toFumadocsSource() });
 
 export const alineodSource = loader({
   baseUrl: "/docs/alineod",
   source: alineodDocs.toFumadocsSource(),
-});
-
-export const examplesSource = loader({
-  baseUrl: "/docs/examples",
-  source: examplesDocs.toFumadocsSource(),
 });
 
 export const cookbooksSource = loader({

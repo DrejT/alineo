@@ -1,5 +1,5 @@
 ---
-title: Sandboxes
+title: What a sandbox is
 description: Isolated Docker containers managed by OpenSandbox — how they're created, configured, and closed.
 ---
 
@@ -31,7 +31,7 @@ const sb = await client.sandbox({
 | `metadata`        | `Record<string, string>`                        | Arbitrary key-value labels attached to the sandbox (e.g. `{ runId: "ci-42" }`)                                                                                     |
 | `name`            | `string`                                        | User-provided name for the run — used as the ledger key. Auto-generated if omitted.                                                                                |
 | `timeout`         | `number`                                        | Sandbox lifetime in seconds. Defaults to the OpenSandbox server's default.                                                                                         |
-| `hooks`           | `SandboxHooks`                                  | Lifecycle callbacks for observability. See [Observability](/docs/core/patterns/observability).                                                                     |
+| `hooks`           | `SandboxHooks`                                  | Lifecycle callbacks for observability. See [Observability](/docs/core/storage/observability).                                                                      |
 | `networkPolicy`   | `{ defaultAction, egress }`                     | Optional outbound network policy — which hosts the sandbox may reach. Required to use `credentialProxy`. See [Network policy](/docs/core/concepts/network-policy). |
 | `credentialProxy` | `boolean`                                       | Opt-in to credential injection via `sb.credentials.*`. See [Credentials](/docs/core/concepts/credentials).                                                         |
 

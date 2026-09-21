@@ -1,0 +1,13 @@
+{
+  "title": "Storage & observability",
+  "pages": [
+    "ledger",
+    "checkpoints",
+    "run-management",
+    "sqlite",
+    "postgres",
+    "custom",
+    "observability",
+    "flue"
+  ]
+}
