@@ -20,6 +20,18 @@ or a bad value now fails with the offending key and file named, rather than bein
 environment discovery entirely, for embedded callers and tests that must not depend on the
 working directory. The config is also read once per working directory now, not on every call.
 
-Two behaviour changes worth noting: a project config found by walking up will now apply where
-defaults were previously used, and a global `~/.config/alineo/config.json` is merged under a
-project config instead of being ignored whenever a project config exists.
+Three behaviour changes worth noting.
+
+A project config found by walking up will now apply where defaults were previously used.
+
+A global `~/.config/alineo/config.json` is merged under a project config instead of being ignored
+whenever a project config exists. The SDK previously ignored the global config entirely while
+`alineo-cli` already read it, so on a machine with a global config and no project config the two
+disagreed about `adapterPath` — and therefore used different agent snapshot caches. They now
+agree. If that describes your setup, the first `Alineo.load()` of each spec after upgrading
+rebuilds its snapshot at the new location instead of reusing the old one; nothing is lost, but
+expect one slow run per spec.
+
+A spec that relied on the built-in `adapterPath`/`agentsDir` defaults while a global config set
+different ones will now follow the global config. Pass `opts.config`, or set the value explicitly
+in a project `alineo.config.json`, to pin it.
