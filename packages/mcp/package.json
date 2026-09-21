@@ -1,6 +1,6 @@
 {
   "name": "alineo-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server exposing alineod's swarm-control API (and local agent-spec management) as tools for MCP clients (Claude Code, Claude Desktop, Cursor, …).",
   "license": "Apache-2.0",
   "repository": {
