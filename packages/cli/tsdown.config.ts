@@ -15,6 +15,7 @@ export default defineConfig({
       "@alineo-labs/sqlite",
       "@alineo-labs/opensandbox",
       "@opentui/core",
+      "zod",
     ],
   },
 });

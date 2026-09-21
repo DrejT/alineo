@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { LedgerEvent, type IStorageAdapter, type SandboxHandle } from "@alineo-labs/core";
 import { getLogger, type Logger } from "@alineo-labs/logger";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
-import { readProjectConfig } from "../config";
+import { resolveProjectConfig, type AlineoAgentConfig } from "../config";
 import { validateAgentSpec, type AgentSpec } from "../schema";
 import {
   PiAdapter,
@@ -61,6 +61,11 @@ export async function loadAgent(
   specInput: AgentSpec | Record<string, unknown>,
   opts: {
     adapter: IStorageAdapter;
+    /**
+     * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
+     * tests that must not depend on the working directory.
+     */
+    config?: AlineoAgentConfig;
     rebuild?: boolean;
     spawnDepth?: number;
     maxAgents?: number;
@@ -72,7 +77,7 @@ export async function loadAgent(
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
   const spec = validateAgentSpec(specInput);
-  const config = await readProjectConfig();
+  const config = resolveProjectConfig(opts.config);
   const resolvedEnv = resolveEnv(spec.env ?? {});
   const effectiveSpawnDepth = opts.spawnDepth ?? spec.spawnDepth;
   if (effectiveSpawnDepth !== undefined) {
@@ -295,10 +300,16 @@ export async function resumeAgent(
     spec?: AgentSpec | Record<string, unknown>;
     specPath?: string;
     runId?: string;
+
+    /**
+     * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
+     * tests that must not depend on the working directory.
+     */
+    config?: AlineoAgentConfig;
   },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
-  const config = await readProjectConfig();
+  const config = resolveProjectConfig(opts.config);
 
   const client = new Sandbox({
     baseUrl: config.serverUrl,
@@ -431,10 +442,16 @@ export async function reattachAgent(
     specPath?: string;
     runId?: string;
     skipReadyCheck?: boolean;
+
+    /**
+     * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
+     * tests that must not depend on the working directory.
+     */
+    config?: AlineoAgentConfig;
   },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
-  const config = await readProjectConfig();
+  const config = resolveProjectConfig(opts.config);
 
   const client = new Sandbox({
     baseUrl: config.serverUrl,
@@ -518,9 +535,15 @@ export async function attachAgent(
     adapter: IStorageAdapter;
     name: string;
     resources?: { cpu: string; memory: string; gpu?: string };
+
+    /**
+     * Skip `alineo.config.json` discovery and use this instead — for embedded callers and
+     * tests that must not depend on the working directory.
+     */
+    config?: AlineoAgentConfig;
   },
 ): Promise<AgentConstructorArgs> {
-  const config = await readProjectConfig();
+  const config = resolveProjectConfig(opts.config);
   const client = new Sandbox({
     baseUrl: config.serverUrl,
     apiKey: config.apiKey,
@@ -544,7 +567,17 @@ export async function attachAgent(
   // parseShellExports()'s Record<string, string> is optimistic about which keys are
   // actually present; this specific key genuinely may be missing.
   const runId = (env.ALINEO_RUN_ID as string | undefined) ?? crypto.randomUUID();
-  const stubSpec: AgentSpec = { name: opts.name, cli: "pi" };
+  // `configure()` wrote the model into the sandbox when this agent was created, so read it
+  // back rather than inventing one — an attached agent's spec should say what it is actually
+  // running on. Sandboxes created before that file existed report "unknown".
+  let model = "unknown";
+  try {
+    const piConfig = JSON.parse(await sb.readFile("/etc/alineo-pi.json")) as { model?: string };
+    if (piConfig.model) model = piConfig.model;
+  } catch {
+    // No file, or unreadable — keep "unknown" rather than failing the attach.
+  }
+  const stubSpec: AgentSpec = { name: opts.name, cli: "pi", model };
   return {
     sandbox: sb,
     spec: stubSpec,

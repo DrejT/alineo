@@ -2,87 +2,59 @@ import { join } from "path";
 import { homedir } from "os";
 import { existsSync } from "fs";
 import { mkdir } from "fs/promises";
-
-export interface AlineoConfig {
-  serverUrl: string;
-  useServerProxy: boolean;
-  apiKey: string;
-  adapterPath: string;
-  agentsDir: string;
-  defaults: {
-    resources: { cpu: string; memory: string };
-  };
-}
-
-const CONFIG_DIR = ".alineo";
-const CONFIG_FILE = "alineo.config.json";
+import {
+  findProjectConfig,
+  loadProjectConfig,
+  PROJECT_CONFIG_FILE,
+  type ProjectConfig,
+} from "@alineo-labs/config-shared";
 
 /**
- * What an on-disk `alineo.config.json` might actually contain — unlike `Partial<AlineoConfig>`,
- * every field is optional at every level, since the file is hand-editable and JSON.parse gives no
- * structural guarantee. A hand-edit like `{"defaults": {}}` or an interrupted `writeConfig` is a
- * realistic partial shape, not just a missing top-level field.
+ * The `alineo.config.json` shape. Defined in `@alineo-labs/config-shared` because this package,
+ * `packages/agent` and alineod's Docker entrypoint all read the same file.
  */
-type RawAlineoConfig = {
-  [K in keyof AlineoConfig]?: K extends "defaults"
-    ? { resources?: Partial<AlineoConfig["defaults"]["resources"]> }
-    : AlineoConfig[K];
-};
+export type AlineoConfig = ProjectConfig;
+
+const CONFIG_DIR = ".alineo";
 
 export function configPath(): string {
-  return CONFIG_FILE;
+  return PROJECT_CONFIG_FILE;
 }
 
 export function globalConfigPath(): string {
   return join(serverConfigDir(), "config.json");
 }
 
-function fillDefaults(data: RawAlineoConfig): AlineoConfig {
-  return {
-    serverUrl: data.serverUrl ?? "http://127.0.0.1:8080",
-    useServerProxy: data.useServerProxy ?? true,
-    apiKey: data.apiKey ?? "",
-    adapterPath: data.adapterPath ?? "./.alineo/ledger.db",
-    agentsDir: data.agentsDir ?? "./agents",
-    defaults: {
-      resources: {
-        cpu: data.defaults?.resources?.cpu ?? "1000m",
-        memory: data.defaults?.resources?.memory ?? "1Gi",
-      },
-    },
-  };
-}
-
 /**
- * Resolves, in order: a project-local `alineo.config.json` (written by `alineo init`
- * for repos that want their own agents dir / ledger), then a global
- * `~/.config/alineo/config.json`. If neither exists yet, bootstraps the global
- * one so a fresh `bunx alineo-cli` works without requiring `init` in every directory.
+ * Resolve the CLI's configuration.
+ *
+ * Sources are merged lowest-first — `~/.config/alineo/config.json`, then the nearest
+ * `alineo.config.json` (found by walking up from the working directory), then `ALINEO_*`
+ * environment variables. Two things changed when this moved onto `@alineo-labs/config-shared`:
+ * a project config is now found from a subdirectory rather than only from the exact working
+ * directory, and a global config no longer disappears entirely just because a project config
+ * exists — the project file overrides key by key.
+ *
+ * When neither file exists, the global one is bootstrapped so a fresh `bunx alineo-cli` works
+ * without an `init` in every directory.
  */
 export async function readConfig(): Promise<AlineoConfig> {
-  const localFile = Bun.file(configPath());
-  if (await localFile.exists()) {
-    return fillDefaults((await localFile.json()) as RawAlineoConfig);
-  }
-
+  const hasProject = findProjectConfig() !== null;
   const globalPath = globalConfigPath();
-  const globalFile = Bun.file(globalPath);
-  if (await globalFile.exists()) {
-    return fillDefaults((await globalFile.json()) as RawAlineoConfig);
+
+  if (!hasProject && !existsSync(globalPath)) {
+    const dir = serverConfigDir();
+    if (!existsSync(dir)) await mkdir(dir, { recursive: true });
+    // Paths point inside the config dir, so a CLI run from anywhere has somewhere to write.
+    const bootstrapped = loadProjectConfig({
+      discover: false,
+      overrides: { adapterPath: join(dir, "ledger.db"), agentsDir: join(dir, "agents") },
+    });
+    await Bun.write(globalPath, JSON.stringify(bootstrapped, null, 2) + "\n");
+    return bootstrapped;
   }
 
-  const dir = serverConfigDir();
-  if (!existsSync(dir)) await mkdir(dir, { recursive: true });
-  const config: AlineoConfig = {
-    serverUrl: "http://127.0.0.1:8080",
-    useServerProxy: true,
-    apiKey: "",
-    adapterPath: join(dir, "ledger.db"),
-    agentsDir: join(dir, "agents"),
-    defaults: { resources: { cpu: "1000m", memory: "1Gi" } },
-  };
-  await Bun.write(globalPath, JSON.stringify(config, null, 2) + "\n");
-  return config;
+  return loadProjectConfig({ globalPath });
 }
 
 export async function writeConfig(config: AlineoConfig): Promise<void> {

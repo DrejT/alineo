@@ -58,7 +58,9 @@ describe("alineo-mcp server", () => {
   it("round-trips a successful alineod_create_run call", async () => {
     const fetchImpl = stubFetch(async (url, init) => {
       expect(String(url)).toBe("http://test.local:4600/runs");
-      expect(JSON.parse(String(init?.body))).toEqual({ spec: { name: "root", cli: "pi" } });
+      expect(JSON.parse(String(init?.body))).toEqual({
+        spec: { name: "root", cli: "pi", model: "some-model" },
+      });
       return new Response(
         JSON.stringify({ runId: "r1", rootAgentId: "a1", state: "provisioning" }),
         { status: 202 },
@@ -68,7 +70,7 @@ describe("alineo-mcp server", () => {
     try {
       const result = await client.callTool({
         name: "alineod_create_run",
-        arguments: { spec: { name: "root", cli: "pi" } },
+        arguments: { spec: { name: "root", cli: "pi", model: "some-model" } },
       });
       expect(result.isError).toBeFalsy();
       const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
@@ -133,7 +135,7 @@ describe("alineo-mcp server local spec tools", () => {
 
   it("adds, lists, and removes a spec entirely over the protocol", async () => {
     const source = join(tempDir, "spec.json");
-    await Bun.write(source, JSON.stringify({ name: "reviewer", cli: "pi" }));
+    await Bun.write(source, JSON.stringify({ name: "reviewer", cli: "pi", model: "some-model" }));
 
     const { client, close } = await connectedClient(
       stubFetch(async () => new Response(null, { status: 204 })),

@@ -16,7 +16,7 @@ function fakeSandbox() {
 }
 
 function baseSpec(overrides: Partial<AgentSpec> = {}): AgentSpec {
-  return { name: "test-agent", cli: "pi", ...overrides };
+  return { name: "test-agent", cli: "pi", model: "some-model", ...overrides };
 }
 
 describe("PiAdapter.install", () => {

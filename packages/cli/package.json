@@ -34,7 +34,8 @@
     "@alineo-labs/sandbox": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
     "@opentui/core": "^0.4.3",
-    "alineo": "workspace:*"
+    "alineo": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@alineo-labs/cli-shared": "workspace:*",
