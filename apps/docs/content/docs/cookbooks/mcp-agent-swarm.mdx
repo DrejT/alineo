@@ -18,7 +18,7 @@ description: The same swarm code review as swarm-code-review, driven entirely th
 />
 
 The same code review swarm as [Swarm Code Review](/docs/cookbooks/swarm-code-review), driven entirely through
-[`alineo-mcp`](/docs/alineod/getting-started/mcp)'s tools instead of raw `alineod` HTTP calls — the MCP client counterpart, useful for
+[`alineo-mcp`](/docs/alineod/mcp)'s tools instead of raw `alineod` HTTP calls — the MCP client counterpart, useful for
 comparing `index.ts` in each recipe side by side line for line. Every tool call below is the same one a chat
 client (Claude Code, Claude Desktop, Cursor) would make if you asked it to run this review for you, once
 `alineo-mcp` is in its `mcpServers` config.
@@ -165,8 +165,8 @@ recipe's `index.ts` side by side.
 </Callout>
 
 <Callout title="Where to go next">
-  [`alineo-mcp`](/docs/alineod/getting-started/mcp) covers every tool and how to configure it in
-  Claude Code, Claude Desktop, or Cursor; [Fan-out and gather](/docs/alineod/guides/fan-out-gather)
-  and [Steering and pausing](/docs/alineod/guides/steering-and-pausing) cover the mechanics used
-  here; the [HTTP API](/docs/alineod/api-reference/http-api) lists every underlying route.
+  [`alineo-mcp`](/docs/alineod/mcp) covers every tool and how to configure it in Claude Code, Claude
+  Desktop, or Cursor; [Fan-out and gather](/docs/alineod/concepts/fan-out-gather) and [Steering and
+  pausing](/docs/agent/concepts/steering) cover the mechanics used here; the [HTTP
+  API](/docs/alineod/api-reference/http-api) lists every underlying route.
 </Callout>

@@ -47,5 +47,5 @@ bun start
 Set `ALINEOD_URL` if the daemon isn't on `http://localhost:4600`. A run takes a few minutes: seven
 sandboxes, one of them sleeping for two.
 
-See [Coordination](https://docs.alineo.tech/docs/alineod/guides/coordination) and
-[Steering and pausing](https://docs.alineo.tech/docs/alineod/guides/steering-and-pausing).
+See [Coordination](https://docs.alineo.tech/docs/alineod/concepts/coordination) and
+[Steering and pausing](https://docs.alineo.tech/docs/agent/concepts/steering).

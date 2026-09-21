@@ -22,7 +22,7 @@ an event schema), any language can drive a swarm without an SDK of its own.
 - **Budgets** — `spawnDepth` and `maxAgents` limits, enforced per lineage, refused with a `budget_denied` event.
 - **Live control** — `steer` a running turn, `pause`/`resume` an agent's container, `stop` an agent or delete a whole run.
 - **One event stream per run** — lifecycle events plus every agent's forwarded harness events, resumable with `Last-Event-ID`.
-- **Drive it from any MCP client** — `npx alineo-mcp` exposes these controls as tools for Claude Code, Claude Desktop, and Cursor. See [MCP server](/docs/alineod/getting-started/mcp).
+- **Drive it from any MCP client** — `npx alineo-mcp` exposes these controls as tools for Claude Code, Claude Desktop, and Cursor. See [MCP server](/docs/alineod/mcp).
 - **Crash-only recovery** — agents run in containers, not as child processes; restart alineod and it reconnects to the swarm without interrupting in-flight turns.
 
 <Cards>

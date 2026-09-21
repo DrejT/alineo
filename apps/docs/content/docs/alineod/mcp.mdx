@@ -100,9 +100,9 @@ Every `alineod_*` tool needs alineod reachable at `ALINEOD_URL` (default `http:/
 - **Ask the client to call `alineo_init`.** It starts OpenSandbox and alineod in Docker, pulling images if
   needed, and writes `alineo.config.json` in the current directory if missing. It forwards any model provider
   key found in `alineo-mcp`'s own environment into the alineod container, which is why the key belongs in the
-  `env` block above. This is the same setup as [`alineo init`](/docs/alineo/commands/init).
-- **Or run alineod yourself**, as described in the [Quickstart](/docs/alineod/getting-started/quickstart) and
-  [Deployment](/docs/alineod/getting-started/deployment), and point `ALINEOD_URL` at it.
+  `env` block above. This is the same setup as [`alineo init`](/docs/cli/commands/init).
+- **Or run alineod yourself**, as described in the [Quickstart](/docs/alineod/quickstart) and
+  [Deployment](/docs/alineod/deployment), and point `ALINEOD_URL` at it.
 
 ## Run a swarm from chat
 
@@ -118,7 +118,7 @@ Behind that, the client makes calls in roughly this order:
 
 ### Get a spec
 
-`alineo_add_spec` fetches an [agent spec](/docs/agent/api-reference/agent) from a URL or local path,
+`alineo_add_spec` fetches an [agent spec](/docs/agent/api-reference/alineo) from a URL or local path,
 validates it, and saves it to the local spec cache. `alineo_list_specs` shows what is already saved.
 
 </Step>
@@ -137,7 +137,7 @@ a `runId` and `rootAgentId` immediately while the root agent is still `provision
 
 `alineod_spawn_agent` forks a child from a live parent (`parentAgentId`). Pass `waitFor` to hold the spawn
 until other agents finish, and `idempotencyKey` so a retried call cannot create a duplicate. This is the same
-[fan-out/gather](/docs/alineod/guides/fan-out-gather) model as the HTTP API.
+[fan-out/gather](/docs/alineod/concepts/fan-out-gather) model as the HTTP API.
 
 </Step>
 <Step>

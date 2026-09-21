@@ -37,7 +37,9 @@
 /docs/alineo/registry/schema                 /docs/cli/registry/schema                    301
 /docs/alineo/using-sandboxes                 /docs/agent/concepts/spec                    301
 /docs/alineod/getting-started/deployment     /docs/alineod/deployment                     301
+/docs/alineod/getting-started/mcp            /docs/alineod/mcp                            301
 /docs/alineod/getting-started/quickstart     /docs/alineod/quickstart                     301
+/docs/alineod/guides/coordination            /docs/alineod/concepts/coordination          301
 /docs/alineod/guides/crash-recovery          /docs/alineod/concepts/crash-recovery        301
 /docs/alineod/guides/fan-out-gather          /docs/alineod/concepts/fan-out-gather        301
 /docs/alineod/guides/how-it-works            /docs/alineod/concepts/how-it-works          301

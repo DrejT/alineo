@@ -1,4 +1,4 @@
 {
   "title": "alineod",
-  "pages": ["index", "quickstart", "concepts", "api-reference", "deployment"]
+  "pages": ["index", "quickstart", "mcp", "concepts", "api-reference", "deployment"]
 }
