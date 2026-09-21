@@ -37,24 +37,29 @@ with `ALINEOD_URL`):
 | `alineo_list_specs`  | List saved agent specs                                       |
 | `alineo_remove_spec` | Remove a saved agent spec                                    |
 
-This mirrors every alineod HTTP route and every `alineo-cli` subcommand except `telemetry`
+This mirrors alineod's core swarm-control routes and every `alineo-cli` subcommand except `telemetry`
 (local opt-in/out toggle, not an orchestration feature) and the CLI's direct-sandbox commands
 (`spawn`/`prompt`/`fork`/`agents`/`kill`/`logs`) — those drive a sandbox from _this_ process via
 `Alineo.load()`; alineod's routes are the equivalent, network-addressable operations for a
 swarm run through the daemon, which is what an MCP client actually talks to.
 
+Not exposed as tools yet: `scope: "subtree"` on pause/resume/stop/steer, `GET
+/agents/:id/transcript`, and the coordination routes (`await`, `notify-on`, inbox) that alineod
+gained after this server was written. They are available over alineod's HTTP API.
+
 ## Install
 
-Not published to npm yet on this branch — for now, build it locally from the repo:
+Nothing to install — an MCP client launches it on demand with `npx -y alineo-mcp` (or
+`bunx alineo-mcp`), which fetches the published package from npm. The client configs below use
+that form.
+
+To run an unreleased change instead, build it locally from the repo and point the client at the
+build (see "A local build" below):
 
 ```bash
 git clone https://github.com/DrejT/alineo.git && cd alineo
 bun install && bun run --cwd packages/mcp build   # → packages/mcp/dist/index.mjs
 ```
-
-Once published, `npx -y alineo-mcp` (or `bunx alineo-mcp`) will fetch and run it with no local
-checkout needed — the client configs below assume that form; swap in
-`bun /absolute/path/to/alineo/packages/mcp/dist/index.mjs` for a local build.
 
 ## Configure a client
 
@@ -95,7 +100,7 @@ claude mcp add alineo --scope project -- npx -y alineo-mcp
 claude mcp add alineo --env ALINEOD_URL=http://127.0.0.1:4600 -- npx -y alineo-mcp
 ```
 
-**A local build** (this branch, before publishing), in any of the configs above:
+**A local build**, in any of the configs above:
 
 ```json
 {
