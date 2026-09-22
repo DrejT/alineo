@@ -496,6 +496,7 @@
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/memory": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/schema": "workspace:*",
         "zod": "^4.4.3",
       },
       "devDependencies": {

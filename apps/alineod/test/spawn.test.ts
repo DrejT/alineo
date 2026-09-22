@@ -92,14 +92,17 @@ describe("spawning a child", () => {
     expect(run.root.spawns).toHaveLength(2);
   });
 
+  // The specs here have to be VALID, or every case 400s on body validation before the thing
+  // it is actually testing is reached — alineod validates the AgentSpec at the boundary now,
+  // rather than passing it through opaquely for the SDK to reject later.
   test.each([
-    ["no parentAgentId", { spec: { name: "w" } }, 400],
+    ["no parentAgentId", { spec: spec("w") }, 400],
     ["no spec", { parentAgentId: "PARENT" }, 400],
-    ["a parent from another run", { parentAgentId: "OTHER", spec: { name: "w" } }, 404],
-    ["an unknown parent", { parentAgentId: "a_missing", spec: { name: "w" } }, 404],
+    ["a parent from another run", { parentAgentId: "OTHER", spec: spec("w") }, 404],
+    ["an unknown parent", { parentAgentId: "a_missing", spec: spec("w") }, 404],
     [
       "waitFor on an unknown agent",
-      { parentAgentId: "PARENT", spec: { name: "w" }, waitFor: ["a_missing"] },
+      { parentAgentId: "PARENT", spec: spec("w"), waitFor: ["a_missing"] },
       400,
     ],
   ])("rejects %s", async (_label, body, status) => {
