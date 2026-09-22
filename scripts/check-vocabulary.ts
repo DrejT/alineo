@@ -66,10 +66,21 @@ const NOT_INVOCATIONS = new Set([
 /**
  * Not scanned for command strings.
  *
- * Changelogs are the record of what shipped *then*; rewriting an old entry to use today's
+ * Changelogs and the changesets that become them are the record of what shipped *then*.
+ * A release note announcing a rename has to name what it renamed; rewriting it to today's
  * spelling would make the history lie about what that release actually exposed.
+ *
+ * This file is skipped because it is the one place a retired name is data rather than
+ * documentation — the fixtures below prove the patterns still catch `alineo kill` and
+ * `alineo ps`, which means it must be allowed to contain them.
  */
-const SKIP = [/(^|\/)CHANGELOG\.md$/, /^plans\//, /^research\//];
+const SKIP = [
+  /(^|\/)CHANGELOG\.md$/,
+  /^\.changeset\//,
+  /^scripts\/check-vocabulary\.ts$/,
+  /^plans\//,
+  /^research\//,
+];
 
 const registered = new Set(commands.map((c) => c.name));
 
