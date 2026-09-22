@@ -13,7 +13,7 @@ test("GET /health", async () => {
 describe("POST /runs", () => {
   test("accepts immediately and records the root before provisioning finishes", async () => {
     const gate = deferred();
-    fakeSdk.loadGate = gate.promise;
+    fakeSdk.startGate = gate.promise;
 
     const res = await call("POST", "/runs", { spec: spec("coordinator") });
     expect(res.status).toBe(202);
@@ -67,7 +67,7 @@ describe("POST /runs", () => {
   });
 
   test("a provisioning failure ends the root as failed with the error", async () => {
-    fakeSdk.loadError = new Error("image pull failed");
+    fakeSdk.startError = new Error("image pull failed");
     const res = await call("POST", "/runs", { spec: spec("root") });
     expect(res.status).toBe(202);
 
