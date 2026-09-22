@@ -611,7 +611,7 @@ export async function spawnChild(
   // record — read from process.env, not self.env, since this code runs as a real CLI
   // process inside the parent's sandbox (same reasoning as ALINEO_SPAWN_DEPTH above),
   // and passed explicitly to fork() because a freshly-`Alineo.attach()`ed self (the
-  // `alineo fork` self-attach case) has no in-memory closure carrying it forward.
+  // `alineo spawn` self-attach case) has no in-memory closure carrying it forward.
   const runId = process.env.ALINEO_RUN_ID ?? crypto.randomUUID();
   const log = agentLog.child(
     process.env.ALINEO_RUN_ID ? { name: childSpec.name, runId } : { name: childSpec.name },

@@ -21,7 +21,7 @@ export interface SandboxDetails {
    * `crypto.randomUUID()` if the caller didn't supply one via `SandboxOptions.runId`.
    * A resumed, forked, or restored-from-snapshot sandbox always inherits its origin's
    * `runId` rather than getting a new one, so every sandbox descended from the same
-   * root call (directly or via `sb.fork()`/`Alineo.spawn()`/`alineo fork`) shares it —
+   * root call (directly or via `sb.fork()`/`Alineo.spawn()`/`alineo spawn`) shares it —
    * the mechanism `client.sandboxes.list({ runId })` correlates on.
    */
   runId: string;

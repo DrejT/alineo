@@ -30,7 +30,7 @@ export function createRun(body: CreateRunBody): CreateRunResult {
   const rootAgentId = newAgentId();
 
   // alineod owns the spawn-depth budget because it drives `.spawn()` from outside any sandbox
-  // (the SDK's ALINEO_SPAWN_DEPTH env mechanism only applies to in-sandbox `alineo fork`).
+  // (the SDK's ALINEO_SPAWN_DEPTH env mechanism only applies to in-sandbox `alineo spawn`).
   const specDepth = numeric(body.spec.spawnDepth);
   const specMax = numeric(body.spec.maxAgents);
   const specName = (body.spec.name as string | undefined) ?? "agent";

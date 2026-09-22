@@ -40,6 +40,7 @@
     "typecheck": "bun scripts/workspace-run.ts typecheck",
     "test": "bun scripts/workspace-run.ts test",
     "test:integration": "bun run --cwd tests/integration test",
+    "check:vocabulary": "bun scripts/check-vocabulary.ts",
     "lint": "oxlint packages examples cookbooks && oxlint -c .oxlintrc.console.json apps/alineod apps/sandbox/server",
     "lint:fix": "oxlint --fix packages examples cookbooks",
     "format": "oxfmt packages examples cookbooks apps \"!**/CHANGELOG.md\"",
@@ -48,6 +49,7 @@
     "release:publish": "bun scripts/resolve-workspace-protocol.ts && bun changeset publish"
   },
   "devDependencies": {
+    "@alineo-labs/schema": "workspace:*",
     "@changesets/cli": "3.0.2",
     "@oxlint/plugins": "^1.82.0",
     "oxfmt": "^0.67.0",

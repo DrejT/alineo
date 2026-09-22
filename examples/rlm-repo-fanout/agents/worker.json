@@ -2,7 +2,7 @@
   "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "rlm-fanout-worker",
   "title": "RLM Fan-out Worker",
-  "description": "A child spec run via `alineo fork` — never installed directly. No alineo install, no alineo.config.json, no spawnDepth: it never calls back into alineo and Agent.spawn() force-sets its ALINEO_SPAWN_DEPTH to 0 regardless of what's here.",
+  "description": "A child spec run via `alineo spawn` — never installed directly. No alineo install, no alineo.config.json, no spawnDepth: it never calls back into alineo and Agent.spawn() force-sets its ALINEO_SPAWN_DEPTH to 0 regardless of what's here.",
   "author": "alineo",
   "cli": "pi",
   "provider": "nvidia",

@@ -5,6 +5,7 @@
     "": {
       "name": "drej",
       "devDependencies": {
+        "@alineo-labs/schema": "workspace:*",
         "@changesets/cli": "3.0.2",
         "@oxlint/plugins": "^1.82.0",
         "oxfmt": "^0.67.0",

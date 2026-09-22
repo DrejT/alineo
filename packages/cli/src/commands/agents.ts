@@ -25,7 +25,7 @@ export async function agents(opts: { json?: boolean } = {}): Promise<void> {
     );
   }
   if (tracked.length === 0) {
-    console.log("(no running alineo-tracked sessions — run 'alineo spawn <spec>' to start one)");
+    console.log("(no running alineo-tracked sessions — run 'alineo start <spec>' to start one)");
   }
 
   if (untracked.length > 0) {

@@ -24,7 +24,7 @@
       "run": "mkdir -p agents && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.alineo/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > alineo.config.json"
     },
     {
-      "name": "Add a child spec for alineo spawn to launch",
+      "name": "Add a child spec for alineo start to launch",
       "run": "printf '{\"name\":\"hello-agent\",\"cli\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3.5-lightning-30b-a3b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/hello-agent.json"
     }
   ]

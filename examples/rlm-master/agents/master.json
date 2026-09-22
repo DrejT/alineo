@@ -2,7 +2,7 @@
   "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "rlm-master",
   "title": "RLM Master (generic)",
-  "description": "Reusable RLM orchestrator master. Not tied to any one task — spawn it with `alineo spawn ./agents/master.json --prompt \"<any goal>\"` and it decides for itself whether the goal is worth decomposing, using alineo fork to spin up children from its own live state if so.",
+  "description": "Reusable RLM orchestrator master. Not tied to any one task — spawn it with `alineo start ./agents/master.json --prompt \"<any goal>\"` and it decides for itself whether the goal is worth decomposing, using alineo spawn to spin up children from its own live state if so.",
   "author": "alineo",
   "cli": "pi",
   "provider": "nvidia",
@@ -28,7 +28,7 @@
       "run": "mkdir -p .alineo && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.alineo/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > alineo.config.json"
     },
     {
-      "name": "Enable the alineo Pi extension (dynamic alineo fork guidance, no hardcoded task syntax)",
+      "name": "Enable the alineo Pi extension (dynamic alineo spawn guidance, no hardcoded task syntax)",
       "run": "mkdir -p .pi/extensions && cp \"$(npm root -g)/alineo-cli/pi-extension/alineo.ts\" .pi/extensions/alineo.ts"
     },
     {

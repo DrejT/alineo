@@ -64,15 +64,15 @@ Also respects `ALINEO_TELEMETRY_DISABLED=1` and the cross-tool `DO_NOT_TRACK=1` 
 
 ## Alineo — session lifecycle
 
-These wrap `alineo`'s `Alineo.load()`/`Alineo.resume()`/`Alineo.attach()`/`Alineo.spawn()`. Sessions are always addressed by **sandbox ID**, not name — names aren't unique (running `alineo spawn` twice on the same spec produces two sandboxes with the same name), and a name-based lookup can hand back a sandbox that already died ungracefully. `alineo spawn`/`alineo fork` print the sandbox ID; save it.
+These wrap `alineo`'s `Alineo.load()`/`Alineo.resume()`/`Alineo.attach()`/`Alineo.spawn()`. Sessions are always addressed by **sandbox ID**, not name — names aren't unique (running `alineo start` twice on the same spec produces two sandboxes with the same name), and a name-based lookup can hand back a sandbox that already died ungracefully. `alineo start`/`alineo spawn` print the sandbox ID; save it.
 
-### `alineo spawn <spec> [--prompt <msg>] [--rebuild] [--depth <n>] [--max <n>] [--json]`
+### `alineo start <spec> [--prompt <msg>] [--rebuild] [--depth <n>] [--max <n>] [--json]`
 
 Start a **brand-new, independent** agent sandbox from a spec's own snapshot. This is the entry point for a fresh session — e.g. a host-level Pi session starting the master of a recursive-agent run.
 
 ```bash
-alineo spawn ./agents/my-agent.json
-alineo spawn ./agents/my-agent.json --prompt "Explain this repo" --json
+alineo start ./agents/my-agent.json
+alineo start ./agents/my-agent.json --prompt "Explain this repo" --json
 ```
 
 - `--rebuild` forces a full reinstall instead of restoring from the cached snapshot.
@@ -87,17 +87,17 @@ Send one prompt to a running sandbox and print the reply.
 alineo prompt 4af65c3b-24a2-4fd1-999d-918faa9b97fd "What's in /tmp?"
 ```
 
-`--spec <path>` skips the ledger lookup for the spec file — needed when the sandbox's own creation event lives in a different ledger than this CLI invocation's own (e.g. a child spawned via `alineo fork` from inside another sandbox).
+`--spec <path>` skips the ledger lookup for the spec file — needed when the sandbox's own creation event lives in a different ledger than this CLI invocation's own (e.g. a child spawned via `alineo spawn` from inside another sandbox).
 
-### `alineo fork <name> <child-spec> [--prompt <msg>] [--depth <n>] [--max <n>] [--json]`
+### `alineo spawn <parent> <child-spec> [--prompt <msg>] [--depth <n>] [--max <n>] [--json]`
 
-Fork **your own currently-running session's live sandbox** — filesystem, installed packages, everything on disk right now — into a brand-new independent child. Meant to be run by that session's own Pi bash tool: `name` is the _caller's own_ running session (used only to resolve its sandbox ID; not the child's).
+Spawn a child from **your own currently-running session's live sandbox** — filesystem, installed packages, everything on disk right now. Meant to be run by that session's own Pi bash tool: `parent` is the _caller's own_ running session (used only to resolve its sandbox ID; not the child's).
 
 ```bash
-alineo fork my-session ./agents/worker.json --prompt "Handle the auth module"
+alineo spawn my-session ./agents/worker.json --prompt "Handle the auth module"
 ```
 
-Unlike `alineo spawn` (always starts from a spec's own snapshot), `alineo fork` sees exactly what the calling sandbox sees right now, including uncommitted work — no install/setup steps run.
+Unlike `alineo start` (always starts from a spec's own snapshot), `alineo spawn` sees exactly what the calling sandbox sees right now, including uncommitted work — no install/setup steps run.
 
 ### `alineo agents [--json]`
 
@@ -107,12 +107,12 @@ List running agent sessions. Cross-checks the local ledger's "Running" entries a
 alineo agents
 ```
 
-### `alineo kill <sandbox-id>`
+### `alineo stop <sandbox-id>`
 
 Stop a sandbox.
 
 ```bash
-alineo kill 4af65c3b-24a2-4fd1-999d-918faa9b97fd
+alineo stop 4af65c3b-24a2-4fd1-999d-918faa9b97fd
 ```
 
 ### `alineo logs <name> [--json]`
@@ -129,9 +129,9 @@ Print the installed version.
 
 ---
 
-## Recursive spawning (`alineo fork`)
+## Recursive spawning (`alineo spawn`)
 
-A spec's `spawnDepth` is a nesting-depth budget — required for `alineo fork` to be allowed from inside a session at all. Each fork force-decrements it (`current - 1`) into the child's env; `0` means no budget left, `undefined` means forking was never enabled for that spec.
+A spec's `spawnDepth` is a nesting-depth budget — required for `alineo spawn` to be allowed from inside a session at all. Each spawn force-decrements it (`current - 1`) into the child's env; `0` means no budget left, `undefined` means spawning was never enabled for that spec.
 
 `maxAgents` is a separate, optional ceiling on total descendants for one lineage, independent of nesting depth. Unset means uncapped. **Not** coordinated across sibling branches spawned in parallel — it's a per-lineage counter, not a global one.
 
@@ -151,7 +151,7 @@ A spec's `spawnDepth` is a nesting-depth budget — required for `alineo fork` t
 `pi install npm:alineo` installs the alineo extension into Pi at user scope. Once installed, any Pi session:
 
 - Bootstraps `alineo` automatically on first use (installs it, runs `alineo init`) — no manual setup.
-- Gets `alineo spawn`/`alineo fork` CLI syntax injected into its own guidance, dynamically chosen based on whether the current session is itself running inside a alineo-managed sandbox.
+- Gets `alineo start`/`alineo spawn` CLI syntax injected into its own guidance, dynamically chosen based on whether the current session is itself running inside a alineo-managed sandbox.
 
 The extension source lives at `pi-extension/alineo.ts` in this package.
 

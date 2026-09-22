@@ -185,12 +185,12 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
   src/commands/add.ts             — alineo add <url>: fetches an agent spec, saves it locally
   src/commands/list.ts            — alineo list: lists saved agent specs
   src/commands/remove.ts          — alineo remove <name>: deletes a saved agent spec
-  src/commands/spawn.ts           — alineo spawn <spec>: Alineo.load() a fresh, independent agent sandbox
+  src/commands/start.ts           — alineo start <spec>: Alineo.load() a fresh, independent agent sandbox
   src/commands/prompt.ts          — alineo prompt <sandbox-id> <msg>: Alineo.resume() + send one prompt
-  src/commands/fork.ts            — alineo fork <name> <child-spec>: Alineo.attach() + spawn() a child from a live sandbox
+  src/commands/spawn.ts           — alineo spawn <parent> <child-spec>: Alineo.attach() + spawn() a child from a live sandbox
   src/commands/agents.ts          — alineo agents: lists running sessions (ledger cross-checked against the live
                                     OpenSandbox control plane, not trusted alone — see sessions-data.ts)
-  src/commands/kill.ts            — alineo kill <sandbox-id>: closes a sandbox by ID
+  src/commands/stop.ts            — alineo stop <sandbox-id>: closes a sandbox by ID
   src/commands/logs.ts            — alineo logs <name>: prints ledger events for a session
   src/schema.ts                   — RegistryItem interface + validateRegistryItem()
   src/sessions-data.ts            — getSessions(): ledger "Running" entries cross-checked against a live

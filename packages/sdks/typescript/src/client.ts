@@ -529,7 +529,7 @@ export class Sandbox {
    * @param opts.runId  Default run-correlation ID for any later `.fork()` call on the
    *   returned `SandboxHandle`. `connect()` has no way to discover the sandbox's original
    *   `runId` (no ledger lookup is attempted — the caller may be using a completely
-   *   different adapter than whatever originally created it, as `alineo fork` does when
+   *   different adapter than whatever originally created it, as `alineo spawn` does when
    *   self-attaching). Omit this and pass `runId` explicitly to `.fork()` itself instead.
    *
    * @example

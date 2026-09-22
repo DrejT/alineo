@@ -7,10 +7,10 @@ import type { CliCommand } from "./types.js";
  * Addressed by sandbox ID, not session name — see prompt.ts for why: names
  * aren't unique and a name-based ledger lookup can hand back a sandbox that
  * already died ungracefully. `client.connect()`'s live control-plane check
- * is the actual authority on whether it still exists to kill.
+ * is the actual authority on whether it still exists to stop.
  */
-export async function kill(sandboxId: string): Promise<void> {
-  if (!sandboxId) throw new Error("Usage: alineo kill <sandbox-id>");
+export async function stop(sandboxId: string): Promise<void> {
+  if (!sandboxId) throw new Error("Usage: alineo stop <sandbox-id>");
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
@@ -23,14 +23,14 @@ export async function kill(sandboxId: string): Promise<void> {
 
   const sb = await client.connect(sandboxId, sandboxId);
   await sb.close();
-  console.log(`Killed sandbox ${sandboxId}`);
+  console.log(`Stopped sandbox ${sandboxId}`);
 }
 
-export const killCommand: CliCommand = {
-  name: "kill",
+export const stopCommand: CliCommand = {
+  name: "stop",
   group: "agent",
-  variants: [{ usage: "alineo kill <sandbox-id>", summary: "Stop a sandbox" }],
+  variants: [{ usage: "alineo stop <sandbox-id>", summary: "Stop a sandbox" }],
   run: async (argv) => {
-    await kill(argv[0] ?? "");
+    await stop(argv[0] ?? "");
   },
 };

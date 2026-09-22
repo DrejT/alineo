@@ -6,12 +6,12 @@
     "add",
     "list",
     "remove",
-    "spawn",
+    "start",
     "prompt",
-    "fork",
+    "spawn",
     "steer",
     "agents",
-    "kill",
+    "stop",
     "logs"
   ]
 }

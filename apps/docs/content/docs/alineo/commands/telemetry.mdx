@@ -25,16 +25,16 @@ bunx alineo-cli telemetry status|enable|disable
 
 Never anything beyond this:
 
-| Field                                                      | Example                                                                            |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `command`                                                  | `"spawn"`                                                                          |
-| `flags`                                                    | `{ "json": true, "prompt": false }` — presence only, never values                  |
-| `specProvider`                                             | `"nvidia"` — `spawn`/`fork` only, read from the target spec's own `provider` field |
-| `outcome`                                                  | `"success"` or `"error"`                                                           |
-| `errorClass`                                               | `"CommandError"` — the error's constructor name only, never its message            |
-| `durationMs`                                               | `842`                                                                              |
-| `cliVersion`, `osPlatform`, `osArch`, `bunVersion`, `isCI` | environment metadata                                                               |
-| `anonymousId`                                              | a random UUID generated once per machine                                           |
+| Field                                                      | Example                                                                             |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `command`                                                  | `"spawn"`                                                                           |
+| `flags`                                                    | `{ "json": true, "prompt": false }` — presence only, never values                   |
+| `specProvider`                                             | `"nvidia"` — `start`/`spawn` only, read from the target spec's own `provider` field |
+| `outcome`                                                  | `"success"` or `"error"`                                                            |
+| `errorClass`                                               | `"CommandError"` — the error's constructor name only, never its message             |
+| `durationMs`                                               | `842`                                                                               |
+| `cliVersion`, `osPlatform`, `osArch`, `bunVersion`, `isCI` | environment metadata                                                                |
+| `anonymousId`                                              | a random UUID generated once per machine                                            |
 
 **Never collected**: raw `argv`, flag values, file paths, spec contents, prompts, sandbox output, or anything else that could identify you or your code.
 
@@ -65,9 +65,9 @@ bunx alineo-cli telemetry disable
 or by setting either env var, which take priority over the persisted config and require no config file read at all:
 
 ```bash
-ALINEO_TELEMETRY_DISABLED=1 alineo spawn ./agents/my-agent.json
+ALINEO_TELEMETRY_DISABLED=1 alineo start ./agents/my-agent.json
 # or the cross-tool convention:
-DO_NOT_TRACK=1 alineo spawn ./agents/my-agent.json
+DO_NOT_TRACK=1 alineo start ./agents/my-agent.json
 ```
 
 ## Notes

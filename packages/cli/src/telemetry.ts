@@ -117,7 +117,7 @@ export async function sendTelemetryEvent(
 /** Per-command allowlist of flags safe to record *presence of* -- never their values, never raw
  * argv. A flag not listed here is invisible to telemetry until someone deliberately adds it;
  * under-collecting is the only failure mode. Keys match each command's own `flag(argv, "--x")`/
- * `argv.includes("--x")` calls (see commands/spawn.ts, fork.ts, prompt.ts, agents.ts, logs.ts). */
+ * `argv.includes("--x")` calls (see commands/start.ts, spawn.ts, prompt.ts, agents.ts, logs.ts). */
 const FLAG_ALLOWLIST: Record<string, string[]> = {
   spawn: ["--prompt", "--rebuild", "--json", "--depth", "--max", "--timeout", "--run-id"],
   fork: ["--prompt", "--json", "--depth", "--max", "--timeout"],
