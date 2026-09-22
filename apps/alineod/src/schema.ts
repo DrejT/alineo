@@ -2,16 +2,21 @@
  * The wire contract, as Zod. One source of truth → route validators AND the emitted
  * `specs/alineod/openapi.json` + `events.schema.json` (research/daemon.md §2, §7).
  *
- * `AgentSpec` itself is validated by the SDK's own `validateAgentSpec()` inside `Alineo.start()`
- * / `.spawn()`, so here it's an opaque object — alineod does not re-model it.
+ * `AgentSpec` is the real schema from `@alineo-labs/schema`, not a re-model. It used to be
+ * `z.record(z.string(), z.unknown())` here — an opaque pass-through, on the reasoning that the
+ * SDK owns its validation. That reasoning holds for *validation* and not for the wire
+ * contract: it meant `specs/alineod/openapi.json` documented alineod's most important request
+ * body as "some object".
  */
 import { z } from "zod";
-import { allEvents } from "@alineo-labs/schema";
+import { AgentSpecSchema, allEvents } from "@alineo-labs/schema";
 
-/** Opaque pass-through: the SDK owns `AgentSpec` validation. */
-export const AgentSpec = z
-  .record(z.string(), z.unknown())
-  .describe("alineo AgentSpec (validated by the SDK)");
+/**
+ * The SDK still validates it for real, inside `Alineo.start()` / `.spawn()`, with the error
+ * aggregation and the renamed-field hints. This is the same schema, used here so the emitted
+ * spec describes the shape a caller actually has to send.
+ */
+export const AgentSpec = AgentSpecSchema;
 
 export const BudgetOverride = z
   .object({

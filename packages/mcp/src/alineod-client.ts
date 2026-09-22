@@ -4,10 +4,16 @@
  * alineod's internal Zod schemas — alineod is "standalone by design" (its own README) and this
  * package talks to it the same way any external MCP client would: over HTTP.
  *
- * `spec` fields below are `Record<string, unknown>`, not `AgentSpec` from `alineo` — an MCP
- * tool receives arbitrary unvalidated JSON from the caller, and alineod's own wire schema
- * (`apps/alineod/src/schema.ts`'s `AgentSpec = z.record(z.string(), z.unknown())`) treats it
- * the same way: opaque here, validated server-side by the SDK's own `Alineo.start()`/`.spawn()`.
+ * `spec` fields below stay `Record<string, unknown>`, not `AgentSpec` — an MCP tool receives
+ * arbitrary unvalidated JSON from a model, and typing it as an `AgentSpec` would claim a
+ * guarantee this side of the wire cannot make. alineod validates it for real now (its wire
+ * schema is `@alineo-labs/schema`'s `AgentSpecSchema`, no longer an opaque record), so an
+ * invalid spec comes back as a 400 naming the bad field rather than failing later inside
+ * `Alineo.start()`.
+ *
+ * The interfaces below still mirror alineod's wire contract by hand. Now that the contract
+ * itself is a published package, pointing them at it would delete that duplication — the
+ * original reason not to (alineod's schemas being internal) no longer holds.
  */
 
 export class AlineodError extends Error {

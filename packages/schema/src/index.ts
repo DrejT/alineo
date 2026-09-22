@@ -19,4 +19,15 @@ export * as HarnessEvents from "./events/harness";
 export * as WorkflowEvents from "./events/workflow";
 export * as AlineodEvents from "./events/alineod";
 
+export type {
+  NormalizedPermissionPolicy,
+  PermissionAction,
+  PermissionMode,
+  PermissionPolicy,
+  PermissionRule,
+} from "./permissions";
+
+export { AgentSpecSchema } from "./agent-spec";
+export type { AgentSpec, CredentialEnvBinding, SetupStep } from "./agent-spec";
+
 export { RENAMED_EVENTS, renamedEventType } from "./renames";
