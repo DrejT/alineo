@@ -6,6 +6,7 @@
     "packages/opensandbox",
     "packages/logger",
     "packages/config-shared",
+    "packages/schema",
     "packages/sdks/typescript",
     "packages/workflow",
     "packages/adapters/postgres",
