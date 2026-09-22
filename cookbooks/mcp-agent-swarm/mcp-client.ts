@@ -11,12 +11,12 @@ import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
 // The SDK's own default request timeout (60s) is too tight for this recipe: several tools here
-// long-poll server-side on their own bound (alineod_get_result's waitSeconds,
-// alineod_watch_events's maxWaitSeconds, alineod_spawn_agent's waitFor) that can legitimately
+// long-poll server-side on their own bound (result_get's waitSeconds,
+// run_watch's maxWaitSeconds, agent_spawn's waitFor) that can legitimately
 // exceed 60s under real model latency — a real run hit the default ceiling at three different
 // call sites in a row. Give every call real headroom by default; a caller can still pass a
 // longer timeoutMs for a specific call expected to run past this.
-const DEFAULT_TIMEOUT_MS = 150_000; // headroom above alineod_get_result's own 120s waitSeconds default
+const DEFAULT_TIMEOUT_MS = 150_000; // headroom above result_get's own 120s waitSeconds default
 
 export interface AlineoMcpConnection {
   // eslint-disable-next-line typescript/no-explicit-any -- recipe-local, untyped like swarm-code-review's api()

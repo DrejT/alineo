@@ -16,6 +16,11 @@
  *
  * Ordered by layer rather than alphabetically — control plane, then the agent loop, then the
  * substrate, then the operator-facing objects — because that is how the surfaces group.
+ *
+ * `event`, `result` and `transcript` are the records a run leaves behind. They joined the list
+ * when the HTTP and MCP checks landed and found them already on the wire
+ * (`GET /agents/:id/transcript`, `GET /runs/:id/events`): they were vocabulary in use, just not
+ * written down.
  */
 export const SUBJECTS = [
   "run",
@@ -42,6 +47,9 @@ export const SUBJECTS = [
   "queue",
   "spec",
   "environment",
+  "event",
+  "result",
+  "transcript",
 ] as const;
 
 /**
@@ -74,6 +82,7 @@ export const VERBS = [
   "get",
   "watch",
   "init",
+  "deliver",
 ] as const;
 
 export type Subject = (typeof SUBJECTS)[number];

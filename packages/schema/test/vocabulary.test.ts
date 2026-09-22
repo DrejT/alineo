@@ -68,10 +68,17 @@ describe("parseName", () => {
     });
   });
 
-  it("rejects the tool names in use today", () => {
+  it("rejects the binary-prefixed tool names this vocabulary replaced", () => {
     expect(parseName("alineod_create_run", "_")).toBeNull();
     expect(parseName("alineod_spawn_agent", "_")).toBeNull();
     expect(parseName("alineo_add_spec", "_")).toBeNull();
+  });
+
+  it("accepts the tool names that replaced them", () => {
+    expect(parseName("run_start", "_")).toEqual({ subject: "run", verb: "start" });
+    expect(parseName("agent_spawn", "_")).toEqual({ subject: "agent", verb: "spawn" });
+    expect(parseName("spec_add", "_")).toEqual({ subject: "spec", verb: "add" });
+    expect(parseName("result_get", "_")).toEqual({ subject: "result", verb: "get" });
   });
 
   it("rejects a name with a good half and a bad half", () => {

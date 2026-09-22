@@ -10,7 +10,7 @@
  *
  * Along the way the operator (this script) pauses/resumes the correctness reviewer and steers
  * the security reviewer onto a narrower brief — without restarting either. Progress streams via
- * repeated alineod_watch_events calls (an MCP tool call is request/response, so it's a bounded
+ * repeated run_watch calls (an MCP tool call is request/response, so it's a bounded
  * poll-and-collect rather than one open SSE connection — see packages/mcp/README.md).
  *
  * Needs alineo-mcp built (bun run --cwd ../../packages/mcp build) and a running alineod with
@@ -31,7 +31,7 @@ const mcp = await connectAlineoMcp({
 
 async function waitLive(agentId: string): Promise<void> {
   for (;;) {
-    const agent = await mcp.call("alineod_get_agent", { agentId });
+    const agent = await mcp.call("agent_get", { agentId });
     if (agent.sandboxId) return;
     if (agent.outcome) throw new Error(`${agent.specName} ended before starting: ${agent.outcome}`);
     await Bun.sleep(2_000);
@@ -43,7 +43,7 @@ async function waitResult(
   waitSeconds = 120,
 ): Promise<{ outcome: string; result: string }> {
   for (;;) {
-    const res = await mcp.call("alineod_get_result", { agentId, waitSeconds });
+    const res = await mcp.call("result_get", { agentId, waitSeconds });
     if (res.state === "settled") return { outcome: res.outcome, result: res.result ?? "" };
   }
 }
@@ -51,7 +51,7 @@ async function waitResult(
 const labels = new Map<string, string>();
 const label = (agentId: string | null) => (agentId && labels.get(agentId)) || "run";
 
-// Polls alineod_watch_events on an interval instead of holding one SSE connection — each call is
+// Polls run_watch on an interval instead of holding one SSE connection — each call is
 // a bounded window (default 20s here) that resumes from the last event id it saw.
 async function watch(runId: string, stopSignal: { stopped: boolean }): Promise<void> {
   let sinceEventId = 0;
@@ -62,7 +62,7 @@ async function watch(runId: string, stopSignal: { stopped: boolean }): Promise<v
     // round" rather than letting an unhandled rejection crash the process.
     let events: unknown[];
     try {
-      events = await mcp.call("alineod_watch_events", { runId, sinceEventId, maxWaitSeconds: 20 });
+      events = await mcp.call("run_watch", { runId, sinceEventId, maxWaitSeconds: 20 });
     } catch {
       continue;
     }
@@ -84,10 +84,8 @@ async function watch(runId: string, stopSignal: { stopped: boolean }): Promise<v
 
 // ── 1. the lead checks out the repository once ──────────────────────────────
 
-console.log(
-  "Starting the review lead via alineod_create_run (first run installs git and clones)...",
-);
-const run = await mcp.call("alineod_create_run", {
+console.log("Starting the review lead via run_start (first run installs git and clones)...");
+const run = await mcp.call("run_start", {
   spec: lead,
   prompt:
     "Run `git -C /workspace/cors log --oneline -1` with your bash tool and reply with only its output.",
@@ -100,7 +98,7 @@ await waitLive(run.rootAgentId);
 const commit = await waitResult(run.rootAgentId);
 console.log(`\nReviewing expressjs/cors at ${commit.result.trim()}\n`);
 
-// ── 2. fork one reviewer per concern via alineod_spawn_agent ────────────────
+// ── 2. fork one reviewer per concern via agent_spawn ────────────────
 
 const concerns = {
   security: "security: origin validation and reflection, credentials handling, header injection",
@@ -109,7 +107,7 @@ const concerns = {
 
 const reviewers: Record<string, string> = {};
 for (const [key, focus] of Object.entries(concerns)) {
-  const child = await mcp.call("alineod_spawn_agent", {
+  const child = await mcp.call("agent_spawn", {
     runId: run.runId,
     parentAgentId: run.rootAgentId,
     spec: { ...reviewer, name: `reviewer-${key}` },
@@ -125,13 +123,13 @@ for (const [key, focus] of Object.entries(concerns)) {
 }
 await Promise.all(Object.values(reviewers).map(waitLive));
 
-// ── 3. intervene while they work, via alineod_pause_agent/resume_agent/steer_agent ──
+// ── 3. intervene while they work, via agent_pause/resume_agent/steer_agent ──
 
-await mcp.call("alineod_pause_agent", { agentId: reviewers.correctness });
+await mcp.call("agent_pause", { agentId: reviewers.correctness });
 await Bun.sleep(5_000);
-await mcp.call("alineod_resume_agent", { agentId: reviewers.correctness });
+await mcp.call("agent_resume", { agentId: reviewers.correctness });
 
-await mcp.call("alineod_steer_agent", {
+await mcp.call("agent_steer", {
   agentId: reviewers.security,
   message:
     "Priority change from the lead: concentrate on what happens when `origin` is `true` or a function " +
@@ -142,7 +140,7 @@ await mcp.call("alineod_steer_agent", {
 
 const areaOf = Object.fromEntries(Object.entries(reviewers).map(([k, id]) => [id, k]));
 const final = await mcp.call(
-  "alineod_spawn_agent",
+  "agent_spawn",
   {
     runId: run.runId,
     parentAgentId: run.rootAgentId,
@@ -172,10 +170,10 @@ writeFileSync("review.md", report.result);
 console.log(`\n${report.result}\n`);
 console.log("Written to review.md\n");
 
-const tree = await mcp.call("alineod_get_run", { runId: run.runId });
+const tree = await mcp.call("run_get", { runId: run.runId });
 for (const a of tree.agents) {
   console.log(`${"  ".repeat(a.depth)}${label(a.agentId).padEnd(22)} ${a.outcome ?? a.state}`);
 }
 
-await mcp.call("alineod_delete_run", { runId: run.runId });
+await mcp.call("run_stop", { runId: run.runId });
 await mcp.close();
