@@ -649,6 +649,16 @@
         "vitest": "5.0.0",
       },
     },
+    "packages/schema": {
+      "name": "@alineo-labs/schema",
+      "version": "0.1.0",
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "tsdown": "0.23.0",
+        "typescript": "6.0.3",
+        "vitest": "5.0.0",
+      },
+    },
     "packages/sdks/typescript": {
       "name": "@alineo-labs/sandbox",
       "version": "0.4.3",
@@ -746,6 +756,8 @@
     "@alineo-labs/sandbox": ["@alineo-labs/sandbox@workspace:packages/sdks/typescript"],
 
     "@alineo-labs/sandbox-app": ["@alineo-labs/sandbox-app@workspace:apps/sandbox"],
+
+    "@alineo-labs/schema": ["@alineo-labs/schema@workspace:packages/schema"],
 
     "@alineo-labs/sqlite": ["@alineo-labs/sqlite@workspace:packages/adapters/sqlite"],
 
