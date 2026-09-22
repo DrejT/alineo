@@ -31,6 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@alineo-labs/schema": "workspace:*",
     "@modelcontextprotocol/server": "^2.0.0",
     "alineo": "workspace:*",
     "zod": "^4"

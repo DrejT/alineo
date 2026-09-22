@@ -10,14 +10,10 @@ export type { DurableRef, EventRef, LedgerEnvelope, PersistedEnvelope } from "./
 export { allEvents, defineEvent, durableEvents, getEvent } from "./define";
 export type { EnvelopeOf, EventData, EventDefinition } from "./define";
 
-// Importing each file for its side effect is what fills the registry. A consumer that only
-// wants one namespace still gets a complete `allEvents()`, which is what the conformance
-// check and the drift guards read.
-export * as SandboxEvents from "./events/sandbox";
-export * as AgentEvents from "./events/agent";
-export * as HarnessEvents from "./events/harness";
-export * as WorkflowEvents from "./events/workflow";
-export * as AlineodEvents from "./events/alineod";
+// Importing every event file is what fills the registry. A consumer that only wants one
+// namespace still gets a complete `allEvents()`, which is what the conformance check and the
+// drift guards read.
+export * from "./events";
 
 export type {
   NormalizedPermissionPolicy,
@@ -29,5 +25,12 @@ export type {
 
 export { AgentSpecSchema } from "./agent-spec";
 export type { AgentSpec, CredentialEnvBinding, SetupStep } from "./agent-spec";
+
+export {
+  PROJECT_CONFIG_SCHEMA_URL,
+  ProjectConfigObjectSchema,
+  ProjectConfigSchema,
+} from "./project";
+export type { ProjectConfig } from "./project";
 
 export { RENAMED_EVENTS, renamedEventType } from "./renames";

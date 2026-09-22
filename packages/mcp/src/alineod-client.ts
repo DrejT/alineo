@@ -1,8 +1,9 @@
 /**
- * Thin HTTP + SSE client for alineod's wire contract (`apps/alineod/src/schema.ts`,
- * `specs/alineod/openapi.json`). Deliberately typed against the wire contract, not against
- * alineod's internal Zod schemas — alineod is "standalone by design" (its own README) and this
- * package talks to it the same way any external MCP client would: over HTTP.
+ * Thin HTTP + SSE client for alineod's wire contract. Still typed against the contract rather
+ * than against the daemon's internals — alineod is "standalone by design" (its own README) and
+ * this package talks to it the way any external MCP client would, over HTTP. The difference is
+ * that the contract is now a published package (`@alineo-labs/schema/alineod`) instead of an
+ * app's source file, so honouring that boundary no longer costs a second copy of every shape.
  *
  * `spec` fields below stay `Record<string, unknown>`, not `AgentSpec` — an MCP tool receives
  * arbitrary unvalidated JSON from a model, and typing it as an `AgentSpec` would claim a
@@ -26,21 +27,44 @@ export class AlineodError extends Error {
   }
 }
 
-export interface BudgetOverride {
-  spawnDepth?: number;
-  maxAgents?: number;
-}
+// The wire contract, from the package that defines it. These were eleven hand-written
+// interfaces mirroring alineod's Zod schemas — deliberate while those schemas were an app's
+// internals, and no longer defensible now the contract is published as
+// `@alineo-labs/schema/alineod`. Nothing checked that the two agreed, which is the whole
+// argument against keeping them.
+//
+// `spec` stays `Record<string, unknown>` on the way in: an MCP tool receives arbitrary
+// unvalidated JSON from a model, and typing it as `AgentSpec` here would claim a guarantee
+// this side of the wire cannot make. alineod validates it for real and answers with a 400
+// naming the bad field.
+import type { z } from "zod";
+import type {
+  AgentDetail as AgentDetailSchema,
+  AgentView as AgentViewSchema,
+  BudgetOverride as BudgetOverrideSchema,
+  CreateRunResponse as CreateRunResponseSchema,
+  ResultResponse as ResultResponseSchema,
+  SpawnAgentResponse as SpawnAgentResponseSchema,
+  TreeView as TreeViewSchema,
+} from "@alineo-labs/schema/alineod";
 
+export type BudgetOverride = z.infer<typeof BudgetOverrideSchema>;
+export type CreateRunResponse = z.infer<typeof CreateRunResponseSchema>;
+export type SpawnAgentResponse = z.infer<typeof SpawnAgentResponseSchema>;
+export type AgentView = z.infer<typeof AgentViewSchema>;
+export type AgentDetail = z.infer<typeof AgentDetailSchema>;
+export type TreeView = z.infer<typeof TreeViewSchema>;
+export type ResultResponse = z.infer<typeof ResultResponseSchema>;
+
+/**
+ * The two request bodies keep `spec: Record<string, unknown>` rather than reusing the wire
+ * schema's `AgentSpec`, for the reason above. Everything else about them comes from the
+ * contract.
+ */
 export interface CreateRunBody {
   spec: Record<string, unknown>;
   prompt?: string;
   budget?: BudgetOverride;
-}
-
-export interface CreateRunResponse {
-  runId: string;
-  rootAgentId: string;
-  state: string;
 }
 
 export interface SpawnAgentBody {
@@ -52,44 +76,7 @@ export interface SpawnAgentBody {
   idempotencyKey?: string;
 }
 
-export interface SpawnAgentResponse {
-  agentId: string;
-  state: string;
-}
-
-export interface AgentView {
-  agentId: string;
-  runId: string;
-  parentAgentId: string | null;
-  depth: number;
-  spawnIndex: number;
-  state: string;
-  specName: string;
-  sandboxId: string | null;
-  createdAt: number;
-  endedAt: number | null;
-  outcome: string | null;
-}
-
-export interface AgentDetail extends AgentView {
-  sessionStats?: unknown;
-}
-
-export interface TreeView {
-  runId: string;
-  rootAgentId: string | null;
-  agents: AgentView[];
-  asOf: number;
-}
-
-export interface ResultResponse {
-  agentId: string;
-  state: "pending" | "settled";
-  outcome: string | null;
-  resultRef: string | null;
-  result: string | null;
-}
-
+/** An SSE frame off `GET /runs/:runId/events`. Not a schema — it is the transport's shape. */
 export interface AlineodSseEvent {
   id?: number;
   event: string;
