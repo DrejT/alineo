@@ -18,7 +18,7 @@ if (!NVIDIA_API_KEY) {
 
 const BASE = {
   $schema: "https://registry.alineo.tech/spec/agent.json",
-  cli: "pi" as const,
+  harness: "pi" as const,
   packages: ["python3"],
   provider: "nvidia",
   model: "nvidia/nemotron-3-nano-30b-a3b",

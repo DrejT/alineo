@@ -577,7 +577,7 @@ export async function attachAgent(
   } catch {
     // No file, or unreadable — keep "unknown" rather than failing the attach.
   }
-  const stubSpec: AgentSpec = { name: opts.name, cli: "pi", model };
+  const stubSpec: AgentSpec = { name: opts.name, harness: "pi", model };
   return {
     sandbox: sb,
     spec: stubSpec,

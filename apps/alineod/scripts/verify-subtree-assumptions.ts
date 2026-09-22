@@ -34,7 +34,7 @@ const MODEL = process.env.VERIFY_MODEL ?? "nvidia/nemotron-3.5-lightning-30b-a3b
 function spec(name: string) {
   return {
     name,
-    cli: "pi",
+    harness: "pi",
     provider: "nvidia",
     model: MODEL,
     env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },

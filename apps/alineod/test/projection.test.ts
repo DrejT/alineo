@@ -10,7 +10,7 @@ function seedAgent(runId: string, agentId = newAgentId()) {
     parentAgentId: null,
     runId,
     specName: "worker",
-    specJson: JSON.stringify({ name: "worker", cli: "pi" }),
+    specJson: JSON.stringify({ name: "worker", harness: "pi" }),
     depth: 0,
     spawnIndex: 0,
     sandboxId: null,

@@ -4,7 +4,7 @@
   "title": "RLM Master (generic)",
   "description": "Reusable RLM orchestrator master. Not tied to any one task — spawn it with `alineo start ./agents/master.json --prompt \"<any goal>\"` and it decides for itself whether the goal is worth decomposing, using alineo spawn to spin up children from its own live state if so.",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
   "model": "nvidia/nvidia-nemotron-nano-9b-v2",
   "packages": ["git"],

@@ -12,16 +12,22 @@ export interface AgentSnapshotRecord {
 }
 
 /**
- * Hash of the fields that require re-installing the agent CLI or rerunning
- * setup: cli, cliVersion, packages, and setup. Excludes env (hot-reloadable),
- * model/provider (CLI flags only), and cosmetic fields.
+ * Hash of the fields that require re-installing the harness or rerunning
+ * setup: harness, harnessVersion, packages, and setup. Excludes env (hot-reloadable),
+ * model/provider (harness flags only), and cosmetic fields.
+ *
+ * The hashed object deliberately keeps the **old** key names. This is a cache key, not a
+ * vocabulary surface — nobody reads it — and changing the keys would change every existing
+ * snapshot's hash, so the `harness` rename would silently cost every user a ~90s rebuild of
+ * every agent instead of a ~3s snapshot restore. The values are what identify the install;
+ * the key spelling is incidental.
  */
 export function computeSetupHash(spec: AgentSpec): string {
   return createHash("sha256")
     .update(
       JSON.stringify({
-        cli: spec.cli,
-        cliVersion: spec.cliVersion ?? "latest",
+        cli: spec.harness,
+        cliVersion: spec.harnessVersion ?? "latest",
         packages: [...(spec.packages ?? [])].sort(),
         setup: spec.setup ?? [],
       }),

@@ -87,17 +87,23 @@ export interface AgentSpec {
   description?: string;
   author?: string;
   categories?: string[];
-  /** CLI to run inside the sandbox. Currently only `"pi"` is supported. */
-  cli: "pi";
   /**
-   * npm version specifier for the Pi CLI, e.g. `"1.2.3"`, `"^1.2.0"`, or a
+   * Agent-loop driver to run inside the sandbox. Currently only `"pi"` is supported.
+   *
+   * Not `cli`: that said the driver *is* a CLI, which is true of Pi and accidental in
+   * general. Claude Code, Codex and opencode are the next drivers, and `cli: "claude-code"`
+   * would read as a category error the day one of them ships.
+   */
+  harness: "pi";
+  /**
+   * npm version specifier for the harness, e.g. `"1.2.3"`, `"^1.2.0"`, or a
    * dist-tag like `"latest"`. Passed directly to
-   * `npm install -g @earendil-works/pi-coding-agent@<cliVersion>`. When
+   * `npm install -g @earendil-works/pi-coding-agent@<harnessVersion>`. When
    * omitted, `install()` runs the bare package name and npm resolves
    * whatever it considers latest. Included in the setup-hash cache key, so
    * changing it forces a fresh snapshot rebuild.
    */
-  cliVersion?: string;
+  harnessVersion?: string;
   /**
    * AI provider passed to the CLI via `--provider`. For Pi with a direct Google
    * API key, omit this (Pi defaults to the Google Generative AI endpoint).
@@ -288,13 +294,13 @@ const AgentSpecSchema = z
     description: z.string().optional(),
     author: z.string().optional(),
     categories: z.array(z.string()).optional(),
-    cli: z.literal("pi", {
+    harness: z.literal("pi", {
       error: (issue) =>
         issue.input === undefined
-          ? "Agent spec must have a 'cli' field. Supported values: pi"
-          : `Unsupported CLI: '${describeValue(issue.input)}'. Supported values: pi`,
+          ? "Agent spec must have a 'harness' field. Supported values: pi"
+          : `Unsupported harness: '${describeValue(issue.input)}'. Supported values: pi`,
     }),
-    cliVersion: z.string().optional(),
+    harnessVersion: z.string().optional(),
     provider: z.string().optional(),
     model: z
       .string({
@@ -328,6 +334,27 @@ const AgentSpecSchema = z
   .loose();
 
 /**
+ * The old spec field names, and what each became. There is no alias — an old spec is
+ * rejected — but "must have a 'harness' field" is an unhelpful thing to read while looking
+ * at a spec that plainly has a `cli` field. Name the rename instead.
+ */
+const RENAMED_FIELDS = [
+  ["cli", "harness"],
+  ["cliVersion", "harnessVersion"],
+] as const;
+
+function renamedFieldHint(data: unknown): string {
+  if (typeof data !== "object" || data === null) return "";
+  const stale = RENAMED_FIELDS.filter(([from, to]) => from in data && !(to in data));
+  if (stale.length === 0) return "";
+  const list = (pick: 0 | 1) => stale.map((pair) => `'${pair[pick]}'`).join(" and ");
+  return (
+    `\n\nThis spec uses ${list(0)}, renamed to ${list(1)}: the field names the ` +
+    `agent-loop driver, which is not always a CLI.`
+  );
+}
+
+/**
  * Validate an unknown value as an `AgentSpec`, aggregating every problem found in one pass.
  * Throws `AgentSpecValidationError` (with a pre-formatted `.message` and a structured
  * `.issues` array) rather than a bare `Error` — see #185.
@@ -336,7 +363,7 @@ export function validateAgentSpec(data: unknown): AgentSpec {
   const result = AgentSpecSchema.safeParse(data);
   if (!result.success) {
     throw new AgentSpecValidationError(
-      `Invalid agent spec:\n${z.prettifyError(result.error)}`,
+      `Invalid agent spec:\n${z.prettifyError(result.error)}${renamedFieldHint(data)}`,
       result.error.issues.map((issue) => ({
         path: issue.path,
         message: issue.message,

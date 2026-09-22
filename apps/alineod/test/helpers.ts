@@ -60,7 +60,7 @@ export function events(runId: string): LedgerEvent[] {
 }
 
 export function spec(name: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return { name, cli: "pi", ...extra };
+  return { name, harness: "pi", ...extra };
 }
 
 export function deferred(): { promise: Promise<void>; resolve: () => void } {

@@ -44,7 +44,7 @@ Agent spec saved: agents/code-reviewer.json
 Load it with: Alineo.start("agents/code-reviewer.json") from alineo
 ```
 
-`alineo add` fetches the spec, validates it (`name` and `cli: "pi"` are required), resolves any `registryDependencies` first (fetched recursively, depth-first), and writes it to `<agentsDir>/<name>.json` — `agentsDir` defaults to `./agents`. It does **not** create a sandbox, run setup, or checkpoint anything — that happens later, the first time you `Alineo.start()` the spec.
+`alineo add` fetches the spec, validates it (`name` and `harness: "pi"` are required), resolves any `registryDependencies` first (fetched recursively, depth-first), and writes it to `<agentsDir>/<name>.json` — `agentsDir` defaults to `./agents`. It does **not** create a sandbox, run setup, or checkpoint anything — that happens later, the first time you `Alineo.start()` the spec.
 
 </Step>
 <Step>
