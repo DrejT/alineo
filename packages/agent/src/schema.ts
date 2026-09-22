@@ -23,7 +23,7 @@ function describeValue(value: unknown): string {
  * straight into the container's environment, `credential` is registered with the sandbox's
  * `CredentialBroker` via `sb.credentials.set()` and injected transparently into outbound
  * requests to `host`. The sandbox process never sees the resolved value at all. Requires the
- * agent's sandbox to be created with `credentialProxy: true` — `Alineo.load()`/`.resume()`/
+ * agent's sandbox to be created with `credentialProxy: true` — `Alineo.start()`/`.resume()`/
  * `.spawn()` set this automatically whenever `env` contains at least one binding like this.
  */
 export interface CredentialEnvBinding {
@@ -51,7 +51,7 @@ export interface CredentialEnvBinding {
    * `"hold"` gates outbound egress to `host` behind a human decision: the agent's sandbox
    * starts with `host` denied at the egress sidecar, the first request to it pauses and
    * raises an approval request, and the host is allowed only once someone approves. Requires
-   * an `onEgressRequest` handler on `Alineo.load()`. Omit for the default (the host is
+   * an `onEgressRequest` handler on `Alineo.start()`. Omit for the default (the host is
    * reachable as soon as the credential is bound).
    */
   approval?: "hold";
@@ -72,7 +72,7 @@ export interface SetupStep {
 
 /**
  * JSON spec for an agent — typically loaded from an `agent.json` file on disk.
- * Pass it to `Alineo.load(spec)` — read it from disk yourself first (e.g.
+ * Pass it to `Alineo.start(spec)` — read it from disk yourself first (e.g.
  * `await Bun.file(path).json()`) if it's not already an in-memory object.
  *
  * Environment variable references in `env` values are interpolated from
@@ -150,7 +150,7 @@ export interface AgentSpec {
   setup?: SetupStep[];
   /**
    * Remaining budget for `Alineo.spawn()` calls made from inside this agent's sandbox.
-   * Translated by `Alineo.load()`/`Alineo.resume()` into the `ALINEO_SPAWN_DEPTH` env var.
+   * Translated by `Alineo.start()`/`Alineo.resume()` into the `ALINEO_SPAWN_DEPTH` env var.
    * `Alineo.spawn()` reads that value, refuses unless it's a positive integer, and
    * force-injects `value - 1` into the spawned child — a tamper-resistant counter,
    * not something a spec or the model can hand-propagate. Omit to disable spawning
@@ -160,7 +160,7 @@ export interface AgentSpec {
   /**
    * Remaining budget for total agents this lineage may spawn — a resource
    * ceiling, distinct from `spawnDepth`'s nesting-depth limit. Translated by
-   * `Alineo.load()`/`Alineo.resume()` into the `ALINEO_MAX_AGENTS` env var and
+   * `Alineo.start()`/`Alineo.resume()` into the `ALINEO_MAX_AGENTS` env var and
    * force-decremented into each spawned child, the same tamper-resistant
    * pattern as `spawnDepth`. Unlike `spawnDepth`, omitting this means
    * "uncapped" for this dimension, not "spawning disabled" — `spawnDepth`
@@ -173,7 +173,7 @@ export interface AgentSpec {
    * Durable team identity for this agent's `.resourceRef` — see `@alineo-labs/memory`'s
    * `ResourceRef.teamId`. Unset by default (unlike `resourceId`, which always gets
    * `spec.name` as its own default) — most agents aren't tied to a team-scoped memory.
-   * `Alineo.load()`/`.resume()` also thread this into `SandboxOptions.teamId`/
+   * `Alineo.start()`/`.resume()` also thread this into `SandboxOptions.teamId`/
    * `RestoreSnapshotOptions.teamId` so it stays consistent with the ledger, not just
    * `.resourceRef` — otherwise a team-scoped agent's own episodic history would be
    * unreachable through its own `resourceRef`, since `episodicRecall()` enforces `teamId`

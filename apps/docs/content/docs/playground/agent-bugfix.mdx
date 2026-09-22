@@ -15,7 +15,7 @@ check the agent's work.
 
 ## What just happened
 
-- `Alineo.load(pythonDataSpec)` booted an agent — a sandbox with Pi installed and configured.
+- `Alineo.start(pythonDataSpec)` booted an agent — a sandbox with Pi installed and configured.
 - `agent.prompt(task)` returned an event stream. Each `tool_start` / `tool_end` is the agent
   running a real command or file edit inside its sandbox; `text` is the model's narration.
 - The verify step ran `pytest` ourselves — never take the agent's "all green" on faith.

@@ -172,11 +172,11 @@ The permission gate above stops a misbehaving model. To gate a _host_ regardless
 }
 ```
 
-On `Alineo.load()`:
+On `Alineo.start()`:
 
 1. The sandbox starts `defaultAction: "allow"` with a single `deny` rule for `api.github.com` — everything else, including the agent's own model traffic, works normally.
 2. The `GITHUB_TOKEN` credential is **not registered in the vault at all** (the vault refuses a binding whose host isn't allowed).
-3. The first outbound request to the held host is denied at the sidecar, which fires a webhook. That pauses the request and calls the `onEgressRequest` handler you passed to `Alineo.load()`.
+3. The first outbound request to the held host is denied at the sidecar, which fires a webhook. That pauses the request and calls the `onEgressRequest` handler you passed to `Alineo.start()`.
 4. On approval the gate opens the egress rule (`sb.egress.patch`) and **then** registers the credential — so the secret literally does not exist inside the sandbox until a human approves.
 
 ```ts
@@ -186,7 +186,7 @@ async function onEgressRequest(req: EgressRequest): Promise<EgressDecision> {
   return req.host === "api.github.com" ? "allow-once" : "deny";
 }
 
-const agent = await Alineo.load(spec, { adapter, onEgressRequest });
+const agent = await Alineo.start(spec, { adapter, onEgressRequest });
 ```
 
 | `EgressDecision` | Effect                                                                         |

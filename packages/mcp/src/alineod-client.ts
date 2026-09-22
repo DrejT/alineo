@@ -7,7 +7,7 @@
  * `spec` fields below are `Record<string, unknown>`, not `AgentSpec` from `alineo` — an MCP
  * tool receives arbitrary unvalidated JSON from the caller, and alineod's own wire schema
  * (`apps/alineod/src/schema.ts`'s `AgentSpec = z.record(z.string(), z.unknown())`) treats it
- * the same way: opaque here, validated server-side by the SDK's own `Alineo.load()`/`.spawn()`.
+ * the same way: opaque here, validated server-side by the SDK's own `Alineo.start()`/`.spawn()`.
  */
 
 export class AlineodError extends Error {

@@ -3,7 +3,7 @@
  * `envMap` in earendil-works/pi's `packages/ai/src/env-api-keys.ts` (plus Anthropic's three,
  * handled separately there). An `AgentSpec`'s env map (`{ NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }`,
  * see `packages/agent/src/schema.ts`) is resolved from `process.env` inside whatever process
- * calls `Alineo.load()`/`.spawn()` — for a swarm run through alineod, that's alineod's own
+ * calls `Alineo.start()`/`.spawn()` — for a swarm run through alineod, that's alineod's own
  * container. `alineo init` forwards whichever of these are set in the operator's shell into
  * that container so any Pi-supported model works, not just NVIDIA's free tier.
  *

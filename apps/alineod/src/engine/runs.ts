@@ -2,7 +2,7 @@
  * `POST /runs` — create a run: register the root agent immediately, provision it (sandbox
  * fork/install/checkpoint) in the background, drive the first turn once it's ready.
  *
- * Async by design (Track A hardening, 2026-09-11): `Alineo.load()` on a cold spec takes from about
+ * Async by design (Track A hardening, 2026-09-11): `Alineo.start()` on a cold spec takes from about
  * a minute to nearly three (72-165 s measured on a one-vCPU VPS with a small spec's setup steps).
  * Blocking the HTTP request for that made every client either time out or hold a connection
  * for a minute+. The route now returns 202 the instant the row exists in the projection; the
@@ -49,7 +49,7 @@ export function createRun(body: CreateRunBody): CreateRunResult {
     sandboxId: null,
     spawnBudget: body.budget?.spawnDepth ?? specDepth ?? null,
     maxAgentsBudget: body.budget?.maxAgents ?? specMax ?? null,
-    // Persisted so rehydrate() can retry Alineo.load() if alineod crashes before it resolves.
+    // Persisted so rehydrate() can retry Alineo.start() if alineod crashes before it resolves.
     prompt: body.prompt ?? null,
   });
 
@@ -59,7 +59,7 @@ export function createRun(body: CreateRunBody): CreateRunResult {
 }
 
 /**
- * The slow half of creating a run: `Alineo.load()`. Exported so `rehydrate()` can re-run it
+ * The slow half of creating a run: `Alineo.start()`. Exported so `rehydrate()` can re-run it
  * verbatim for a root that was still stuck here (no sandbox yet) when alineod crashed.
  */
 export async function provisionRoot(
@@ -68,7 +68,7 @@ export async function provisionRoot(
   body: CreateRunBody,
 ): Promise<void> {
   try {
-    const agent = await Alineo.load(body.spec, {
+    const agent = await Alineo.start(body.spec, {
       adapter: sdkAdapter,
       runId,
       spawnDepth: body.budget?.spawnDepth,

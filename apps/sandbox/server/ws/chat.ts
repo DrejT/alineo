@@ -11,8 +11,8 @@ type ChatCommand =
   | { type: "resolvePermission"; requestId: string; decision: PermissionDecision }
   | { type: "newSession" }
   | { type: "setSessionName"; name: string }
-  | { type: "clone" }
-  | { type: "fork"; entryId: string }
+  | { type: "duplicateSession" }
+  | { type: "branchSession"; entryId: string }
   | { type: "switchSession"; path: string }
   | { type: "exportHtml" }
   | { type: "setModel"; provider: string; modelId: string }
@@ -48,11 +48,11 @@ async function runCommand(
       case "setSessionName":
         await agent.setSessionName(cmd.name);
         break;
-      case "clone":
-        result = await agent.clone();
+      case "duplicateSession":
+        result = await agent.duplicateSession();
         break;
-      case "fork":
-        result = await agent.fork(cmd.entryId);
+      case "branchSession":
+        result = await agent.branchSession(cmd.entryId);
         break;
       case "switchSession":
         result = await agent.switchSession(cmd.path);

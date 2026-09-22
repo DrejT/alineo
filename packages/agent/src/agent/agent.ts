@@ -33,7 +33,7 @@ export { resolveParentSpawnDepth, resolveParentMaxAgents } from "./validation";
  * while Pi manages its own tool use, file writes, and code execution inside the
  * sandbox.
  *
- * Create an agent with `Alineo.load(spec)`. Always call `close()` when done
+ * Create an agent with `Alineo.start(spec)`. Always call `close()` when done
  * to release the underlying sandbox container.
  *
  * @example
@@ -41,7 +41,7 @@ export { resolveParentSpawnDepth, resolveParentMaxAgents } from "./validation";
  * import { Alineo } from "alineo";
  *
  * const spec = await Bun.file("./agents/my-agent.json").json();
- * const agent = await Alineo.load(spec, { adapter });
+ * const agent = await Alineo.start(spec, { adapter });
  * try {
  *   for await (const chunk of agent.prompt("Explain this codebase")) {
  *     process.stdout.write(chunk);
@@ -72,13 +72,13 @@ export class Alineo {
   /**
    * Identifies the logical run this agent's sandbox belongs to — see
    * `SandboxDetails.runId`. Always present; a fresh `crypto.randomUUID()` if not
-   * explicitly passed to `load()`/`resume()`. A child from `.spawn()` (and
+   * explicitly passed to `start()`/`resume()`. A child from `.spawn()` (and
    * transitively, `alineo spawn`) always inherits its parent's `runId`.
    */
   readonly runId: string;
   /**
    * Optional provider-agnostic memory (`@alineo-labs/memory`), wired in via `opts.memory` on
-   * `load()`/`resume()`/`attach()`. `undefined` unless explicitly configured — `alineo` never
+   * `start()`/`resume()`/`attach()`. `undefined` unless explicitly configured — `alineo` never
    * constructs a `Memory` on your own behalf, matching this package's "own the pipeline,
    * don't assume a backend" design. `spawn()` carries the parent's `memory` (if any) onto the
    * child automatically, the same way it force-computes spawn-depth rather than reading it
@@ -103,7 +103,7 @@ export class Alineo {
   /**
    * Convenience `ResourceRef` scoping `.memory` calls to this agent. `resourceId`/`teamId`
    * come from `AgentSpec.resourceId`/`AgentSpec.teamId` (`resourceId` defaulting to this
-   * agent's `name` when unset) — `load()`/`resume()`/`spawn()` also thread both into the
+   * agent's `name` when unset) — `start()`/`resume()`/`spawn()` also thread both into the
    * ledger (see each field's own doc comment) so this getter and the agent's own episodic
    * history stay consistent, including across a spawned child whose `.name` differs from its
    * memory identity.
@@ -159,8 +159,8 @@ export class Alineo {
    * don't need to call `validateAgentSpec()` yourself first unless you want validation errors
    * to surface before any sandbox/network work starts.
    *
-   * On first load the Pi CLI is installed inside a `node:22` sandbox, then
-   * the sandbox is checkpointed. Subsequent `load()` calls for the same spec
+   * On first start the Pi CLI is installed inside a `node:22` sandbox, then
+   * the sandbox is checkpointed. Subsequent `start()` calls for the same spec
    * restore from that snapshot — skipping the install and starting in ~3s instead
    * of ~90s.
    *
@@ -174,7 +174,7 @@ export class Alineo {
    * Reports timing for each phase through `@alineo-labs/logger` (component `agent`, tagged with
    * the spec `name`). Silent by default — set `ALINEO_LOG_LEVEL=info` to see it.
    */
-  static async load(
+  static async start(
     spec: AgentSpec | Record<string, unknown>,
     opts: {
       adapter: IStorageAdapter;
@@ -225,20 +225,20 @@ export class Alineo {
    * first and fall back to this only if it fails (e.g. the whole sandbox — not just this
    * process — actually restarted).
    *
-   * @param sandboxId  The sandbox ID returned by the original `Alineo.load()`.
+   * @param sandboxId  The sandbox ID returned by the original `Alineo.start()`.
    * @param opts.spec  An already-parsed agent spec object — skips file I/O entirely, same as
-   *   `load()`. Takes precedence over `opts.specPath` if both are set.
+   *   `start()`. Takes precedence over `opts.specPath` if both are set.
    * @param opts.specPath  Path to the agent spec JSON, read and validated internally. If
    *   neither `opts.spec` nor `opts.specPath` is set, the ledger is queried for the sandbox's
    *   name and the spec is read from `./agents/<name>.json` — this fallback is the one thing
-   *   `resume()` can do that `load()` can't, since a resumed sandbox's original spec may not be
+   *   `resume()` can do that `start()` can't, since a resumed sandbox's original spec may not be
    *   in memory anywhere the caller can hand it over.
    *
    * @example
    * ```ts
    * // Original process:
    * const spec = await Bun.file("./agents/hello-agent.json").json();
-   * const agent = await Alineo.load(spec, { adapter });
+   * const agent = await Alineo.start(spec, { adapter });
    * console.log(agent.sandboxId); // save this
    * // ... process exits ...
    *
@@ -288,7 +288,7 @@ export class Alineo {
    * the bridge process inside it has independently died, and this can't distinguish that from
    * a slow-to-respond-but-fine bridge on its own. On failure, fall back to `Alineo.resume()`.
    *
-   * @param sandboxId  The sandbox ID returned by the original `Alineo.load()`/`.spawn()`.
+   * @param sandboxId  The sandbox ID returned by the original `Alineo.start()`/`.spawn()`.
    * @param opts.spec / opts.specPath  Same three-way fallback as `resume()` — see its docs.
    *
    * @example
@@ -357,7 +357,7 @@ export class Alineo {
    * `opts.resources` sizes a subsequent `.spawn()`'s forked container — the
    * control API doesn't echo back a running sandbox's own resource limits, so
    * there's no way to discover this agent's *actual* footprint here. Defaults to
-   * `alineo.config.json`'s `defaults.resources`, same fallback `Alineo.load()` uses
+   * `alineo.config.json`'s `defaults.resources`, same fallback `Alineo.start()` uses
    * for a spec that doesn't set its own.
    */
   static async attach(
@@ -384,7 +384,7 @@ export class Alineo {
   /**
    * Fork this agent's live sandbox — filesystem, installed packages, checked-out
    * state, everything currently on disk — into a brand-new independent sandbox
-   * running its own Pi bridge, per `childSpecPath`. Unlike `Alineo.load()` (always
+   * running its own Pi bridge, per `childSpecPath`. Unlike `Alineo.start()` (always
    * starts from a spec's own snapshot) or `fork()`/`clone()` below (Pi's own
    * conversation-branching — same container, same bridge, new session branch),
    * this is sandbox-level forking: the child sees exactly what this agent's
@@ -550,8 +550,8 @@ export class Alineo {
    * List the fork entry points available in the current session.
    * Each entry has `entryId` (pass to `fork()`) and `text` (the message at that point).
    */
-  async getForkMessages(): Promise<{ entryId: string; text: string }[]> {
-    return introspection.getForkMessages(this);
+  async getBranchPoints(): Promise<{ entryId: string; text: string }[]> {
+    return introspection.getBranchPoints(this);
   }
 
   /** List Pi's available slash commands, including extensions, prompt templates, and skills. */
@@ -592,16 +592,22 @@ export class Alineo {
   // --- commands that return data ---
 
   /**
-   * Fork Pi's session at the given entry ID, creating a new branch.
-   * Returns the text of the forked message and whether the fork was cancelled.
+   * Branch the harness conversation at the given entry ID.
+   *
+   * Named for what it touches. This never leaves the container: it is the harness's own
+   * session that branches, not the sandbox — `agent.sandbox.fork()` is the one that copies a
+   * filesystem. Unqualified `fork` meant both for a while, which is the confusion this name
+   * exists to end.
+   *
+   * Returns the text of the branched message and whether the branch was cancelled.
    */
-  async fork(entryId: string): Promise<{ text: string; cancelled: boolean }> {
-    return lifecycle.fork(this, entryId);
+  async branchSession(entryId: string): Promise<{ text: string; cancelled: boolean }> {
+    return lifecycle.branchSession(this, entryId);
   }
 
-  /** Clone the current Pi session into a new branch at the current position. */
-  async clone(): Promise<{ cancelled: boolean }> {
-    return lifecycle.clone(this);
+  /** Branch the harness conversation at its current position. Same container, same bridge. */
+  async duplicateSession(): Promise<{ cancelled: boolean }> {
+    return lifecycle.duplicateSession(this);
   }
 
   /** Switch Pi to a different session file on disk. */

@@ -32,7 +32,7 @@ async function onEgressRequest(req: EgressRequest): Promise<EgressDecision> {
 }
 
 rule('1 · load the agent — api.github.com starts denied (approval: "hold")');
-const agent = await Alineo.load(await Bun.file("./agents/egress-agent.json").json(), {
+const agent = await Alineo.start(await Bun.file("./agents/egress-agent.json").json(), {
   adapter,
   onEgressRequest,
 });

@@ -11,9 +11,9 @@ import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+// Alineo.start() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const spec = await Bun.file("./agents/bugfix-agent.json").json();
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 
 console.log(`SandboxHandle: ${agent.sandboxId}\n`);
 

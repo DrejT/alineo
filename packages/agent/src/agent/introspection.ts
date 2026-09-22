@@ -12,10 +12,13 @@ export async function getLastAssistantText(a: AgentInternal): Promise<string | n
 }
 
 /**
- * List the fork entry points available in the current session.
- * Each entry has `entryId` (pass to `fork()`) and `text` (the message at that point).
+ * List the points in the current session a conversation can be branched from.
+ * Each entry has `entryId` (pass to `branchSession()`) and `text` (the message there).
+ *
+ * `a.adapter.getForkMessages` keeps Pi's own name — the adapter speaks the harness's
+ * vocabulary, alineo speaks its own on the way out.
  */
-export async function getForkMessages(
+export async function getBranchPoints(
   a: AgentInternal,
 ): Promise<{ entryId: string; text: string }[]> {
   return a.adapter.getForkMessages();

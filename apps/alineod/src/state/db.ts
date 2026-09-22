@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS agents (
   spawn_budget      INTEGER,
   max_agents_budget INTEGER,
   -- Persisted so a spawn that's still pre-fork (waiting on waitFor, or -- for a root --
-  -- still inside Alineo.load()) at crash time can be RETRIED on rehydrate instead of just
+  -- still inside Alineo.start()) at crash time can be RETRIED on rehydrate instead of just
   -- marked lost. Before this, that intent only ever lived in the dead process's closure.
   wait_for        TEXT,                   -- JSON array of agentIds, or NULL
   prompt          TEXT,

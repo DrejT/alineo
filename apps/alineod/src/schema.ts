@@ -2,7 +2,7 @@
  * The wire contract, as Zod. One source of truth → route validators AND the emitted
  * `specs/alineod/openapi.json` + `events.schema.json` (research/daemon.md §2, §7).
  *
- * `AgentSpec` itself is validated by the SDK's own `validateAgentSpec()` inside `Alineo.load()`
+ * `AgentSpec` itself is validated by the SDK's own `validateAgentSpec()` inside `Alineo.start()`
  * / `.spawn()`, so here it's an opaque object — alineod does not re-model it.
  */
 import { z } from "zod";

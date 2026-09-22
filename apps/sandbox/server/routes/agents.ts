@@ -85,7 +85,7 @@ export async function getForkPoints(id: string): Promise<Response> {
   try {
     const agent = registry.agents.get(id);
     if (!agent) throw new NotFoundError(`Unknown agent ${id}`);
-    const forkPoints = await agent.getForkMessages();
+    const forkPoints = await agent.getBranchPoints();
     return Response.json({ forkPoints });
   } catch (err) {
     return errorResponse(err);

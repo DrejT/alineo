@@ -61,7 +61,7 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const spec = await Bun.file("./agents/hello-agent.json").json();
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 console.log(`Sandbox: ${agent.sandboxId}  fromSnapshot=${agent.fromSnapshot}`);
 
 try {
@@ -79,7 +79,7 @@ try {
 bun run.ts
 ```
 
-`Alineo.load()` reports timing for each phase. It is silent by default — set `ALINEO_LOG_LEVEL=info` to see it (`ALINEO_LOG_LEVEL=info bun run.ts`); the `alineo` CLI turns it on for you. The first run installs the Pi CLI and checkpoints the sandbox — on the order of a minute. Subsequent runs restore from that snapshot in a few seconds:
+`Alineo.start()` reports timing for each phase. It is silent by default — set `ALINEO_LOG_LEVEL=info` to see it (`ALINEO_LOG_LEVEL=info bun run.ts`); the `alineo` CLI turns it on for you. The first run installs the Pi CLI and checkpoints the sandbox — on the order of a minute. Subsequent runs restore from that snapshot in a few seconds:
 
 ```
 # First run

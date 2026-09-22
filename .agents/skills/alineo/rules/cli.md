@@ -63,7 +63,7 @@ rather than guessing a model ID string.
 **What alineod actually is, and what it isn't**: it's a separate HTTP+SSE swarm-orchestration
 process, not something this skill's `alineo start`/`spawn`/`prompt`/`steer` commands talk to — those
 call the `Alineo` SDK class **directly**, in-process, regardless of whether alineod is running.
-alineod itself is built by calling that same `Alineo.load()`/`.spawn()` API **server-side**, from
+alineod itself is built by calling that same `Alineo.start()`/`.spawn()` API **server-side**, from
 inside its own process, driven by its HTTP routes (`POST /runs`, `POST /runs/:id/agents`, `waitFor`
 gather, `/steer`, `/pause`/`/resume`, SSE `/runs/:id/events`, ...). There is currently no CLI
 subcommand that creates a run *through* alineod — you `curl -X POST localhost:4600/runs -d

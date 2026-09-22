@@ -353,7 +353,7 @@ const sb = await client.sandbox({
 `spawn()` carries it over to the child automatically:
 
 ```ts
-const agent = await Alineo.load(spec, { adapter, memory });
+const agent = await Alineo.start(spec, { adapter, memory });
 await agent.memory?.remember(agent.resourceRef, { content: "user prefers concise answers" });
 ```
 

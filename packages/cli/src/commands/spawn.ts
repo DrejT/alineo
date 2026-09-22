@@ -17,7 +17,7 @@ import type { CliCommand } from "./types.js";
  * in this process's env since it's a descendant of Pi's own bridge process) —
  * preferred over a ledger lookup when available, since the calling agent may
  * have been created via an `IStorageAdapter` this CLI invocation has no
- * access to (e.g. a host-side ledger for an `Alineo.load()` call this
+ * access to (e.g. a host-side ledger for an `Alineo.start()` call this
  * sandbox's own `alineo.config.json` knows nothing about). Falls back to
  * looking `parent` up in the ledger of currently-running sessions when
  * `ALINEO_SANDBOX_ID` isn't set (e.g. invoked outside a sandbox). `parent` also
