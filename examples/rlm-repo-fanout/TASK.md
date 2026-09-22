@@ -16,7 +16,7 @@ apply to the same tree).
 To fork a child, run exactly this (your own session name is
 rlm-fanout-master):
 
-    alineo fork rlm-fanout-master ./agents/worker.json --prompt "<plain instruction>" --json
+    alineo spawn rlm-fanout-master ./agents/worker.json --prompt "<plain instruction>" --json
 
 Keep each --prompt value plain English, naming the example and the file to
 write. Do not embed literal shell commands or shell operators like && inside

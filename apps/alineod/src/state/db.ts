@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS agents (
   sandbox_id      TEXT,
   -- Budget alineod passes to parent.spawn({ spawnDepth, maxAgents }) when THIS agent spawns.
   -- alineod owns this accounting because it drives .spawn() out-of-process -- the SDK's
-  -- ALINEO_SPAWN_DEPTH env mechanism only works for in-sandbox "alineo fork". Root gets it
+  -- ALINEO_SPAWN_DEPTH env mechanism only works for in-sandbox "alineo spawn". Root gets it
   -- from its spec / the run budget; each child gets parent - 1. NULL means spawning disabled.
   spawn_budget      INTEGER,
   max_agents_budget INTEGER,

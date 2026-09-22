@@ -118,7 +118,7 @@ function composeEnvelope(
   const rows = children.map((c) => {
     const prompt = (c.prompt ?? "").replace(/\s+/g, " ").trim();
     const excerpt = prompt.length > PROMPT_EXCERPT ? `${prompt.slice(0, PROMPT_EXCERPT)}…` : prompt;
-    return `| ${c.agent_id} | ${c.sandbox_id ?? "(not forked yet)"} | ${c.spec_name} | ${c.state} | ${c.outcome ?? "—"} | ${excerpt || "—"} |`;
+    return `| ${c.agent_id} | ${c.sandbox_id ?? "(no sandbox yet)"} | ${c.spec_name} | ${c.state} | ${c.outcome ?? "—"} | ${excerpt || "—"} |`;
   });
   const roster =
     rows.length > 0
@@ -141,7 +141,7 @@ function composeEnvelope(
     "stop it, or leave it — and whether the new direction needs new sub-agents. Write each child a",
     "message for ITS task, not a copy of this one. Use:",
     '  alineo steer <sandboxId> "<message for that child>"',
-    "  alineo kill <sandboxId>",
-    '  alineo fork self <child-spec.json> --prompt "<task>"',
+    "  alineo stop <sandboxId>",
+    '  alineo spawn self <child-spec.json> --prompt "<task>"',
   ].join("\n");
 }

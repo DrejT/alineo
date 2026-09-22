@@ -8,7 +8,7 @@ import type { z } from "zod";
  * about whether Pi itself is making progress) for that long. Previously this surfaced as an
  * indefinite hang with zero visibility: `sseStream()` had no timeout at all, so a genuinely
  * stuck Pi process (e.g. blocked in a credential refresh, or any other silent stall) blocked
- * every caller up the chain -- `Alineo.prompt()`, `collectReply()`, `alineo fork --prompt` --
+ * every caller up the chain -- `Alineo.prompt()`, `collectReply()`, `alineo spawn --prompt` --
  * forever, with no error and no partial output.
  */
 export class PromptTimeoutError extends WorkflowError {

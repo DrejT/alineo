@@ -39,7 +39,7 @@ with `ALINEOD_URL`):
 
 This mirrors alineod's core swarm-control routes and every `alineo-cli` subcommand except `telemetry`
 (local opt-in/out toggle, not an orchestration feature) and the CLI's direct-sandbox commands
-(`spawn`/`prompt`/`fork`/`agents`/`kill`/`logs`) — those drive a sandbox from _this_ process via
+(`start`/`prompt`/`spawn`/`agents`/`stop`/`logs`) — those drive a sandbox from _this_ process via
 `Alineo.load()`; alineod's routes are the equivalent, network-addressable operations for a
 swarm run through the daemon, which is what an MCP client actually talks to.
 

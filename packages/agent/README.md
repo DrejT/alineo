@@ -240,7 +240,7 @@ const agent3 = await Alineo.resume(savedSandboxId, { adapter, spec });
 
 Connect to an already-running sandbox **without** touching its Pi bridge — unlike `resume()`, which kills and restarts the bridge process. Use this when you only need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()` (the returned `Alineo` has no bridge, so those throw).
 
-The main caller is `alineo fork`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
+The main caller is `alineo spawn`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
 
 ```ts
 const self = await Alineo.attach(process.env.ALINEO_SANDBOX_ID!, {

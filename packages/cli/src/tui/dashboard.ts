@@ -37,7 +37,7 @@ export function createDashboardView(
     new TextRenderable(renderer, {
       id: "dashboard-title",
       content:
-        "alineo — sessions   (↑/↓ move · enter chat · n new · l logs · k kill · r refresh · q quit)",
+        "alineo — sessions   (↑/↓ move · enter chat · n new · l logs · s stop · r refresh · q quit)",
     }),
   );
 
@@ -79,10 +79,10 @@ export function createDashboardView(
         : `${tracked.length} tracked session(s) running`;
   }
 
-  async function killSelected(): Promise<void> {
+  async function stopSelected(): Promise<void> {
     const session = select.getSelectedOption()?.value as SandboxDetails | null;
     if (!session) return;
-    status.content = `killing ${session.name}...`;
+    status.content = `stopping ${session.name}...`;
     try {
       const config = await readConfig();
       const client = new Sandbox({
@@ -95,7 +95,7 @@ export function createDashboardView(
       await sb.close();
       await refresh();
     } catch (err) {
-      status.content = `failed to kill '${session.name}': ${err instanceof Error ? err.message : String(err)}`;
+      status.content = `failed to stop '${session.name}': ${err instanceof Error ? err.message : String(err)}`;
     }
   }
 
@@ -107,7 +107,8 @@ export function createDashboardView(
     if (event.name === "q") onQuit();
     else if (event.name === "r") void refresh();
     else if (event.name === "n") onNew();
-    else if (event.name === "k") void killSelected();
+    // `k` kept alongside `s` so muscle memory from the old `kill` wording still works.
+    else if (event.name === "s" || event.name === "k") void stopSelected();
     else if (event.name === "l") {
       const session = select.getSelectedOption()?.value as SandboxDetails | null;
       if (session) onLogs(session);

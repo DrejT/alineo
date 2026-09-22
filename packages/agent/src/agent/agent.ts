@@ -73,7 +73,7 @@ export class Alineo {
    * Identifies the logical run this agent's sandbox belongs to — see
    * `SandboxDetails.runId`. Always present; a fresh `crypto.randomUUID()` if not
    * explicitly passed to `load()`/`resume()`. A child from `.spawn()` (and
-   * transitively, `alineo fork`) always inherits its parent's `runId`.
+   * transitively, `alineo spawn`) always inherits its parent's `runId`.
    */
   readonly runId: string;
   /**
@@ -335,7 +335,7 @@ export class Alineo {
    * `resume()`, which kills and restarts the bridge process. Use this when you only
    * need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()`.
    *
-   * The main caller is `alineo fork`: it runs as a fresh CLI process started BY the
+   * The main caller is `alineo spawn`: it runs as a fresh CLI process started BY the
    * very Pi bash-tool call it's attaching to (a master agent spawning a child from
    * inside its own turn). Going through `resume()` there would `pkill` the bridge
    * that's currently running the Pi process making the call — self-destructive.
@@ -346,7 +346,7 @@ export class Alineo {
    * file, which may not even exist inside this particular sandbox.
    *
    * When `sandboxId` matches `ALINEO_SANDBOX_ID` in this process's own env (true
-   * self-attach, e.g. `alineo fork` running from inside its own container),
+   * self-attach, e.g. `alineo spawn` running from inside its own container),
    * `/etc/alineo-env` is read straight off the local filesystem instead of via
    * `sb.readFile()`. A self-referential exec call would need this sandbox to
    * reach itself through its own externally-facing bridge IP, which Docker's

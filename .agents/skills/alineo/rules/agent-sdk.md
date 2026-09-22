@@ -53,7 +53,7 @@ else — every field, every problem reported at once. An invalid spec throws
 |---|---|
 | `Alineo.load(specPath, opts)` | Spin up (or restore from snapshot) a sandbox, install Pi, run setup, return a ready `Alineo`. `opts.rebuild: true` forces a full reinstall. |
 | `Alineo.resume(sandboxId, opts)` | Reconnect after the host process exited. Restarts the bridge only — Pi/workspace untouched. |
-| `Alineo.attach(sandboxId, opts)` | Connect **without** touching the bridge (unlike `resume`, which kills+restarts it). Use for `.spawn()`-only access — `.prompt()`/`.bash()` throw since there's no bridge. This is how `alineo fork` attaches from inside the very Pi bash-tool call spawning it. |
+| `Alineo.attach(sandboxId, opts)` | Connect **without** touching the bridge (unlike `resume`, which kills+restarts it). Use for `.spawn()`-only access — `.prompt()`/`.bash()` throw since there's no bridge. This is how `alineo spawn` attaches from inside the very Pi bash-tool call spawning it. |
 | `agent.close()` | Stop the container, release resources. Always call in `finally`. |
 
 ```
