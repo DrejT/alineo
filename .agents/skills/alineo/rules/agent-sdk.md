@@ -29,8 +29,8 @@ try {
 | Field        | Type                     | Notes                                                            |
 | ------------ | ------------------------ | ----------------------------------------------------------------- |
 | `name`       | `string`                 | Sandbox session name                                              |
-| `cli`        | `"pi"`                   | Only `"pi"` currently                                             |
-| `cliVersion` | `string?`                | Pin, e.g. `"0.80.2"`. Defaults to latest.                         |
+| `harness`    | `"pi"`                   | Only `"pi"` currently                                             |
+| `harnessVersion` | `string?`                | Pin, e.g. `"0.80.2"`. Defaults to latest.                         |
 | `model`      | `string?`                | Model ID, passed via `--model`                                    |
 | `provider`   | `string?`                | AI provider via `--provider`; omit for direct API key             |
 | `packages`   | `string[]?`              | APT packages installed before Pi                                  |
@@ -40,7 +40,7 @@ try {
 | `spawnDepth` | `number?`                | Nesting budget for `agent.spawn()`                                |
 | `maxAgents`  | `number?`                | Optional cap on total descendants for this lineage                |
 
-Changing `cli`/`cliVersion`/`packages`/`setup` invalidates the cached snapshot automatically.
+Changing `harness`/`harnessVersion`/`packages`/`setup` invalidates the cached snapshot automatically.
 
 Specs are validated by `validateAgentSpec()` (Zod-backed) before `load()`/`resume()` do anything
 else — every field, every problem reported at once. An invalid spec throws

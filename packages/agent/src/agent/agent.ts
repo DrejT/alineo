@@ -165,7 +165,7 @@ export class Alineo {
    * of ~90s.
    *
    * Pass `{ rebuild: true }` to force a full reinstall (e.g. after changing
-   * the spec's `packages` or `cliVersion`).
+   * the spec's `packages` or `harnessVersion`).
    *
    * Pass `{ spawnDepth }` to override the spec's own `spawnDepth` (e.g. a
    * `--depth` CLI flag) — standard flag-beats-config precedence. Same for

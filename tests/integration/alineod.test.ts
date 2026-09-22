@@ -27,7 +27,7 @@ const DATA = mkdtempSync(join(tmpdir(), "alineod-integration-"));
 function agentSpec(name: string, extra: Record<string, unknown> = {}) {
   return {
     name,
-    cli: "pi",
+    harness: "pi",
     provider: "nvidia",
     model: "nvidia/nemotron-3.5-lightning-30b-a3b",
     env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },

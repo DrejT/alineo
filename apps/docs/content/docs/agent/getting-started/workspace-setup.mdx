@@ -10,7 +10,7 @@ The `setup` field in an agent spec lets you declare a list of named bash command
 ```json title="agents/workspace-agent.json"
 {
   "name": "workspace-agent",
-  "cli": "pi",
+  "harness": "pi",
   "model": "gemini-flash-latest",
   "packages": ["git", "python3"],
   "env": { "GEMINI_API_KEY": "${GEMINI_API_KEY}" },

@@ -19,7 +19,7 @@ if (!GEMINI_API_KEY) {
 const SPEC = {
   $schema: "https://registry.alineo.tech/spec/agent.json",
   name: "test-agent",
-  cli: "pi" as const,
+  harness: "pi" as const,
   packages: [],
   model: "gemini-flash-latest",
   env: { GEMINI_API_KEY: "${GEMINI_API_KEY}" },

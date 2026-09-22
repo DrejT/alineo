@@ -26,7 +26,7 @@ function spawned(runId: string, agentId = newAgentId()) {
     parentAgentId: null,
     runId,
     specName: "worker",
-    specJson: JSON.stringify({ name: "worker", cli: "pi", env: { KEY: "sekret-value" } }),
+    specJson: JSON.stringify({ name: "worker", harness: "pi", env: { KEY: "sekret-value" } }),
     depth: 0,
     spawnIndex: 0,
     sandboxId: null,

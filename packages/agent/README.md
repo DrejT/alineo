@@ -18,7 +18,7 @@ Create an agent spec (`agents/my-agent.json`):
 {
   "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "my-agent",
-  "cli": "pi",
+  "harness": "pi",
   "model": "gemini-flash-latest",
   "packages": ["python3"],
   "env": { "GEMINI_API_KEY": "${GEMINI_API_KEY}" },
@@ -50,19 +50,19 @@ try {
 
 The spec JSON controls the agent's environment, model, and workspace setup.
 
-| Field        | Type                     | Description                                                                                    |
-| ------------ | ------------------------ | ---------------------------------------------------------------------------------------------- |
-| `name`       | `string`                 | Unique identifier, used as the sandbox session name                                            |
-| `cli`        | `"pi"`                   | CLI to run (currently only `"pi"`)                                                             |
-| `cliVersion` | `string?`                | Pin to a specific Pi version, e.g. `"0.80.2"`. Defaults to latest.                             |
-| `model`      | `string?`                | Model ID passed to Pi via `--model`                                                            |
-| `provider`   | `string?`                | AI provider passed via `--provider`. Omit for direct Google API key.                           |
-| `packages`   | `string[]?`              | APT packages to install before Pi. e.g. `["git", "python3"]`                                   |
-| `env`        | `Record<string,string>?` | Env vars in the sandbox. Values may reference host env: `"${MY_KEY}"`                          |
-| `resources`  | `object?`                | CPU/memory limits: `{ cpu: "1000m", memory: "2Gi" }`                                           |
-| `setup`      | `SetupStep[]?`           | Workspace setup steps (see below)                                                              |
-| `spawnDepth` | `number?`                | Nesting-depth budget for `agent.spawn()` — see [Spawning child agents](#spawning-child-agents) |
-| `maxAgents`  | `number?`                | Optional cap on total descendants for this lineage — see below                                 |
+| Field            | Type                     | Description                                                                                    |
+| ---------------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
+| `name`           | `string`                 | Unique identifier, used as the sandbox session name                                            |
+| `harness`        | `"pi"`                   | Agent-loop driver to run (currently only `"pi"`)                                               |
+| `harnessVersion` | `string?`                | Pin to a specific Pi version, e.g. `"0.80.2"`. Defaults to latest.                             |
+| `model`          | `string?`                | Model ID passed to Pi via `--model`                                                            |
+| `provider`       | `string?`                | AI provider passed via `--provider`. Omit for direct Google API key.                           |
+| `packages`       | `string[]?`              | APT packages to install before Pi. e.g. `["git", "python3"]`                                   |
+| `env`            | `Record<string,string>?` | Env vars in the sandbox. Values may reference host env: `"${MY_KEY}"`                          |
+| `resources`      | `object?`                | CPU/memory limits: `{ cpu: "1000m", memory: "2Gi" }`                                           |
+| `setup`          | `SetupStep[]?`           | Workspace setup steps (see below)                                                              |
+| `spawnDepth`     | `number?`                | Nesting-depth budget for `agent.spawn()` — see [Spawning child agents](#spawning-child-agents) |
+| `maxAgents`      | `number?`                | Optional cap on total descendants for this lineage — see below                                 |
 
 ### Setup steps
 
@@ -71,7 +71,7 @@ The spec JSON controls the agent's environment, model, and workspace setup.
 ```json
 {
   "name": "my-agent",
-  "cli": "pi",
+  "harness": "pi",
   "setup": [
     { "name": "Create workspace", "run": "mkdir -p /workspace" },
     { "name": "Install deps", "run": "npm install", "cwd": "/workspace" },
@@ -121,7 +121,7 @@ Load 1 (cold):   sandbox → Pi install → setup steps → checkpoint → bridg
 Load 2 (warm):   snapshot restore → bridge                                   ~5s
 ```
 
-The snapshot is invalidated automatically when `cli`, `cliVersion`, `packages`, or `setup` change.
+The snapshot is invalidated automatically when `harness`, `harnessVersion`, `packages`, or `setup` change.
 
 ```ts
 // adapter: an IStorageAdapter — SQLiteAdapter or PostgresAdapter, see Quickstart

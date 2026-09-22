@@ -4,7 +4,7 @@
   "title": "Egress-approval Agent",
   "description": "A Pi agent whose outbound access to api.github.com is held at the egress sidecar until an operator approves it. Demonstrates AgentSpec.env approval: \"hold\", Alineo.start({ onEgressRequest }), and pendingEgressRequests().",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
   "packages": ["curl"],

@@ -192,7 +192,7 @@ export class PiAdapter {
         `apt-get update -qq && apt-get install -y --no-install-recommends ${pkgs.join(" ")}`,
       );
     }
-    const versionSpecifier = spec.cliVersion?.trim();
+    const versionSpecifier = spec.harnessVersion?.trim();
     const pkg = versionSpecifier
       ? `@earendil-works/pi-coding-agent@${versionSpecifier}`
       : "@earendil-works/pi-coding-agent";

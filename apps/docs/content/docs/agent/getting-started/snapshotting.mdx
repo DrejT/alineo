@@ -25,8 +25,8 @@ console.log(agent.fromSnapshot); // false on first load, true after
 
 The snapshot is keyed on a hash of the fields that affect the installed environment:
 
-- `cli` — currently always `"pi"`
-- `cliVersion` — pinned version or `"latest"`
+- `harness` — currently always `"pi"`
+- `harnessVersion` — pinned version or `"latest"`
 - `packages` — APT packages sorted alphabetically
 - `setup` — workspace setup steps (names, commands, working directories)
 

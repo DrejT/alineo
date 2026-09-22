@@ -38,7 +38,7 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const spec: AgentSpec = {
   name: "hello-agent",
-  cli: "pi",
+  harness: "pi",
   provider: "nvidia",
   model: "nvidia/nemotron-3.5-lightning-30b-a3b",
   packages: ["python3"],

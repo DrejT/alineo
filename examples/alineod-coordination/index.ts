@@ -25,7 +25,7 @@ const BASE = process.env.ALINEOD_URL ?? "http://localhost:4600";
 function agentSpec(name: string, budget: { spawnDepth?: number; maxAgents?: number } = {}) {
   return {
     name,
-    cli: "pi",
+    harness: "pi",
     provider: "nvidia",
     model: "nvidia/nemotron-3.5-lightning-30b-a3b",
     // Resolved from alineod's own environment — the key never travels in the request.

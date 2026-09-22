@@ -67,7 +67,7 @@ async function fetchSpec(url: string): Promise<AgentSpec> {
 
 export interface SpecSummary {
   name: string;
-  cli: string;
+  harness: string;
   description: string;
 }
 
@@ -83,11 +83,11 @@ export async function listSpecs(): Promise<SpecSummary[]> {
       const spec = (await Bun.file(join(dir, file)).json()) as Partial<AgentSpec>;
       specs.push({
         name: spec.name ?? file.replace(/\.json$/, ""),
-        cli: spec.cli ?? "?",
+        harness: spec.harness ?? "?",
         description: spec.description ?? spec.title ?? "",
       });
     } catch {
-      specs.push({ name: file.replace(/\.json$/, ""), cli: "?", description: "(unreadable)" });
+      specs.push({ name: file.replace(/\.json$/, ""), harness: "?", description: "(unreadable)" });
     }
   }
   return specs;

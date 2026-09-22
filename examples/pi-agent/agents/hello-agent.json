@@ -4,7 +4,7 @@
   "title": "Hello Agent",
   "description": "A minimal Pi agent on node:22. Demonstrates the @alineo-labs/agent API.",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
   "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
   "packages": ["git", "python3"],

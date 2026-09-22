@@ -3,17 +3,17 @@ import { validateAgentSpec } from "../src/schema.js";
 
 describe("validateAgentSpec", () => {
   it("accepts a valid minimal spec", () => {
-    const spec = validateAgentSpec({ name: "my-agent", cli: "pi", model: "some-model" });
+    const spec = validateAgentSpec({ name: "my-agent", harness: "pi", model: "some-model" });
     expect(spec.name).toBe("my-agent");
-    expect(spec.cli).toBe("pi");
+    expect(spec.harness).toBe("pi");
   });
 
   it("accepts all optional fields", () => {
     const spec = validateAgentSpec({
       name: "full-agent",
-      cli: "pi",
+      harness: "pi",
       model: "some-model",
-      cliVersion: "latest",
+      harnessVersion: "latest",
       title: "Full Agent",
       description: "An agent with all fields",
       author: "alice",
@@ -30,16 +30,16 @@ describe("validateAgentSpec", () => {
   });
 
   it("throws when name is missing", () => {
-    expect(() => validateAgentSpec({ cli: "pi" })).toThrow(/name/);
+    expect(() => validateAgentSpec({ harness: "pi" })).toThrow(/name/);
   });
 
-  it("throws when cli is missing", () => {
+  it("throws when harness is missing", () => {
     expect(() => validateAgentSpec({ name: "my-agent" })).toThrow(/pi/);
   });
 
-  it("throws for unsupported cli", () => {
-    expect(() => validateAgentSpec({ name: "my-agent", cli: "unknown-cli" })).toThrow(
-      /Unsupported CLI/,
+  it("throws for unsupported harness", () => {
+    expect(() => validateAgentSpec({ name: "my-agent", harness: "unknown-harness" })).toThrow(
+      /Unsupported harness/,
     );
   });
 
