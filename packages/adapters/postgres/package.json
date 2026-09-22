@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@alineo-labs/core": "workspace:*",
+    "@alineo-labs/ledger": "workspace:*",
     "postgres": "3.4.9"
   },
   "devDependencies": {

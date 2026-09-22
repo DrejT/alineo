@@ -52,7 +52,7 @@ try {
   rule("3 · the ledger audit trail — every egress request + resolution");
   const entries = await adapter.readAll(agent.name, agent.sandboxId);
   for (const e of entries) {
-    if (e.event === "permission_requested" || e.event === "permission_resolved") {
+    if (e.event === "permission.requested" || e.event === "permission.resolved") {
       console.log(`  ${e.event.padEnd(22)} ${JSON.stringify(e.payload)}`);
     }
   }

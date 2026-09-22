@@ -48,22 +48,22 @@ All three modes drive the same underlying SSE stream from execd. `.result()` res
 Every live `exec()` call writes three events to the storage adapter (replayed execs on a resumed sandbox skip this — see [Checkpoint and resume](#checkpoint-and-resume) below):
 
 ```
-exec_start    { cmd, seq }
-exec_event    { seq, type: "stdout", text: "..." }  ← one per chunk
-exec_complete { seq, exitCode }
+exec.started    { cmd, seq }
+exec.output    { seq, type: "stdout", text: "..." }  ← one per chunk
+exec.completed { seq, exitCode }
 ```
 
-`client.sandbox()` writes `sandbox_created`. `sb.close()` writes `sandbox_closed`.
+`client.sandbox()` writes `sandbox.created`. `sb.close()` writes `sandbox.closed`.
 
 This means every run is fully replayable from the ledger — even if the process crashes mid-exec.
 
 ## Checkpoint and resume
 
-`sb.checkpoint()` calls the OpenSandbox snapshot API, waits for the snapshot to become ready, and writes a `checkpoint_created` event with the snapshot ID.
+`sb.checkpoint()` calls the OpenSandbox snapshot API, waits for the snapshot to become ready, and writes a `sandbox.checkpoint_created` event with the snapshot ID.
 
 `client.resume(sandboxId)` reads the ledger, finds the last checkpoint, restores a new container from the snapshot, and populates a **replay cache** from execs that completed before the checkpoint.
 
-On the resumed sandbox, calling `sb.exec()` with the same sequence hits the cache — returning the stored result instantly, without writing any new `exec_start`/`exec_event`/`exec_complete` events (they're already in the ledger from the original run). Subsequent execs run live on the restored container and are logged normally.
+On the resumed sandbox, calling `sb.exec()` with the same sequence hits the cache — returning the stored result instantly, without writing any new `exec.started`/`exec.output`/`exec.completed` events (they're already in the ledger from the original run). Subsequent execs run live on the restored container and are logged normally.
 
 ```
 Original run:

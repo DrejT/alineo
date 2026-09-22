@@ -5,3 +5,5 @@ export { MemoryStorage } from "./storage";
 export type { LedgerStorage } from "./storage";
 
 export { byAggregate, fold, inLedgerOrder, persistedOnly } from "./fold";
+
+export { eventRenames, renameEventsStatement } from "./rename-events";

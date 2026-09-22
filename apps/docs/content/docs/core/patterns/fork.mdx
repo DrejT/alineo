@@ -39,7 +39,7 @@ The optional string argument is a tag stored in the ledger (same as `sb.checkpoi
 `sb.fork(tag?)` does three things:
 
 1. Calls `createSnapshot` on the current container and waits for the snapshot to be ready
-2. Writes a `checkpoint_created` event to the ledger (same as `sb.checkpoint()`)
+2. Writes a `sandbox.checkpoint_created` event to the ledger (same as `sb.checkpoint()`)
 3. Spins up a new container from that snapshot and returns it as a `SandboxHandle`
 
 The forked sandbox gets a new `sandboxId` and a ledger session named `fork-<parentName>-<shortId>`. The original sandbox is unaffected.
@@ -90,14 +90,14 @@ Each forked sandbox acquires a concurrency slot (counts against `SandboxClientOp
 
 ## Relationship to checkpoint and resume
 
-|                                       | `sb.checkpoint()` | `sb.fork()`                 |
-| ------------------------------------- | ----------------- | --------------------------- |
-| Snapshots the container               | Yes               | Yes                         |
-| Writes `checkpoint_created` to ledger | Yes               | Yes                         |
-| Original sandbox keeps running        | Yes               | Yes                         |
-| Returns a new live sandbox            | No                | Yes                         |
-| Use with `client.resume()`            | Yes               | Yes (snapshot is in ledger) |
+|                                               | `sb.checkpoint()` | `sb.fork()`                 |
+| --------------------------------------------- | ----------------- | --------------------------- |
+| Snapshots the container                       | Yes               | Yes                         |
+| Writes `sandbox.checkpoint_created` to ledger | Yes               | Yes                         |
+| Original sandbox keeps running                | Yes               | Yes                         |
+| Returns a new live sandbox                    | No                | Yes                         |
+| Use with `client.resume()`                    | Yes               | Yes (snapshot is in ledger) |
 
-Because `fork()` writes a `checkpoint_created` event, the resulting snapshot is visible in `sb.listCheckpoints()` and can also be used with `client.resume()`.
+Because `fork()` writes a `sandbox.checkpoint_created` event, the resulting snapshot is visible in `sb.listCheckpoints()` and can also be used with `client.resume()`.
 
 `sb.fork()` itself is really `sb.checkpoint()` followed by [`client.restoreSnapshot()`](/docs/core/api-reference/alineo-client#restoresnapshot), not `client.resume()` — the new sandbox starts with a clean exec history and does not replay any prior execs from the ledger, unlike `resume()`. The table above still applies since the same underlying snapshot is usable with either call afterwards; it's `fork()`'s own behavior that matches `restoreSnapshot()`, not `resume()`.

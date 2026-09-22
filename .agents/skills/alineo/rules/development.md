@@ -45,7 +45,7 @@ const agent = await Alineo.start(specPath, { adapter: new SQLiteAdapter("./.alin
 ```
 
 Always close the agent in `afterAll`/`finally` — avoids container leaks and ensures
-`sandbox_closed` is written to the ledger.
+`sandbox.closed` is written to the ledger.
 
 Assert on observable behaviour, not internals:
 

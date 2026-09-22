@@ -58,13 +58,17 @@ const EVENT_VOCABULARIES: {
     // `SandboxCreated = "sandbox_created",` — but only inside `enum LedgerEvent`. The same
     // file also declares `enum SandboxStatus`, whose members are states, not events.
     scope: /enum LedgerEvent \{[\s\S]*?\n\}/,
-    pattern: /^\s*[A-Z]\w*\s*=\s*"([a-z][a-z_]*)",/gm,
+    // Dotted now that the enum carries namespaced values; the old flat spelling still
+    // matches, so this keeps working whichever side of the rename a checkout is on.
+    pattern: /^\s*[A-Z]\w*\s*=\s*"([a-z][a-z_.]*)",/gm,
     what: "the SDK ledger enum",
   },
   {
     file: "packages/agent/src/types.ts",
-    // `| { type: "tool_start"; … }` in the AgentEvent union.
-    pattern: /\btype:\s*"([a-z][a-z_]*)"/g,
+    // `| { type: "tool_start"; … }` in the AgentEvent union. Still the harness's own flat
+    // names: alineod translates them at its boundary, and renaming `AgentEvent` itself is a
+    // change to the SDK's public streaming API rather than to what it stores.
+    pattern: /\btype:\s*"([a-z][a-z_.]*)"/g,
     what: "the harness AgentEvent union",
   },
 ];
