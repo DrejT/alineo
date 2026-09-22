@@ -558,6 +558,7 @@
       "name": "@alineo-labs/config-shared",
       "version": "0.0.1",
       "dependencies": {
+        "@alineo-labs/schema": "workspace:*",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -619,6 +620,7 @@
         "alineo-mcp": "./dist/index.mjs",
       },
       "dependencies": {
+        "@alineo-labs/schema": "workspace:*",
         "@modelcontextprotocol/server": "^2.0.0",
         "alineo": "workspace:*",
         "zod": "^4",

@@ -20,7 +20,7 @@ export interface TelemetryConfig {
 export interface CliTelemetryEvent {
   command: string;
   flags: Record<string, boolean>;
-  /** `spawn`/`fork` only -- the target spec's own `AgentSpec.provider` string (e.g. `"nvidia"`),
+  /** `start`/`spawn` only -- the target spec's own `AgentSpec.provider` string (e.g. `"nvidia"`),
    * when readable. See `extractSpecProvider()`'s doc comment for why this field, not `model`. */
   specProvider?: string;
   outcome: "success" | "error";

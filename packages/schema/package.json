@@ -22,6 +22,10 @@
     "./types": {
       "import": "./dist/types.mjs",
       "types": "./dist/types.d.mts"
+    },
+    "./alineod": {
+      "import": "./dist/alineod.mjs",
+      "types": "./dist/alineod.d.mts"
     }
   },
   "publishConfig": {

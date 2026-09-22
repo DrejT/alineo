@@ -14,7 +14,14 @@ import { DB_PATH } from "./config";
 /** Intentionally duplicated from `packages/cli/src/telemetry.ts`'s identical interface rather
  * than shared via a workspace package -- this app and `alineo` communicate purely over the
  * `POST /v1/events` HTTP contract, with no runtime/deploy dependency in either direction. Type
- * duplication across an HTTP boundary is the normal cost of that, not a code smell. */
+ * duplication across an HTTP boundary is the normal cost of that, not a code smell.
+ *
+ * Revisited when `@alineo-labs/schema` took over the other duplicated shapes, and left alone:
+ * this app has NO dependencies at all and is deployed by hand onto a VPS, so a workspace
+ * dependency would make a standalone service need the monorepo built to start. That is a
+ * worse trade than thirteen fields written twice. `cliVersion` here is the alineo CLI's own
+ * version, incidentally -- not `AgentSpec.harnessVersion`, which is a different field that
+ * used to share the name. */
 export interface CliTelemetryEvent {
   command: string;
   flags: Record<string, boolean>;
