@@ -133,11 +133,11 @@ An operator reconnecting over `/permission-stream` is replayed the outstanding r
 
 ## Audit trail
 
-Every request and resolution is written to the ledger as `permission_requested` / `permission_resolved` — **metadata only, never raw tool arguments**. Read it back with any storage adapter or `alineo logs <session>`.
+Every request and resolution is written to the ledger as `permission.requested` / `permission.resolved` — **metadata only, never raw tool arguments**. Read it back with any storage adapter or `alineo logs <session>`.
 
 ```ts
 for (const e of await adapter.readAll(agent.name, agent.sandboxId)) {
-  if (e.event === "permission_requested" || e.event === "permission_resolved") {
+  if (e.event === "permission.requested" || e.event === "permission.resolved") {
     console.log(e.event, e.payload);
   }
 }

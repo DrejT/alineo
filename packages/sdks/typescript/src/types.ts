@@ -1,3 +1,4 @@
+import type { LedgerEnvelope } from "@alineo-labs/schema/types";
 import type {
   IStorageAdapter,
   SandboxHooks,
@@ -40,6 +41,18 @@ export interface SandboxClientOptions {
    * `new PostgresAdapter(connectionString)` from `@alineo-labs/postgres` for production.
    */
   adapter: IStorageAdapter;
+  /**
+   * Receives a `LedgerEnvelope` for every event any sandbox from this client emits, beside
+   * the ledger write.
+   *
+   * Synchronous and must not throw — it runs on the write path of a sandbox operation, so an
+   * async sink would become backpressure and a throwing one would fail the very operation
+   * being recorded. A sink that needs IO buffers internally and flushes on its own schedule.
+   *
+   * @internal The ledger is the system of record and a sink is an export path; the public
+   * shape of this belongs with the work that owns export.
+   */
+  sink?: (envelope: LedgerEnvelope) => void;
   /**
    * Maximum number of sandboxes that may be active simultaneously.
    * When at capacity, `sandbox()` awaits until a slot is free.

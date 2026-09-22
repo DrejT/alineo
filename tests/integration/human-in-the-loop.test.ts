@@ -131,7 +131,7 @@ test(
 
     const events = await adapter.readAll(agent.name, agent.sandboxId);
     const kinds = events.map((e) => e.event);
-    expect(kinds).toContain("permission_requested");
+    expect(kinds).toContain("permission.requested");
     expect(kinds).toContain("permission_resolved");
   },
   600_000,

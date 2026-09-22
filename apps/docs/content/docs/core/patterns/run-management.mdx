@@ -26,11 +26,11 @@ Each session has:
 | `sandboxId`   | `string`        | OpenSandbox container ID                                                                           |
 | `name`        | `string`        | User-provided name (or auto-generated)                                                             |
 | `status`      | `SandboxStatus` | `"running"` or `"completed"` — that's the full set; there is no `"failed"` or `"cancelled"` status |
-| `startedAt`   | `number`        | Unix timestamp (ms) of `sandbox_created` event                                                     |
-| `completedAt` | `number?`       | Unix timestamp (ms) of `sandbox_closed` event                                                      |
+| `startedAt`   | `number`        | Unix timestamp (ms) of `sandbox.created` event                                                     |
+| `completedAt` | `number?`       | Unix timestamp (ms) of `sandbox.closed` event                                                      |
 | `execCount`   | `number`        | Number of completed execs                                                                          |
 
-There is no `error` field on `SandboxDetails` — a sandbox that failed to start doesn't get a ledger entry with a `"failed"` status; it just never has a `sandbox_created` event to derive one from.
+There is no `error` field on `SandboxDetails` — a sandbox that failed to start doesn't get a ledger entry with a `"failed"` status; it just never has a `sandbox.created` event to derive one from.
 
 ## Filter by name
 

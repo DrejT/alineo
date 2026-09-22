@@ -12,6 +12,7 @@ import type {
 } from "@alineo-labs/core";
 import { SandboxStatus } from "@alineo-labs/core";
 import { MIGRATION_SQL } from "./migrations";
+import { renameEventsStatement } from "@alineo-labs/ledger";
 
 type EnvRow = {
   name: string;
@@ -49,14 +50,14 @@ const AGG_SQL = (whereClause: string) => `
     SELECT
       name,
       sandbox_id,
-      MIN(CASE WHEN event = 'sandbox_created' THEN ts END) AS started_at,
-      MAX(CASE WHEN event = 'sandbox_closed'  THEN ts END) AS completed_at,
-      MAX(CASE WHEN event = 'sandbox_closed'  THEN 1 ELSE 0 END) AS is_closed,
-      CAST(COUNT(CASE WHEN event = 'exec_complete' THEN 1 END) AS INTEGER) AS exec_count,
-      MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.runId') END) AS run_id,
-      MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.resourceId') END) AS resource_id,
-      MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.teamId') END) AS team_id,
-      MAX(CASE WHEN event = 'sandbox_created' THEN json_extract(payload, '$.parentSandboxId') END) AS parent_sandbox_id
+      MIN(CASE WHEN event = 'sandbox.created' THEN ts END) AS started_at,
+      MAX(CASE WHEN event = 'sandbox.closed'  THEN ts END) AS completed_at,
+      MAX(CASE WHEN event = 'sandbox.closed'  THEN 1 ELSE 0 END) AS is_closed,
+      CAST(COUNT(CASE WHEN event = 'exec.completed' THEN 1 END) AS INTEGER) AS exec_count,
+      MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.runId') END) AS run_id,
+      MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.resourceId') END) AS resource_id,
+      MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.teamId') END) AS team_id,
+      MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.parentSandboxId') END) AS parent_sandbox_id
     FROM alineo_events
     ${whereClause}
     GROUP BY name, sandbox_id
@@ -135,6 +136,11 @@ export class SQLiteAdapter implements IStorageAdapter {
 
   async connect(): Promise<void> {
     this.db.run(MIGRATION_SQL);
+    // Rename any pre-namespacing rows. Runs after the table exists and before any read —
+    // `getSandboxDetails` aggregates on `event = 'sandbox.created'`, so an unmigrated row
+    // would present as a session that never started rather than as an error.
+    const rename = renameEventsStatement();
+    this.db.run(rename.sql, rename.params);
     // WAL mode prevents writer from blocking readers on concurrent access
     this.db.run("PRAGMA journal_mode = WAL;");
   }
@@ -178,7 +184,7 @@ export class SQLiteAdapter implements IStorageAdapter {
       .prepare<Row, [string, string]>(
         `SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
          FROM alineo_events
-         WHERE name = ? AND sandbox_id = ? AND event = 'checkpoint_created'
+         WHERE name = ? AND sandbox_id = ? AND event = 'sandbox.checkpoint_created'
          ORDER BY ts DESC
          LIMIT 1`,
       )
@@ -216,7 +222,7 @@ export class SQLiteAdapter implements IStorageAdapter {
       .prepare<Row, [string, string]>(
         `SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
          FROM alineo_events
-         WHERE name = ? AND sandbox_id = ? AND event = 'checkpoint_created'
+         WHERE name = ? AND sandbox_id = ? AND event = 'sandbox.checkpoint_created'
          ORDER BY ts ASC`,
       )
       .all(name, sandboxId);

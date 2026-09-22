@@ -427,6 +427,7 @@
       "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/ledger": "workspace:*",
         "postgres": "3.4.9",
       },
       "devDependencies": {
@@ -453,6 +454,7 @@
       "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/ledger": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.4.2",
@@ -569,6 +571,7 @@
       "dependencies": {
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/schema": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.4.2",
@@ -684,6 +687,7 @@
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/schema": "workspace:*",
         "@alineo-labs/vault": "workspace:*",
       },
       "devDependencies": {

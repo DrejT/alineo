@@ -2,7 +2,12 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Sandbox, type SandboxHandle } from "../src/client.ts";
 import { Environment, type EnvironmentSandboxOptions } from "../src/environment.ts";
 import { SandboxState } from "@alineo-labs/opensandbox";
-import { SandboxStatus, type IStorageAdapter, type SandboxDetails } from "@alineo-labs/core";
+import {
+  LedgerEvent,
+  SandboxStatus,
+  type IStorageAdapter,
+  type SandboxDetails,
+} from "@alineo-labs/core";
 
 function makeAdapter(overrides: Partial<IStorageAdapter> = {}): IStorageAdapter {
   return {
@@ -432,7 +437,7 @@ describe("Sandbox.connect() paused sandboxes", () => {
 function createdPayload(adapter: IStorageAdapter): Record<string, unknown> | undefined {
   const call = vi
     .mocked(adapter.append)
-    .mock.calls.find(([entry]) => entry.event === "sandbox_created");
+    .mock.calls.find(([entry]) => entry.event === "sandbox.created");
   return call?.[0].payload as Record<string, unknown> | undefined;
 }
 
@@ -474,7 +479,7 @@ describe("Sandbox.resume() resourceId/teamId threading", () => {
         name: "ci",
         sandboxId: "orig",
         stepIndex: -1,
-        event: "sandbox_created",
+        event: "sandbox.created",
         payload: { resourceId: "user-1", teamId: "acme" },
       },
       {
@@ -482,7 +487,7 @@ describe("Sandbox.resume() resourceId/teamId threading", () => {
         name: "ci",
         sandboxId: "orig",
         stepIndex: -1,
-        event: "checkpoint_created",
+        event: "sandbox.checkpoint_created",
         payload: { snapshotId: "snap-1" },
       },
     ]);
@@ -633,5 +638,57 @@ describe("Sandbox._createFromSnapshot() resourceId/teamId threading (environment
     const payload = createdPayload(adapter);
     expect(payload?.resourceId).toBeUndefined();
     expect(payload?.teamId).toBeUndefined();
+  });
+});
+
+describe("event sinks", () => {
+  function makeClientWithSink(
+    adapter: IStorageAdapter,
+    sink: (envelope: { type: string; data: unknown }) => void,
+  ) {
+    return new Sandbox({ baseUrl: "http://localhost:8080", adapter, sink });
+  }
+
+  it("receives an envelope for every event a sandbox emits", async () => {
+    const adapter = makeAdapter();
+    const captured: string[] = [];
+    const client = makeClientWithSink(adapter, (e) => captured.push(e.type));
+    internals(client)._control = makeFakeControl();
+
+    const sb = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+    });
+    await sb.emit(LedgerEvent.SandboxClosed, -1);
+
+    expect(captured).toContain("sandbox.created");
+    expect(captured).toContain("sandbox.closed");
+  });
+
+  it("never fails a sandbox operation when the sink throws", async () => {
+    // A failing export must not take out the work being exported.
+    const adapter = makeAdapter();
+    const client = makeClientWithSink(adapter, () => {
+      throw new Error("exporter down");
+    });
+    internals(client)._control = makeFakeControl();
+
+    const sb = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+    });
+    await expect(sb.emit(LedgerEvent.ExecStart, 0)).resolves.toBeUndefined();
+    expect(adapter.append).toHaveBeenCalled();
+  });
+
+  it("works with no sink attached, which is the default", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    internals(client)._control = makeFakeControl();
+    const sb = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+    });
+    await expect(sb.emit(LedgerEvent.ExecStart, 0)).resolves.toBeUndefined();
   });
 });

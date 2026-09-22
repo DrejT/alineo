@@ -21,7 +21,7 @@ bunx alineo-cli logs <name> [--json]
 
 ## What it does
 
-Looks up the most recent sandbox for `name` in the ledger and prints every ledger event recorded against it — `sandbox_created`, `exec_start`/`exec_event`/`exec_complete`, `checkpoint_created`, `sandbox_closed`, and so on.
+Looks up the most recent sandbox for `name` in the ledger and prints every ledger event recorded against it — `sandbox.created`, `exec.started`/`exec.output`/`exec.completed`, `sandbox.checkpoint_created`, `sandbox.closed`, and so on.
 
 Note this reads by **name**, unlike `alineo prompt`/`alineo stop` which read by sandbox ID — `logs` is a read-only audit trail, not a liveness-sensitive operation, so the staleness/non-uniqueness concerns that motivate ID-based addressing elsewhere don't apply the same way. If a name has multiple sandboxes in the ledger, the newest one is used.
 

@@ -18,7 +18,7 @@ reimplement sandbox lifecycle — `agent.sandbox` is a real `SandboxHandle` for 
 exec/file access when you need to bypass Pi.
 
 Each agent action is recorded in the ledger the same way sandbox execs are:
-`exec_start` → `exec_event`s (stdout/stderr chunks) → `exec_complete`.
+`exec.started` → `exec.output`s (stdout/stderr chunks) → `exec.completed`.
 
 `Alineo.start()` installs the CLI + setup steps once, then checkpoints — subsequent loads restore
 from that snapshot (`agent.fromSnapshot`). `Alineo.resume(sandboxId)` reconnects a bridge to an
