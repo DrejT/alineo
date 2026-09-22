@@ -1,4 +1,4 @@
-# @alineo-labs/harness
+# @alineo-labs/instructions
 
 A small, domain-agnostic primitive for building a structured system prompt out of named,
 independently-addressable sections instead of hand-concatenated template strings gated by ad
@@ -10,15 +10,15 @@ format/examples sections, XML-tag rendering) is a reasonable general-purpose bui
 rather than tied to any one model provider's conventions.
 
 ```ts
-import { harness } from "@alineo-labs/harness";
+import { instructions } from "@alineo-labs/instructions";
 
-const h = harness()
+const prompt = instructions()
   .role("You are a careful code-review assistant.")
   .guardrail("Never execute code you have not read.")
   .context("The repository is a TypeScript monorepo using bun workspaces.")
   .examples("Input: ... Output: ...");
 
-h.render();
+prompt.render();
 // <role>
 // You are a careful code-review assistant.
 // </role>
@@ -38,31 +38,31 @@ h.render();
 
 ## Core model
 
-A `Harness` is an ordered collection of named sections, each an ordered list of raw-string
+A `Instructions` is an ordered collection of named sections, each an ordered list of raw-string
 fragments. `.role(text)`, `.context(text)`, `.guardrail(text)`, `.mindset(text)`,
 `.format(text)`, and `.examples(text)` are sugar over the general `.section(name, text)` —
 custom section names work identically, just without a dedicated method. Calling the same
 section again appends another fragment rather than replacing it.
 
-There is no conditional logic inside `Harness` itself — it's a dumb accumulator, not a rules
+There is no conditional logic inside `Instructions` itself — it's a dumb accumulator, not a rules
 engine. Whether a fragment gets added at all is entirely the caller's decision, made before
 calling `.add()`.
 
 - **`render()`** — the final composed prompt string. Each non-empty section is wrapped in an
   XML tag matching its name; a section nobody wrote to is omitted entirely, not emitted as an
   empty tag pair.
-- **`log()`** — a `console.log`-for-a-harness debug view: shows the section→fragment
+- **`log()`** — a `console.log`-for-an-instruction-set debug view: shows the section→fragment
   structure (the same shape `dumps()` writes to disk), not the rendered/tag-wrapped prompt.
 - **`dumps(path)` / `load(path)`** — always a markdown file, one `## name` header per
-  non-empty section. `load(path)` **replaces** the harness's content entirely; it does not
+  non-empty section. `load(path)` **replaces** the instruction set's content entirely; it does not
   merge with whatever was already there.
 
 ## Non-goals
 
 This package has no awareness of agents, master/worker relationships, spawn depth, or RLM
-orchestration, and no access-control/"locked section" enforcement — a `Harness` will happily
+orchestration, and no access-control/"locked section" enforcement — a `Instructions` will happily
 let anyone write to any section. Restricting who gets to write into which section in
-practice, and composing pieces of multiple harnesses together are both explicitly out of
+practice, and composing pieces of multiple instruction sets together are both explicitly out of
 scope for this initial build.
 
 ## Provider-neutral by design
@@ -88,7 +88,7 @@ Mistral independently recommend the same delimiter style and near-identical orde
 provider's official docs advise against XML tags. Llama is the one soft outlier
 (template-driven, brevity-biased).
 
-This means the _builder itself_ (`packages/harness/src/index.ts`) is legitimately portable
+This means the _builder itself_ (`packages/instructions/src/index.ts`) is legitimately portable
 — any vendor-specific coupling belongs in a future caller's own prompt content, not in this
 package. (In `alineo`'s private/commercial fork, that caller is `packages/cli`'s
 `harness-setup.ts`, which renders Pi-specific `.pi/SYSTEM.md` content — deliberately not

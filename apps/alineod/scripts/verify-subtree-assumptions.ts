@@ -88,7 +88,7 @@ async function closeAll() {
 
 async function v1v3() {
   log("V1/V3: loading parent agent");
-  const parent = await Alineo.load(spec("verify-v1-parent"), {
+  const parent = await Alineo.start(spec("verify-v1-parent"), {
     adapter,
     spawnDepth: 3,
     maxAgents: 5,
@@ -256,7 +256,7 @@ async function pollUntilIdle(agent: InstanceType<typeof Alineo>, startedAt: numb
 
 async function v2() {
   log("V2: loading agent");
-  const agent = await Alineo.load(spec("verify-v2"), { adapter });
+  const agent = await Alineo.start(spec("verify-v2"), { adapter });
   opened.push(agent);
   const v2: Record<string, unknown> = { sandboxId: agent.sandboxId, model: MODEL };
   results.v2 = v2;

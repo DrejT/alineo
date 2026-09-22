@@ -575,8 +575,8 @@
         "vitest": "5.0.0",
       },
     },
-    "packages/harness": {
-      "name": "@alineo-labs/harness",
+    "packages/instructions": {
+      "name": "@alineo-labs/instructions",
       "version": "0.1.1",
       "devDependencies": {
         "bun-types": "1.4.2",
@@ -734,7 +734,7 @@
 
     "@alineo-labs/flue": ["@alineo-labs/flue@workspace:packages/adapters/flue"],
 
-    "@alineo-labs/harness": ["@alineo-labs/harness@workspace:packages/harness"],
+    "@alineo-labs/instructions": ["@alineo-labs/instructions@workspace:packages/instructions"],
 
     "@alineo-labs/integration-tests": ["@alineo-labs/integration-tests@workspace:tests/integration"],
 

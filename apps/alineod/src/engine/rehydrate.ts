@@ -12,7 +12,7 @@
  *      if the bridge was preserved, at once if it had to be restarted (the turn died with it).
  *      Otherwise the projection would say "running" forever.
  *   3. Pass 2 — every live agent still stuck *before* its fork (no sandbox yet: a child
- *      queued behind `waitFor`, or a root still inside `Alineo.load()`): retry the spawn
+ *      queued behind `waitFor`, or a root still inside `Alineo.start()`): retry the spawn
  *      from what was persisted in its `agent_spawned` event (`wait_for`/`prompt` in db.ts —
  *      before this existed, that intent only ever lived in the dead process's closure, so
  *      it was unconditionally marked "lost"). Only possible if the parent came back in pass
@@ -173,7 +173,7 @@ async function retryProvision(a: AgentRow): Promise<void> {
   const spec = JSON.parse(a.spec_json);
 
   if (!a.parent_agent_id) {
-    log.info("retrying provision for root (was still inside Alineo.load())", {
+    log.info("retrying provision for root (was still inside Alineo.start())", {
       agentId: a.agent_id,
     });
     const body: CreateRunBody = {

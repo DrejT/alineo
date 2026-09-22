@@ -145,7 +145,7 @@ export class EgressApprovalGate {
       });
     });
     // Don't hold the event loop open on our own account — `close()`/`stop()` is the explicit
-    // teardown; `unref` just means a leaked gate (e.g. `Alineo.load()` throwing after this
+    // teardown; `unref` just means a leaked gate (e.g. `Alineo.start()` throwing after this
     // point) can't hang the process.
     server.unref();
     this.server = server;

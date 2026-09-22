@@ -290,7 +290,7 @@ describe("agents that hadn't forked yet", () => {
     await rehydrate();
 
     const sandboxId = await until(() => getAgentRow(root)?.sandbox_id, "root to provision");
-    expect(fakeSdk.calls.load).toBe(1);
+    expect(fakeSdk.calls.start).toBe(1);
     await until(() => fakeSdk.sandboxes.get(sandboxId)?.prompts.includes("start"), "root prompt");
   });
 

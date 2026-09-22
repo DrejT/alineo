@@ -32,10 +32,10 @@ export async function start(
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  // Alineo.load() no longer does its own file I/O (see #184) -- read the spec file ourselves.
-  // load() validates it internally regardless, so no need to call validateAgentSpec() here too.
+  // Alineo.start() no longer does its own file I/O (see #184) -- read the spec file ourselves.
+  // start() validates it internally regardless, so no need to call validateAgentSpec() here too.
   const spec = (await Bun.file(specPath).json()) as Record<string, unknown>;
-  const agent = await Alineo.load(spec, {
+  const agent = await Alineo.start(spec, {
     adapter,
     rebuild: opts.rebuild,
     spawnDepth: opts.depth,

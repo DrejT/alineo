@@ -33,7 +33,7 @@ afterAll(async () => {
 
 async function load(spec: Record<string, unknown>): Promise<{ agent: Alineo; adapter: SQLiteAdapter }> {
   const adapter = new SQLiteAdapter(":memory:");
-  const agent = await Alineo.load(spec, { adapter });
+  const agent = await Alineo.start(spec, { adapter });
   agents.push(agent);
   return { agent, adapter };
 }

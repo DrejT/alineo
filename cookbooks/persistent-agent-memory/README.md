@@ -20,12 +20,12 @@ bun start
 
 ## What it does
 
-1. **Session 1** — loads `agents/support-agent.json` via `Alineo.load()`, wired with a `Memory`
+1. **Session 1** — loads `agents/support-agent.json` via `Alineo.start()`, wired with a `Memory`
    instance backed by `@alineo-labs/sqlite-memory` (a real file: `./.alineo/agent-memory.db`).
    Sets a working-memory profile (`plan`, `name`), runs a command, and `remember()`s a fact
    tagged with a `sourceRef` pointing at the real ledger entry that command produced — so it
    comes back `verified: true`, not just claimed. Prompts the agent, then closes the sandbox.
-2. **Session 2** — calls `Alineo.load()` again with the **same spec** and the **same `Memory`
+2. **Session 2** — calls `Alineo.start()` again with the **same spec** and the **same `Memory`
    instance**. This creates a brand-new sandbox (a different `sandboxId` — you'll see it in the
    output) with none of session 1's container state. Everything recalled — the working-memory
    profile, the verified fact — comes back purely because `agent.resourceRef` (which defaults

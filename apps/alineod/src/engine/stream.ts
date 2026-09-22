@@ -71,7 +71,7 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
   const agent = get(agentId);
   if (!agent) return;
   // alineod's run, from the projection — NOT `agent.runId`, which is the SDK's own correlation id:
-  // the same for a root (alineod passes it to Alineo.load()), but a forked child picks its own,
+  // the same for a root (alineod passes it to Alineo.start()), but a forked child picks its own,
   // which filed every event of a child's turn under a run nobody is watching.
   const runId = getAgentRow(agentId)?.run_id;
   if (!runId) return;

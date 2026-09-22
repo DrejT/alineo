@@ -39,7 +39,7 @@ bun start
 
 ## What it does
 
-1. **`Alineo.load()` reads `agents/github-agent.json`**, whose `env.GITHUB_TOKEN` is a
+1. **`Alineo.start()` reads `agents/github-agent.json`**, whose `env.GITHUB_TOKEN` is a
    `{ credential, host, injection }` binding rather than a string. Because at least one binding
    is present, `load()` creates the sandbox with `credentialProxy: true` and registers the
    token with the egress sidecar's Credential Vault — it never becomes a container env var.

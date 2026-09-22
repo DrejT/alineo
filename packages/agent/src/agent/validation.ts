@@ -29,7 +29,7 @@ export function assertValidMaxAgents(value: number, context: string): void {
 /**
  * Resolves and validates the spawn-depth budget available to `Alineo.spawn()` —
  * `override` (a `--depth` CLI flag) wins if given, else whatever value was
- * materialised into `ALINEO_SPAWN_DEPTH` by `Alineo.load()`/`Alineo.resume()`. Throws
+ * materialised into `ALINEO_SPAWN_DEPTH` by `Alineo.start()`/`Alineo.resume()`. Throws
  * unless the result is a positive integer: `0` means "no budget left", not "spawn
  * one more time" — spawning stops one level before the counter would go negative.
  */

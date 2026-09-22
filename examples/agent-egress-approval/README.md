@@ -1,7 +1,7 @@
 # agent-egress-approval
 
 A Pi agent whose outbound access to `api.github.com` is **held at the egress sidecar** until
-an operator approves it — `AgentSpec.env` `approval: "hold"` + `Alineo.load({ onEgressRequest })`.
+an operator approves it — `AgentSpec.env` `approval: "hold"` + `Alineo.start({ onEgressRequest })`.
 
 ## Setup
 
@@ -22,7 +22,7 @@ bun start
 ## What it shows
 
 `agents/egress-agent.json` binds `GITHUB_TOKEN` to `api.github.com` with header injection **and**
-`"approval": "hold"`. On `Alineo.load()`:
+`"approval": "hold"`. On `Alineo.start()`:
 
 1. The sandbox is created `defaultAction: "allow"` with a single `deny` rule for
    `api.github.com` — everything else (npm, the model API, …) works normally.

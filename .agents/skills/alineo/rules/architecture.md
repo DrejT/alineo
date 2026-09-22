@@ -20,7 +20,7 @@ exec/file access when you need to bypass Pi.
 Each agent action is recorded in the ledger the same way sandbox execs are:
 `exec_start` → `exec_event`s (stdout/stderr chunks) → `exec_complete`.
 
-`Alineo.load()` installs the CLI + setup steps once, then checkpoints — subsequent loads restore
+`Alineo.start()` installs the CLI + setup steps once, then checkpoints — subsequent loads restore
 from that snapshot (`agent.fromSnapshot`). `Alineo.resume(sandboxId)` reconnects a bridge to an
 existing container after the host process exits; `Alineo.attach(sandboxId)` connects without
 touching the bridge at all, for `.spawn()`-only access.

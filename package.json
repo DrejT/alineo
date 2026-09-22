@@ -18,7 +18,7 @@
     "packages/adapters/vault",
     "packages/agent",
     "packages/agent-browser",
-    "packages/harness",
+    "packages/instructions",
     "packages/memory",
     "packages/model-providers",
     "packages/cli",

@@ -6,7 +6,7 @@ const BUILTIN_SECTION_ORDER = ["role", "context", "guardrail", "mindset", "forma
 
 const SECTION_HEADER = /^##\s+(.+)$/m;
 
-export interface Harness {
+export interface Instructions {
   /** General form the built-in sugar methods below are shorthand for. */
   section(name: string, text: string): this;
   role(text: string): this;
@@ -18,15 +18,15 @@ export interface Harness {
 
   /** Final composed prompt: each non-empty section wrapped in a matching XML tag. */
   render(): string;
-  /** console.log-for-a-harness: shows section structure, not the rendered prompt. */
+  /** console.log for an instruction set: shows section structure, not the rendered prompt. */
   log(): void;
-  /** Writes this harness to a markdown file at `path` -- one `## name` header per section. */
+  /** Writes these instructions to a markdown file at `path` -- one `## name` header per section. */
   dumps(path: string): Promise<void>;
-  /** Replaces this harness's content entirely with what's parsed from `path`. */
+  /** Replaces these instructions' content entirely with what's parsed from `path`. */
   load(path: string): Promise<this>;
 }
 
-class HarnessImpl implements Harness {
+class InstructionsImpl implements Instructions {
   private sections = new Map<string, string[]>();
   private customOrder: string[] = [];
 
@@ -80,7 +80,7 @@ class HarnessImpl implements Harness {
   }
 
   log(): void {
-    // Printing is this method's whole purpose (a console.log for a harness).
+    // Printing is this method's whole purpose (a console.log for an instruction set).
     // oxlint-disable-next-line no-console
     console.log(this.toMarkdown());
   }
@@ -106,6 +106,6 @@ class HarnessImpl implements Harness {
   }
 }
 
-export function harness(): Harness {
-  return new HarnessImpl();
+export function instructions(): Instructions {
+  return new InstructionsImpl();
 }

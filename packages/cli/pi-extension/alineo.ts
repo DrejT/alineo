@@ -35,7 +35,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   // `ALINEO_SANDBOX_ID` is only set inside a sandbox created by an agent-creation
-  // path (Alineo.load()/resume()/spawn(), see packages/agent/src/agent.ts) — its
+  // path (Alineo.start()/resume()/spawn(), see packages/agent/src/agent.ts) — its
   // presence here means THIS Pi process is itself running inside one, so it has
   // live state (installed packages, a checked-out repo, files on disk) worth
   // spawning children from via `alineo spawn`. A host-level session (a user's own

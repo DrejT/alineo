@@ -180,7 +180,7 @@ async function ensureAlineod(log: Log, openSandboxConfigChanged: boolean): Promi
 
   // Model-agnostic: forward whatever Pi-supported provider key(s) are already in the
   // operator's shell. An AgentSpec's env map (e.g. `{ NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }`)
-  // is resolved from process.env inside whichever process calls Alineo.load()/.spawn() —
+  // is resolved from process.env inside whichever process calls Alineo.start()/.spawn() —
   // for a swarm run through alineod, that's this container — so any provider works as long
   // as Pi supports it, not just NVIDIA's free tier.
   const foundModelKeys = PI_MODEL_API_KEY_ENV_VARS.filter((name) => process.env[name]);

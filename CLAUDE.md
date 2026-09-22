@@ -144,7 +144,7 @@ packages/agent/                   — Alineo SDK (published to npm as "alineo")
                                     modules below
   src/agent/session-control.ts     — prompt/bash/steer/abort/followUp/newSession/setSteeringMode/...
   src/agent/model.ts                — setModel/cycleModel/getAvailableModels/setThinkingLevel/cycleThinkingLevel
-  src/agent/introspection.ts        — getState/getMessages/getSessionStats/getForkMessages/getCommands/getLogs
+  src/agent/introspection.ts        — getState/getMessages/getSessionStats/getBranchPoints/getCommands/getLogs
   src/agent/lifecycle.ts            — fork/clone/switchSession/exportHtml/compact/setEnv/close
   src/agent/validation.ts           — assertValidSpawnDepth/assertValidMaxAgents/resolveParent{SpawnDepth,MaxAgents}
   src/agent/internal.ts             — AgentInternal (package-private facade the split modules operate over)
@@ -185,7 +185,7 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
   src/commands/add.ts             — alineo add <url>: fetches an agent spec, saves it locally
   src/commands/list.ts            — alineo list: lists saved agent specs
   src/commands/remove.ts          — alineo remove <name>: deletes a saved agent spec
-  src/commands/start.ts           — alineo start <spec>: Alineo.load() a fresh, independent agent sandbox
+  src/commands/start.ts           — alineo start <spec>: Alineo.start() a fresh, independent agent sandbox
   src/commands/prompt.ts          — alineo prompt <sandbox-id> <msg>: Alineo.resume() + send one prompt
   src/commands/spawn.ts           — alineo spawn <parent> <child-spec>: Alineo.attach() + spawn() a child from a live sandbox
   src/commands/agents.ts          — alineo agents: lists running sessions (ledger cross-checked against the live
@@ -243,7 +243,7 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
 
 When using a server started this way, pass `useServerProxy: true` to `new Sandbox(...)` — direct container IPs are not reachable from the host over Docker's bridge network.
 
-OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/alineo/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli-shared/src/config.ts`), so `Alineo.load()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
+OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/alineo/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli-shared/src/config.ts`), so `Alineo.start()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
 
 ### Option 2 — uvx (manual)
 
