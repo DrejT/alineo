@@ -1,12 +1,12 @@
 {
-  "name": "@alineo-labs/schema",
+  "name": "@alineo-labs/ledger",
   "version": "0.1.0",
-  "description": "The shapes of the system: the ledger envelope, every event definition, and the subjects and verbs that CLI commands, SDK methods, HTTP routes, MCP tools and event names are built out of. Types and Zod schemas only — no behaviour.",
+  "description": "Behaviour for alineo's event ledger: sinks, fold helpers and an in-memory store. Shapes live in @alineo-labs/schema.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DrejT/alineo.git",
-    "directory": "packages/schema"
+    "directory": "packages/ledger"
   },
   "files": [
     "dist"
@@ -18,10 +18,6 @@
     ".": {
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.mts"
-    },
-    "./types": {
-      "import": "./dist/types.mjs",
-      "types": "./dist/types.d.mts"
     }
   },
   "publishConfig": {
@@ -34,7 +30,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "@alineo-labs/schema": "workspace:*"
   },
   "devDependencies": {
     "bun-types": "1.4.2",
