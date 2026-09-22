@@ -122,9 +122,10 @@ export function buildServer(
     {
       title: "Watch a run's live events",
       description:
-        "GET /runs/:runId/events (SSE) — collects lifecycle events (agent_spawned, " +
-        "agent_state_changed, agent_ended, handle_settled, budget_denied, …) and forwarded " +
-        "harness events (text, tool_start, tool_end, …) for a bounded window, since this is a " +
+        "GET /runs/:runId/events (SSE) — collects lifecycle events (agent.spawned, " +
+        "agent.state_changed, agent.ended, handle.settled, budget.denied, …) and forwarded " +
+        "harness events (message.updated, tool.started, tool.ended, …) for a bounded window, " +
+        "since this is a " +
         "request/response tool call rather than a live stream. Pass sinceEventId (the last " +
         "event's `id`) to resume from where you left off without missing anything persisted.",
       inputSchema: z.object({

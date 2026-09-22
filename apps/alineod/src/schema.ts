@@ -6,6 +6,7 @@
  * / `.spawn()`, so here it's an opaque object — alineod does not re-model it.
  */
 import { z } from "zod";
+import { allEvents } from "@alineo-labs/schema";
 
 /** Opaque pass-through: the SDK owns `AgentSpec` validation. */
 export const AgentSpec = z
@@ -314,129 +315,30 @@ export const TranscriptResponse = z.object({
   ),
 });
 
-// ── the event union (research/daemon.md §7) ──────────────────────────────────
+// ── the event union (research/daemon.md §7) ─────────────────────────────────
 //
-// alineod's own agent-lifecycle events. Forwarded harness events (`text`, `tool_start`, …)
-// ride the same SSE stream tagged with `agentId` but are modelled by the SDK, not here.
+// Derived from `@alineo-labs/schema`'s definitions rather than restated here. It used to be a
+// second hand-maintained copy of the same sixteen events, and nothing checked that the two
+// agreed — which is the duplication the schema package exists to end.
+//
+// Its only consumer is `scripts/emit-spec.ts`, so this is what puts alineod's events into
+// `specs/alineod/openapi.json`: a definition added to the schema shows up in the spec without
+// anyone touching this file.
+//
+// Forwarded harness events (`tool.started`, `message.updated`, …) ride the same SSE stream
+// tagged with `agentId`. They are defined in the schema too, under their own subjects, and
+// are deliberately not in this union — it describes alineod's own agent-lifecycle events.
 
-const EventBase = z.object({ agentId: z.string().nullable() });
+const ALINEOD_SUBJECTS = ["run", "agent", "handle", "wait", "inbox", "notify", "budget"];
 
-export const AlineodEvent = z.discriminatedUnion("event", [
-  z.object({ event: z.literal("run_started"), runId: z.string() }),
-  EventBase.extend({
-    event: z.literal("agent_spawned"),
-    parentAgentId: z.string().nullable(),
-    runId: z.string(),
-    specName: z.string(),
-    depth: z.number().int(),
-    spawnIndex: z.number().int(),
-    sandboxId: z.string().nullable(),
-    waitFor: z
-      .array(z.string())
-      .nullable()
-      .optional()
-      .describe(
-        "Persisted (not just the spec) so rehydrate() can retry a still-pending spawn instead of losing it.",
-      ),
-    prompt: z.string().nullable().optional(),
-  }),
-  EventBase.extend({
-    event: z.literal("agent_state_changed"),
-    from: z.string(),
-    to: z.string(),
-    reason: z.string().optional(),
-    pausedBy: z
-      .enum(["operator", "cascade"])
-      .optional()
-      .describe(
-        "On a transition to paused: whether this agent was the target, or reached by a subtree pause.",
-      ),
-  }),
-  EventBase.extend({
-    event: z.literal("agent_provisioned"),
-    sandboxId: z.string(),
-  }).describe(
-    "The sandbox now exists and the bridge is up — backfills what agent_spawned couldn't know yet.",
-  ),
-  EventBase.extend({
-    event: z.literal("agent_steered"),
-    message: z.string(),
-    scope: z.enum(["agent", "subtree"]).optional(),
-    roster: z.array(z.string()).optional(),
-    deliveredAs: z.enum(["steer", "turn", "queued"]).optional(),
-  }),
-  EventBase.extend({
-    event: z.literal("wait_resolved"),
-    mode: WaitMode,
-    outcome: z.enum(["satisfied", "partial", "deadline", "depfail"]),
-    selected: z.array(z.string()),
-    settled: z.array(z.object({ agentId: z.string(), outcome: z.string().nullable() })),
-    pending: z.array(z.string()),
-  }).describe(
-    "A held spawn's waitFor resolved. depfail / deadline end the child failed without forking.",
-  ),
-  EventBase.extend({
-    event: z.literal("wait_blocked_on_paused"),
-    blockedOn: z.string(),
-  }).describe(
-    "A held spawn is still waiting on a dependency that's paused — emitted once per dependency.",
-  ),
-  EventBase.extend({
-    event: z.literal("subtree_quiescent"),
-    memberCount: z.number().int(),
-    asOf: z.number(),
-  }).describe(
-    "The subtree rooted at agentId just became quiescent (only tracked while someone awaits it).",
-  ),
-  EventBase.extend({
-    event: z.literal("notify_registered"),
-    on: z.array(z.string()),
-    wake: z.boolean(),
-  }).describe("agentId subscribed to be told when each agent in `on` finishes."),
-  EventBase.extend({
-    event: z.literal("inbox_queued"),
-    kind: z.enum(["notification", "steer"]),
-    aboutAgentId: z.string().nullable().optional(),
-    aboutSpec: z.string().nullable().optional(),
-    outcome: z.string().nullable().optional(),
-    resultRef: z.string().nullable().optional(),
-    excerpt: z.string().nullable().optional(),
-    again: z.boolean().optional(),
-    text: z.string().optional(),
-  }).describe(
-    "Something for agentId to be told — a notification, or a steer waiting for it to resume.",
-  ),
-  EventBase.extend({
-    event: z.literal("inbox_delivered"),
-    seqs: z.array(z.number().int()),
-    as: z.enum(["steer", "turn", "prompt"]),
-  }),
-  EventBase.extend({
-    event: z.literal("inbox_dropped"),
-    seqs: z.array(z.number().int()),
-    reason: z.string(),
-  }),
-  EventBase.extend({
-    event: z.literal("agent_released"),
-    reason: z.string(),
-  }).describe(
-    "A finished agent's still-open sandbox was closed (stop / DELETE /runs), or a fork that landed after its spawn was stopped. The recorded outcome is unchanged.",
-  ),
-  EventBase.extend({
-    event: z.literal("agent_ended"),
-    outcome: z.string(),
-    endedAt: z.number(),
-    error: z.string().optional(),
-  }),
-  EventBase.extend({
-    event: z.literal("handle_settled"),
-    outcome: z.string(),
-    resultRef: z.string().nullable(),
-  }),
-  EventBase.extend({
-    event: z.literal("budget_denied"),
-    dimension: z.enum(["spawnDepth", "maxAgents"]),
-    remaining: z.number().int(),
-  }),
-]);
+const alineodEventMembers = allEvents()
+  .filter((definition) => ALINEOD_SUBJECTS.includes(definition.type.split(".")[0]!))
+  .map((definition) =>
+    (definition.schema as z.ZodObject).extend({ event: z.literal(definition.type) }),
+  );
+
+export const AlineodEvent = z.discriminatedUnion(
+  "event",
+  alineodEventMembers as unknown as [z.ZodObject, ...z.ZodObject[]],
+);
 export type AlineodEvent = z.infer<typeof AlineodEvent>;

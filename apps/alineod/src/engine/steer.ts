@@ -32,7 +32,7 @@ export async function steerAgent(agentId: string, message: string): Promise<void
     throw new HttpError(502, `steer failed: ${msg}`);
   }
 
-  emit(row.run_id, agentId, "agent_steered", { message });
+  emit(row.run_id, agentId, "agent.steered", { message });
 }
 
 export interface RosterEntry {
@@ -95,7 +95,7 @@ export async function steerSubtree(parentId: string, message: string): Promise<S
     deliveredAs = "turn";
   }
 
-  emit(row.run_id, parentId, "agent_steered", {
+  emit(row.run_id, parentId, "agent.steered", {
     message,
     scope: "subtree",
     roster: roster.map((r) => r.agentId),

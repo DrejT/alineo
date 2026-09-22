@@ -51,7 +51,7 @@ describe("steer with scope: subtree", () => {
     expect(envelope).toContain("alineo steer <sandboxId>");
 
     expect(
-      events(f.runId).find((e) => e.event === "agent_steered" && e.agentId === f.rootAgentId),
+      events(f.runId).find((e) => e.event === "agent.steered" && e.agentId === f.rootAgentId),
     ).toMatchObject({ scope: "subtree", roster: [f.a.agentId, f.b.agentId], deliveredAs: "steer" });
     gate.resolve();
   });

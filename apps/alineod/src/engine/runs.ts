@@ -38,8 +38,8 @@ export function createRun(body: CreateRunBody): CreateRunResult {
   // Everything above is synchronous, no I/O — this whole function runs to completion before
   // any other request's handler gets a turn, so the row below is visible to the very next
   // GET /runs/:id even though the sandbox doesn't exist yet.
-  emit(runId, null, "run_started", { runId });
-  emit(runId, rootAgentId, "agent_spawned", {
+  emit(runId, null, "run.started", { runId });
+  emit(runId, rootAgentId, "agent.spawned", {
     parentAgentId: null,
     runId,
     specName,
@@ -75,12 +75,12 @@ export async function provisionRoot(
       maxAgents: body.budget?.maxAgents,
     });
     register(rootAgentId, agent);
-    emit(runId, rootAgentId, "agent_provisioned", { sandboxId: agent.sandboxId });
+    emit(runId, rootAgentId, "agent.provisioned", { sandboxId: agent.sandboxId });
 
     if (body.prompt) void driveTurn(rootAgentId, withInbox(rootAgentId, body.prompt));
   } catch (err) {
     const message = errorMessage(err);
-    emit(runId, rootAgentId, "agent_ended", {
+    emit(runId, rootAgentId, "agent.ended", {
       outcome: "failed",
       endedAt: Date.now(),
       error: message,

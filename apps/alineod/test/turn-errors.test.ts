@@ -69,7 +69,7 @@ describe("a turn that ends on a model API error", () => {
     expect(getAgentRow(agentId)).toMatchObject({ state: "failed", outcome: "failed" });
     expect(getHandle(agentId)).toMatchObject({ state: "settled", outcome: "failed" });
     expect(getHandle(agentId)?.result_ref).toBe(`fs://${agentId}/result.md`);
-    expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+    expect(events(runId).find((e) => e.event === "agent.ended")).toMatchObject({
       outcome: "failed",
       error: "Service temporarily overloaded",
     });
@@ -87,7 +87,7 @@ describe("a turn that ends on a model API error", () => {
     const notFound = assistant({ stopReason: "error", errorMessage: "404 status code (no body)" });
     const { runId, agentId } = await runOnce({ text: "", endMessages: [notFound] });
     expect(getAgentRow(agentId)?.outcome).toBe("failed");
-    expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+    expect(events(runId).find((e) => e.event === "agent.ended")).toMatchObject({
       error: "404 status code (no body)",
     });
   });
@@ -97,7 +97,7 @@ describe("a turn that ends on a model API error", () => {
     const { runId } = await runOnce({
       endMessages: [assistant({ stopReason: "error", errorMessage: body })],
     });
-    expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+    expect(events(runId).find((e) => e.event === "agent.ended")).toMatchObject({
       error: "Model not found. (X::GONE)",
     });
   });
@@ -138,7 +138,7 @@ describe("a turn followed by polling", () => {
     const sandbox = new FakeAgent({ name: "agent", runId });
     sandbox.streaming = true; // Pi is still mid-turn when alineod comes back
     const id = newAgentId();
-    emit(runId, id, "agent_spawned", {
+    emit(runId, id, "agent.spawned", {
       parentAgentId: null,
       runId,
       specName: "agent",
@@ -151,8 +151,8 @@ describe("a turn followed by polling", () => {
       waitFor: null,
       prompt: null,
     });
-    emit(runId, id, "agent_provisioned", { sandboxId: sandbox.sandboxId });
-    emit(runId, id, "agent_state_changed", { from: "provisioning", to: "running" });
+    emit(runId, id, "agent.provisioned", { sandboxId: sandbox.sandboxId });
+    emit(runId, id, "agent.state_changed", { from: "provisioning", to: "running" });
 
     await rehydrate();
     sandbox.lastText = "Run evaluate.";
@@ -163,7 +163,7 @@ describe("a turn followed by polling", () => {
 
     await until(() => getHandle(id)?.state === "settled", "catch-up settle", 6_000);
     expect(getAgentRow(id)).toMatchObject({ state: "failed", outcome: "failed" });
-    expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+    expect(events(runId).find((e) => e.event === "agent.ended")).toMatchObject({
       error: "429 status code (no body)",
     });
   }, 10_000);

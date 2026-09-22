@@ -73,7 +73,7 @@ const settleHandleIfPending = db.query(
 export function apply(row: LedgerRow): void {
   const p = row.payload ? (JSON.parse(row.payload) as Record<string, unknown>) : {};
   switch (row.event) {
-    case "agent_spawned": {
+    case "agent.spawned": {
       upsertAgent.run({
         $agentId: row.agent_id,
         $runId: row.run_id,
@@ -92,7 +92,7 @@ export function apply(row: LedgerRow): void {
       upsertHandlePending.run({ $agentId: row.agent_id, $runId: row.run_id });
       break;
     }
-    case "agent_state_changed":
+    case "agent.state_changed":
       setAgentState.run({ $agentId: row.agent_id, $state: p.to as string });
       if (p.to === "paused") {
         setPausedFrom.run({
@@ -104,10 +104,10 @@ export function apply(row: LedgerRow): void {
         clearPausedBy.run({ $agentId: row.agent_id });
       }
       break;
-    case "agent_provisioned":
+    case "agent.provisioned":
       setAgentSandbox.run({ $agentId: row.agent_id, $sandboxId: p.sandboxId as string });
       break;
-    case "handle_settled":
+    case "handle.settled":
       settleHandleRow.run({
         $agentId: row.agent_id,
         $outcome: (p.outcome as string) ?? null,
@@ -115,7 +115,7 @@ export function apply(row: LedgerRow): void {
         $settledAt: row.ts,
       });
       break;
-    case "notify_registered":
+    case "notify.registered":
       for (const on of (p.on as string[] | undefined) ?? []) {
         upsertSubscription.run({
           $subscriber: row.agent_id,
@@ -125,7 +125,7 @@ export function apply(row: LedgerRow): void {
         });
       }
       break;
-    case "inbox_queued":
+    case "inbox.queued":
       insertInbox.run({
         $seq: row.seq,
         $runId: row.run_id,
@@ -140,18 +140,18 @@ export function apply(row: LedgerRow): void {
         $text: (p.text as string | null) ?? null,
       });
       break;
-    case "inbox_delivered":
-    case "inbox_dropped":
+    case "inbox.delivered":
+    case "inbox.dropped":
       for (const seq of (p.seqs as number[] | undefined) ?? []) {
         settleInbox.run({
           $seq: seq,
-          $state: row.event === "inbox_delivered" ? "delivered" : "dropped",
-          $as: ((row.event === "inbox_delivered" ? p.as : p.reason) as string | undefined) ?? null,
+          $state: row.event === "inbox.delivered" ? "delivered" : "dropped",
+          $as: ((row.event === "inbox.delivered" ? p.as : p.reason) as string | undefined) ?? null,
           $at: row.ts,
         });
       }
       break;
-    case "agent_ended":
+    case "agent.ended":
       endAgentRow.run({
         $agentId: row.agent_id,
         $state: mapOutcomeToState((p.outcome as string) ?? "failed"),

@@ -30,7 +30,7 @@ interface Seed {
 function seed(s: Seed): string {
   const id = newAgentId();
   const name = s.name ?? "agent";
-  emit(s.runId, id, "agent_spawned", {
+  emit(s.runId, id, "agent.spawned", {
     parentAgentId: s.parentAgentId ?? null,
     runId: s.runId,
     specName: name,
@@ -43,11 +43,11 @@ function seed(s: Seed): string {
     waitFor: s.waitFor ?? null,
     prompt: s.prompt ?? null,
   });
-  if (s.sandbox) emit(s.runId, id, "agent_provisioned", { sandboxId: s.sandbox.sandboxId });
-  if (s.state) emit(s.runId, id, "agent_state_changed", { from: "provisioning", to: s.state });
+  if (s.sandbox) emit(s.runId, id, "agent.provisioned", { sandboxId: s.sandbox.sandboxId });
+  if (s.state) emit(s.runId, id, "agent.state_changed", { from: "provisioning", to: s.state });
   if (s.ended) {
-    emit(s.runId, id, "handle_settled", { outcome: s.ended, resultRef: null });
-    emit(s.runId, id, "agent_ended", { outcome: s.ended, endedAt: Date.now() });
+    emit(s.runId, id, "handle.settled", { outcome: s.ended, resultRef: null });
+    emit(s.runId, id, "agent.ended", { outcome: s.ended, endedAt: Date.now() });
   }
   return id;
 }
@@ -95,7 +95,7 @@ describe("agents with a sandbox", () => {
     expect(getAgentRow(id)).toMatchObject({ state: "lost", outcome: "lost" });
     expect(getHandle(id)?.state).toBe("settled");
     // OpenSandbox's raw JSON body is unwrapped to a sentence before it reaches the ledger.
-    expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+    expect(events(runId).find((e) => e.event === "agent.ended")).toMatchObject({
       error: `Sandbox ${sandbox.sandboxId} not found. (DOCKER::SANDBOX_NOT_FOUND)`,
     });
   });
@@ -118,7 +118,7 @@ describe("agents with a sandbox", () => {
 
     await Bun.sleep(100);
     expect(
-      events(runId).filter((e) => e.event === "handle_settled" && e.agentId === id),
+      events(runId).filter((e) => e.event === "handle.settled" && e.agentId === id),
     ).toHaveLength(1);
   }, 10_000);
 
@@ -136,7 +136,7 @@ describe("agents with a sandbox", () => {
 
       await until(() => getHandle(id)?.state === "settled", "catch-up settle after resume", 6_000);
       expect(getAgentRow(id)).toMatchObject({ state: "failed", outcome: "failed" });
-      expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+      expect(events(runId).find((e) => e.event === "agent.ended")).toMatchObject({
         agentId: id,
         outcome: "failed",
         error: "catch-up: no retrievable result",
@@ -159,7 +159,7 @@ describe("agents with a sandbox", () => {
       });
       expect(getAgentRow(id)).toMatchObject({ state: "done", outcome: "success" });
       expect(
-        events(runId).filter((e) => e.event === "handle_settled" && e.agentId === id),
+        events(runId).filter((e) => e.event === "handle.settled" && e.agentId === id),
       ).toHaveLength(1);
     }, 10_000);
 
@@ -305,7 +305,7 @@ describe("agents that hadn't forked yet", () => {
     await rehydrate();
 
     await until(() => getAgentRow(child)?.state === "lost", "child lost");
-    const ended = events(runId).find((e) => e.event === "agent_ended" && e.agentId === child);
+    const ended = events(runId).find((e) => e.event === "agent.ended" && e.agentId === child);
     expect(ended?.error).toContain("did not come back");
   });
 });
@@ -316,7 +316,7 @@ describe("paused agents", () => {
     sandbox.paused = true;
     sandbox.streaming = true;
     const id = seed({ runId, sandbox, state: "running" });
-    emit(runId, id, "agent_state_changed", { from: "running", to: "paused", reason: "operator" });
+    emit(runId, id, "agent.state_changed", { from: "running", to: "paused", reason: "operator" });
     return id;
   }
 

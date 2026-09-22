@@ -19,7 +19,9 @@
       "dependencies": {
         "@alineo-labs/config-shared": "workspace:*",
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/ledger": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
+        "@alineo-labs/schema": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@elysiajs/openapi": "^1.4.9",
         "alineo": "workspace:*",

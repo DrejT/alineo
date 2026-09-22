@@ -12,7 +12,9 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { getLogger } from "@alineo-labs/logger";
 import { DB_PATH } from "../../config";
+import { migrateEventNames } from "./migrate-event-names";
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
@@ -129,6 +131,14 @@ CREATE TABLE IF NOT EXISTS inbox (
 );
 CREATE INDEX IF NOT EXISTS inbox_agent ON inbox (agent_id, state);
 `);
+
+// Rename the `event` column to the namespaced names. Runs at boot, after the tables exist
+// and before anything reads them — a projection folding on the new names would silently skip
+// every old row, which presents as an empty swarm rather than as an error.
+const renamed = migrateEventNames(db);
+if (renamed > 0) {
+  getLogger("alineod").info("migrated ledger event names", { rows: renamed });
+}
 
 export interface LedgerRow {
   seq: number;
