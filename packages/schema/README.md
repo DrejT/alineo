@@ -42,12 +42,13 @@ It holds **no** event definitions, no Zod schemas and no wire types — only the
 built out of. The checks that enforce the lists live with the surfaces they police, so that a
 surface cannot ship a name without also shipping the thing that would reject it.
 
-## Known gaps, for whoever writes the MCP check
+## Two names that needed a decision
 
-Two shipped names will not satisfy `parseName(name, "_")` and need a decision rather than a
-silent allowlist:
+Both were flagged when this package was written and settled when the MCP check landed:
 
-- **`agent_result`** — `result` is a noun, not a verb. Either it joins `VERBS` or the tool
-  becomes `agent_get` on a result-shaped route.
-- **`init`** — no subject at all. It acts on the project directory, which is not a subject in
-  this vocabulary and arguably should not be.
+- **the tool that reads a settled agent's output** is `result_get`, not `agent_result`.
+  `result` is a noun, so it belongs in `SUBJECTS` — and `agent_get` was already taken by the
+  agent's own view. A run's records (`event`, `result`, `transcript`) were on the wire long
+  before they were written down here.
+- **`init`** has no subject at all. It is named for the verb alone, exactly as `alineo init`
+  is on the CLI — so a bare verb is a legal tool name, not an exception to the pattern.

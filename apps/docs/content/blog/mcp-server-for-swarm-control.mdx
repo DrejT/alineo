@@ -37,22 +37,22 @@ No alineod yet? `alineo-mcp` ships a bootstrap tool for that too — more on it 
 
 ## The tools
 
-| Tool                                             | Route                           |                                                         |
-| ------------------------------------------------ | ------------------------------- | ------------------------------------------------------- |
-| `alineod_create_run`                             | `POST /runs`                    | Load the root agent from an AgentSpec, start a run      |
-| `alineod_get_run`                                | `GET /runs/:runId`              | The spawn tree — every agent, state, parent pointers    |
-| `alineod_delete_run`                             | `DELETE /runs/:runId`           | Abort + close every live agent in the run               |
-| `alineod_watch_events`                           | `GET /runs/:runId/events` (SSE) | Collect lifecycle + harness events for a bounded window |
-| `alineod_spawn_agent`                            | `POST /runs/:runId/agents`      | Fork a child under a live parent                        |
-| `alineod_get_agent`                              | `GET /agents/:agentId`          | Inspect an agent + session stats                        |
-| `alineod_prompt_agent`                           | `POST /agents/:agentId/prompt`  | Drive one turn                                          |
-| `alineod_steer_agent`                            | `POST /agents/:agentId/steer`   | Redirect the current turn                               |
-| `alineod_pause_agent`                            | `POST /agents/:agentId/pause`   | Freeze the sandbox container                            |
-| `alineod_resume_agent`                           | `POST /agents/:agentId/resume`  | Thaw a paused container                                 |
-| `alineod_stop_agent`                             | `POST /agents/:agentId/stop`    | Abort + close one agent                                 |
-| `alineod_get_result`                             | `GET /agents/:agentId/result`   | Resolve a settled agent's output                        |
-| `alineo_init`                                    | —                               | Start OpenSandbox + alineod locally via Docker          |
-| `alineo_add_spec` / `list_specs` / `remove_spec` | —                               | Manage the local saved-agent-spec cache                 |
+| Tool                                      | Route                           |                                                         |
+| ----------------------------------------- | ------------------------------- | ------------------------------------------------------- |
+| `run_start`                               | `POST /runs`                    | Load the root agent from an AgentSpec, start a run      |
+| `run_get`                                 | `GET /runs/:runId`              | The spawn tree — every agent, state, parent pointers    |
+| `run_stop`                                | `DELETE /runs/:runId`           | Abort + close every live agent in the run               |
+| `run_watch`                               | `GET /runs/:runId/events` (SSE) | Collect lifecycle + harness events for a bounded window |
+| `agent_spawn`                             | `POST /runs/:runId/agents`      | Fork a child under a live parent                        |
+| `agent_get`                               | `GET /agents/:agentId`          | Inspect an agent + session stats                        |
+| `agent_prompt`                            | `POST /agents/:agentId/prompt`  | Drive one turn                                          |
+| `agent_steer`                             | `POST /agents/:agentId/steer`   | Redirect the current turn                               |
+| `agent_pause`                             | `POST /agents/:agentId/pause`   | Freeze the sandbox container                            |
+| `agent_resume`                            | `POST /agents/:agentId/resume`  | Thaw a paused container                                 |
+| `agent_stop`                              | `POST /agents/:agentId/stop`    | Abort + close one agent                                 |
+| `result_get`                              | `GET /agents/:agentId/result`   | Resolve a settled agent's output                        |
+| `init`                                    | —                               | Start OpenSandbox + alineod locally via Docker          |
+| `spec_add` / `list_specs` / `remove_spec` | —                               | Manage the local saved-agent-spec cache                 |
 
 Every alineod route is here — a chat client that can call tools can do anything a script using
 alineod's raw HTTP API can.
@@ -94,8 +94,8 @@ its own state: alineod's run tree is still the source of truth.
 
 One thing worth knowing if you script against it directly, the way the cookbook does: an MCP tool
 call is request/response, so a call that maps to a long-poll on alineod's side —
-`alineod_get_result`'s `waitSeconds`, `alineod_watch_events`'s `maxWaitSeconds`, a
-`waitFor`-carrying `alineod_spawn_agent` — needs to outlast the _client's_ own request timeout,
+`result_get`'s `waitSeconds`, `run_watch`'s `maxWaitSeconds`, a
+`waitFor`-carrying `agent_spawn` — needs to outlast the _client's_ own request timeout,
 not just the one you pass the tool. A chat client's default is usually generous enough not to
 notice; a script you write yourself should set it explicitly for those calls.
 
@@ -106,19 +106,19 @@ hand `alineod` directly — the same permission gate, the same credential inject
 `alineo init` bootstrap. `alineo-mcp` doesn't introduce a second way to describe an agent; it's a
 second way to _drive_ the one you already have.
 
-That includes the bootstrap tool. `alineo_init` starts OpenSandbox and alineod locally via
+That includes the bootstrap tool. `init` starts OpenSandbox and alineod locally via
 Docker, same as `alineo init` on the CLI — including a networking fix that came out of building
 this: alineod normally binds Docker's host network directly so it sees `127.0.0.1` the same way
 the host does, but Docker Desktop for Windows and Mac doesn't support that the way native Linux
 does, so alineod would come up "running" and be silently unreachable. Both `alineo init` and
-`alineo_init` now detect that and fall back to bridge networking automatically — one fix, both
+`init` now detect that and fall back to bridge networking automatically — one fix, both
 entry points, since they share the same bootstrap code underneath.
 
 ## What it doesn't do
 
 Stdio only, for now — `alineo-mcp` is a local subprocess your client launches, not a hosted
 service you point multiple clients at. It needs a reachable alineod (or Docker, if you use
-`alineo_init` to start one), same as any alineod client. And it isn't on npm yet — build it from
+`init` to start one), same as any alineod client. And it isn't on npm yet — build it from
 source (`bun run --cwd packages/mcp build`) until the next release publishes it.
 
 ## Try it

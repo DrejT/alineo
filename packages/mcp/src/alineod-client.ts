@@ -121,7 +121,7 @@ export class AlineodClient {
       throw new AlineodError(
         0,
         `Could not reach alineod at ${this.baseUrl}: ${err instanceof Error ? err.message : String(err)}. ` +
-          `Is it running? Try the alineo_init tool, or set ALINEOD_URL.`,
+          `Is it running? Try the init tool, or set ALINEOD_URL.`,
       );
     }
 

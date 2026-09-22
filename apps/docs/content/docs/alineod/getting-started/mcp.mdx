@@ -13,12 +13,12 @@ MCP client ── stdio ──▶ alineo-mcp ── HTTP + SSE ──▶ alineod
 ```
 
 It is a small local process, not a hosted service. The client launches it over stdio, and it talks to an
-alineod that you (or `alineo_init`) have running. It is published on npm as
+alineod that you (or `init`) have running. It is published on npm as
 [`alineo-mcp`](https://www.npmjs.com/package/alineo-mcp).
 
 <Callout type="info" title="You still need alineod and Docker">
   `alineo-mcp` only translates tool calls into alineod requests. The agents run in OpenSandbox
-  containers behind alineod, so Docker is required. The `alineo_init` tool starts both for you.
+  containers behind alineod, so Docker is required. The `init` tool starts both for you.
 </Callout>
 
 ## Connect a client
@@ -69,7 +69,7 @@ equivalent:
 </Tab>
 </Tabs>
 
-Restart the client and it will list 16 tools starting with `alineod_` and `alineo_`.
+Restart the client and it will list 16 tools, named `{subject}_{verb}` — `run_start`, `agent_spawn`, `spec_add` and so on.
 
 ### Pass environment variables through the client
 
@@ -95,9 +95,9 @@ For Claude Code: `claude mcp add alineo --env NVIDIA_API_KEY=nvapi-... -- npx -y
 
 ## Start alineod
 
-Every `alineod_*` tool needs alineod reachable at `ALINEOD_URL` (default `http://127.0.0.1:4600`). Either:
+Every `run_*`, `agent_*` and `result_*` tool needs alineod reachable at `ALINEOD_URL` (default `http://127.0.0.1:4600`). Either:
 
-- **Ask the client to call `alineo_init`.** It starts OpenSandbox and alineod in Docker, pulling images if
+- **Ask the client to call `init`.** It starts OpenSandbox and alineod in Docker, pulling images if
   needed, and writes `alineo.config.json` in the current directory if missing. It forwards any model provider
   key found in `alineo-mcp`'s own environment into the alineod container, which is why the key belongs in the
   `env` block above. This is the same setup as [`alineo init`](/docs/alineo/commands/init).
@@ -118,24 +118,24 @@ Behind that, the client makes calls in roughly this order:
 
 ### Get a spec
 
-`alineo_add_spec` fetches an [agent spec](/docs/agent/api-reference/agent) from a URL or local path,
-validates it, and saves it to the local spec cache. `alineo_list_specs` shows what is already saved.
+`spec_add` fetches an [agent spec](/docs/agent/api-reference/agent) from a URL or local path,
+validates it, and saves it to the local spec cache. `spec_list` shows what is already saved.
 
 </Step>
 <Step>
 
 ### Create the run
 
-`alineod_create_run` takes the spec, an optional first `prompt`, and an optional `budget` override. It returns
+`run_start` takes the spec, an optional first `prompt`, and an optional `budget` override. It returns
 a `runId` and `rootAgentId` immediately while the root agent is still `provisioning`; poll
-`alineod_get_run` for its real state.
+`run_get` for its real state.
 
 </Step>
 <Step>
 
 ### Fan out
 
-`alineod_spawn_agent` forks a child from a live parent (`parentAgentId`). Pass `waitFor` to hold the spawn
+`agent_spawn` forks a child from a live parent (`parentAgentId`). Pass `waitFor` to hold the spawn
 until other agents finish, and `idempotencyKey` so a retried call cannot create a duplicate. This is the same
 [fan-out/gather](/docs/alineod/guides/fan-out-gather) model as the HTTP API.
 
@@ -144,17 +144,17 @@ until other agents finish, and `idempotencyKey` so a retried call cannot create 
 
 ### Drive and observe
 
-`alineod_prompt_agent` starts a turn and `alineod_steer_agent` redirects one in flight.
-`alineod_pause_agent` and `alineod_resume_agent` freeze and thaw a container. To observe, use
-`alineod_get_run` for the whole tree or `alineod_watch_events` for events.
+`agent_prompt` starts a turn and `agent_steer` redirects one in flight.
+`agent_pause` and `agent_resume` freeze and thaw a container. To observe, use
+`run_get` for the whole tree or `run_watch` for events.
 
 </Step>
 <Step>
 
 ### Collect and tear down
 
-`alineod_get_result` returns a settled agent's output. `alineod_stop_agent` stops one agent and
-`alineod_delete_run` aborts and closes every live agent in the run. The ledger is kept.
+`result_get` returns a settled agent's output. `agent_stop` stops one agent and
+`run_stop` aborts and closes every live agent in the run. The ledger is kept.
 
 </Step>
 </Steps>
@@ -167,34 +167,34 @@ findings, all through these tools.
 
 ### Swarm control (need alineod)
 
-| Tool                   | alineod route                   | What it does                                                      |
-| ---------------------- | ------------------------------- | ----------------------------------------------------------------- |
-| `alineod_create_run`   | `POST /runs`                    | Load the root agent from a spec, optionally drive a first prompt. |
-| `alineod_get_run`      | `GET /runs/:runId`              | The spawn tree: every agent with its parent and current state.    |
-| `alineod_delete_run`   | `DELETE /runs/:runId`           | Abort and close every live agent in the run.                      |
-| `alineod_watch_events` | `GET /runs/:runId/events` (SSE) | Collect lifecycle and harness events for a bounded window.        |
-| `alineod_spawn_agent`  | `POST /runs/:runId/agents`      | Fork a child under a live parent, optionally with `waitFor`.      |
-| `alineod_get_agent`    | `GET /agents/:agentId`          | An agent's current view plus session stats.                       |
-| `alineod_prompt_agent` | `POST /agents/:agentId/prompt`  | Drive one turn. Returns immediately.                              |
-| `alineod_steer_agent`  | `POST /agents/:agentId/steer`   | Inject a message into the in-flight turn.                         |
-| `alineod_pause_agent`  | `POST /agents/:agentId/pause`   | Freeze the agent's container.                                     |
-| `alineod_resume_agent` | `POST /agents/:agentId/resume`  | Thaw a paused container.                                          |
-| `alineod_stop_agent`   | `POST /agents/:agentId/stop`    | Abort and close one agent.                                        |
-| `alineod_get_result`   | `GET /agents/:agentId/result`   | A settled agent's output. `waitSeconds` (max 240) long-polls.     |
+| Tool           | alineod route                   | What it does                                                      |
+| -------------- | ------------------------------- | ----------------------------------------------------------------- |
+| `run_start`    | `POST /runs`                    | Load the root agent from a spec, optionally drive a first prompt. |
+| `run_get`      | `GET /runs/:runId`              | The spawn tree: every agent with its parent and current state.    |
+| `run_stop`     | `DELETE /runs/:runId`           | Abort and close every live agent in the run.                      |
+| `run_watch`    | `GET /runs/:runId/events` (SSE) | Collect lifecycle and harness events for a bounded window.        |
+| `agent_spawn`  | `POST /runs/:runId/agents`      | Fork a child under a live parent, optionally with `waitFor`.      |
+| `agent_get`    | `GET /agents/:agentId`          | An agent's current view plus session stats.                       |
+| `agent_prompt` | `POST /agents/:agentId/prompt`  | Drive one turn. Returns immediately.                              |
+| `agent_steer`  | `POST /agents/:agentId/steer`   | Inject a message into the in-flight turn.                         |
+| `agent_pause`  | `POST /agents/:agentId/pause`   | Freeze the agent's container.                                     |
+| `agent_resume` | `POST /agents/:agentId/resume`  | Thaw a paused container.                                          |
+| `agent_stop`   | `POST /agents/:agentId/stop`    | Abort and close one agent.                                        |
+| `result_get`   | `GET /agents/:agentId/result`   | A settled agent's output. `waitSeconds` (max 240) long-polls.     |
 
 ### Setup and specs (work without alineod)
 
-| Tool                 | What it does                                                       |
-| -------------------- | ------------------------------------------------------------------ |
-| `alineo_init`        | Start OpenSandbox and alineod locally in Docker.                   |
-| `alineo_add_spec`    | Fetch a spec from a URL or file, validate it, and save it locally. |
-| `alineo_list_specs`  | List saved specs.                                                  |
-| `alineo_remove_spec` | Delete a saved spec by name.                                       |
+| Tool          | What it does                                                       |
+| ------------- | ------------------------------------------------------------------ |
+| `init`        | Start OpenSandbox and alineod locally in Docker.                   |
+| `spec_add`    | Fetch a spec from a URL or file, validate it, and save it locally. |
+| `spec_list`   | List saved specs.                                                  |
+| `spec_remove` | Delete a saved spec by name.                                       |
 
 <Callout type="info" title="Events are polled, not streamed">
-  An MCP tool call is request/response, so `alineod_watch_events` collects events for a bounded
-  window (20 seconds by default, at most 120) and returns them. Pass the last event's `id` as
-  `sinceEventId` on the next call to resume without missing anything.
+  An MCP tool call is request/response, so `run_watch` collects events for a bounded window (20
+  seconds by default, at most 120) and returns them. Pass the last event's `id` as `sinceEventId` on
+  the next call to resume without missing anything.
 </Callout>
 
 ### Not exposed through MCP yet
@@ -203,17 +203,17 @@ The tools cover alineod's core routes, not everything the [HTTP API](/docs/aline
 gained since. These are available over HTTP only:
 
 - `scope: "subtree"` on pause, resume, and stop (and on steer), which act on an agent and all its
-  descendants. The MCP tools act on the one agent you name. To end a whole swarm, use `alineod_delete_run`.
+  descendants. The MCP tools act on the one agent you name. To end a whole swarm, use `run_stop`.
 - `GET /agents/:agentId/transcript`
 - The coordination routes: `await`, `notify-on`, and the inbox.
 
 ## Configuration
 
-| Setting              | Where                                                       | Default                  | Affects                                          |
-| -------------------- | ----------------------------------------------------------- | ------------------------ | ------------------------------------------------ |
-| `ALINEOD_URL`        | env var on the `alineo-mcp` process                         | `http://127.0.0.1:4600`  | Every `alineod_*` tool.                          |
-| `alineo.config.json` | project file, or `~/.config/alineo/config.json` as fallback | written by `alineo_init` | Where `alineo_add_spec` and friends store specs. |
-| Model provider key   | env var on the `alineo-mcp` process, e.g. `NVIDIA_API_KEY`  | none                     | Forwarded into alineod by `alineo_init`.         |
+| Setting              | Where                                                       | Default                 | Affects                                   |
+| -------------------- | ----------------------------------------------------------- | ----------------------- | ----------------------------------------- |
+| `ALINEOD_URL`        | env var on the `alineo-mcp` process                         | `http://127.0.0.1:4600` | Every `run_*`/`agent_*`/`result_*` tool.  |
+| `alineo.config.json` | project file, or `~/.config/alineo/config.json` as fallback | written by `init`       | Where `spec_add` and friends store specs. |
+| Model provider key   | env var on the `alineo-mcp` process, e.g. `NVIDIA_API_KEY`  | none                    | Forwarded into alineod by `init`.         |
 
 `alineo-mcp` shares `alineo.config.json` and the spec directory with `alineo-cli`, so a spec added by either
 shows up in both.
@@ -222,11 +222,11 @@ shows up in both.
 
 | Symptom                                               | Cause                                                 | Fix                                                                                                |
 | ----------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `alineod error (network): Could not reach alineod...` | alineod is not running, or `ALINEOD_URL` is wrong.    | Call `alineo_init` (needs Docker), or check what is listening on the configured URL.               |
-| `alineod error (404): no run ...` or `no agent ...`   | Wrong ID, or it was already deleted or stopped.       | Take the ID from the tool result that created it. `alineod_get_run` lists current agents.          |
-| `alineod error (409): agent ... is not live`          | The agent's sandbox has already ended.                | Check `state` and `outcome` in `alineod_get_agent` before prompting again.                         |
-| `alineo_init` fails at "Checking Docker..."           | Docker is not installed or its daemon is not running. | Start Docker and retry.                                                                            |
-| A spawned agent never produces a result               | No model provider key reached alineod.                | Put the key in the client's `env` block before `alineo_init`, or in the alineod container's env.   |
+| `alineod error (network): Could not reach alineod...` | alineod is not running, or `ALINEOD_URL` is wrong.    | Call `init` (needs Docker), or check what is listening on the configured URL.                      |
+| `alineod error (404): no run ...` or `no agent ...`   | Wrong ID, or it was already deleted or stopped.       | Take the ID from the tool result that created it. `run_get` lists current agents.                  |
+| `alineod error (409): agent ... is not live`          | The agent's sandbox has already ended.                | Check `state` and `outcome` in `agent_get` before prompting again.                                 |
+| `init` fails at "Checking Docker..."                  | Docker is not installed or its daemon is not running. | Start Docker and retry.                                                                            |
+| A spawned agent never produces a result               | No model provider key reached alineod.                | Put the key in the client's `env` block before `init`, or in the alineod container's env.          |
 | The client shows no `alineo` tools                    | The server failed to start.                           | Run `npx -y alineo-mcp` in a terminal. It should wait silently for input, and errors go to stderr. |
 
 Every tool returns errors as a tool result with `isError` set instead of crashing the server, so a failed call

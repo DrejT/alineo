@@ -1,5 +1,5 @@
 /**
- * `alineo init` / `alineo_init` — starts OpenSandbox + alineod locally via Docker and writes
+ * `alineo init` / `init` — starts OpenSandbox + alineod locally via Docker and writes
  * `alineo.config.json`. Shared verbatim by `alineo-cli` (`packages/cli/src/commands/init.ts`,
  * which logs to stdout) and `alineo-mcp` (`packages/mcp/src/init.ts`, which collects a log array
  * instead — an MCP stdio server's stdout is the JSON-RPC channel, so tool handlers must never

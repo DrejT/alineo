@@ -163,14 +163,14 @@ packages/agent/                   — Alineo SDK (published to npm as "alineo")
 
 packages/cli-shared/               — internal only, never published (alineo-cli only publishes its bin — see
                                     below); Docker orchestration, project/server config, and the `alineo init` /
-                                    `alineo_init` bootstrap logic shared by alineo-cli and alineo-mcp. Consumed as a
+                                    `init` bootstrap logic shared by alineo-cli and alineo-mcp. Consumed as a
                                     workspace:* devDependency and bundled into each consumer's own dist at build
                                     time, not resolved at the published package's runtime.
   src/config.ts                   — AlineoConfig, readConfig(), writeConfig(), serverConfigContent()
   src/docker.ts                   — checkDocker(), getContainerState(), startContainer(), runContainer(), pollHealth(),
                                     isReachable()
   src/pi-model-keys.ts             — PI_MODEL_API_KEY_ENV_VARS forwarded into the alineod container on init
-  src/init.ts                     — runInit(log): the actual `alineo init` / `alineo_init` orchestration, logging
+  src/init.ts                     — runInit(log): the actual `alineo init` / `init` orchestration, logging
                                     through an injectable callback so alineo-cli (console.log) and alineo-mcp (a
                                     collected log array — its stdout is the JSON-RPC channel) can share it verbatim
 
