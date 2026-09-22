@@ -19,6 +19,16 @@
 //   3. MCP tools — every tool is `{subject}_{verb}`, or a bare `{verb}` when it has no
 //                  subject (`init`, exactly as on the CLI).
 //   4. HTTP      — every path segment after a resource id is a VERB or a SUBJECT.
+//   5. Events     — every event name the codebase still emits resolves to a definition in
+//                  @alineo-labs/schema, via the rename table where it has an old name. This
+//                  is the drift guard: an event added to one of the three legacy
+//                  vocabularies without a definition fails here rather than silently
+//                  existing outside the schema.
+//   6. Durability — alineod's hardcoded PERSISTED_HARNESS_EVENTS set agrees with the
+//                  `durable` flags on those events' definitions. The set is what decides
+//                  today; the definitions are what will decide once alineod reads them
+//                  instead. They have to be the same list on the day that swap happens, or
+//                  the swap quietly changes which events earn a ledger row.
 //
 // Checks 3 and 4 read the source rather than importing it: a name check is a check on
 // syntax, and a lint script has no business booting an MCP server or an HTTP app to ask
@@ -27,6 +37,51 @@
 // computed name makes the count diverge and fails the check instead of slipping past it.
 
 const MCP_SERVER = "packages/mcp/src/server.ts";
+
+/**
+ * The three places an event name is still declared outside `@alineo-labs/schema`, and how to
+ * read each one. They stay for now — this phase adds definitions beside them rather than
+ * deleting them, so that the rename and the storage migration can land separately.
+ */
+const EVENT_VOCABULARIES: {
+  file: string;
+  pattern: RegExp;
+  what: string;
+  /** Narrows the search to one declaration in a file that holds several. */
+  scope?: RegExp;
+}[] = [
+  {
+    file: "packages/core/src/ledger.ts",
+    // `SandboxCreated = "sandbox_created",` — but only inside `enum LedgerEvent`. The same
+    // file also declares `enum SandboxStatus`, whose members are states, not events.
+    scope: /enum LedgerEvent \{[\s\S]*?\n\}/,
+    pattern: /^\s*[A-Z]\w*\s*=\s*"([a-z][a-z_]*)",/gm,
+    what: "the SDK ledger enum",
+  },
+  {
+    file: "apps/alineod/src/schema.ts",
+    // `event: z.literal("agent_spawned")`.
+    pattern: /\bevent:\s*z\.literal\("([a-z][a-z_]*)"\)/g,
+    what: "alineod's event union",
+  },
+  {
+    file: "packages/agent/src/types.ts",
+    // `| { type: "tool_start"; … }` in the AgentEvent union.
+    pattern: /\btype:\s*"([a-z][a-z_]*)"/g,
+    what: "the harness AgentEvent union",
+  },
+];
+
+/**
+ * Names that appear in one of those files but are not ledger events.
+ *
+ * `assistant`, `tool` and `user` are transcript *entry kinds* from
+ * `GET /agents/:id/transcript`, which happen to live in the same schema file. They describe a
+ * message's author, not something that happened.
+ */
+const NOT_EVENTS = new Set(["assistant", "tool", "user"]);
+
+const ALINEOD_EMIT = "apps/alineod/src/engine/emit.ts";
 
 /**
  * Globbed rather than listed, so a new route file is checked the day it is added instead of
@@ -50,7 +105,16 @@ const ROUTE_SEGMENT_ALLOWLIST = new Map([["notify-on", "mirrors the `notifyOn` s
 // syntax into a running agent's system prompt: a stale string there does not fail a build,
 // it fails a *model*, later, as a confused agent emitting commands that no longer exist.
 
-import { SUBJECTS, VERBS, isSubject, isVerb, parseName } from "@alineo-labs/schema";
+import {
+  allEvents,
+  getEvent,
+  isSubject,
+  isVerb,
+  parseName,
+  renamedEventType,
+  SUBJECTS,
+  VERBS,
+} from "@alineo-labs/schema";
 import { commands } from "../packages/cli/src/commands/registry.ts";
 
 /**
@@ -334,6 +398,96 @@ if (routesSeen === 0) {
   );
 }
 
+// ------------------------------------------------------------------ check 5: event names
+
+let eventNamesSeen = 0;
+for (const { file, pattern, what, scope } of EVENT_VOCABULARIES) {
+  const whole = await Bun.file(file).text();
+  const source = scope ? (scope.exec(whole)?.[0] ?? "") : whole;
+  if (scope && source === "") {
+    failures.push(`${file}: could not find the ${what} declaration — has it been renamed?`);
+    continue;
+  }
+  pattern.lastIndex = 0;
+  const names = [...source.matchAll(pattern)].map((m) => m[1]!);
+
+  if (names.length === 0) {
+    failures.push(
+      `${file}: no event names found for ${what} — has it moved? An event check that reads ` +
+        `nothing always passes.`,
+    );
+    continue;
+  }
+  eventNamesSeen += names.length;
+
+  for (const name of new Set(names)) {
+    if (NOT_EVENTS.has(name)) continue;
+    // `run_started` meant a workflow run in one file and a swarm run in another, so the
+    // rename table deliberately does not map it; each file resolves it from its own context.
+    const renamed =
+      name === "run_started"
+        ? file.includes("alineod")
+          ? "run.started"
+          : "workflow.started"
+        : renamedEventType(name);
+    const type = renamed ?? name;
+    if (getEvent(type)) continue;
+    failures.push(
+      `${file}: "${name}" (${what}) has no definition in @alineo-labs/schema.\n` +
+        `    Either add one in packages/schema/src/events/, or map it in ` +
+        `packages/schema/src/renames.ts if it is an old spelling of an event that exists.`,
+    );
+  }
+}
+
+// -------------------------------------------------------- check 6: durability agreement
+
+{
+  const source = await Bun.file(ALINEOD_EMIT).text();
+  const block = /const PERSISTED_HARNESS_EVENTS = new Set\(\[([\s\S]*?)\]\)/.exec(source);
+  if (!block) {
+    failures.push(
+      `${ALINEOD_EMIT}: could not find PERSISTED_HARNESS_EVENTS — if it has been replaced by ` +
+        `the definitions' own \`durable\` flags, delete this check along with it.`,
+    );
+  } else {
+    const persisted = [...block[1]!.matchAll(/"([a-z][a-z_]*)"/g)].map((m) => m[1]!);
+    for (const name of persisted) {
+      const definition = getEvent(renamedEventType(name) ?? name);
+      if (!definition) continue; // check 5 already reports this
+      if (!definition.durable) {
+        failures.push(
+          `${ALINEOD_EMIT}: "${name}" is in PERSISTED_HARNESS_EVENTS, but ` +
+            `${definition.type} is defined as durable: false. One of the two is wrong.`,
+        );
+      }
+    }
+    // And the other direction: a harness event defined as durable that alineod does not
+    // persist would start earning rows the day alineod reads the definitions.
+    const persistedTypes = new Set(persisted.map((n) => renamedEventType(n) ?? n));
+    const harnessSubjects = new Set([
+      "session",
+      "turn",
+      "tool",
+      "message",
+      "compaction",
+      "retry",
+      "queue",
+      "extension",
+      "permission",
+    ]);
+    for (const definition of allEvents()) {
+      if (!harnessSubjects.has(definition.type.split(".")[0]!)) continue;
+      if (!definition.durable || persistedTypes.has(definition.type)) continue;
+      failures.push(
+        `${definition.type} is defined as durable: true, but is not in ` +
+          `${ALINEOD_EMIT}'s PERSISTED_HARNESS_EVENTS. It would start earning ledger rows ` +
+          `the day alineod reads the definitions instead of the set.`,
+      );
+    }
+  }
+}
+
 // ------------------------------------------------------------------------------ report
 
 if (failures.length > 0) {
@@ -344,5 +498,6 @@ if (failures.length > 0) {
 
 console.log(
   `vocabulary: ${commands.length} CLI commands, ${mcpToolCount} MCP tools, ` +
-    `${routesSeen} alineod routes and ${files.length} files check out.`,
+    `${routesSeen} alineod routes, ${eventNamesSeen} event names and ` +
+    `${files.length} files check out.`,
 );
