@@ -8,6 +8,10 @@ plans/
 *.db-shm
 *.db-wal
 .alineo
+# alineod's default working directory: its databases (already covered by *.db), plus the
+# per-agent spec and result files it writes there. Untracked but not ignored before, so a
+# `git add -A` after any local swarm run would sweep a run's transcripts into a commit.
+data/
 alineo.config.json
 apps/www/.astro/
 apps/registry/.astro/

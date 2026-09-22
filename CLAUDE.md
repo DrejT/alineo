@@ -195,8 +195,56 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
   src/schema.ts                   — RegistryItem interface + validateRegistryItem()
   src/sessions-data.ts            — getSessions(): ledger "Running" entries cross-checked against a live
                                     ControlClient query; formatAge()
-  pi-extension/alineo.ts          — the Pi extension that bootstraps alineo and injects spawn/fork CLI guidance into
-                                    a Pi session's system prompt — see plans/pi-extension-rlm-flow.md
+  pi-extension/alineo.ts          — the Pi extension that bootstraps alineo and injects start/spawn CLI guidance
+                                    into a Pi session's system prompt — see plans/pi-extension-rlm-flow.md
+
+packages/schema/                  — the shapes of the system (published as "@alineo-labs/schema")
+  src/vocabulary.ts               — SUBJECTS / VERBS: the words every surface derives its names from
+  src/envelope.ts                 — LedgerEnvelope: one record shape for an event from any layer
+  src/define.ts                   — defineEvent() + the registry allEvents()/getEvent()/durableEvents() read
+  src/events/*.ts                 — one file per layer: sandbox, agent, harness, workflow, alineod
+  src/agent-spec.ts               — AgentSpec (interface AND Zod, kept in step by a type-level drift test)
+  src/permissions.ts              — permission-policy shapes; the behaviour stays in packages/agent
+  src/renames.ts                  — old flat event name → new namespaced one. Dated and deletable: it exists
+                                    for the one-time store migrations, not as a permanent alias table
+  Types and Zod only, no behaviour. Two entry points: "@alineo-labs/schema/types" has no Zod in its
+  graph, so a package with no validator dependency can take a shape and have it erase at compile time.
+
+packages/ledger/                  — behaviour for the ledger (published as "@alineo-labs/ledger")
+  src/sink.ts                     — EventSink, composeSinks(), memorySink(), jsonlSink(). A sink is
+                                    synchronous and must not throw: it runs on the write path of a sandbox
+                                    operation, so an async one becomes backpressure and a throwing one
+                                    fails the very operation being recorded
+  src/storage.ts                  — LedgerStorage (three methods, not fourteen) + MemoryStorage
+  src/fold.ts                     — replay helpers for the fold-equivalence gate
+  src/rename-events.ts            — the one-time event-name UPDATE both storage adapters run, here because
+                                    both need it and neither should depend on the other
+
+packages/logger/                  — silent-by-default logger (published as "@alineo-labs/logger")
+  Libraries call getLogger(component) and never console.*; apps call installLoggerFromEnv().
+  Enforced by no-console in .oxlintrc.json.
+
+packages/config-shared/           — internal only: where every setting comes from, merged and frozen once
+packages/instructions/            — internal only: builds a structured system prompt out of named sections
+packages/memory/                  — episodic + semantic memory (published as "@alineo-labs/memory")
+packages/model-providers/         — provider/model catalogue lookups
+packages/agent-browser/           — browser streaming relay for an agent's sandbox
+packages/mcp/                     — alineo-mcp: MCP server over alineod's HTTP+SSE API. Tools are
+                                    {subject}_{verb} (run_start, agent_spawn, spec_add), checked in CI
+
+apps/alineod/                     — the swarm control daemon: HTTP + SSE, Bun + Elysia + bun:sqlite
+  src/engine/emit.ts              — THE single write path: append row → fold projection → publish to the
+                                    bus → hand a LedgerEnvelope to the sinks. Every state change goes
+                                    through here, which is why changes to it stay strictly additive
+  src/state/db.ts                 — three tables; `ledger` is the source of truth, `agents`/`handles` are
+                                    caches rebuildable from it (crash-only design)
+  src/state/projection.ts         — apply()/rebuild(): the only writer of the cache tables
+  src/schema.ts                   — the wire contract as Zod. AgentSpec is the real schema now, and the
+                                    event union is DERIVED from @alineo-labs/schema's definitions
+apps/docs/                        — the documentation site (Next.js static export)
+apps/telemetry/                   — anonymous CLI usage telemetry receiver
+apps/registry/                    — the agent-spec registry, and the published JSON Schema
+apps/sandbox/                     — the browser playground
 ```
 
 ### Key design points
@@ -280,19 +328,55 @@ The TypeScript sandbox client SDK (`packages/sdks/typescript`, published as `@al
 
 > **Changeset must be committed** before CI will pass — `bunx changeset status --since origin/main` reads from git history, not disk.
 
-## Docs versioning is decoupled from npm releases — don't assume a version bump updates docs
+## One vocabulary, checked in CI
 
-`apps/docs`'s `core`/`alineo` (CLI) sections are versioned per `plans/versioned-docs.md`, but **bumping the npm package version does nothing to the docs site by itself.** The version registry (`source.config.ts`, `src/lib/source.ts`, `public/_redirects`) is generated from whatever `content/docs/<product>/vX.Y/` folders exist on disk (`apps/docs/scripts/{doc-versions,sync-doc-versions,sync-redirects}.ts`, run via `predev`/`prebuild`) — a version cut is "add the content folder, run `bun run build`", but someone still has to write that content. Folders/`defineDocs()` identifiers keep the `v` prefix (`v0.2`); **URLs drop it** (`/docs/core/0.2`, not `/docs/core/v0.2`).
+One person meets the CLI, the SDK, the daemon's HTTP API, the MCP tools and the event stream.
+Each of those used to pick its own spelling, and each did — `spawn` meant "create a root agent"
+in the CLI and "create a child" in the SDK, so anyone who learned one and moved to the other was
+actively misled.
 
-**Known-bad pattern, hit twice**: a feature PR documents its new API by editing the *current latest* `content/docs/{core,alineo}/vX.Y/` folder in place — fine while nothing has shipped, but the moment that version publishes to npm, `vX.Y` is silently describing `vX.(Y+1)`'s API and `/docs/core` + `/docs/alineo` + `/` (the "latest" redirects in `public/_redirects`) still point at the stale version.
+The words live as data in `@alineo-labs/schema` (`SUBJECTS`, `VERBS`), and
+`bun run check:vocabulary` (`scripts/check-vocabulary.ts`, a CI step) fails on:
 
-- **First time**: #182's `alineo`/agent naming inversion — `5dcb3de` edited `v0.1` in place instead of cutting `v0.2`. Once #190 published `0.2.0`, `v0.1` described `0.2.0` with no real pre-rename snapshot anywhere but git history. Fixed in `docs/dynamic-version-registry` (PR #193): moved that content to `v0.2`, restored the true pre-rename docs (from `5dcb3de~1`) as `v0.1`.
-- **Second time**: #204's credential injection wrote `concepts/credentials.mdx` + edits straight into `v0.2`. Once PR #206 published `@alineo-labs/core@0.3.0`, `v0.2` described `0.3.0` and `/docs/core` still redirected to `0.2`. Fixed in `docs/cut-v0.3` (PR #223): `cp -r v0.2 → v0.3`, repointed the new folder's internal links to `0.3`, let `predev`/`prebuild` regenerate the registry + redirects. `v0.2` left as a frozen snapshot (not scrubbed back to `0.2.0`).
+| Check | Asserts |
+|---|---|
+| CLI | every registered command is a `VERB` or an allowlisted noun, and each usage line starts with the command it documents |
+| Strings | every command quoted in help, error, guidance or doc text resolves to a real one — this is what would have caught **alineo ps**, documented in the source for months and never real |
+| MCP | every tool is `{subject}_{verb}`, or a bare verb when it has no subject (`init`) |
+| HTTP | every alineod path segment after a resource id is a `VERB` or a `SUBJECT` |
+| Events | every event name the codebase emits resolves to a definition, via `renames.ts` where it has an old one |
+| Durability | alineod's `PERSISTED_HARNESS_EVENTS` agrees with the definitions' `durable` flags, both ways |
 
-**This is now guarded (PR #225).** The docs "epoch" — the `vX.Y` number on *both* the `core` and `alineo` trees, cut together — tracks `@alineo-labs/sandbox`'s (`packages/sdks/typescript`) published `major.minor`. `apps/docs/scripts/cut-doc-version.ts` does the `cp -r` + internal-link repoint; it runs in the release flow (root `release:version` script → `changesets/action`'s `version:` step) so the `chore: version packages` PR always carries the matching folder, and `ci.yml`'s **Docs version check** job (`… cut-doc-version.ts --check`) fails any PR — the `changeset-release/main` PR included — where the epoch has moved past the latest folder. See `plans/versioned-docs.md` "Docs epoch".
+The shapes of the names, for writing a new one:
 
-**Rules that still need a human:**
-1. **Writing the new folder's content.** The cut only copies the previous version; someone edits `content/docs/{core,alineo}/v<new>/` to document what actually shipped. A feature PR whose API change goes out next release should cut + document in the new folder itself (`bun apps/docs/scripts/cut-doc-version.ts` once the epoch package is bumped, else `cp -r`), never edit the current-latest folder in place.
-2. **If `cut-doc-version.ts --check` is red on a PR**, a cut is owed — run the script, don't work around the check.
+- **CLI** `alineo <verb> [args]` · **SDK method** the verb · **SDK class** the subject
+- **HTTP** `/{subjects}/:id/{verb}` · **MCP tool** `{subject}_{verb}` · **Event** `{subject}.{past-tense verb}`
 
-**If a PR touches `content/docs/core/vX.Y/` or `content/docs/alineo/vX.Y/` — where `vX.Y` is the current latest — directly instead of adding a new version folder, stop and check whether that's actually a version cut being done wrong.**
+Events are namespaced **by subject, not by the layer that emits them** — `agent.spawned`, not
+`alineod.agent_spawned`. Someone reading one mixed stream needs to know what an event is *about*.
+
+Two things the check can't see, so they're conventions:
+
+- **A retired command name goes in bold prose (`**alineo fork**`), never in a code span.** A
+  reader — or a model — skimming for something to run must never find a dead command formatted
+  as though it were live. Naming-history notes pass the check because of this.
+- **Renaming an event by hand is a trap.** `text`, `checkpoint` and `snapshot` are ordinary
+  English words; a bare-word find-and-replace turns "partial text" into "partial
+  message.updated". Match code spans and verbatim log/SSE samples only. This was hit twice.
+
+## Docs are unversioned — there is no version cut to owe
+
+`apps/docs/content/docs/` is one tree per product (`core`, `agent`, `alineo`, `alineod`,
+`workflow`, `cookbooks`, `examples`, `playground`). **Edit the page in place.**
+
+It was not always so. `core` and `alineo` were versioned into `vX.Y/` folders, with an "epoch"
+tracking `@alineo-labs/sandbox`'s published `major.minor`, a `cut-doc-version.ts` script in the
+release flow, and a CI job failing any PR where the epoch had moved past the latest folder.
+**All of that was removed in #232** — no `apps/docs/scripts/`, no `vX.Y` folders, no check.
+
+What survives is `apps/docs/public/_redirects`, which keeps the already-indexed versioned URLs
+(`/docs/core/0.3`, `/docs/core/v0.1`, …) resolving to the live unversioned page. Add a rule
+there when a page moves — see the `commands/fork` → `commands/spawn` entries from the CLI verb
+rename for the shape, including the case where a URL is deliberately *not* redirected because
+it still names a live page.
+
