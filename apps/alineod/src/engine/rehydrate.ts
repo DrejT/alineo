@@ -111,7 +111,7 @@ async function reattachOne(a: AgentRow): Promise<void> {
     // spawned-from again THIS boot, not that its already-recorded, already-settled turn is now
     // "lost". Only a still-live agent's outcome is genuinely unknown and worth overwriting.
     if (a.ended_at === null) {
-      emit(a.run_id, a.agent_id, "agent_ended", {
+      emit(a.run_id, a.agent_id, "agent.ended", {
         outcome: "lost",
         endedAt: Date.now(),
         error: message,
@@ -152,7 +152,7 @@ async function reattachPaused(
   } catch (err) {
     const message = errorMessage(err);
     if (a.ended_at === null) {
-      emit(a.run_id, a.agent_id, "agent_ended", {
+      emit(a.run_id, a.agent_id, "agent.ended", {
         outcome: "lost",
         endedAt: Date.now(),
         error: message,
@@ -190,7 +190,7 @@ async function retryProvision(a: AgentRow): Promise<void> {
 
   const parent = get(a.parent_agent_id);
   if (!parent) {
-    emit(a.run_id, a.agent_id, "agent_ended", {
+    emit(a.run_id, a.agent_id, "agent.ended", {
       outcome: "lost",
       endedAt: Date.now(),
       error: `parent ${a.parent_agent_id} did not come back — cannot retry this spawn`,

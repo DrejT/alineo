@@ -47,7 +47,7 @@ set, runs once it's ready.
 { "runId": "r_3f9a1c20", "rootAgentId": "a_7b2e44d1", "state": "provisioning" }
 ```
 
-If provisioning fails, the root ends with outcome `failed` and the error appears on its `agent_ended` event.
+If provisioning fails, the root ends with outcome `failed` and the error appears on its `agent.ended` event.
 
 ### GET /runs/:runId
 
@@ -120,7 +120,7 @@ Spawn a child by forking a live parent's sandbox. Returns `202`.
 | `409`  | The parent isn't live.                                                                       |
 
 A spawn refused by a budget still returns `202`; the child then ends with outcome `budget-exceeded` and a
-`budget_denied` event is emitted. See [Fan-out and gather](/docs/alineod/guides/fan-out-gather).
+`budget.denied` event is emitted. See [Fan-out and gather](/docs/alineod/guides/fan-out-gather).
 
 ### GET /agents/:agentId
 
@@ -144,7 +144,7 @@ the agent isn't live.
 ```
 
 Delivers a steering message to the current turn — after its running tool calls finish, before the next model call.
-Returns `202` and emits `agent_steered`.
+Returns `202` and emits `agent.steered`.
 
 With `"scope": "subtree"`, the agent gets one message: yours plus a list of its direct children, so it redirects
 them itself. Returns `200` with `{ deliveredAs: "steer" | "turn" | "queued", roster }`. See
@@ -160,7 +160,7 @@ See [Steering and pausing](/docs/alineod/guides/steering-and-pausing#steer).
 
 ### POST /agents/:agentId/pause
 
-Freezes the agent's container. Returns `202` and emits `agent_state_changed` (`to: "paused"`, with `pausedBy`). A
+Freezes the agent's container. Returns `202` and emits `agent.state_changed` (`to: "paused"`, with `pausedBy`). A
 no-op if already paused. `404` if no such agent, `409` if not live, `502` if the sandbox couldn't be paused.
 
 With `{ "scope": "subtree" }`, pauses the agent and every descendant, parents first, and returns `200` with one
@@ -181,7 +181,7 @@ such agent, `409` if the agent isn't paused or isn't live, `502` if the sandbox 
 Aborts the current turn, closes the sandbox, and ends the agent with outcome `aborted`. The body is optional;
 `mode` is `abort` (default) or `drain`, which currently behaves the same. Returns `202`; `404` if no such agent.
 
-Stopping an agent that already finished closes its sandbox and emits `agent_released`, keeping its outcome. With
+Stopping an agent that already finished closes its sandbox and emits `agent.released`, keeping its outcome. With
 `"scope": "subtree"`, stops every member, leaves first, and returns the per-member result.
 
 ## Results

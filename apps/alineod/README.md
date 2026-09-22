@@ -114,7 +114,7 @@ disturb a running swarm.
   results are then written into its sandbox as `/inputs/<agentId>.txt` + `/inputs.json` (D-c).
 - **Budgets are owned by alineod.** It passes each parent's remaining `spawnDepth` /
   `maxAgents` to `Alineo.spawn()`, which refuses when exhausted; alineod turns that into
-  `budget_denied` and ends the child as `budget-exceeded`.
+  `budget.denied` and ends the child as `budget-exceeded`.
 - **Rehydrate reconnects live agents AND finished-but-open ones.** A `done`/`failed` turn
   doesn't close its sandbox, so it stays promptable / usable as a spawn parent — rehydrate
   reconnects those too, not just `provisioning`/`spawning`/`running`/`paused`, so that survives
@@ -125,7 +125,7 @@ disturb a running swarm.
   descendant (pause parents first; resume and stop leaves first), returning one result per member.
   `pausedBy` records whether each was the target (`operator`) or reached by the cascade. Steer's
   subtree form delivers one message to the parent (plus a roster of its children) — never a
-  broadcast. Stopping a finished agent emits `agent_released` and keeps its outcome.
+  broadcast. Stopping a finished agent emits `agent.released` and keeps its outcome.
 - **Coordination.** `waitFor` modes (`settled`/`all`/`any`/`quorum`) plus deadlines; quiescence and
   operator await routes; `notifyOn` with a per-agent inbox delivered by the subscriber's state.
 

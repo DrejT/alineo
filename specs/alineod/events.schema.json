@@ -3,19 +3,19 @@
     {
       "type": "object",
       "properties": {
+        "runId": {
+          "type": "string"
+        },
         "event": {
           "type": "string",
           "enum": [
-            "run_started"
+            "run.started"
           ]
-        },
-        "runId": {
-          "type": "string"
         }
       },
       "required": [
-        "event",
-        "runId"
+        "runId",
+        "event"
       ],
       "additionalProperties": false
     },
@@ -26,11 +26,35 @@
           "nullable": true,
           "type": "string"
         },
+        "memberCount": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "asOf": {
+          "type": "number"
+        },
         "event": {
           "type": "string",
           "enum": [
-            "agent_spawned"
+            "run.quiescent"
           ]
+        }
+      },
+      "required": [
+        "agentId",
+        "memberCount",
+        "asOf",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
         },
         "parentAgentId": {
           "nullable": true,
@@ -57,7 +81,7 @@
           "type": "string"
         },
         "waitFor": {
-          "description": "Persisted (not just the spec) so rehydrate() can retry a still-pending spawn instead of losing it.",
+          "description": "Persisted rather than left in the spec, so rehydrate() can retry a still-pending spawn instead of losing it.",
           "nullable": true,
           "type": "array",
           "items": {
@@ -67,17 +91,23 @@
         "prompt": {
           "nullable": true,
           "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.spawned"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
         "parentAgentId",
         "runId",
         "specName",
         "depth",
         "spawnIndex",
-        "sandboxId"
+        "sandboxId",
+        "event"
       ],
       "additionalProperties": false
     },
@@ -88,11 +118,29 @@
           "nullable": true,
           "type": "string"
         },
+        "sandboxId": {
+          "type": "string"
+        },
         "event": {
           "type": "string",
           "enum": [
-            "agent_state_changed"
+            "agent.provisioned"
           ]
+        }
+      },
+      "required": [
+        "agentId",
+        "sandboxId",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
         },
         "from": {
           "type": "string"
@@ -104,19 +152,25 @@
           "type": "string"
         },
         "pausedBy": {
-          "description": "On a transition to paused: whether this agent was the target, or reached by a subtree pause.",
+          "description": "On a transition to paused: whether this agent was the target, or was reached by a subtree pause.",
           "type": "string",
           "enum": [
             "operator",
             "cascade"
           ]
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.state_changed"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
         "from",
-        "to"
+        "to",
+        "event"
       ],
       "additionalProperties": false
     },
@@ -126,37 +180,6 @@
         "agentId": {
           "nullable": true,
           "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "agent_provisioned"
-          ]
-        },
-        "sandboxId": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "agentId",
-        "event",
-        "sandboxId"
-      ],
-      "additionalProperties": false,
-      "description": "The sandbox now exists and the bridge is up — backfills what agent_spawned couldn't know yet."
-    },
-    {
-      "type": "object",
-      "properties": {
-        "agentId": {
-          "nullable": true,
-          "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "agent_steered"
-          ]
         },
         "message": {
           "type": "string"
@@ -181,12 +204,18 @@
             "turn",
             "queued"
           ]
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.steered"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
-        "message"
+        "message",
+        "event"
       ],
       "additionalProperties": false
     },
@@ -197,21 +226,97 @@
           "nullable": true,
           "type": "string"
         },
+        "reason": {
+          "type": "string"
+        },
         "event": {
           "type": "string",
           "enum": [
-            "wait_resolved"
+            "agent.released"
           ]
+        }
+      },
+      "required": [
+        "agentId",
+        "reason",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "endedAt": {
+          "type": "number"
+        },
+        "error": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.ended"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "outcome",
+        "endedAt",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "resultRef": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "handle.settled"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "outcome",
+        "resultRef",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
         },
         "mode": {
           "type": "string",
           "enum": [
-            "settled",
             "all",
             "any",
             "quorum"
-          ],
-          "description": "settled: every agent terminal, any outcome · all: every agent succeeded · any: the first to settle · quorum: k successes."
+          ]
         },
         "outcome": {
           "type": "string",
@@ -253,19 +358,24 @@
           "items": {
             "type": "string"
           }
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "wait.resolved"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
         "mode",
         "outcome",
         "selected",
         "settled",
-        "pending"
+        "pending",
+        "event"
       ],
-      "additionalProperties": false,
-      "description": "A held spawn's waitFor resolved. depfail / deadline end the child failed without forking."
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -273,24 +383,23 @@
         "agentId": {
           "nullable": true,
           "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "wait_blocked_on_paused"
-          ]
         },
         "blockedOn": {
           "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "wait.blocked"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
-        "blockedOn"
+        "blockedOn",
+        "event"
       ],
-      "additionalProperties": false,
-      "description": "A held spawn is still waiting on a dependency that's paused — emitted once per dependency."
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -298,43 +407,6 @@
         "agentId": {
           "nullable": true,
           "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "subtree_quiescent"
-          ]
-        },
-        "memberCount": {
-          "type": "integer",
-          "minimum": -9007199254740991,
-          "maximum": 9007199254740991
-        },
-        "asOf": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "agentId",
-        "event",
-        "memberCount",
-        "asOf"
-      ],
-      "additionalProperties": false,
-      "description": "The subtree rooted at agentId just became quiescent (only tracked while someone awaits it)."
-    },
-    {
-      "type": "object",
-      "properties": {
-        "agentId": {
-          "nullable": true,
-          "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "notify_registered"
-          ]
         },
         "on": {
           "type": "array",
@@ -344,16 +416,21 @@
         },
         "wake": {
           "type": "boolean"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "notify.registered"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
         "on",
-        "wake"
+        "wake",
+        "event"
       ],
-      "additionalProperties": false,
-      "description": "agentId subscribed to be told when each agent in `on` finishes."
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -361,12 +438,6 @@
         "agentId": {
           "nullable": true,
           "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "inbox_queued"
-          ]
         },
         "kind": {
           "type": "string",
@@ -400,15 +471,20 @@
         },
         "text": {
           "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox.queued"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
-        "kind"
+        "kind",
+        "event"
       ],
-      "additionalProperties": false,
-      "description": "Something for agentId to be told — a notification, or a steer waiting for it to resume."
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -416,12 +492,6 @@
         "agentId": {
           "nullable": true,
           "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "inbox_delivered"
-          ]
         },
         "seqs": {
           "type": "array",
@@ -438,13 +508,19 @@
             "turn",
             "prompt"
           ]
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox.delivered"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
         "seqs",
-        "as"
+        "as",
+        "event"
       ],
       "additionalProperties": false
     },
@@ -454,12 +530,6 @@
         "agentId": {
           "nullable": true,
           "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "inbox_dropped"
-          ]
         },
         "seqs": {
           "type": "array",
@@ -471,13 +541,19 @@
         },
         "reason": {
           "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox.dropped"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
         "seqs",
-        "reason"
+        "reason",
+        "event"
       ],
       "additionalProperties": false
     },
@@ -487,97 +563,6 @@
         "agentId": {
           "nullable": true,
           "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "agent_released"
-          ]
-        },
-        "reason": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "agentId",
-        "event",
-        "reason"
-      ],
-      "additionalProperties": false,
-      "description": "A finished agent's still-open sandbox was closed (stop / DELETE /runs), or a fork that landed after its spawn was stopped. The recorded outcome is unchanged."
-    },
-    {
-      "type": "object",
-      "properties": {
-        "agentId": {
-          "nullable": true,
-          "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "agent_ended"
-          ]
-        },
-        "outcome": {
-          "type": "string"
-        },
-        "endedAt": {
-          "type": "number"
-        },
-        "error": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "agentId",
-        "event",
-        "outcome",
-        "endedAt"
-      ],
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "properties": {
-        "agentId": {
-          "nullable": true,
-          "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "handle_settled"
-          ]
-        },
-        "outcome": {
-          "type": "string"
-        },
-        "resultRef": {
-          "nullable": true,
-          "type": "string"
-        }
-      },
-      "required": [
-        "agentId",
-        "event",
-        "outcome",
-        "resultRef"
-      ],
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "properties": {
-        "agentId": {
-          "nullable": true,
-          "type": "string"
-        },
-        "event": {
-          "type": "string",
-          "enum": [
-            "budget_denied"
-          ]
         },
         "dimension": {
           "type": "string",
@@ -590,13 +575,19 @@
           "type": "integer",
           "minimum": -9007199254740991,
           "maximum": 9007199254740991
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "budget.denied"
+          ]
         }
       },
       "required": [
         "agentId",
-        "event",
         "dimension",
-        "remaining"
+        "remaining",
+        "event"
       ],
       "additionalProperties": false
     }

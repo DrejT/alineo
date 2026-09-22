@@ -236,7 +236,7 @@ function lifecycle(events: { event: string; data: Json }[], agentId: string) {
     .filter(
       (e) =>
         e.data.agentId === agentId &&
-        ["agent_state_changed", "agent_provisioned", "handle_settled", "agent_ended"].includes(
+        ["agent.state_changed", "agent.provisioned", "handle.settled", "agent.ended"].includes(
           e.event,
         ),
     )
@@ -283,8 +283,8 @@ async function t1(): Promise<void> {
     obs.lifecycle = lifecycle(await ledger(runId), id);
     const during = obs.duringPause as Json;
     const lc = obs.lifecycle as Json[];
-    const resumeIdx = lc.findIndex((e) => e.event === "agent_state_changed" && e.from === "paused");
-    const endedIdx = lc.findIndex((e) => e.event === "agent_ended");
+    const resumeIdx = lc.findIndex((e) => e.event === "agent.state_changed" && e.from === "paused");
+    const endedIdx = lc.findIndex((e) => e.event === "agent.ended");
     obs.endedAfterResume = resumeIdx !== -1 && endedIdx > resumeIdx;
     obs.pass =
       during.state === "paused" &&
@@ -336,7 +336,7 @@ async function t2(): Promise<void> {
     const lc = lifecycle(await ledger(runId), childId) as Json[];
     obs.childLifecycle = lc;
     const held = obs.childWhileParentPaused as Json;
-    const ended = lc.find((e) => e.event === "agent_ended");
+    const ended = lc.find((e) => e.event === "agent.ended");
     // B4's job: hold while the parent is paused, then fork after resume — never fail for "paused".
     obs.holdPass =
       held.state === "spawning" &&
@@ -617,7 +617,7 @@ async function t6(): Promise<void> {
     obs.children = out;
     const ev = await ledger(runId);
     const resolved = (id: string) =>
-      ev.find((e) => e.event === "wait_resolved" && e.data.agentId === id)?.data;
+      ev.find((e) => e.event === "wait.resolved" && e.data.agentId === id)?.data;
     obs.waits = { any: resolved(anyC), quorum: resolved(quorumC), deadline: resolved(deadlineC) };
     log("T6: waits", JSON.stringify(obs.waits));
 

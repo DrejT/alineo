@@ -64,7 +64,7 @@ describe("pause / resume with scope: subtree", () => {
       expect(getAgentRow(id)).toMatchObject({ state: "running", paused_by: null });
     }
     const cascade = events(t.runId).filter(
-      (e) => e.event === "agent_state_changed" && e.to === "paused" && e.pausedBy === "cascade",
+      (e) => e.event === "agent.state_changed" && e.to === "paused" && e.pausedBy === "cascade",
     );
     expect(cascade.map((e) => e.agentId).sort()).toEqual([t.c1.agentId, t.g1.agentId].sort());
     t.gate.resolve();

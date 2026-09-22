@@ -68,8 +68,8 @@ test("replays the run's persisted history on connect, in seq order", async () =>
 
   const frames = await collect(runId, (f) => f.length >= ledger.length);
   expect(frames.map((f) => f.id)).toEqual(ledger.map((e) => e.seq));
-  expect(frames[0]).toMatchObject({ event: "run_started", data: { agentId: null, runId } });
-  expect(frames.find((f) => f.event === "agent_ended")?.data).toMatchObject({
+  expect(frames[0]).toMatchObject({ event: "run.started", data: { agentId: null, runId } });
+  expect(frames.find((f) => f.event === "agent.ended")?.data).toMatchObject({
     agentId: rootAgentId,
     outcome: "success",
   });
@@ -90,7 +90,7 @@ describe("live delivery", () => {
     const { runId, rootAgentId } = await startRun();
     const history = events(runId).length;
 
-    const frames = await collect(runId, (f) => f.some((x) => x.event === "agent_steered"), {
+    const frames = await collect(runId, (f) => f.some((x) => x.event === "agent.steered"), {
       afterOpen: async () => {
         await Bun.sleep(20);
         await call("POST", `/agents/${rootAgentId}/steer`, { message: "go left" });
@@ -98,7 +98,7 @@ describe("live delivery", () => {
     });
     expect(frames.length).toBe(history + 1);
     expect(frames.at(-1)).toMatchObject({
-      event: "agent_steered",
+      event: "agent.steered",
       data: { agentId: rootAgentId, message: "go left" },
     });
     expect(frames.at(-1)!.id).toBeGreaterThan(frames.at(-2)!.id!);
@@ -108,7 +108,7 @@ describe("live delivery", () => {
     const { runId, rootAgentId } = await startRun();
     const gate = deferred();
 
-    const frames = await collect(runId, (f) => f.some((x) => x.event === "tool_start"), {
+    const frames = await collect(runId, (f) => f.some((x) => x.event === "tool.started"), {
       afterOpen: async () => {
         await Bun.sleep(20);
         const root = fakeSdk.sandboxes.get(
@@ -125,15 +125,19 @@ describe("live delivery", () => {
       },
     });
 
-    const text = frames.find((f) => f.event === "text")!;
-    const tool = frames.find((f) => f.event === "tool_start")!;
+    // The harness sends `text` and `tool_start`; alineod publishes `message.updated` and
+    // `tool.started`. `text` was always a delta of exactly one message, which is what the
+    // new name says out loud.
+    const text = frames.find((f) => f.event === "message.updated")!;
+    const tool = frames.find((f) => f.event === "tool.started")!;
     expect(text).toMatchObject({ data: { agentId: rootAgentId, text: "thinking" } });
     expect(text.id).toBeUndefined();
     expect(tool.id).toBeNumber();
     expect(tool.data).toMatchObject({ agentId: rootAgentId, toolName: "bash" });
 
     const persisted = events(runId).map((e) => e.event);
-    expect(persisted).toContain("tool_start");
+    expect(persisted).toContain("tool.started");
+    expect(persisted).not.toContain("message.updated");
     expect(persisted).not.toContain("text");
     gate.resolve();
   });

@@ -43,17 +43,19 @@ function pick(payload: Record<string, unknown>): Record<string, string | number 
 }
 
 function levelFor(event: string, payload: Record<string, unknown>): LevelName {
-  if (event === "budget_denied") return "warn";
-  if (event === "agent_ended") {
+  if (event === "budget.denied") return "warn";
+  if (event === "agent.ended") {
     // a user stop ("aborted") is expected; failed / lost / budget-exceeded are not
     return payload.outcome === "success" || payload.outcome === "aborted" ? "info" : "warn";
   }
-  // bookkeeping that fires constantly during a coordinated run
-  if (/^(inbox_|wait_|notify_)/.test(event)) return "debug";
+  // Bookkeeping that fires constantly during a coordinated run. Matching on the subject
+  // rather than a name prefix is what the namespacing buys: a new `inbox.*` event is quiet
+  // by default instead of arriving at info the day someone adds it.
+  if (/^(inbox|wait|notify)\./.test(event)) return "debug";
   return "info";
 }
 
-/** One line per alineod ledger event: `[alineod] agent_ended runId=… agentId=… seq=… outcome=success`. */
+/** One line per alineod ledger event: `[alineod] agent.ended runId=… agentId=… seq=… outcome=success`. */
 export function logEvent(
   runId: string,
   agentId: string | null,

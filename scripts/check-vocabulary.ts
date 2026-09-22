@@ -39,9 +39,12 @@
 const MCP_SERVER = "packages/mcp/src/server.ts";
 
 /**
- * The three places an event name is still declared outside `@alineo-labs/schema`, and how to
- * read each one. They stay for now — this phase adds definitions beside them rather than
- * deleting them, so that the rename and the storage migration can land separately.
+ * The places an event name is still declared outside `@alineo-labs/schema`, and how to read
+ * each one. They stay for now — definitions are added beside them rather than replacing them,
+ * so that the rename and the storage migration can land separately.
+ *
+ * alineod's own union is no longer one of them: `apps/alineod/src/schema.ts` now derives it
+ * from the definitions, so it cannot drift and has nothing to check.
  */
 const EVENT_VOCABULARIES: {
   file: string;
@@ -57,12 +60,6 @@ const EVENT_VOCABULARIES: {
     scope: /enum LedgerEvent \{[\s\S]*?\n\}/,
     pattern: /^\s*[A-Z]\w*\s*=\s*"([a-z][a-z_]*)",/gm,
     what: "the SDK ledger enum",
-  },
-  {
-    file: "apps/alineod/src/schema.ts",
-    // `event: z.literal("agent_spawned")`.
-    pattern: /\bevent:\s*z\.literal\("([a-z][a-z_]*)"\)/g,
-    what: "alineod's event union",
   },
   {
     file: "packages/agent/src/types.ts",
