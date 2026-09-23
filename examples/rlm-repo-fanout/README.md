@@ -20,12 +20,14 @@ Needs `NVIDIA_API_KEY` **in the repo root `.env`** — Bun only loads `.env`
 from the shell's CWD at invocation, not by walking up to the repo root, so
 this must be run as `bun examples/rlm-repo-fanout/index.ts` from the repo
 root, not from inside this directory (the script checks for this and
-refuses with a clear error otherwise). The worker uses NVIDIA NIM's
-`nvidia/nemotron-3.5-lightning-30b-a3b`. The models the `RUBRIC.md` "Why
+refuses with a clear error otherwise). Master and worker both use NVIDIA
+NIM's `nvidia/nemotron-3-super-120b-a12b`. The models the `RUBRIC.md` "Why
 this model" benchmark originally settled on (`nvidia-nemotron-nano-9b-v2`
-for the master, `nemotron-3-nano-30b-a3b` for the worker) have since
-reached end-of-life on the NIM API; the master spec still pins the former
-pending a re-benchmark.
+for the master, `nemotron-3-nano-30b-a3b` for the worker) have both since
+reached end-of-life on the NIM API — the first answers 410, the second 404
+for this account — so the benchmark's conclusions stand as a record of what
+was measured, not as advice about what to run today. `RUBRIC.md` has the
+numbers from the re-check.
 
 `index.ts` defaults `MASTER_AGENT_OPENSANDBOX_DOMAIN` to `172.17.0.1:8080`
 (the default Docker bridge gateway — the address a container uses to reach

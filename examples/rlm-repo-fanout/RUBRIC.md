@@ -74,12 +74,22 @@ per-example opt-out; it's now true of every alineo-based spec by default.
 
 ## Why this model
 
-> **Note (2026-09-05):** both models this section settled on —
+> **Note (2026-09-05, revised 2026-09-23):** both models this section settled on —
 > `nvidia/nemotron-3-nano-30b-a3b` (worker) and `nvidia/nvidia-nemotron-nano-9b-v2`
 > (master) — have since reached end-of-life on the NVIDIA NIM API (`410 Gone` /
-> `404`). The specs now pin `nvidia/nemotron-3.5-lightning-30b-a3b` as a working
-> stand-in; the benchmark below is kept as the historical record and a proper
-> re-benchmark of the current model set is still pending.
+> `404`). The stand-in picked in September, `nvidia/nemotron-3.5-lightning-30b-a3b`,
+> turned out not to work here either: it answers `/v1/chat/completions` fine, but it
+> streams nothing while it reasons, and through the Pi bridge a **one-word** prompt
+> took 105s, 202s, and then tripped alineod's 180s `PROMPT_INACTIVITY_TIMEOUT_MS`
+> outright, across three samples. `nvidia/nemotron-3-super-120b-a12b` answered the
+> same prompt in ~1s twice and returned empty once (an upstream error ending the turn
+> early), so that is what both specs pin now. Measured with
+> `apps/alineod/scripts/probe-models.ts`, which exists because a `curl` at the API
+> cannot see the timeout that actually decides this.
+>
+> The benchmark below is the record of what was measured in September, not advice
+> about what to run today. A proper re-benchmark of the current model set is still
+> pending.
 
 Benchmarked several NVIDIA NIM models locally first (`pi -p --provider
 nvidia --model <id> ...`, outside any sandbox — a plain text prompt and a
@@ -135,8 +145,9 @@ per model tried, before landing on a model with none of them:
   generated Python script) using the `edit` tool and re-ran successfully,
   unprompted. Slower per call than several alternatives, but the only model
   tried that never corrupted a tool call across many multi-turn runs. Used
-  for the master; the worker keeps `nemotron-3.5-lightning-30b-a3b` since its job
-  is one bounded edit, not open-ended decomposition.
+  for the master; the worker kept `nemotron-3.5-lightning-30b-a3b` since its job
+  is one bounded edit, not open-ended decomposition. (Both now pin
+  `nemotron-3-super-120b-a12b` — see the note at the top of this section.)
 
 ## Strongest case against
 

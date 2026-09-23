@@ -27,7 +27,7 @@ function agentSpec(name: string, budget: { spawnDepth?: number; maxAgents?: numb
     name,
     harness: "pi",
     provider: "nvidia",
-    model: "nvidia/nemotron-3.5-lightning-30b-a3b",
+    model: "nvidia/nemotron-3-super-120b-a12b",
     // Resolved from alineod's own environment — the key never travels in the request.
     env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
     resources: { cpu: "1000m", memory: "2Gi" },

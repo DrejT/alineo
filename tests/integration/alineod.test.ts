@@ -29,7 +29,7 @@ function agentSpec(name: string, extra: Record<string, unknown> = {}) {
     name,
     harness: "pi",
     provider: "nvidia",
-    model: "nvidia/nemotron-3.5-lightning-30b-a3b",
+    model: "nvidia/nemotron-3-super-120b-a12b",
     env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
     resources: { cpu: "1000m", memory: "2Gi" },
     ...extra,

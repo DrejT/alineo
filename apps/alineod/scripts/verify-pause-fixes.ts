@@ -38,7 +38,7 @@ const PORT = Number(process.env.VERIFY_PORT ?? 4610);
 const BASE = `http://127.0.0.1:${PORT}`;
 const DIR = resolve(process.env.VERIFY_DIR ?? "verify-pause-fixes");
 const INACTIVITY_MS = 20_000;
-const MODEL = process.env.VERIFY_MODEL ?? "nvidia/nemotron-3.5-lightning-30b-a3b";
+const MODEL = process.env.VERIFY_MODEL ?? "nvidia/nemotron-3-super-120b-a12b";
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 
 mkdirSync(DIR, { recursive: true });

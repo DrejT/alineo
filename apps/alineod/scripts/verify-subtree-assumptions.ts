@@ -30,7 +30,7 @@ const save = () => writeFileSync(OUT, JSON.stringify(results, null, 2));
 const adapter = new SQLiteAdapter(resolve("verify-subtree-ledger.db"));
 await adapter.connect?.();
 
-const MODEL = process.env.VERIFY_MODEL ?? "nvidia/nemotron-3.5-lightning-30b-a3b";
+const MODEL = process.env.VERIFY_MODEL ?? "nvidia/nemotron-3-super-120b-a12b";
 function spec(name: string) {
   return {
     name,
