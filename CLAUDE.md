@@ -74,10 +74,36 @@ bunx changeset status # verify one exists
 ### Integration test conventions
 
 - **Run with**: `bun run test:integration` from the repo root, or `cd tests/integration && bun test` for the whole suite / `bun test <name>.test.ts` for one file.
-- **Requires**: OpenSandbox server running locally — either `alineo init` (Docker-based, recommended) or `uvx opensandbox-server` (manual). If using `alineo init`, pass `useServerProxy: true` to `new Sandbox(...)` so the SDK routes through the server instead of container-direct IPs.
-- **Client setup**: `new Sandbox({ baseUrl: ..., adapter: new SQLiteAdapter(":memory:") })` — no `connect()` or `close()` needed on the client itself.
+- **Requires**: OpenSandbox server running locally — either `alineo init` (Docker-based, recommended) or `uvx opensandbox-server` (manual).
+- **Server proxy**: every test reads `OPEN_SANDBOX_SERVER_PROXY`, defaulting to **on**, because an `alineo init` server hands out container-internal endpoints the host cannot reach. Set it to `false` for a bare `uvx opensandbox-server`. Before this was uniform the tests hardcoded container-direct, and the whole suite died at `execd not ready` on the setup this file recommends — without running one assertion.
+- **Client setup**: `new Sandbox({ baseUrl: ..., adapter: new SQLiteAdapter(":memory:"), useServerProxy: USE_SERVER_PROXY })` — no `connect()` or `close()` needed on the client itself.
 - **Sandbox lifecycle**: always wrap in `try/finally { await sb.close(); }` to avoid container leaks.
 - **Assertion**: `const { stdout, exitCode } = await sb.exec("cmd")` — assert on the returned value. For error cases, catch `CommandError`.
+
+### Running a spec against *this* checkout's CLI
+
+Every spec that spawns children does `npm install -g alineo-cli` in its setup, which pulls
+whatever is on npm. On a branch that changes the CLI or the spec vocabulary that is the wrong
+binary, and the mismatch surfaces *inside the sandbox*, minutes in, reading like a bad spec
+rather than version skew.
+
+`bun scripts/local-cli-spec.ts <spec.json> [out.json]` rewrites a spec to install the local
+build instead. It packs the whole workspace closure below `alineo-cli` — eleven packages —
+because `packLocalPackagesForGlobalInstall` only rewrites `workspace:*` deps that are in the
+same batch, so anything left out comes from npm at exactly the version being avoided.
+`tests/integration/local-cli.test.ts` is the check that the swap works.
+
+### Which NVIDIA model to pin
+
+Answering `/v1/chat/completions` is not the bar. A reasoning model that streams nothing while
+it thinks trips alineod's `PROMPT_INACTIVITY_TIMEOUT_MS` (180s) before it emits a token, and
+the turn comes back empty. `nemotron-3.5-lightning-30b-a3b` took 105s, 202s and then timed out
+on a **one-word** prompt; `nemotron-3-super-120b-a12b` answered in ~1s twice and returned empty
+once. The specs pin the latter.
+
+Re-measure with `bun apps/alineod/scripts/probe-models.ts <model...>` — several samples, because
+the empty-turn failure is intermittent and one green run proves nothing. A `curl` at the API
+cannot see the timeout that actually decides this.
 
 ### What to assert
 
@@ -346,6 +372,7 @@ The words live as data in `@alineo-labs/schema` (`SUBJECTS`, `VERBS`), and
 | HTTP | every alineod path segment after a resource id is a `VERB` or a `SUBJECT` |
 | Events | every event name the codebase emits resolves to a definition, via `renames.ts` where it has an old one |
 | Durability | alineod's `PERSISTED_HARNESS_EVENTS` agrees with the definitions' `durable` flags, both ways |
+| Specs | every agent spec validates against `AgentSpecSchema` — including one a setup step writes as an escaped JSON string inside a `printf`. Three of those still said `cli` long after the field became `harness`, because a spec buried in a shell command is invisible to a rename pass, to a diff, and to anything reading spec files as JSON. They fail *inside the sandbox*, minutes into a run |
 
 The shapes of the names, for writing a new one:
 
