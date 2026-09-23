@@ -348,11 +348,34 @@ The `uvx` path does not need `useServerProxy` — the server is on the host, so 
 
 We are currently focused exclusively on making the **TypeScript sandbox client SDK** (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) full-featured and production-ready. Python SDK is maintained but not the priority. Do not add new features to the Python SDK unless explicitly asked.
 
+## Branch off `feat/foundation`, not `main`
+
+**Until the foundation work is released, `feat/foundation` is the branch everything lands on.**
+It carries a breaking rename of the vocabulary across the CLI, the SDK, the MCP tools, alineod's
+HTTP contract and the event stream — nineteen commits and ~8.8k lines that `main` has not seen.
+New work branches off it and opens a PR **into** it, exactly as the eleven rename PRs did.
+`main` is untouched and stays that way until PR #313 merges, as a merge commit rather than a
+squash, so a rename spread over many PRs stays legible in history.
+
+Branching off `main` instead means writing against the old vocabulary — `cli` rather than
+`harness`, `alineo spawn <spec>` rather than `alineo start <spec>`, flat event names rather
+than `{subject}.{verb}` — and a merge conflict with every file this touched.
+
+Two consequences worth knowing:
+
+- **CI's changeset check does not really check a PR into this branch.** It runs
+  `bunx changeset status --since origin/main`, and `main` is already many changesets behind, so
+  it reports what the integration branch touched long ago and passes whether or not your PR added
+  anything. Verify yourself with `bunx changeset status --since origin/feat/foundation` before
+  relying on the green tick.
+- **If a hotfix does land on `main`**, merge `main` into `feat/foundation` rather than rebasing.
+  The branch is public and has PRs merged into it.
+
 ## Releases
 
 The TypeScript sandbox client SDK (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) is published to npm via changesets, same as every other publishable package (`alineo`, `alineo-cli`, `@alineo-labs/*`). Every PR that changes publishable packages needs a changeset (`bunx changeset`). CI enforces this. Releases are cut automatically via `changesets/action` on merge to `main`.
 
-> **Changeset must be committed** before CI will pass — `bunx changeset status --since origin/main` reads from git history, not disk.
+> **Changeset must be committed** before CI will pass — `bunx changeset status` reads from git history, not disk. CI compares against `main`, which is not a real check for a PR into `feat/foundation` (see above), so check yours with `bunx changeset status --since origin/feat/foundation`.
 
 ## One vocabulary, checked in CI
 
