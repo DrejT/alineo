@@ -25,6 +25,14 @@ import { localCliSetupSteps } from "../../scripts/local-cli-spec.ts";
 // direct endpoints work.
 const USE_SERVER_PROXY = process.env.OPEN_SANDBOX_SERVER_PROXY !== "false";
 
+/**
+ * The CLI posts a telemetry event per invocation, to the real ingest server. This test runs
+ * `alineo start` twice, so without this every run of the suite writes two `start`/`error` rows
+ * into production analytics from a version that was never published — six of them are already
+ * in there from writing this file.
+ */
+const NO_TELEMETRY = "export ALINEO_TELEMETRY_DISABLED=1";
+
 /** The step every spec that installs the CLI starts with — its shebang is `#!/usr/bin/env bun`. */
 const INSTALL_BUN = {
   name: "Install bun (alineo's own shebang requires it)",
@@ -58,7 +66,7 @@ afterAll(async () => {
 });
 
 test("the binary on PATH is the local build, not the published one", async () => {
-  const { stdout } = await sb.exec("which alineo && alineo --version");
+  const { stdout } = await sb.exec(`${NO_TELEMETRY} && which alineo && alineo --version`);
   expect(stdout).toContain("/usr/local/bin/alineo");
   // Whatever this checkout says it is. A published install would answer with npm's version.
   const local = await Bun.file(`${import.meta.dir}/../../packages/cli/package.json`).json();
@@ -69,7 +77,7 @@ test("its help text is the renamed command vocabulary", async () => {
   // `strict: false` because `--help` is not a registered command name: `index.ts` prints the
   // help and then `if (cmd) process.exit(1)`. That is how it behaves on main too, and it is
   // the text this test is about, not the status.
-  const { stdout } = await sb.exec("alineo --help", { strict: false });
+  const { stdout } = await sb.exec(`${NO_TELEMETRY} && alineo --help`, { strict: false });
   expect(stdout).toContain("alineo start <spec>");
   // `spawn` used to take a spec path and mean "start a root agent". It now takes a parent
   // session name, so a help line offering it a `.json` would be the old CLI.
@@ -81,7 +89,9 @@ test("a spec in the new vocabulary gets past validation", async () => {
     "/tmp/new.json",
     JSON.stringify({ name: "probe", harness: "pi", provider: "nvidia", model: "m" }),
   );
-  const { stdout, stderr } = await sb.exec("alineo start /tmp/new.json", { strict: false });
+  const { stdout, stderr } = await sb.exec(`${NO_TELEMETRY} && alineo start /tmp/new.json`, {
+    strict: false,
+  });
   // It fails later, on the network — no OpenSandbox is reachable from in here. What matters
   // is that it got past the spec.
   expect(stdout + stderr).not.toContain("Invalid agent spec");
@@ -92,7 +102,9 @@ test("a spec in the old vocabulary is rejected, and the error names the rename",
     "/tmp/old.json",
     JSON.stringify({ name: "probe", cli: "pi", provider: "nvidia", model: "m" }),
   );
-  const { stdout, stderr } = await sb.exec("alineo start /tmp/old.json", { strict: false });
+  const { stdout, stderr } = await sb.exec(`${NO_TELEMETRY} && alineo start /tmp/old.json`, {
+    strict: false,
+  });
   const output = stdout + stderr;
   expect(output).toContain("Invalid agent spec");
   expect(output).toContain("must have a 'harness' field");
