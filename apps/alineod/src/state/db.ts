@@ -15,6 +15,7 @@ import { dirname } from "node:path";
 import { getLogger } from "@alineo-labs/logger";
 import { DB_PATH } from "../../config";
 import { migrateEventNames } from "./migrate-event-names";
+import { migrateAgentSpecs } from "./migrate-agent-specs";
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
@@ -138,6 +139,14 @@ CREATE INDEX IF NOT EXISTS inbox_agent ON inbox (agent_id, state);
 const renamed = migrateEventNames(db);
 if (renamed > 0) {
   getLogger("alineod").info("migrated ledger event names", { rows: renamed });
+}
+
+// And the spec each `agent.spawned` row carries. Same moment, same reason: `rehydrate()`
+// folds that spec back out and validates it, so one still spelling `cli` fails every
+// reattach and marks each still-running agent `lost` on the first boot after the upgrade.
+const respecced = migrateAgentSpecs(db);
+if (respecced > 0) {
+  getLogger("alineod").info("migrated stored agent spec fields", { rows: respecced });
 }
 
 export interface LedgerRow {
