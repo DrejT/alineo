@@ -2,6 +2,12 @@ import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
+// `useServerProxy` defaults on: an `alineo init` (Docker) server hands out
+// container-internal endpoints that aren't reachable from the host. Set
+// `OPEN_SANDBOX_SERVER_PROXY=false` for a bare `uvx opensandbox-server`, where the
+// direct endpoints work.
+const USE_SERVER_PROXY = process.env.OPEN_SANDBOX_SERVER_PROXY !== "false";
+
 // Covers the pure-SandboxHandle extension surface: diagnostics, metrics, pause/resume,
 // and BashSession. Alineo.resume()-style bridge-reconnection (the other half of
 // examples/sandbox-extensions) is intentionally not duplicated here — it needs a
@@ -12,6 +18,7 @@ test("sandbox extensions: diagnostics, metrics, pause/resume, BashSession", asyn
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),
+    useServerProxy: USE_SERVER_PROXY,
   });
 
   const sb = await client.sandbox({
