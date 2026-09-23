@@ -9,7 +9,7 @@
 // surface is allowed to use are data in `@alineo-labs/schema`; this script is what makes
 // them fail-able, so a new component inherits the language by not building without it.
 //
-// Four checks live here today:
+// Seven checks live here today:
 //
 //   1. CLI       — every registered command name is a VERB, or an allowlisted noun.
 //   2. Strings   — every command quoted in help, error, guidance or doc text resolves to a
@@ -29,6 +29,10 @@
 //                  today; the definitions are what will decide once alineod reads them
 //                  instead. They have to be the same list on the day that swap happens, or
 //                  the swap quietly changes which events earn a ledger row.
+//   7. Specs      — every agent spec validates, including the ones a setup step writes as an
+//                  escaped JSON string inside a shell command. Those are invisible to a
+//                  rename pass and to a diff, and three of them still said `cli` after the
+//                  field became `harness` — failing minutes into a run, inside the sandbox.
 //
 // Checks 3 and 4 read the source rather than importing it: a name check is a check on
 // syntax, and a lint script has no business booting an MCP server or an HTTP app to ask
@@ -107,6 +111,7 @@ const ROUTE_SEGMENT_ALLOWLIST = new Map([["notify-on", "mirrors the `notifyOn` s
 // it fails a *model*, later, as a confused agent emitting commands that no longer exist.
 
 import {
+  AgentSpecSchema,
   allEvents,
   getEvent,
   isSubject,
@@ -275,8 +280,24 @@ for (const sample of ["alineo is an agent platform", "the alineo repo", "`alineo
   }
 }
 
-const files = (await new Response(Bun.spawn(["git", "ls-files", "-z", "--",
-  "*.ts", "*.tsx", "*.js", "*.mjs", "*.md", "*.mdx", "*.json", "*.txt"]).stdout).text())
+const files = (
+  await new Response(
+    Bun.spawn([
+      "git",
+      "ls-files",
+      "-z",
+      "--",
+      "*.ts",
+      "*.tsx",
+      "*.js",
+      "*.mjs",
+      "*.md",
+      "*.mdx",
+      "*.json",
+      "*.txt",
+    ]).stdout,
+  ).text()
+)
   .split("\0")
   .filter((f) => f.length > 0 && !SKIP.some((re) => re.test(f)));
 
@@ -349,9 +370,7 @@ let mcpToolCount = 0;
 // ----------------------------------------------------------------- check 4: HTTP routes
 
 let routesSeen = 0;
-const routeFiles = [
-  ...new Bun.Glob("*.ts").scanSync({ cwd: ALINEOD_ROUTES_DIR }),
-].sort();
+const routeFiles = [...new Bun.Glob("*.ts").scanSync({ cwd: ALINEOD_ROUTES_DIR })].sort();
 
 for (const name of routeFiles) {
   const file = `${ALINEOD_ROUTES_DIR}/${name}`;
@@ -489,6 +508,136 @@ for (const { file, pattern, what, scope } of EVENT_VOCABULARIES) {
   }
 }
 
+// ------------------------------------------------ check 7: agent specs, including the ones
+//                                                   a setup step writes as an escaped string
+
+/**
+ * A spec file's own fields are checked the moment anything loads it. The ones that slip
+ * through are the specs a **setup step writes**: a `printf` emitting a child spec as an
+ * escaped JSON string is an opaque `run` command to every rename pass, to a reviewer reading
+ * a diff, and to the JSON reader above. Three of them still said `"cli"` long after the field
+ * became `harness`, while their own top level said `harness` — and they fail *inside the
+ * sandbox*, several minutes into a run, as "invalid agent spec", which reads like the spec
+ * being written is wrong rather than the example that wrote it.
+ *
+ * So: parse every JSON object embedded in a setup step's shell command, and hold it to the
+ * same schema as a spec that lives in its own file.
+ */
+
+/** `printf` conversions stand in for values this check cannot know. A placeholder keeps the
+ *  surrounding JSON parseable without pretending to validate what gets substituted. */
+function stripPrintfConversions(run: string): string {
+  return run.replace(/%%/g, "%").replace(/%[-+ #0]*[\d.]*[sdifu]/g, "PLACEHOLDER");
+}
+
+/** Every balanced `{…}` region that starts a JSON object, in source order. */
+function embeddedObjects(text: string): string[] {
+  const found: string[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "{" || !/^\{\s*"/.test(text.slice(i, i + 8))) continue;
+    let depth = 0;
+    let inString = false;
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j]!;
+      if (inString) {
+        if (ch === "\\") j++;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}" && --depth === 0) {
+        found.push(text.slice(i, j + 1));
+        i = j;
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+/** Tight on purpose: `name` plus a harness field is what an agent spec looks like and what
+ *  nothing else in this repo looks like, so this never argues with a package.json. */
+function looksLikeAgentSpec(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) return false;
+  const o = value as Record<string, unknown>;
+  return typeof o.name === "string" && ("harness" in o || "cli" in o);
+}
+
+function reportSpec(where: string, spec: Record<string, unknown>): void {
+  const result = AgentSpecSchema.safeParse(spec);
+  if (result.success) return;
+  const stale = SPEC_FIELD_RENAMES.filter(([from, to]) => from in spec && !(to in spec));
+  failures.push(
+    `${where}: agent spec "${String(spec.name)}" does not validate against AgentSpecSchema.\n` +
+      result.error.issues
+        .map((i) => `    ${i.path.length > 0 ? `${i.path.join(".")}: ` : ""}${i.message}`)
+        .join("\n") +
+      (stale.length > 0
+        ? `\n    It still uses ${stale.map(([f]) => `"${f}"`).join(" and ")} — renamed to ` +
+          `${stale.map(([, t]) => `"${t}"`).join(" and ")}.`
+        : ""),
+  );
+}
+
+/** Mirrors `packages/agent/src/schema.ts`'s own list; kept here so the message can name the
+ *  rename rather than only reporting the missing field. */
+const SPEC_FIELD_RENAMES: [string, string][] = [
+  ["cli", "harness"],
+  ["cliVersion", "harnessVersion"],
+];
+
+{
+  // Self-test: the extractor has to survive the escaping a `printf` actually produces, or
+  // this check reads nothing and passes forever.
+  const fixture = `mkdir -p agents && printf '{"name":"w","cli":"pi","env":{"K":"%s"}}' "$K" > agents/w.json`;
+  const extracted = embeddedObjects(stripPrintfConversions(fixture));
+  if (extracted.length !== 1 || !looksLikeAgentSpec(JSON.parse(extracted[0]!))) {
+    failures.push(
+      `scripts/check-vocabulary.ts: the embedded-spec extractor no longer finds the spec in ` +
+        `a \`printf\` setup step. Check 7 is reading nothing.`,
+    );
+  }
+}
+
+let specsSeen = 0;
+for (const file of files.filter((f) => f.endsWith(".json"))) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await Bun.file(file).text());
+  } catch {
+    continue; // not our problem; a malformed JSON file fails elsewhere
+  }
+  if (!looksLikeAgentSpec(parsed)) continue;
+  specsSeen++;
+  reportSpec(file, parsed);
+
+  const setup = (parsed as { setup?: unknown }).setup;
+  if (!Array.isArray(setup)) continue;
+  for (const [index, step] of setup.entries()) {
+    const run = (step as { run?: unknown }).run;
+    if (typeof run !== "string") continue;
+    for (const candidate of embeddedObjects(stripPrintfConversions(run))) {
+      let embedded: unknown;
+      try {
+        embedded = JSON.parse(candidate);
+      } catch {
+        continue; // a brace-balanced fragment that is not JSON — a shell expansion, say
+      }
+      if (!looksLikeAgentSpec(embedded)) continue;
+      specsSeen++;
+      reportSpec(`${file}: setup[${index}] (${(step as { name?: string }).name ?? "?"})`, embedded);
+    }
+  }
+}
+
+if (specsSeen === 0) {
+  failures.push(
+    `no agent specs found in ${files.length} tracked files — have the examples moved? ` +
+      `A spec check that reads nothing always passes.`,
+  );
+}
+
 // ------------------------------------------------------------------------------ report
 
 if (failures.length > 0) {
@@ -499,6 +648,6 @@ if (failures.length > 0) {
 
 console.log(
   `vocabulary: ${commands.length} CLI commands, ${mcpToolCount} MCP tools, ` +
-    `${routesSeen} alineod routes, ${eventNamesSeen} event names and ` +
-    `${files.length} files check out.`,
+    `${routesSeen} alineod routes, ${eventNamesSeen} event names, ${specsSeen} agent specs ` +
+    `and ${files.length} files check out.`,
 );
