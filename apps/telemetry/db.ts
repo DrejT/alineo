@@ -10,6 +10,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DB_PATH } from "./config";
+import { migrateCommandNames } from "./migrate-command-names";
 
 /** Intentionally duplicated from `packages/cli/src/telemetry.ts`'s identical interface rather
  * than shared via a workspace package -- this app and `alineo` communicate purely over the
@@ -61,6 +62,14 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_received_at ON events (received_at);
 CREATE INDEX IF NOT EXISTS idx_events_anonymous_id ON events (anonymous_id);
 `);
+
+// Bring rows written by a pre-0.4.0 CLI onto the current verbs, so a count over `command`
+// stops splitting one action across two names — and stops reading pre-0.4.0 `spawn`, which
+// meant "create a root agent", as the `spawn` that now means "create a child".
+const renamedCommands = migrateCommandNames(db);
+if (renamedCommands > 0) {
+  console.log(`[telemetry] migrated ${renamedCommands} rows to the 0.4.0 command names`);
+}
 
 export function insertEvent(event: CliTelemetryEvent): void {
   db.run(
