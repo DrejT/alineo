@@ -30,9 +30,9 @@
     "babel-plugin-react-compiler": "1.0.0",
     "bun-types": "1.4.2",
     "eslint": "^10",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^7"
   },
   "ignoreScripts": [
     "sharp",
