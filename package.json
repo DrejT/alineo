@@ -47,9 +47,9 @@
     "release:publish": "bun scripts/resolve-workspace-protocol.ts && bun changeset publish"
   },
   "devDependencies": {
-    "@changesets/cli": "3.0.2",
+    "@changesets/cli": "3.0.3",
     "@oxlint/plugins": "^1.82.0",
-    "oxfmt": "^0.67.0",
+    "oxfmt": "^0.68.0",
     "oxlint": "^1.82.0",
     "oxlint-tsgolint": "^7.0.2001"
   }

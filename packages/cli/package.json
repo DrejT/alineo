@@ -39,10 +39,10 @@
   },
   "devDependencies": {
     "@alineo-labs/cli-shared": "workspace:*",
-    "@earendil-works/pi-coding-agent": "^0.85.1",
+    "@earendil-works/pi-coding-agent": "^0.86.1",
     "bun-types": "1.4.2",
     "tsdown": "0.23.0",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "pi": {
     "extensions": [
