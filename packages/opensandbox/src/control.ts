@@ -96,17 +96,26 @@ export class ControlClient {
     return this.request("POST", "/v1/sandboxes", options);
   }
 
+  /**
+   * Every sandbox, optionally filtered by state. OpenSandbox paginates with `page`/`pageSize`
+   * (default 20, max 200) and ignores `limit`/`offset`, so this walks every page and applies
+   * `offset`/`limit` itself. Sending `limit`/`offset` as query parameters silently capped every
+   * listing at the server's first 20.
+   */
   async listSandboxes(options: ListSandboxesOptions = {}): Promise<Sandbox[]> {
-    const params = new URLSearchParams();
-    if (options.state) params.set("state", options.state);
-    if (options.limit !== undefined) params.set("limit", String(options.limit));
-    if (options.offset !== undefined) params.set("offset", String(options.offset));
-    const qs = params.toString();
-    const res = await this.request<{ items: Sandbox[] }>(
-      "GET",
-      `/v1/sandboxes${qs ? `?${qs}` : ""}`,
-    );
-    return res.items;
+    const all: Sandbox[] = [];
+    for (let page = 1; ; page++) {
+      const params = new URLSearchParams({ page: String(page), pageSize: "200" });
+      if (options.state) params.set("state", options.state);
+      const res = await this.request<{ items: Sandbox[]; pagination?: { hasNextPage?: boolean } }>(
+        "GET",
+        `/v1/sandboxes?${params}`,
+      );
+      all.push(...res.items);
+      if (!res.pagination?.hasNextPage) break;
+    }
+    const start = options.offset ?? 0;
+    return all.slice(start, options.limit === undefined ? undefined : start + options.limit);
   }
 
   getSandbox(id: string): Promise<Sandbox> {
