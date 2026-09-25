@@ -6,8 +6,9 @@
  * See research/daemon.md for the design.
  */
 import { getLogger, installLoggerFromEnv } from "@alineo-labs/logger";
-import { PORT, configWarnings } from "./config";
+import { LEASE_TTL_MS, PORT, configWarnings } from "./config";
 import "./src/state/db"; // side effect: open the db, create tables
+import { acquireLease, LeaseHeldError } from "./src/state/lease";
 import { connectSdkAdapter } from "./src/engine/registry";
 import { rehydrate } from "./src/engine/rehydrate";
 import { createApp } from "./src/app";
@@ -20,6 +21,26 @@ const log = getLogger("alineod");
 // ./config is evaluated on import, before the logger exists, so it queues its warnings instead.
 for (const warning of configWarnings) log.warn(warning);
 
+// Before rehydrate: rehydrate reattaches every live agent, and a second instance doing the same
+// would drive them twice. See src/state/lease.ts.
+let lease;
+try {
+  lease = await acquireLease({
+    ttlMs: LEASE_TTL_MS,
+    onLost: (holder) => {
+      log.error("lease taken over by another instance; exiting so agents aren't driven twice", {
+        host: holder?.host,
+        pid: holder?.pid,
+      });
+      process.exit(1);
+    },
+  });
+} catch (err) {
+  if (!(err instanceof LeaseHeldError)) throw err;
+  log.error(err.message);
+  process.exit(1);
+}
+
 await connectSdkAdapter();
 await rehydrate();
 
@@ -31,6 +52,7 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     log.info("shutting down (agents keep running; state is durable)", { signal: sig });
     app.stop();
+    lease.release();
     process.exit(0);
   });
 }

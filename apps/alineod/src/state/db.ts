@@ -22,6 +22,9 @@ mkdirSync(dirname(DB_PATH), { recursive: true });
 export const db = new Database(DB_PATH, { create: true });
 db.exec("PRAGMA journal_mode = WAL;");
 db.exec("PRAGMA foreign_keys = ON;");
+// A second process can touch this file — an instance booting against it checks the lease
+// (lease.ts). Wait out its brief write lock instead of failing with SQLITE_BUSY.
+db.exec("PRAGMA busy_timeout = 5000;");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS ledger (
