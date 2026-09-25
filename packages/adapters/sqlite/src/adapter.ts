@@ -143,6 +143,9 @@ export class SQLiteAdapter implements IStorageAdapter {
     this.db.run(rename.sql, rename.params);
     // WAL mode prevents writer from blocking readers on concurrent access
     this.db.run("PRAGMA journal_mode = WAL;");
+    // Pinned rather than inherited from the SQLite build: under WAL, NORMAL can lose the last
+    // commits on power loss, and resume replays from this ledger.
+    this.db.run("PRAGMA synchronous = FULL;");
   }
 
   async close(): Promise<void> {

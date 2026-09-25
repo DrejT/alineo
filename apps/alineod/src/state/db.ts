@@ -21,6 +21,10 @@ mkdirSync(dirname(DB_PATH), { recursive: true });
 
 export const db = new Database(DB_PATH, { create: true });
 db.exec("PRAGMA journal_mode = WAL;");
+// Pinned rather than inherited: Bun's bundled SQLite defaults to FULL, but the build default is
+// what decides it (a system SQLite, or NORMAL under WAL, can drop the last commits on power
+// loss). A ledger event is only "committed" if it survives that.
+db.exec("PRAGMA synchronous = FULL;");
 db.exec("PRAGMA foreign_keys = ON;");
 
 db.exec(`
