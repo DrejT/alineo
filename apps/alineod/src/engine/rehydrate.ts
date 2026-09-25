@@ -117,6 +117,16 @@ async function reattachOne(a: AgentRow): Promise<void> {
         error: message,
       });
       log.warn("lost", { agentId: a.agent_id, error: message });
+    } else if (isSandboxGone(err)) {
+      // Not "unreachable this boot" but gone for good (deleted, reaped, or lost with its host).
+      // Record the release so the agent stops claiming to be promptable, and so no later boot
+      // tries to reconnect it again. The outcome still stands.
+      emit(a.run_id, a.agent_id, "agent.released", { reason: "sandbox-missing" });
+      log.warn("sandbox gone — released; its recorded outcome stands", {
+        agentId: a.agent_id,
+        sandboxId: a.sandbox_id,
+        outcome: a.outcome,
+      });
     } else {
       log.warn("unreachable — its recorded outcome stands", {
         agentId: a.agent_id,
@@ -126,6 +136,17 @@ async function reattachOne(a: AgentRow): Promise<void> {
       });
     }
   }
+}
+
+/**
+ * OpenSandbox says the sandbox does not exist, as opposed to any other failure (OpenSandbox down,
+ * a bridge that won't start) that may clear on a later boot. Its code is `<RUNTIME>::SANDBOX_NOT_FOUND`
+ * (`DOCKER::` today), carried on the error's `code` and in its message.
+ */
+function isSandboxGone(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (typeof code === "string" && code.endsWith("SANDBOX_NOT_FOUND")) return true;
+  return errorMessage(err).includes("SANDBOX_NOT_FOUND");
 }
 
 /**
