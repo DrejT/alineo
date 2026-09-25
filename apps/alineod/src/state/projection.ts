@@ -27,6 +27,10 @@ const setPausedFrom = db.query(
 
 const clearPausedBy = db.query(`UPDATE agents SET paused_by = NULL WHERE agent_id = $agentId`);
 
+const markReleased = db.query(
+  `UPDATE agents SET released_at = $at WHERE agent_id = $agentId AND released_at IS NULL`,
+);
+
 const upsertSubscription = db.query(
   `INSERT INTO notify_subscriptions (subscriber_id, on_agent_id, run_id, wake)
    VALUES ($subscriber, $on, $runId, $wake)
@@ -151,6 +155,9 @@ export function apply(row: LedgerRow): void {
         });
       }
       break;
+    case "agent.released":
+      if (row.agent_id) markReleased.run({ $agentId: row.agent_id, $at: row.ts });
+      break;
     case "agent.ended":
       endAgentRow.run({
         $agentId: row.agent_id,
@@ -226,6 +233,7 @@ export interface AgentRow {
   created_at: number;
   ended_at: number | null;
   outcome: string | null;
+  released_at: number | null;
 }
 
 const qAgent = db.query<AgentRow, [string]>(`SELECT * FROM agents WHERE agent_id = ?`);
@@ -313,7 +321,10 @@ export function reconnectableTerminalAgents(): AgentRow[] {
     .all()
     .filter(
       (r) =>
-        !LIVE_STATES.has(r.state) && r.sandbox_id !== null && !CLOSED_OUTCOMES.has(r.outcome ?? ""),
+        !LIVE_STATES.has(r.state) &&
+        r.sandbox_id !== null &&
+        r.released_at === null &&
+        !CLOSED_OUTCOMES.has(r.outcome ?? ""),
     );
 }
 

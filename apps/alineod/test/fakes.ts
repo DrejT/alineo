@@ -216,6 +216,8 @@ export const fakeSdk = {
   startError: undefined as Error | undefined,
   reattachFails: new Set<string>(),
   resumeFails: new Set<string>(),
+  /** Resume fails the way a transient outage does (OpenSandbox unreachable), not "not found". */
+  resumeUnavailable: new Set<string>(),
   calls: {
     start: 0,
     reattach: [] as string[],
@@ -229,6 +231,7 @@ export const fakeSdk = {
     this.startError = undefined;
     this.reattachFails.clear();
     this.resumeFails.clear();
+    this.resumeUnavailable.clear();
     this.calls = { start: 0, reattach: [], reattachOpts: [], resume: [] };
     this.spawnCheck = sdkSpawnCheck;
   },
@@ -257,6 +260,9 @@ export const FakeAlineo = {
   async resume(sandboxId: string): Promise<FakeAgent> {
     fakeSdk.calls.resume.push(sandboxId);
     const agent = fakeSdk.sandboxes.get(sandboxId);
+    if (fakeSdk.resumeUnavailable.has(sandboxId)) {
+      throw new Error("Unable to connect. Is the computer able to access the url?");
+    }
     if (!agent || fakeSdk.resumeFails.has(sandboxId)) {
       // What OpenSandbox's client really throws: the raw response body as the message.
       throw new Error(

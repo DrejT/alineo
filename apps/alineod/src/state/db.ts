@@ -69,7 +69,10 @@ CREATE TABLE IF NOT EXISTS agents (
   paused_by       TEXT,
   created_at      INTEGER NOT NULL,
   ended_at        INTEGER,
-  outcome         TEXT                    -- success|failed|aborted|budget-exceeded|lost
+  outcome         TEXT,                   -- success|failed|aborted|budget-exceeded|lost
+  -- When a finished agent's sandbox was released (agent.released): stopped, its run deleted, or
+  -- found gone on rehydrate. A released agent is never reconnected. NULL while it is still open.
+  released_at     INTEGER
 );
 CREATE INDEX IF NOT EXISTS agents_run ON agents (run_id);
 CREATE INDEX IF NOT EXISTS agents_parent ON agents (parent_agent_id);
@@ -101,6 +104,7 @@ for (const alter of [
   "ALTER TABLE agents ADD COLUMN prompt TEXT",
   "ALTER TABLE agents ADD COLUMN paused_from TEXT",
   "ALTER TABLE agents ADD COLUMN paused_by TEXT",
+  "ALTER TABLE agents ADD COLUMN released_at INTEGER",
 ]) {
   try {
     db.exec(alter);

@@ -213,17 +213,58 @@ describe("agents with a sandbox", () => {
     expect(fakeSdk.calls.reattach).toEqual([]);
   });
 
-  test("a finished agent that can't be reconnected keeps its real outcome instead of becoming lost", async () => {
+  test("a finished agent whose sandbox is gone keeps its outcome and is released, once", async () => {
     const runId = newRunId();
     const sandbox = container(runId);
     const id = seed({ runId, sandbox, ended: "failed" });
     fakeSdk.reattachFails.add(sandbox.sandboxId);
-    fakeSdk.resumeFails.add(sandbox.sandboxId);
+    fakeSdk.resumeFails.add(sandbox.sandboxId); // OpenSandbox: DOCKER::SANDBOX_NOT_FOUND
 
     await rehydrate();
 
     expect(get(id)).toBeUndefined();
     expect(getAgentRow(id)).toMatchObject({ state: "failed", outcome: "failed" });
+    expect(getAgentRow(id)?.released_at).not.toBeNull();
+    const released = events(runId).filter((e) => e.agentId === id && e.event === "agent.released");
+    expect(released.map((e) => e.reason)).toEqual(["sandbox-missing"]);
+
+    // The next boot doesn't try it again, and doesn't release it twice.
+    fakeSdk.calls.reattach = [];
+    fakeSdk.calls.resume = [];
+    await rehydrate();
+    expect(fakeSdk.calls.reattach).toEqual([]);
+    expect(fakeSdk.calls.resume).toEqual([]);
+    expect(events(runId).filter((e) => e.event === "agent.released")).toHaveLength(1);
+  });
+
+  test("a finished agent that is only unreachable is not released, and is tried again next boot", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seed({ runId, sandbox, ended: "success" });
+    fakeSdk.reattachFails.add(sandbox.sandboxId);
+    fakeSdk.resumeUnavailable.add(sandbox.sandboxId); // OpenSandbox down, not "not found"
+
+    await rehydrate();
+
+    expect(getAgentRow(id)).toMatchObject({ state: "done", outcome: "success", released_at: null });
+    expect(events(runId).some((e) => e.event === "agent.released")).toBe(false);
+
+    fakeSdk.reattachFails.clear();
+    fakeSdk.resumeUnavailable.clear();
+    await rehydrate();
+    expect(get(id)).toBe(sandbox as never);
+  });
+
+  test("a finished agent that was stopped before the crash is not reconnected", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seed({ runId, sandbox, ended: "success" });
+    emit(runId, id, "agent.released", { reason: "stop:abort" });
+
+    await rehydrate();
+
+    expect(fakeSdk.calls.reattach).toEqual([]);
+    expect(fakeSdk.calls.resume).toEqual([]);
   });
 });
 

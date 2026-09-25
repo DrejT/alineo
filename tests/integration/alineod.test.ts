@@ -187,13 +187,17 @@ describe("alineod", () => {
   }, 900_000);
 
   test("pauses and resumes an agent's container", async () => {
+    // Resume restores the state the agent had before the pause (`paused_from`) — not always
+    // `running`. The root's turn has usually finished by now, so that is `done` (or `failed`).
+    const before = (await api("GET", `/agents/${rootId}`)).body.state;
+
     expect((await api("POST", `/agents/${rootId}/pause`)).status).toBe(202);
     const paused = await api("GET", `/agents/${rootId}`);
     expect(paused.body.state).toBe("paused");
     expect(paused.body.sessionStats).toBeUndefined();
 
     expect((await api("POST", `/agents/${rootId}/resume`)).status).toBe(202);
-    expect((await api("GET", `/agents/${rootId}`)).body.state).toBe("running");
+    expect((await api("GET", `/agents/${rootId}`)).body.state).toBe(before);
   }, 60_000);
 
   test("steers a running turn after its tool call finishes", async () => {
