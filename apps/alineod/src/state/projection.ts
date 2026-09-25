@@ -298,8 +298,13 @@ export function runAsOf(runId: string): number {
 
 const LIVE_STATES = new Set(["provisioning", "running", "spawning", "paused"]);
 
+/**
+ * Agents rehydrate has to drive. A released agent is excluded even if its state still says live:
+ * its sandbox is gone, so there is nothing to reconnect (a row left `running` after it ended —
+ * seen on the VPS from Sep 11 code — was otherwise retried and re-released on every boot).
+ */
 export function liveAgents(): AgentRow[] {
-  return qAgentsByState.all().filter((r) => LIVE_STATES.has(r.state));
+  return qAgentsByState.all().filter((r) => LIVE_STATES.has(r.state) && r.released_at === null);
 }
 
 /**

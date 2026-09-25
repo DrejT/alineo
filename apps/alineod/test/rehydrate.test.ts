@@ -255,6 +255,21 @@ describe("agents with a sandbox", () => {
     expect(get(id)).toBe(sandbox as never);
   });
 
+  test("a released agent whose state still says running is not reconnected on every boot", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    // The shape found on the VPS: ended with an outcome, released, but its state left `running`.
+    const id = seed({ runId, sandbox, state: "running", ended: "success" });
+    emit(runId, id, "agent.state_changed", { from: "done", to: "running", reason: "prompt" });
+    emit(runId, id, "agent.released", { reason: "sandbox-missing" });
+
+    await rehydrate();
+
+    expect(fakeSdk.calls.reattach).toEqual([]);
+    expect(fakeSdk.calls.resume).toEqual([]);
+    expect(events(runId).filter((e) => e.event === "agent.released")).toHaveLength(1);
+  });
+
   test("a finished agent that was stopped before the crash is not reconnected", async () => {
     const runId = newRunId();
     const sandbox = container(runId);
