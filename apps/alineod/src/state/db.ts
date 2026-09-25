@@ -26,6 +26,9 @@ db.exec("PRAGMA journal_mode = WAL;");
 // loss). A ledger event is only "committed" if it survives that.
 db.exec("PRAGMA synchronous = FULL;");
 db.exec("PRAGMA foreign_keys = ON;");
+// A second process can touch this file — an instance booting against it checks the lease
+// (lease.ts). Wait out its brief write lock instead of failing with SQLITE_BUSY.
+db.exec("PRAGMA busy_timeout = 5000;");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS ledger (

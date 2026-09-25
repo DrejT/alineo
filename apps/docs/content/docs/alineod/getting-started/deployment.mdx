@@ -5,7 +5,8 @@ description: Configure alineod, run it as a Docker container, and connect it to 
 
 alineod is a single Bun process with two SQLite files and a working directory. It holds no in-memory state that
 can't be rebuilt, so the process — or its container — can be restarted or recreated freely (see
-[Crash recovery](/docs/alineod/guides/crash-recovery)).
+[Crash recovery](/docs/alineod/guides/crash-recovery)). Run **exactly one** instance per database: restarts are
+safe, replicas are not (see [Scaling](#scaling)).
 
 ## Configuration
 
@@ -20,6 +21,7 @@ can't be rebuilt, so the process — or its container — can be restarted or re
 | `ALINEOD_CATCH_UP_POLL_MS`         | `2000`                         | Interval between state polls while following a turn.                                                   |
 | `ALINEOD_STATE_PROBE_TIMEOUT_MS`   | `5000`                         | Bound on one state poll, so an unresponsive agent can't stall alineod.                                 |
 | `ALINEOD_RESUME_BRIDGE_TIMEOUT_MS` | `10000`                        | After a resume, how long to wait for the agent's harness to answer before restarting it.               |
+| `ALINEOD_LEASE_TTL_MS`             | `15000`                        | How long the instance lease outlives its last heartbeat. See [Scaling](#scaling).                      |
 
 OpenSandbox connection settings come from `alineo.config.json` in the working directory, exactly as for the SDK
 and CLI. Model-provider keys (`NVIDIA_API_KEY`, `ANTHROPIC_API_KEY`, …) are read from alineod's own environment
@@ -111,6 +113,29 @@ nothing in alineod depends on the runtime.
   [OpenSandbox#1831](https://github.com/opensandbox-group/OpenSandbox/issues/1831)). Even then,
   `/tmp` is a tmpfs under gVisor and isn't carried into forks.
 </Callout>
+
+## Scaling
+
+alineod is a **single-node control plane**. Run one instance per database. It restarts cleanly, but it does not
+replicate:
+
+- **SSE fan-out is in-process.** A client connected to one instance never sees events written by another.
+- **Agents have no owner.** On boot, an instance reattaches every live agent in the database, so two instances
+  would both drive the same agents.
+- **Notifications are delivered in-process**, by the instance that recorded the event.
+- **State is local SQLite.** Putting the files on a shared network volume for several instances is unsupported:
+  SQLite's locking over network filesystems is unreliable.
+
+This is enforced, not just documented. On startup alineod takes a lease in its database, and heartbeats it every
+`ALINEOD_LEASE_TTL_MS / 3`. A second instance against the same database waits one TTL to see whether the holder
+is still alive, then exits with an error naming the other instance's host and pid.
+
+A holder that died without releasing — `kill -9`, OOM, power loss — stops heartbeating, so the next boot takes the
+lease over after at most one TTL. A clean shutdown (`SIGTERM`, `SIGINT`) releases it immediately. Under a
+supervisor such as systemd or Docker's `restart:` policy, a crash therefore costs up to 15 s of extra startup, not
+a restart loop.
+
+The agents themselves run in OpenSandbox containers, not in alineod.
 
 ## The protocol spec
 
