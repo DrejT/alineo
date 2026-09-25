@@ -49,6 +49,37 @@ describe("ControlClient", () => {
   });
 });
 
+describe("ControlClient.renewExpiration", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // OpenSandbox's RenewSandboxExpirationRequest requires `expiresAt`; an empty POST is a 422.
+  it("sends the new expiry as an RFC 3339 `expiresAt` body", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new ControlClient({ baseUrl: "http://localhost:8080", apiKey: "" });
+    await client.renewExpiration("sb-1", new Date("2026-10-01T12:00:00Z"));
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://localhost:8080/v1/sandboxes/sb-1/renew-expiration");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ expiresAt: "2026-10-01T12:00:00.000Z" });
+  });
+
+  it("passes a string expiry through unchanged", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new ControlClient({ baseUrl: "http://localhost:8080", apiKey: "" });
+    await client.renewExpiration("sb-1", "2026-10-01T12:00:00Z");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ expiresAt: "2026-10-01T12:00:00Z" });
+  });
+});
+
 describe("ControlClient errors", () => {
   afterEach(() => {
     vi.unstubAllGlobals();

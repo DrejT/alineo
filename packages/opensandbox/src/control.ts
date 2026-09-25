@@ -125,8 +125,15 @@ export class ControlClient {
     return this.request("POST", `/v1/sandboxes/${id}/resume`);
   }
 
-  renewExpiration(id: string): Promise<void> {
-    return this.request("POST", `/v1/sandboxes/${id}/renew-expiration`);
+  /**
+   * Move a sandbox's expiry to `expiresAt`, which must be in the future and later than its current
+   * expiry. Only meaningful for a sandbox created with a `timeout`: one created without it never
+   * expires (OpenSandbox's `CreateSandboxRequest.timeout` — "when omitted or null, the sandbox will
+   * not auto-terminate"). The countdown keeps running while a sandbox is paused.
+   */
+  renewExpiration(id: string, expiresAt: Date | string): Promise<void> {
+    const at = typeof expiresAt === "string" ? expiresAt : expiresAt.toISOString();
+    return this.request("POST", `/v1/sandboxes/${id}/renew-expiration`, { expiresAt: at });
   }
 
   // Returns { endpoint, headers: { "X-EXECD-ACCESS-TOKEN": "..." } }
