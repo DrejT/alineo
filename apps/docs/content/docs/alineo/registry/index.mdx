@@ -27,16 +27,16 @@ Anyone can then fetch it into their own project with:
 bunx alineo-cli add https://raw.githubusercontent.com/your-org/your-repo/main/agents/node-toolchain.json
 ```
 
-This only saves the spec locally — it doesn't run anything. See [Running an agent spec](/docs/alineo/using-sandboxes) for how to actually load and run it with `Alineo.load()`.
+This only saves the spec locally — it doesn't run anything. See [Running an agent spec](/docs/alineo/using-sandboxes) for how to actually load and run it with `Alineo.start()`.
 
 ## Minimal example
 
-Every spec runs inside a `node:22` sandbox (there's no `image` field — the base image is fixed) and requires `cli: "pi"`:
+Every spec runs inside a `node:22` sandbox (there's no `image` field — the base image is fixed) and requires `harness: "pi"`:
 
 ```json
 {
   "name": "node-toolchain",
-  "cli": "pi",
+  "harness": "pi",
   "setup": [{ "name": "install tools", "run": "npm install -g typescript eslint prettier" }]
 }
 ```
@@ -48,7 +48,7 @@ A spec can declare dependencies on other specs by URL. `alineo add` fetches and 
 ```json
 {
   "name": "ts-reviewer",
-  "cli": "pi",
+  "harness": "pi",
   "registryDependencies": ["https://example.com/agents/node-toolchain.json"],
   "setup": [{ "name": "install linter", "run": "npm install -g @typescript-eslint/parser" }]
 }

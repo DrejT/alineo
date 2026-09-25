@@ -1,0 +1,36 @@
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+import { readConfig } from "@alineo-labs/cli-shared";
+import type { CliCommand } from "./types.js";
+
+/**
+ * Addressed by sandbox ID, not session name — see prompt.ts for why: names
+ * aren't unique and a name-based ledger lookup can hand back a sandbox that
+ * already died ungracefully. `client.connect()`'s live control-plane check
+ * is the actual authority on whether it still exists to stop.
+ */
+export async function stop(sandboxId: string): Promise<void> {
+  if (!sandboxId) throw new Error("Usage: alineo stop <sandbox-id>");
+
+  const config = await readConfig();
+  const adapter = new SQLiteAdapter(config.adapterPath);
+  const client = new Sandbox({
+    baseUrl: config.serverUrl,
+    apiKey: config.apiKey,
+    adapter,
+    useServerProxy: config.useServerProxy,
+  });
+
+  const sb = await client.connect(sandboxId, sandboxId);
+  await sb.close();
+  console.log(`Stopped sandbox ${sandboxId}`);
+}
+
+export const stopCommand: CliCommand = {
+  name: "stop",
+  group: "agent",
+  variants: [{ usage: "alineo stop <sandbox-id>", summary: "Stop a sandbox" }],
+  run: async (argv) => {
+    await stop(argv[0] ?? "");
+  },
+};

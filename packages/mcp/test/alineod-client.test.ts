@@ -17,12 +17,14 @@ describe("AlineodClient requests", () => {
     });
 
     const client = new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl });
-    const result = await client.createRun({ spec: { name: "x", cli: "pi", model: "some-model" } });
+    const result = await client.createRun({
+      spec: { name: "x", harness: "pi", model: "some-model" },
+    });
 
     expect(seenUrl).toBe("http://test.local:4600/runs");
     expect(seenInit?.method).toBe("POST");
     expect(JSON.parse(String(seenInit?.body))).toEqual({
-      spec: { name: "x", cli: "pi", model: "some-model" },
+      spec: { name: "x", harness: "pi", model: "some-model" },
     });
     expect(result).toEqual({ runId: "r1", rootAgentId: "a1", state: "provisioning" });
   });
@@ -113,8 +115,8 @@ describe("AlineodClient.watchEvents", () => {
   it("parses id/event/data frames into structured events", async () => {
     const fetchImpl = stubFetch(async () =>
       sseResponse([
-        'id: 1\nevent: run_started\ndata: {"runId":"r1"}\n\n',
-        'id: 2\nevent: agent_ended\ndata: {"agentId":"a1","outcome":"done"}\n\n',
+        'id: 1\nevent: run.started\ndata: {"runId":"r1"}\n\n',
+        'id: 2\nevent: agent.ended\ndata: {"agentId":"a1","outcome":"done"}\n\n',
       ]),
     );
     const client = new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl });
@@ -122,8 +124,8 @@ describe("AlineodClient.watchEvents", () => {
     const events = await client.watchEvents("r1", { maxWaitMs: 1000 });
 
     expect(events).toEqual([
-      { id: 1, event: "run_started", data: { runId: "r1" } },
-      { id: 2, event: "agent_ended", data: { agentId: "a1", outcome: "done" } },
+      { id: 1, event: "run.started", data: { runId: "r1" } },
+      { id: 2, event: "agent.ended", data: { agentId: "a1", outcome: "done" } },
     ]);
   });
 
@@ -144,12 +146,12 @@ describe("AlineodClient.watchEvents", () => {
 
   it("ignores heartbeat comment lines", async () => {
     const fetchImpl = stubFetch(async () =>
-      sseResponse([": ping\n\n", 'id: 1\nevent: run_started\ndata: {"runId":"r1"}\n\n']),
+      sseResponse([": ping\n\n", 'id: 1\nevent: run.started\ndata: {"runId":"r1"}\n\n']),
     );
     const client = new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl });
 
     const events = await client.watchEvents("r1", { maxWaitMs: 1000 });
 
-    expect(events).toEqual([{ id: 1, event: "run_started", data: { runId: "r1" } }]);
+    expect(events).toEqual([{ id: 1, event: "run.started", data: { runId: "r1" } }]);
   });
 });

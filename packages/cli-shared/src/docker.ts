@@ -53,6 +53,18 @@ export async function removeContainer(name: string): Promise<void> {
   if (!ok) throw new Error(`Failed to remove container '${name}': ${stderr.trim()}`);
 }
 
+/**
+ * Set a container's restart policy in place (`docker update`, no recreate). Used so containers
+ * created before `init` started passing `--restart` still come back after a reboot.
+ */
+export async function setRestartPolicy(
+  name: string,
+  policy: "unless-stopped" | "no",
+): Promise<void> {
+  const { ok, stderr } = await spawn(["docker", "update", "--restart", policy, name]);
+  if (!ok) throw new Error(`Failed to set restart policy on '${name}': ${stderr.trim()}`);
+}
+
 export async function runContainer(args: string[], label = "container"): Promise<void> {
   const { ok, stderr } = await spawn(["docker", "run", ...args]);
   if (!ok) throw new Error(`Failed to start ${label}: ${stderr.trim()}`);

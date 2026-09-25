@@ -25,7 +25,7 @@ export function waitUntilNotPaused(runId: string, agentId: string): Promise<void
     };
 
     off = onRun(runId, (msg) => {
-      if (msg.event !== "agent_state_changed" && msg.event !== "agent_ended") return;
+      if (msg.event !== "agent.state_changed" && msg.event !== "agent.ended") return;
       if ((msg.data as { agentId?: string } | null)?.agentId === agentId) check();
     });
     poll = setInterval(check, 3000);

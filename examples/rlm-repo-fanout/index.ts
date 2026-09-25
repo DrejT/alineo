@@ -1,6 +1,6 @@
 /**
  * RLM fan-out: a master agent clones a repo, decides how to split a task
- * across it, and forks child agents (via `alineo fork`, itself built on
+ * across it, and spawns child agents (via `alineo spawn`, itself built on
  * `Alineo.spawn()`) that each work on one slice from the *exact same*
  * checked-out commit — not a fresh clone each. See TASK.md for the actual
  * goal handed to the master (G2: externalized as a file, not pasted into
@@ -55,7 +55,7 @@ const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const baseUrl = process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080";
 const apiKey = process.env.OPEN_SANDBOX_API_KEY ?? "";
 
-// `alineo fork` (run FROM INSIDE the master's own sandbox) opens its own
+// `alineo spawn` (run FROM INSIDE the master's own sandbox) opens its own
 // SQLiteAdapter, pointed at a ledger file that lives inside that sandbox's
 // container filesystem — a completely separate file from this host script's
 // own `./.alineo/ledger.db`. A forked child's `sandbox_created` ledger event
@@ -86,9 +86,9 @@ function check(name: string, pass: boolean, detail?: string) {
 
 const testStart = Date.now();
 console.log("=== Loading master (spawnDepth: 1) ===\n");
-// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+// Alineo.start() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const masterSpec = await Bun.file(MASTER_SPEC).json();
-const master = await Alineo.load(masterSpec, {
+const master = await Alineo.start(masterSpec, {
   adapter,
   rebuild: process.env.REBUILD === "1",
 });

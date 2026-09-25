@@ -12,7 +12,7 @@
  *      if the bridge was preserved, at once if it had to be restarted (the turn died with it).
  *      Otherwise the projection would say "running" forever.
  *   3. Pass 2 — every live agent still stuck *before* its fork (no sandbox yet: a child
- *      queued behind `waitFor`, or a root still inside `Alineo.load()`): retry the spawn
+ *      queued behind `waitFor`, or a root still inside `Alineo.start()`): retry the spawn
  *      from what was persisted in its `agent_spawned` event (`wait_for`/`prompt` in db.ts —
  *      before this existed, that intent only ever lived in the dead process's closure, so
  *      it was unconditionally marked "lost"). Only possible if the parent came back in pass
@@ -111,12 +111,22 @@ async function reattachOne(a: AgentRow): Promise<void> {
     // spawned-from again THIS boot, not that its already-recorded, already-settled turn is now
     // "lost". Only a still-live agent's outcome is genuinely unknown and worth overwriting.
     if (a.ended_at === null) {
-      emit(a.run_id, a.agent_id, "agent_ended", {
+      emit(a.run_id, a.agent_id, "agent.ended", {
         outcome: "lost",
         endedAt: Date.now(),
         error: message,
       });
       log.warn("lost", { agentId: a.agent_id, error: message });
+    } else if (isSandboxGone(err)) {
+      // Not "unreachable this boot" but gone for good (deleted, reaped, or lost with its host).
+      // Record the release so the agent stops claiming to be promptable, and so no later boot
+      // tries to reconnect it again. The outcome still stands.
+      emit(a.run_id, a.agent_id, "agent.released", { reason: "sandbox-missing" });
+      log.warn("sandbox gone — released; its recorded outcome stands", {
+        agentId: a.agent_id,
+        sandboxId: a.sandbox_id,
+        outcome: a.outcome,
+      });
     } else {
       log.warn("unreachable — its recorded outcome stands", {
         agentId: a.agent_id,
@@ -126,6 +136,17 @@ async function reattachOne(a: AgentRow): Promise<void> {
       });
     }
   }
+}
+
+/**
+ * OpenSandbox says the sandbox does not exist, as opposed to any other failure (OpenSandbox down,
+ * a bridge that won't start) that may clear on a later boot. Its code is `<RUNTIME>::SANDBOX_NOT_FOUND`
+ * (`DOCKER::` today), carried on the error's `code` and in its message.
+ */
+function isSandboxGone(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (typeof code === "string" && code.endsWith("SANDBOX_NOT_FOUND")) return true;
+  return errorMessage(err).includes("SANDBOX_NOT_FOUND");
 }
 
 /**
@@ -152,7 +173,7 @@ async function reattachPaused(
   } catch (err) {
     const message = errorMessage(err);
     if (a.ended_at === null) {
-      emit(a.run_id, a.agent_id, "agent_ended", {
+      emit(a.run_id, a.agent_id, "agent.ended", {
         outcome: "lost",
         endedAt: Date.now(),
         error: message,
@@ -173,7 +194,7 @@ async function retryProvision(a: AgentRow): Promise<void> {
   const spec = JSON.parse(a.spec_json);
 
   if (!a.parent_agent_id) {
-    log.info("retrying provision for root (was still inside Alineo.load())", {
+    log.info("retrying provision for root (was still inside Alineo.start())", {
       agentId: a.agent_id,
     });
     const body: CreateRunBody = {
@@ -190,7 +211,7 @@ async function retryProvision(a: AgentRow): Promise<void> {
 
   const parent = get(a.parent_agent_id);
   if (!parent) {
-    emit(a.run_id, a.agent_id, "agent_ended", {
+    emit(a.run_id, a.agent_id, "agent.ended", {
       outcome: "lost",
       endedAt: Date.now(),
       error: `parent ${a.parent_agent_id} did not come back — cannot retry this spawn`,

@@ -7,7 +7,7 @@ import type { CliCommand } from "./types.js";
 
 /**
  * Addressed by sandbox ID, not session name — names aren't unique (re-running
- * `alineo spawn` on the same spec produces two sandboxes with the same name)
+ * `alineo start` on the same spec produces two sandboxes with the same name)
  * and a name-based ledger lookup can hand back a sandbox that died ungracefully
  * (crashed before its `close()` ran, expired via OpenSandbox's own TTL) since
  * nothing ever told the ledger it stopped. `Alineo.resume()`'s own `connect()`
@@ -17,7 +17,7 @@ import type { CliCommand } from "./types.js";
  * `opts.specPath` lets a caller skip `Alineo.resume()`'s own ledger lookup for
  * the spec file entirely — necessary when prompting a sandbox whose
  * `sandbox_created` event lives in a different ledger than this CLI
- * invocation's own (e.g. a child spawned via `alineo fork` from inside
+ * invocation's own (e.g. a child spawned via `alineo spawn` from inside
  * another sandbox).
  */
 export async function prompt(

@@ -60,14 +60,14 @@ const client = new Sandbox({ baseUrl: "...", adapter: new PostgresAdapter("...")
 
 ## Events written to the ledger
 
-| Event                | When                                                      |
-| -------------------- | --------------------------------------------------------- |
-| `sandbox_created`    | Container created and reached Running state               |
-| `exec_start`         | `sb.exec()` or `sb.execCode()` called                     |
-| `exec_event`         | Stdout/stderr chunk received from execd                   |
-| `exec_complete`      | exec finished; payload has `{ seq, exitCode }`            |
-| `checkpoint_created` | `sb.checkpoint()` completed; payload has `{ snapshotId }` |
-| `sandbox_closed`     | `sb.close()` called                                       |
+| Event                        | When                                                      |
+| ---------------------------- | --------------------------------------------------------- |
+| `sandbox.created`            | Container created and reached Running state               |
+| `exec.started`               | `sb.exec()` or `sb.execCode()` called                     |
+| `exec.output`                | Stdout/stderr chunk received from execd                   |
+| `exec.completed`             | exec finished; payload has `{ seq, exitCode }`            |
+| `sandbox.checkpoint_created` | `sb.checkpoint()` completed; payload has `{ snapshotId }` |
+| `sandbox.closed`             | `sb.close()` called                                       |
 
 ## Custom adapter
 

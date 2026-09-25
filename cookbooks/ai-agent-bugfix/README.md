@@ -21,7 +21,7 @@ bun start
 
 1. Plants a deliberate off-by-one bug in `calc.py` and a test that catches it
 2. Runs `pytest` via `agent.bash()` to show the failure
-3. Prompts the agent — via `alineo`'s `Alineo.load()` + `agent.prompt()` — to find and
+3. Prompts the agent — via `alineo`'s `Alineo.start()` + `agent.prompt()` — to find and
    fix the bug itself, streaming its reasoning and tool calls as they happen
 4. Re-runs `pytest` independently of the agent (via `agent.sandbox.exec()`) to verify the fix,
    rather than trusting the agent's own claim that it passed

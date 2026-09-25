@@ -2,7 +2,7 @@
  * `POST /runs` — create a run: register the root agent immediately, provision it (sandbox
  * fork/install/checkpoint) in the background, drive the first turn once it's ready.
  *
- * Async by design (Track A hardening, 2026-09-11): `Alineo.load()` on a cold spec takes from about
+ * Async by design (Track A hardening, 2026-09-11): `Alineo.start()` on a cold spec takes from about
  * a minute to nearly three (72-165 s measured on a one-vCPU VPS with a small spec's setup steps).
  * Blocking the HTTP request for that made every client either time out or hold a connection
  * for a minute+. The route now returns 202 the instant the row exists in the projection; the
@@ -30,7 +30,7 @@ export function createRun(body: CreateRunBody): CreateRunResult {
   const rootAgentId = newAgentId();
 
   // alineod owns the spawn-depth budget because it drives `.spawn()` from outside any sandbox
-  // (the SDK's ALINEO_SPAWN_DEPTH env mechanism only applies to in-sandbox `alineo fork`).
+  // (the SDK's ALINEO_SPAWN_DEPTH env mechanism only applies to in-sandbox `alineo spawn`).
   const specDepth = numeric(body.spec.spawnDepth);
   const specMax = numeric(body.spec.maxAgents);
   const specName = (body.spec.name as string | undefined) ?? "agent";
@@ -38,8 +38,8 @@ export function createRun(body: CreateRunBody): CreateRunResult {
   // Everything above is synchronous, no I/O — this whole function runs to completion before
   // any other request's handler gets a turn, so the row below is visible to the very next
   // GET /runs/:id even though the sandbox doesn't exist yet.
-  emit(runId, null, "run_started", { runId });
-  emit(runId, rootAgentId, "agent_spawned", {
+  emit(runId, null, "run.started", { runId });
+  emit(runId, rootAgentId, "agent.spawned", {
     parentAgentId: null,
     runId,
     specName,
@@ -49,7 +49,7 @@ export function createRun(body: CreateRunBody): CreateRunResult {
     sandboxId: null,
     spawnBudget: body.budget?.spawnDepth ?? specDepth ?? null,
     maxAgentsBudget: body.budget?.maxAgents ?? specMax ?? null,
-    // Persisted so rehydrate() can retry Alineo.load() if alineod crashes before it resolves.
+    // Persisted so rehydrate() can retry Alineo.start() if alineod crashes before it resolves.
     prompt: body.prompt ?? null,
   });
 
@@ -59,7 +59,7 @@ export function createRun(body: CreateRunBody): CreateRunResult {
 }
 
 /**
- * The slow half of creating a run: `Alineo.load()`. Exported so `rehydrate()` can re-run it
+ * The slow half of creating a run: `Alineo.start()`. Exported so `rehydrate()` can re-run it
  * verbatim for a root that was still stuck here (no sandbox yet) when alineod crashed.
  */
 export async function provisionRoot(
@@ -68,19 +68,19 @@ export async function provisionRoot(
   body: CreateRunBody,
 ): Promise<void> {
   try {
-    const agent = await Alineo.load(body.spec, {
+    const agent = await Alineo.start(body.spec, {
       adapter: sdkAdapter,
       runId,
       spawnDepth: body.budget?.spawnDepth,
       maxAgents: body.budget?.maxAgents,
     });
     register(rootAgentId, agent);
-    emit(runId, rootAgentId, "agent_provisioned", { sandboxId: agent.sandboxId });
+    emit(runId, rootAgentId, "agent.provisioned", { sandboxId: agent.sandboxId });
 
     if (body.prompt) void driveTurn(rootAgentId, withInbox(rootAgentId, body.prompt));
   } catch (err) {
     const message = errorMessage(err);
-    emit(runId, rootAgentId, "agent_ended", {
+    emit(runId, rootAgentId, "agent.ended", {
       outcome: "failed",
       endedAt: Date.now(),
       error: message,

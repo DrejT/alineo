@@ -55,9 +55,9 @@ request.
 curl -s localhost:4600/runs -H 'content-type: application/json' -d '{
   "spec": {
     "name": "coordinator",
-    "cli": "pi",
+    "harness": "pi",
     "provider": "nvidia",
-    "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+    "model": "nvidia/nemotron-3-super-120b-a12b",
     "env": { "NVIDIA_API_KEY": "${NVIDIA_API_KEY}" },
     "resources": { "cpu": "1000m", "memory": "2Gi" },
     "spawnDepth": 2,
@@ -93,11 +93,11 @@ curl -N localhost:4600/runs/r_3f9a1c20/events
 
 ```
 id: 1
-event: run_started
+event: run.started
 data: {"agentId":null,"runId":"r_3f9a1c20"}
 
 id: 2
-event: agent_spawned
+event: agent.spawned
 data: {"agentId":"a_7b2e44d1","parentAgentId":null,"specName":"coordinator","depth":0,...}
 ```
 
@@ -115,8 +115,8 @@ parent's exact filesystem state, then loads its own spec and runs its own prompt
 for topic in ocean mountains desert; do
   curl -s localhost:4600/runs/r_3f9a1c20/agents -H 'content-type: application/json' -d "{
     \"parentAgentId\": \"a_7b2e44d1\",
-    \"spec\": { \"name\": \"worker-$topic\", \"cli\": \"pi\", \"provider\": \"nvidia\",
-              \"model\": \"nvidia/nemotron-3.5-lightning-30b-a3b\",
+    \"spec\": { \"name\": \"worker-$topic\", \"harness\": \"pi\", \"provider\": \"nvidia\",
+              \"model\": \"nvidia/nemotron-3-super-120b-a12b\",
               \"env\": { \"NVIDIA_API_KEY\": \"\${NVIDIA_API_KEY}\" },
               \"resources\": { \"cpu\": \"1000m\", \"memory\": \"2Gi\" } },
     \"prompt\": \"Write one haiku about $topic. Output only the three lines.\"
@@ -141,8 +141,8 @@ result has settled; then alineod forks it and writes each worker's result into i
 curl -s localhost:4600/runs/r_3f9a1c20/agents -H 'content-type: application/json' -d '{
   "parentAgentId": "a_7b2e44d1",
   "waitFor": ["a_c01d9e3a", "a_5e8f2b71", "a_91aa0c4d"],
-  "spec": { "name": "gather", "cli": "pi", "provider": "nvidia",
-            "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "spec": { "name": "gather", "harness": "pi", "provider": "nvidia",
+            "model": "nvidia/nemotron-3-super-120b-a12b",
             "env": { "NVIDIA_API_KEY": "${NVIDIA_API_KEY}" },
             "resources": { "cpu": "1000m", "memory": "2Gi" } },
   "prompt": "Read /inputs.json and the three haiku files it lists. Output a poem titled Three Landscapes with each haiku as a stanza."

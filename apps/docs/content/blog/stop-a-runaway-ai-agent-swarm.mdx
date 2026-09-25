@@ -125,7 +125,7 @@ will get it on resume.
 
 - **Spawn budgets.** `spawnDepth` limits how many levels of children an agent may create, and
   `maxAgents` caps descendants. Both are tracked per lineage. A spawn over budget ends with the
-  outcome `budget-exceeded` and a `budget_denied` event.
+  outcome `budget-exceeded` and a `budget.denied` event.
 - **A time limit on quiet turns.** If a turn's stream goes quiet, alineod follows it by polling.
   One still running after 30 minutes of unpaused time (the default, set by
   `ALINEOD_TURN_MAX_MS`) is ended, and any text it had produced becomes the result.

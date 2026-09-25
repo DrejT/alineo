@@ -6,11 +6,11 @@ import { appendRow } from "../src/state/db";
 import { newAgentId, newRunId } from "../src/ids";
 
 function seedAgent(runId: string, agentId = newAgentId()) {
-  emit(runId, agentId, "agent_spawned", {
+  emit(runId, agentId, "agent.spawned", {
     parentAgentId: null,
     runId,
     specName: "worker",
-    specJson: JSON.stringify({ name: "worker", cli: "pi" }),
+    specJson: JSON.stringify({ name: "worker", harness: "pi" }),
     depth: 0,
     spawnIndex: 0,
     sandboxId: null,
@@ -37,8 +37,8 @@ describe("apply()", () => {
   test("agent_state_changed and agent_provisioned update state and sandbox", () => {
     const runId = newRunId();
     const id = seedAgent(runId);
-    emit(runId, id, "agent_state_changed", { from: "provisioning", to: "running" });
-    emit(runId, id, "agent_provisioned", { sandboxId: "sb-x" });
+    emit(runId, id, "agent.state_changed", { from: "provisioning", to: "running" });
+    emit(runId, id, "agent.provisioned", { sandboxId: "sb-x" });
     const row = getAgentRow(id)!;
     expect(row.state).toBe("running");
     expect(row.sandbox_id).toBe("sb-x");
@@ -53,7 +53,7 @@ describe("apply()", () => {
   ])("agent_ended with outcome %s → state %s", (outcome, state) => {
     const runId = newRunId();
     const id = seedAgent(runId);
-    emit(runId, id, "agent_ended", { outcome, endedAt: Date.now() });
+    emit(runId, id, "agent.ended", { outcome, endedAt: Date.now() });
     const row = getAgentRow(id)!;
     expect(row.state).toBe(state);
     expect(row.outcome).toBe(outcome);
@@ -63,15 +63,15 @@ describe("apply()", () => {
   test("agent_ended settles a still-pending handle", () => {
     const runId = newRunId();
     const id = seedAgent(runId);
-    emit(runId, id, "agent_ended", { outcome: "aborted", endedAt: Date.now() });
+    emit(runId, id, "agent.ended", { outcome: "aborted", endedAt: Date.now() });
     expect(getHandle(id)).toMatchObject({ state: "settled", outcome: "aborted", result_ref: null });
   });
 
   test("agent_ended never overwrites a handle that handle_settled already resolved", () => {
     const runId = newRunId();
     const id = seedAgent(runId);
-    emit(runId, id, "handle_settled", { outcome: "success", resultRef: `fs://${id}/result.md` });
-    emit(runId, id, "agent_ended", { outcome: "failed", endedAt: Date.now() });
+    emit(runId, id, "handle.settled", { outcome: "success", resultRef: `fs://${id}/result.md` });
+    emit(runId, id, "agent.ended", { outcome: "failed", endedAt: Date.now() });
     expect(getHandle(id)).toMatchObject({
       state: "settled",
       outcome: "success",
@@ -94,11 +94,11 @@ describe("readers", () => {
     for (const to of ["provisioning", "spawning", "running", "paused"]) {
       const id = seedAgent(runId);
       if (to !== "provisioning")
-        emit(runId, id, "agent_state_changed", { from: "provisioning", to });
+        emit(runId, id, "agent.state_changed", { from: "provisioning", to });
       byState[to] = id;
     }
     const done = seedAgent(runId);
-    emit(runId, done, "agent_ended", { outcome: "success", endedAt: Date.now() });
+    emit(runId, done, "agent.ended", { outcome: "success", endedAt: Date.now() });
 
     const live = new Set(liveAgents().map((a) => a.agent_id));
     for (const id of Object.values(byState)) expect(live.has(id)).toBe(true);
@@ -108,7 +108,7 @@ describe("readers", () => {
   test("runAsOf() is the run's highest ledger seq", () => {
     const runId = newRunId();
     const id = seedAgent(runId);
-    const last = emit(runId, id, "agent_steered", { message: "x" });
+    const last = emit(runId, id, "agent.steered", { message: "x" });
     expect(runAsOf(runId)).toBe(last);
     expect(runAsOf(newRunId())).toBe(0);
   });
@@ -117,13 +117,13 @@ describe("readers", () => {
 test("rebuild() refolds the projections to exactly what incremental apply() produced", () => {
   const runId = newRunId();
   const id = seedAgent(runId);
-  emit(runId, id, "agent_provisioned", { sandboxId: "sb-rebuild" });
-  emit(runId, id, "agent_state_changed", {
+  emit(runId, id, "agent.provisioned", { sandboxId: "sb-rebuild" });
+  emit(runId, id, "agent.state_changed", {
     from: "provisioning",
     to: "paused",
     reason: "operator",
   });
-  emit(runId, id, "handle_settled", { outcome: "success", resultRef: "fs://x/result.md" });
+  emit(runId, id, "handle.settled", { outcome: "success", resultRef: "fs://x/result.md" });
   const before = { row: getAgentRow(id), handle: getHandle(id) };
 
   rebuild();

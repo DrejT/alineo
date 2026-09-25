@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://registry.alineo.tech/spec/agent.json",
   "title": "AgentSpec",
-  "description": "JSON spec for an alineo agent, fetched by `alineo add` and run by `alineo`'s Alineo.load(). See https://docs.alineo.tech/docs/alineo/registry/schema for the full field reference.",
+  "description": "JSON spec for an alineo agent, fetched by `alineo add` and run by `alineo`'s Alineo.start(). See https://docs.alineo.tech/docs/alineo/registry/schema for the full field reference.",
   "type": "object",
-  "required": ["name", "cli"],
+  "required": ["name", "harness"],
   "properties": {
     "$schema": {
       "type": "string",
@@ -32,13 +32,13 @@
       "items": { "type": "string" },
       "description": "Tags for discovery. Informational only."
     },
-    "cli": {
+    "harness": {
       "const": "pi",
-      "description": "CLI to run inside the sandbox. Only \"pi\" is currently accepted."
+      "description": "Agent-loop driver to run inside the sandbox. Only \"pi\" is currently accepted."
     },
-    "cliVersion": {
+    "harnessVersion": {
       "type": "string",
-      "description": "npm version specifier for the Pi CLI, e.g. \"1.2.3\", \"^1.2.0\", or a dist-tag like \"latest\"."
+      "description": "npm version specifier for the harness, e.g. \"1.2.3\", \"^1.2.0\", or a dist-tag like \"latest\"."
     },
     "provider": {
       "type": "string",

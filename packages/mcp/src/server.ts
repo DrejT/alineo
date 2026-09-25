@@ -59,26 +59,26 @@ export function buildServer(
     {
       instructions:
         "Orchestrate swarms of sandboxed coding agents via alineod, alineo's HTTP+SSE control " +
-        "daemon, plus local agent-spec management. Typical flow: alineo_init (once, to start " +
-        "OpenSandbox + alineod locally) → alineo_add_spec / alineo_list_specs to get an " +
-        "AgentSpec → alineod_create_run to start a swarm → alineod_spawn_agent to fan out " +
-        "children → alineod_prompt_agent / alineod_steer_agent to drive them → " +
-        "alineod_watch_events or alineod_get_run to observe progress → alineod_get_result to " +
-        "read a settled agent's output → alineod_stop_agent / alineod_delete_run to tear down. " +
+        "daemon, plus local agent-spec management. Typical flow: init (once, to start " +
+        "OpenSandbox + alineod locally) → spec_add / spec_list to get an " +
+        "AgentSpec → run_start to start a swarm → agent_spawn to fan out " +
+        "children → agent_prompt / agent_steer to drive them → " +
+        "run_watch or run_get to observe progress → result_get to " +
+        "read a settled agent's output → agent_stop / run_stop to tear down. " +
         "alineod must be reachable (default http://127.0.0.1:4600, override with ALINEOD_URL) " +
-        "for every alineod_* tool; alineo_init starts it.",
+        "for every run_*, agent_* and result_* tool; init starts it.",
     },
   );
 
   // ── alineod: swarm control (primary) ──────────────────────────────────────
 
   server.registerTool(
-    "alineod_create_run",
+    "run_start",
     {
       title: "Create a swarm run",
       description:
         "POST /runs — load the root agent from an AgentSpec, optionally drive one prompt on " +
-        'it. Returns immediately with state "provisioning"; poll alineod_get_run for the ' +
+        'it. Returns immediately with state "provisioning"; poll run_get for the ' +
         "real state.",
       inputSchema: z.object({
         spec: AgentSpecInput,
@@ -93,7 +93,7 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_get_run",
+    "run_get",
     {
       title: "Get a run's spawn tree",
       description:
@@ -104,7 +104,7 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_delete_run",
+    "run_stop",
     {
       title: "Tear down a run",
       description:
@@ -118,13 +118,14 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_watch_events",
+    "run_watch",
     {
       title: "Watch a run's live events",
       description:
-        "GET /runs/:runId/events (SSE) — collects lifecycle events (agent_spawned, " +
-        "agent_state_changed, agent_ended, handle_settled, budget_denied, …) and forwarded " +
-        "harness events (text, tool_start, tool_end, …) for a bounded window, since this is a " +
+        "GET /runs/:runId/events (SSE) — collects lifecycle events (agent.spawned, " +
+        "agent.state_changed, agent.ended, handle.settled, budget.denied, …) and forwarded " +
+        "harness events (message.updated, tool.started, tool.ended, …) for a bounded window, " +
+        "since this is a " +
         "request/response tool call rather than a live stream. Pass sinceEventId (the last " +
         "event's `id`) to resume from where you left off without missing anything persisted.",
       inputSchema: z.object({
@@ -159,7 +160,7 @@ export function buildServer(
   // ── alineod: agent control ────────────────────────────────────────────────
 
   server.registerTool(
-    "alineod_spawn_agent",
+    "agent_spawn",
     {
       title: "Spawn a child agent",
       description:
@@ -197,7 +198,7 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_get_agent",
+    "agent_get",
     {
       title: "Inspect an agent",
       description:
@@ -208,11 +209,11 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_prompt_agent",
+    "agent_prompt",
     {
       title: "Prompt an agent",
       description:
-        "POST /agents/:agentId/prompt — drive one turn. Returns immediately (202); poll alineod_get_result or alineod_watch_events for the reply.",
+        "POST /agents/:agentId/prompt — drive one turn. Returns immediately (202); poll result_get or run_watch for the reply.",
       inputSchema: z.object({ agentId: z.string().min(1), text: z.string().min(1) }),
     },
     safe(async ({ agentId, text }) => {
@@ -222,7 +223,7 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_steer_agent",
+    "agent_steer",
     {
       title: "Steer an agent's current turn",
       description:
@@ -236,7 +237,7 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_pause_agent",
+    "agent_pause",
     {
       title: "Pause an agent",
       description: "POST /agents/:agentId/pause — freeze the agent's sandbox container.",
@@ -249,7 +250,7 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_resume_agent",
+    "agent_resume",
     {
       title: "Resume a paused agent",
       description: "POST /agents/:agentId/resume — thaw a paused sandbox container.",
@@ -262,7 +263,7 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_stop_agent",
+    "agent_stop",
     {
       title: "Stop an agent",
       description:
@@ -279,7 +280,7 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineod_get_result",
+    "result_get",
     {
       title: "Get an agent's result",
       description:
@@ -303,26 +304,26 @@ export function buildServer(
   // ── alineo: local spec management + bootstrap ─────────────────────────────
 
   server.registerTool(
-    "alineo_init",
+    "init",
     {
       title: "Start OpenSandbox + alineod locally",
       description:
         "Starts OpenSandbox and alineod in Docker (pulling images if needed) and writes " +
         "alineo.config.json in the current directory if missing. Run this once before any " +
-        "alineod_* tool if alineod isn't already running. Requires Docker.",
+        "run_*, agent_* or result_* tool if alineod isn't already running. Requires Docker.",
       inputSchema: z.object({}),
     },
     safe(async () => ok(await init())),
   );
 
   server.registerTool(
-    "alineo_add_spec",
+    "spec_add",
     {
       title: "Add an agent spec",
       description:
         "Fetches an AgentSpec from a URL or local file path, validates it, and saves it to the " +
         "local agent-spec cache (recursively resolving registryDependencies). The saved spec's " +
-        "object is what alineod_create_run / alineod_spawn_agent expect as `spec`.",
+        "object is what run_start / agent_spawn expect as `spec`.",
       inputSchema: z.object({
         url: z
           .string()
@@ -338,17 +339,17 @@ export function buildServer(
   );
 
   server.registerTool(
-    "alineo_list_specs",
+    "spec_list",
     {
       title: "List saved agent specs",
-      description: "Lists every AgentSpec saved locally via alineo_add_spec.",
+      description: "Lists every AgentSpec saved locally via spec_add.",
       inputSchema: z.object({}),
     },
     safe(async () => ok(await listSpecs())),
   );
 
   server.registerTool(
-    "alineo_remove_spec",
+    "spec_remove",
     {
       title: "Remove a saved agent spec",
       description: "Deletes a locally saved AgentSpec by name.",

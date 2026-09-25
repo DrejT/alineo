@@ -192,7 +192,7 @@ export class PiAdapter {
         `apt-get update -qq && apt-get install -y --no-install-recommends ${pkgs.join(" ")}`,
       );
     }
-    const versionSpecifier = spec.cliVersion?.trim();
+    const versionSpecifier = spec.harnessVersion?.trim();
     const pkg = versionSpecifier
       ? `@earendil-works/pi-coding-agent@${versionSpecifier}`
       : "@earendil-works/pi-coding-agent";
@@ -488,7 +488,7 @@ async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
  * 60s (the original default) was too tight for a common, legitimate pattern: Pi's own `bash`
  * tool is not incrementally streamed (see the `bash()` doc comment in session-control.ts), so
  * a single tool call that spins up a whole child sandbox -- e.g. a master session running
- * `alineo fork` on itself, as in examples/rlm-repo-fanout -- produces zero AgentEvents for as
+ * `alineo spawn` on itself, as in examples/rlm-repo-fanout -- produces zero AgentEvents for as
  * long as that tool call takes, which regularly exceeded 60s (child sandbox provisioning +
  * Pi CLI install alone routinely took 30-150s+ in practice) and tripped this timeout mid-run
  * even though the session was making real progress. Raised to 3 minutes as a still-bounded

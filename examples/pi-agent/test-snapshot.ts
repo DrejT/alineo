@@ -1,5 +1,5 @@
 /**
- * Alineo snapshotting test — verifies that a second Alineo.load() for the same
+ * Alineo snapshotting test — verifies that a second Alineo.start() for the same
  * spec uses the cached snapshot instead of reinstalling Pi.
  *
  * Run: bun examples/pi-agent/test-snapshot.ts
@@ -11,13 +11,13 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 const SPEC = "./agents/hello-agent.json";
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
-// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+// Alineo.start() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const spec = await Bun.file(SPEC).json();
 
 // ── First load: full install + checkpoint ─────────────────────────────────────
 console.log("=== Load 1: full install ===\n");
 const t1 = Date.now();
-const agent1 = await Alineo.load(spec, { adapter });
+const agent1 = await Alineo.start(spec, { adapter });
 const elapsed1 = Date.now() - t1;
 console.log(`\nLoad 1 total: ${elapsed1}ms  fromSnapshot=${agent1.fromSnapshot}`);
 
@@ -40,7 +40,7 @@ console.log("Alineo 1 closed.\n");
 // ── Second load: should restore from snapshot ─────────────────────────────────
 console.log("=== Load 2: snapshot restore ===\n");
 const t2 = Date.now();
-const agent2 = await Alineo.load(spec, { adapter });
+const agent2 = await Alineo.start(spec, { adapter });
 const elapsed2 = Date.now() - t2;
 console.log(`\nLoad 2 total: ${elapsed2}ms  fromSnapshot=${agent2.fromSnapshot}`);
 

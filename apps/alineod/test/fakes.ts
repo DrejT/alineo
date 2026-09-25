@@ -2,7 +2,7 @@
  * A scriptable stand-in for the `alineo` SDK, installed by setup.ts via `mock.module`.
  *
  * `FakeAgent` mirrors the slice of the `Alineo` instance API alineod calls; `FakeAlineo` mirrors
- * the static constructors (`load` / `reattach` / `resume`). Every agent ever created is kept in
+ * the static constructors (`start` / `reattach` / `resume`). Every agent ever created is kept in
  * `fakeSdk.sandboxes` by sandbox ID, standing in for containers that outlive alineod's process —
  * which is what `reattach`/`resume` look up.
  */
@@ -210,14 +210,16 @@ export function sdkSpawnCheck(opts: SpawnOpts): void {
 
 export const fakeSdk = {
   sandboxes: new Map<string, FakeAgent>(),
-  /** Applied to the next FakeAgent constructed (load or spawn), then cleared. */
+  /** Applied to the next FakeAgent constructed (start or spawn), then cleared. */
   nextTurn: undefined as FakeTurn | undefined,
-  loadGate: undefined as Promise<void> | undefined,
-  loadError: undefined as Error | undefined,
+  startGate: undefined as Promise<void> | undefined,
+  startError: undefined as Error | undefined,
   reattachFails: new Set<string>(),
   resumeFails: new Set<string>(),
+  /** Resume fails the way a transient outage does (OpenSandbox unreachable), not "not found". */
+  resumeUnavailable: new Set<string>(),
   calls: {
-    load: 0,
+    start: 0,
     reattach: [] as string[],
     reattachOpts: [] as Array<Record<string, unknown> | undefined>,
     resume: [] as string[],
@@ -225,20 +227,21 @@ export const fakeSdk = {
   spawnCheck: sdkSpawnCheck as (opts: SpawnOpts) => void,
   reset(): void {
     this.nextTurn = undefined;
-    this.loadGate = undefined;
-    this.loadError = undefined;
+    this.startGate = undefined;
+    this.startError = undefined;
     this.reattachFails.clear();
     this.resumeFails.clear();
-    this.calls = { load: 0, reattach: [], reattachOpts: [], resume: [] };
+    this.resumeUnavailable.clear();
+    this.calls = { start: 0, reattach: [], reattachOpts: [], resume: [] };
     this.spawnCheck = sdkSpawnCheck;
   },
 };
 
 export const FakeAlineo = {
-  async load(spec: { name?: string }, opts: { runId: string }): Promise<FakeAgent> {
-    fakeSdk.calls.load++;
-    if (fakeSdk.loadGate) await fakeSdk.loadGate;
-    if (fakeSdk.loadError) throw fakeSdk.loadError;
+  async start(spec: { name?: string }, opts: { runId: string }): Promise<FakeAgent> {
+    fakeSdk.calls.start++;
+    if (fakeSdk.startGate) await fakeSdk.startGate;
+    if (fakeSdk.startError) throw fakeSdk.startError;
     return new FakeAgent({ name: spec.name ?? "agent", runId: opts.runId });
   },
 
@@ -257,6 +260,9 @@ export const FakeAlineo = {
   async resume(sandboxId: string): Promise<FakeAgent> {
     fakeSdk.calls.resume.push(sandboxId);
     const agent = fakeSdk.sandboxes.get(sandboxId);
+    if (fakeSdk.resumeUnavailable.has(sandboxId)) {
+      throw new Error("Unable to connect. Is the computer able to access the url?");
+    }
     if (!agent || fakeSdk.resumeFails.has(sandboxId)) {
       // What OpenSandbox's client really throws: the raw response body as the message.
       throw new Error(

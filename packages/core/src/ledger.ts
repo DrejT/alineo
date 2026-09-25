@@ -21,7 +21,7 @@ export interface SandboxDetails {
    * `crypto.randomUUID()` if the caller didn't supply one via `SandboxOptions.runId`.
    * A resumed, forked, or restored-from-snapshot sandbox always inherits its origin's
    * `runId` rather than getting a new one, so every sandbox descended from the same
-   * root call (directly or via `sb.fork()`/`Alineo.spawn()`/`alineo fork`) shares it —
+   * root call (directly or via `sb.fork()`/`Alineo.spawn()`/`alineo spawn`) shares it —
    * the mechanism `client.sandboxes.list({ runId })` correlates on.
    */
   runId: string;
@@ -72,37 +72,37 @@ export interface ListSandboxOptions {
 export enum LedgerEvent {
   // ── SandboxHandle substrate events ──────────────────────────────────────────────
   /** Emitted when a sandbox is created and reaches Running state. */
-  SandboxCreated = "sandbox_created",
+  SandboxCreated = "sandbox.created",
   /** Emitted at the start of each exec() or execCode() call. */
-  ExecStart = "exec_start",
+  ExecStart = "exec.started",
   /** Streaming output chunk from exec() or execCode(). */
-  ExecEvent = "exec_event",
+  ExecEvent = "exec.output",
   /** Emitted when an exec() or execCode() call completes. */
-  ExecComplete = "exec_complete",
+  ExecComplete = "exec.completed",
   /** Emitted when checkpoint() captures a snapshot. */
-  CheckpointCreated = "checkpoint_created",
+  CheckpointCreated = "sandbox.checkpoint_created",
   /** Emitted when a sandbox is closed. */
-  SandboxClosed = "sandbox_closed",
+  SandboxClosed = "sandbox.closed",
   /** Emitted when pause() freezes the container. */
-  SandboxPaused = "sandbox_paused",
+  SandboxPaused = "sandbox.paused",
   /** Emitted when resume() restores the container to Running. */
-  SandboxResumed = "sandbox_resumed",
+  SandboxResumed = "sandbox.resumed",
   /**
    * Emitted by `sb.credentials.set()`/`.patch()`. Payload is binding metadata only
    * (name, host, injection type) — the credential value is never written to the ledger.
    */
-  CredentialBound = "credential_bound",
+  CredentialBound = "credential.bound",
   /** Emitted by `sb.credentials.remove()`. */
-  CredentialRevoked = "credential_revoked",
+  CredentialRevoked = "credential.revoked",
   /**
    * Emitted by `sb.egress.patch()`. Payload is `{ rules: NetworkRule[] }` — the exact rules
    * passed to the sidecar, so `Sandbox.resume()` can fold a still-wanted allowance back into
    * the resumed sandbox's boot policy (egress policy is sidecar-local and does not survive a
    * resume). `sb.fork()` does not carry these.
    */
-  EgressRuleAdded = "egress_rule_added",
+  EgressRuleAdded = "egress.rule_added",
   /** Emitted by `sb.egress.delete()`. Payload is `{ targets: string[] }`. */
-  EgressRuleRemoved = "egress_rule_removed",
+  EgressRuleRemoved = "egress.rule_removed",
 
   // ── Agent human-in-the-loop events (used by the `alineo` agent SDK) ──────────────
   /**
@@ -110,33 +110,43 @@ export enum LedgerEvent {
    * `{ requestId, tool, target }` — metadata only; the raw tool arguments (which can carry
    * secrets in a bash command or a file write) are never written to the ledger.
    */
-  PermissionRequested = "permission_requested",
+  PermissionRequested = "permission.requested",
   /**
    * Emitted when a `PermissionRequested` is answered — by a caller, a batched
    * always/reject decision, a timeout, or a session resume dropping it. Payload is
    * `{ requestId, decision }`.
    */
-  PermissionResolved = "permission_resolved",
+  PermissionResolved = "permission.resolved",
 
   // ── Workflow layer events (used by @alineo-labs/workflow) ────────────────────────
-  /** Emitted once when a workflow run starts, before any steps execute. */
-  RunStarted = "run_started",
+  /**
+   * Emitted once when a workflow run starts, before any steps execute.
+   *
+   * Its value is `workflow.started`, not `run.started` — alineod's swarm run owns the latter.
+   * The two were both `run_started` and a reader had to know which store it was looking at.
+   */
+  RunStarted = "workflow.started",
   /** Emitted at the beginning of each step. */
-  StepStart = "step_start",
+  StepStart = "step.started",
   /** Emitted when a step finishes successfully. */
-  StepComplete = "step_complete",
+  StepComplete = "step.completed",
   /** Emitted when a step throws an unrecoverable error. */
-  StepFailed = "step_failed",
+  StepFailed = "step.failed",
   /** Emitted when a step's rollback handler completes during saga compensation. */
-  StepRolledBack = "step_rolled_back",
+  StepRolledBack = "step.rolled_back",
   /** Emitted after all steps finish without error. */
-  WorkflowComplete = "workflow_complete",
+  WorkflowComplete = "workflow.completed",
   /** Emitted after rollback completes following a step failure. */
-  WorkflowFailed = "workflow_failed",
+  WorkflowFailed = "workflow.failed",
   /** Durable resumption point written after each successful step. */
-  Checkpoint = "checkpoint",
-  /** Emitted when a sandbox snapshot is captured mid-run. */
-  Snapshot = "snapshot",
+  Checkpoint = "step.checkpointed",
+  /**
+   * @deprecated Emits `sandbox.checkpoint_created` — the same event `CheckpointCreated`
+   * writes, because that is what it always recorded: a sandbox checkpoint that the workflow
+   * engine happened to take. Kept as a member so existing call sites still compile; use
+   * `CheckpointCreated`.
+   */
+  Snapshot = "sandbox.checkpoint_created",
 }
 
 /** A single event record written to the storage adapter during a session. */

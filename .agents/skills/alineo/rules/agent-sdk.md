@@ -11,7 +11,7 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const spec = await Bun.file("./agents/my-agent.json").json();
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
     process.stdout.write(chunk);
@@ -29,8 +29,8 @@ try {
 | Field        | Type                     | Notes                                                            |
 | ------------ | ------------------------ | ----------------------------------------------------------------- |
 | `name`       | `string`                 | Sandbox session name                                              |
-| `cli`        | `"pi"`                   | Only `"pi"` currently                                             |
-| `cliVersion` | `string?`                | Pin, e.g. `"0.80.2"`. Defaults to latest.                         |
+| `harness`    | `"pi"`                   | Only `"pi"` currently                                             |
+| `harnessVersion` | `string?`                | Pin, e.g. `"0.80.2"`. Defaults to latest.                         |
 | `model`      | `string?`                | Model ID, passed via `--model`                                    |
 | `provider`   | `string?`                | AI provider via `--provider`; omit for direct API key             |
 | `packages`   | `string[]?`              | APT packages installed before Pi                                  |
@@ -40,7 +40,7 @@ try {
 | `spawnDepth` | `number?`                | Nesting budget for `agent.spawn()`                                |
 | `maxAgents`  | `number?`                | Optional cap on total descendants for this lineage                |
 
-Changing `cli`/`cliVersion`/`packages`/`setup` invalidates the cached snapshot automatically.
+Changing `harness`/`harnessVersion`/`packages`/`setup` invalidates the cached snapshot automatically.
 
 Specs are validated by `validateAgentSpec()` (Zod-backed) before `load()`/`resume()` do anything
 else — every field, every problem reported at once. An invalid spec throws
@@ -51,9 +51,9 @@ else — every field, every problem reported at once. An invalid spec throws
 
 | Call | Behavior |
 |---|---|
-| `Alineo.load(specPath, opts)` | Spin up (or restore from snapshot) a sandbox, install Pi, run setup, return a ready `Alineo`. `opts.rebuild: true` forces a full reinstall. |
+| `Alineo.start(specPath, opts)` | Spin up (or restore from snapshot) a sandbox, install Pi, run setup, return a ready `Alineo`. `opts.rebuild: true` forces a full reinstall. |
 | `Alineo.resume(sandboxId, opts)` | Reconnect after the host process exited. Restarts the bridge only — Pi/workspace untouched. |
-| `Alineo.attach(sandboxId, opts)` | Connect **without** touching the bridge (unlike `resume`, which kills+restarts it). Use for `.spawn()`-only access — `.prompt()`/`.bash()` throw since there's no bridge. This is how `alineo fork` attaches from inside the very Pi bash-tool call spawning it. |
+| `Alineo.attach(sandboxId, opts)` | Connect **without** touching the bridge (unlike `resume`, which kills+restarts it). Use for `.spawn()`-only access — `.prompt()`/`.bash()` throw since there's no bridge. This is how `alineo spawn` attaches from inside the very Pi bash-tool call spawning it. |
 | `agent.close()` | Stop the container, release resources. Always call in `finally`. |
 
 ```
@@ -66,8 +66,8 @@ Load 2 (warm):   snapshot restore → bridge                                   ~
 `agent.spawn(childSpecPath, opts?)` forks **this agent's own live sandbox** — filesystem,
 installed packages, uncommitted state, everything currently on disk — into a new independent
 sandbox with its own Pi bridge. No install/setup steps re-run. Different from:
-- `Alineo.load()` — always starts fresh from a spec's own snapshot.
-- `agent.fork()`/`agent.clone()` — Pi's own conversation branching, same container/bridge.
+- `Alineo.start()` — always starts fresh from a spec's own snapshot.
+- `agent.branchSession()`/`agent.duplicateSession()` — harness conversation branching, same container/bridge.
 
 Refuses unless `spawnDepth` (spec field or `opts.spawnDepth`) is a positive integer; each spawn
 decrements it into the child's env. `maxAgents` is a separate, optional descendant-count ceiling
@@ -89,9 +89,9 @@ decrements it into the child's env. `maxAgents` is a separate, optional descenda
 | `agent.followUp(message)` | Queue a message for after the current task finishes |
 | `agent.abort()` | Interrupt the in-progress response |
 | `agent.newSession()` | Fresh Pi conversation; filesystem unchanged |
-| `agent.clone()` | Branch at current position → `{ cancelled }` |
-| `agent.fork(entryId)` | Branch from a specific history entry → `{ text, cancelled }` |
-| `agent.getMessages()` / `agent.getForkMessages()` | Full history / available fork entry points |
+| `agent.duplicateSession()` | Branch the conversation here → `{ cancelled }` |
+| `agent.branchSession(entryId)` | Branch the conversation from a history entry → `{ text, cancelled }` |
+| `agent.getMessages()` / `agent.getBranchPoints()` | Full history / where the conversation can branch |
 | `agent.setModel(provider, modelId)` / `agent.cycleModel()` | Model switching |
 | `agent.getAvailableModels()` | List every model available to Pi under the current provider config — the way to find a valid `modelId` for `setModel()`/a spec's `model` field, rather than guessing the string |
 | `agent.setThinkingLevel(level)` / `agent.cycleThinkingLevel()` | Reasoning effort |

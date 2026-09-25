@@ -74,10 +74,36 @@ bunx changeset status # verify one exists
 ### Integration test conventions
 
 - **Run with**: `bun run test:integration` from the repo root, or `cd tests/integration && bun test` for the whole suite / `bun test <name>.test.ts` for one file.
-- **Requires**: OpenSandbox server running locally — either `alineo init` (Docker-based, recommended) or `uvx opensandbox-server` (manual). If using `alineo init`, pass `useServerProxy: true` to `new Sandbox(...)` so the SDK routes through the server instead of container-direct IPs.
-- **Client setup**: `new Sandbox({ baseUrl: ..., adapter: new SQLiteAdapter(":memory:") })` — no `connect()` or `close()` needed on the client itself.
+- **Requires**: OpenSandbox server running locally — either `alineo init` (Docker-based, recommended) or `uvx opensandbox-server` (manual).
+- **Server proxy**: every test reads `OPEN_SANDBOX_SERVER_PROXY`, defaulting to **on**, because an `alineo init` server hands out container-internal endpoints the host cannot reach. Set it to `false` for a bare `uvx opensandbox-server`. Before this was uniform the tests hardcoded container-direct, and the whole suite died at `execd not ready` on the setup this file recommends — without running one assertion.
+- **Client setup**: `new Sandbox({ baseUrl: ..., adapter: new SQLiteAdapter(":memory:"), useServerProxy: USE_SERVER_PROXY })` — no `connect()` or `close()` needed on the client itself.
 - **Sandbox lifecycle**: always wrap in `try/finally { await sb.close(); }` to avoid container leaks.
 - **Assertion**: `const { stdout, exitCode } = await sb.exec("cmd")` — assert on the returned value. For error cases, catch `CommandError`.
+
+### Running a spec against *this* checkout's CLI
+
+Every spec that spawns children does `npm install -g alineo-cli` in its setup, which pulls
+whatever is on npm. On a branch that changes the CLI or the spec vocabulary that is the wrong
+binary, and the mismatch surfaces *inside the sandbox*, minutes in, reading like a bad spec
+rather than version skew.
+
+`bun scripts/local-cli-spec.ts <spec.json> [out.json]` rewrites a spec to install the local
+build instead. It packs the whole workspace closure below `alineo-cli` — eleven packages —
+because `packLocalPackagesForGlobalInstall` only rewrites `workspace:*` deps that are in the
+same batch, so anything left out comes from npm at exactly the version being avoided.
+`tests/integration/local-cli.test.ts` is the check that the swap works.
+
+### Which NVIDIA model to pin
+
+Answering `/v1/chat/completions` is not the bar. A reasoning model that streams nothing while
+it thinks trips alineod's `PROMPT_INACTIVITY_TIMEOUT_MS` (180s) before it emits a token, and
+the turn comes back empty. `nemotron-3.5-lightning-30b-a3b` took 105s, 202s and then timed out
+on a **one-word** prompt; `nemotron-3-super-120b-a12b` answered in ~1s twice and returned empty
+once. The specs pin the latter.
+
+Re-measure with `bun apps/alineod/scripts/probe-models.ts <model...>` — several samples, because
+the empty-turn failure is intermittent and one green run proves nothing. A `curl` at the API
+cannot see the timeout that actually decides this.
 
 ### What to assert
 
@@ -144,7 +170,7 @@ packages/agent/                   — Alineo SDK (published to npm as "alineo")
                                     modules below
   src/agent/session-control.ts     — prompt/bash/steer/abort/followUp/newSession/setSteeringMode/...
   src/agent/model.ts                — setModel/cycleModel/getAvailableModels/setThinkingLevel/cycleThinkingLevel
-  src/agent/introspection.ts        — getState/getMessages/getSessionStats/getForkMessages/getCommands/getLogs
+  src/agent/introspection.ts        — getState/getMessages/getSessionStats/getBranchPoints/getCommands/getLogs
   src/agent/lifecycle.ts            — fork/clone/switchSession/exportHtml/compact/setEnv/close
   src/agent/validation.ts           — assertValidSpawnDepth/assertValidMaxAgents/resolveParent{SpawnDepth,MaxAgents}
   src/agent/internal.ts             — AgentInternal (package-private facade the split modules operate over)
@@ -155,7 +181,7 @@ packages/agent/                   — Alineo SDK (published to npm as "alineo")
                                       /alineo-bridge.js — a real, lint/format-checked file, read by pi.ts relative to
                                       its own module location and copied into dist/ by tsdown's `copy` config
   src/schema.ts                    — AgentSpec interface + SetupStep interface + validateAgentSpec()
-  src/snapshots.ts                 — AgentSnapshotStore, computeSetupHash() (hashes cli+cliVersion+packages+setup)
+  src/snapshots.ts                 — AgentSnapshotStore, computeSetupHash() (hashes harness+harnessVersion+packages+setup)
   src/config.ts                    — AlineoAgentConfig, readProjectConfig() (reads alineo.config.json)
   src/types.ts                     — AgentEvent (text|tool_start|tool_update|tool_end), AgentStream, textOnly(),
                                       PromptStream (deprecated alias), PiModel, ThinkingLevel, PiMessage, CompactResult
@@ -163,14 +189,14 @@ packages/agent/                   — Alineo SDK (published to npm as "alineo")
 
 packages/cli-shared/               — internal only, never published (alineo-cli only publishes its bin — see
                                     below); Docker orchestration, project/server config, and the `alineo init` /
-                                    `alineo_init` bootstrap logic shared by alineo-cli and alineo-mcp. Consumed as a
+                                    `init` bootstrap logic shared by alineo-cli and alineo-mcp. Consumed as a
                                     workspace:* devDependency and bundled into each consumer's own dist at build
                                     time, not resolved at the published package's runtime.
   src/config.ts                   — AlineoConfig, readConfig(), writeConfig(), serverConfigContent()
   src/docker.ts                   — checkDocker(), getContainerState(), startContainer(), runContainer(), pollHealth(),
                                     isReachable()
   src/pi-model-keys.ts             — PI_MODEL_API_KEY_ENV_VARS forwarded into the alineod container on init
-  src/init.ts                     — runInit(log): the actual `alineo init` / `alineo_init` orchestration, logging
+  src/init.ts                     — runInit(log): the actual `alineo init` / `init` orchestration, logging
                                     through an injectable callback so alineo-cli (console.log) and alineo-mcp (a
                                     collected log array — its stdout is the JSON-RPC channel) can share it verbatim
 
@@ -185,18 +211,66 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
   src/commands/add.ts             — alineo add <url>: fetches an agent spec, saves it locally
   src/commands/list.ts            — alineo list: lists saved agent specs
   src/commands/remove.ts          — alineo remove <name>: deletes a saved agent spec
-  src/commands/spawn.ts           — alineo spawn <spec>: Alineo.load() a fresh, independent agent sandbox
+  src/commands/start.ts           — alineo start <spec>: Alineo.start() a fresh, independent agent sandbox
   src/commands/prompt.ts          — alineo prompt <sandbox-id> <msg>: Alineo.resume() + send one prompt
-  src/commands/fork.ts            — alineo fork <name> <child-spec>: Alineo.attach() + spawn() a child from a live sandbox
+  src/commands/spawn.ts           — alineo spawn <parent> <child-spec>: Alineo.attach() + spawn() a child from a live sandbox
   src/commands/agents.ts          — alineo agents: lists running sessions (ledger cross-checked against the live
                                     OpenSandbox control plane, not trusted alone — see sessions-data.ts)
-  src/commands/kill.ts            — alineo kill <sandbox-id>: closes a sandbox by ID
+  src/commands/stop.ts            — alineo stop <sandbox-id>: closes a sandbox by ID
   src/commands/logs.ts            — alineo logs <name>: prints ledger events for a session
   src/schema.ts                   — RegistryItem interface + validateRegistryItem()
   src/sessions-data.ts            — getSessions(): ledger "Running" entries cross-checked against a live
                                     ControlClient query; formatAge()
-  pi-extension/alineo.ts          — the Pi extension that bootstraps alineo and injects spawn/fork CLI guidance into
-                                    a Pi session's system prompt — see plans/pi-extension-rlm-flow.md
+  pi-extension/alineo.ts          — the Pi extension that bootstraps alineo and injects start/spawn CLI guidance
+                                    into a Pi session's system prompt — see plans/pi-extension-rlm-flow.md
+
+packages/schema/                  — the shapes of the system (published as "@alineo-labs/schema")
+  src/vocabulary.ts               — SUBJECTS / VERBS: the words every surface derives its names from
+  src/envelope.ts                 — LedgerEnvelope: one record shape for an event from any layer
+  src/define.ts                   — defineEvent() + the registry allEvents()/getEvent()/durableEvents() read
+  src/events/*.ts                 — one file per layer: sandbox, agent, harness, workflow, alineod
+  src/agent-spec.ts               — AgentSpec (interface AND Zod, kept in step by a type-level drift test)
+  src/permissions.ts              — permission-policy shapes; the behaviour stays in packages/agent
+  src/renames.ts                  — old flat event name → new namespaced one. Dated and deletable: it exists
+                                    for the one-time store migrations, not as a permanent alias table
+  Types and Zod only, no behaviour. Two entry points: "@alineo-labs/schema/types" has no Zod in its
+  graph, so a package with no validator dependency can take a shape and have it erase at compile time.
+
+packages/ledger/                  — behaviour for the ledger (published as "@alineo-labs/ledger")
+  src/sink.ts                     — EventSink, composeSinks(), memorySink(), jsonlSink(). A sink is
+                                    synchronous and must not throw: it runs on the write path of a sandbox
+                                    operation, so an async one becomes backpressure and a throwing one
+                                    fails the very operation being recorded
+  src/storage.ts                  — LedgerStorage (three methods, not fourteen) + MemoryStorage
+  src/fold.ts                     — replay helpers for the fold-equivalence gate
+  src/rename-events.ts            — the one-time event-name UPDATE both storage adapters run, here because
+                                    both need it and neither should depend on the other
+
+packages/logger/                  — silent-by-default logger (published as "@alineo-labs/logger")
+  Libraries call getLogger(component) and never console.*; apps call installLoggerFromEnv().
+  Enforced by no-console in .oxlintrc.json.
+
+packages/config-shared/           — internal only: where every setting comes from, merged and frozen once
+packages/instructions/            — internal only: builds a structured system prompt out of named sections
+packages/memory/                  — episodic + semantic memory (published as "@alineo-labs/memory")
+packages/model-providers/         — provider/model catalogue lookups
+packages/agent-browser/           — browser streaming relay for an agent's sandbox
+packages/mcp/                     — alineo-mcp: MCP server over alineod's HTTP+SSE API. Tools are
+                                    {subject}_{verb} (run_start, agent_spawn, spec_add), checked in CI
+
+apps/alineod/                     — the swarm control daemon: HTTP + SSE, Bun + Elysia + bun:sqlite
+  src/engine/emit.ts              — THE single write path: append row → fold projection → publish to the
+                                    bus → hand a LedgerEnvelope to the sinks. Every state change goes
+                                    through here, which is why changes to it stay strictly additive
+  src/state/db.ts                 — three tables; `ledger` is the source of truth, `agents`/`handles` are
+                                    caches rebuildable from it (crash-only design)
+  src/state/projection.ts         — apply()/rebuild(): the only writer of the cache tables
+  src/schema.ts                   — the wire contract as Zod. AgentSpec is the real schema now, and the
+                                    event union is DERIVED from @alineo-labs/schema's definitions
+apps/docs/                        — the documentation site (Next.js static export)
+apps/telemetry/                   — anonymous CLI usage telemetry receiver
+apps/registry/                    — the agent-spec registry, and the published JSON Schema
+apps/sandbox/                     — the browser playground
 ```
 
 ### Key design points
@@ -243,7 +317,7 @@ packages/cli/                     — alineo CLI (published to npm as "alineo-cl
 
 When using a server started this way, pass `useServerProxy: true` to `new Sandbox(...)` — direct container IPs are not reachable from the host over Docker's bridge network.
 
-OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/alineo/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli-shared/src/config.ts`), so `Alineo.load()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
+OpenSandbox's snapshot-metadata db is bind-mounted from `~/.config/alineo/opensandbox-data` into the container (see `serverDataDir()` in `packages/cli-shared/src/config.ts`), so `Alineo.start()`'s cached-snapshot fast path survives the container being fully removed and recreated, not just stopped/started — fixes the silent full-rebuild-on-every-restart issue tracked as #20.
 
 ### Option 2 — uvx (manual)
 
@@ -274,25 +348,85 @@ The `uvx` path does not need `useServerProxy` — the server is on the host, so 
 
 We are currently focused exclusively on making the **TypeScript sandbox client SDK** (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) full-featured and production-ready. Python SDK is maintained but not the priority. Do not add new features to the Python SDK unless explicitly asked.
 
+## Branch off `feat/foundation`, not `main`
+
+**Until the foundation work is released, `feat/foundation` is the branch everything lands on.**
+It carries a breaking rename of the vocabulary across the CLI, the SDK, the MCP tools, alineod's
+HTTP contract and the event stream — nineteen commits and ~8.8k lines that `main` has not seen.
+New work branches off it and opens a PR **into** it, exactly as the eleven rename PRs did.
+`main` is untouched and stays that way until PR #313 merges, as a merge commit rather than a
+squash, so a rename spread over many PRs stays legible in history.
+
+Branching off `main` instead means writing against the old vocabulary — `cli` rather than
+`harness`, `alineo spawn <spec>` rather than `alineo start <spec>`, flat event names rather
+than `{subject}.{verb}` — and a merge conflict with every file this touched.
+
+Two consequences worth knowing:
+
+- **CI's changeset check does not really check a PR into this branch.** It runs
+  `bunx changeset status --since origin/main`, and `main` is already many changesets behind, so
+  it reports what the integration branch touched long ago and passes whether or not your PR added
+  anything. Verify yourself with `bunx changeset status --since origin/feat/foundation` before
+  relying on the green tick.
+- **If a hotfix does land on `main`**, merge `main` into `feat/foundation` rather than rebasing.
+  The branch is public and has PRs merged into it.
+
 ## Releases
 
 The TypeScript sandbox client SDK (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) is published to npm via changesets, same as every other publishable package (`alineo`, `alineo-cli`, `@alineo-labs/*`). Every PR that changes publishable packages needs a changeset (`bunx changeset`). CI enforces this. Releases are cut automatically via `changesets/action` on merge to `main`.
 
-> **Changeset must be committed** before CI will pass — `bunx changeset status --since origin/main` reads from git history, not disk.
+> **Changeset must be committed** before CI will pass — `bunx changeset status` reads from git history, not disk. CI compares against `main`, which is not a real check for a PR into `feat/foundation` (see above), so check yours with `bunx changeset status --since origin/feat/foundation`.
 
-## Docs versioning is decoupled from npm releases — don't assume a version bump updates docs
+## One vocabulary, checked in CI
 
-`apps/docs`'s `core`/`alineo` (CLI) sections are versioned per `plans/versioned-docs.md`, but **bumping the npm package version does nothing to the docs site by itself.** The version registry (`source.config.ts`, `src/lib/source.ts`, `public/_redirects`) is generated from whatever `content/docs/<product>/vX.Y/` folders exist on disk (`apps/docs/scripts/{doc-versions,sync-doc-versions,sync-redirects}.ts`, run via `predev`/`prebuild`) — a version cut is "add the content folder, run `bun run build`", but someone still has to write that content. Folders/`defineDocs()` identifiers keep the `v` prefix (`v0.2`); **URLs drop it** (`/docs/core/0.2`, not `/docs/core/v0.2`).
+One person meets the CLI, the SDK, the daemon's HTTP API, the MCP tools and the event stream.
+Each of those used to pick its own spelling, and each did — `spawn` meant "create a root agent"
+in the CLI and "create a child" in the SDK, so anyone who learned one and moved to the other was
+actively misled.
 
-**Known-bad pattern, hit twice**: a feature PR documents its new API by editing the *current latest* `content/docs/{core,alineo}/vX.Y/` folder in place — fine while nothing has shipped, but the moment that version publishes to npm, `vX.Y` is silently describing `vX.(Y+1)`'s API and `/docs/core` + `/docs/alineo` + `/` (the "latest" redirects in `public/_redirects`) still point at the stale version.
+The words live as data in `@alineo-labs/schema` (`SUBJECTS`, `VERBS`), and
+`bun run check:vocabulary` (`scripts/check-vocabulary.ts`, a CI step) fails on:
 
-- **First time**: #182's `alineo`/agent naming inversion — `5dcb3de` edited `v0.1` in place instead of cutting `v0.2`. Once #190 published `0.2.0`, `v0.1` described `0.2.0` with no real pre-rename snapshot anywhere but git history. Fixed in `docs/dynamic-version-registry` (PR #193): moved that content to `v0.2`, restored the true pre-rename docs (from `5dcb3de~1`) as `v0.1`.
-- **Second time**: #204's credential injection wrote `concepts/credentials.mdx` + edits straight into `v0.2`. Once PR #206 published `@alineo-labs/core@0.3.0`, `v0.2` described `0.3.0` and `/docs/core` still redirected to `0.2`. Fixed in `docs/cut-v0.3` (PR #223): `cp -r v0.2 → v0.3`, repointed the new folder's internal links to `0.3`, let `predev`/`prebuild` regenerate the registry + redirects. `v0.2` left as a frozen snapshot (not scrubbed back to `0.2.0`).
+| Check | Asserts |
+|---|---|
+| CLI | every registered command is a `VERB` or an allowlisted noun, and each usage line starts with the command it documents |
+| Strings | every command quoted in help, error, guidance or doc text resolves to a real one — this is what would have caught **alineo ps**, documented in the source for months and never real |
+| MCP | every tool is `{subject}_{verb}`, or a bare verb when it has no subject (`init`) |
+| HTTP | every alineod path segment after a resource id is a `VERB` or a `SUBJECT` |
+| Events | every event name the codebase emits resolves to a definition, via `renames.ts` where it has an old one |
+| Durability | alineod's `PERSISTED_HARNESS_EVENTS` agrees with the definitions' `durable` flags, both ways |
+| Specs | every agent spec validates against `AgentSpecSchema` — including one a setup step writes as an escaped JSON string inside a `printf`. Three of those still said `cli` long after the field became `harness`, because a spec buried in a shell command is invisible to a rename pass, to a diff, and to anything reading spec files as JSON. They fail *inside the sandbox*, minutes into a run |
 
-**This is now guarded (PR #225).** The docs "epoch" — the `vX.Y` number on *both* the `core` and `alineo` trees, cut together — tracks `@alineo-labs/sandbox`'s (`packages/sdks/typescript`) published `major.minor`. `apps/docs/scripts/cut-doc-version.ts` does the `cp -r` + internal-link repoint; it runs in the release flow (root `release:version` script → `changesets/action`'s `version:` step) so the `chore: version packages` PR always carries the matching folder, and `ci.yml`'s **Docs version check** job (`… cut-doc-version.ts --check`) fails any PR — the `changeset-release/main` PR included — where the epoch has moved past the latest folder. See `plans/versioned-docs.md` "Docs epoch".
+The shapes of the names, for writing a new one:
 
-**Rules that still need a human:**
-1. **Writing the new folder's content.** The cut only copies the previous version; someone edits `content/docs/{core,alineo}/v<new>/` to document what actually shipped. A feature PR whose API change goes out next release should cut + document in the new folder itself (`bun apps/docs/scripts/cut-doc-version.ts` once the epoch package is bumped, else `cp -r`), never edit the current-latest folder in place.
-2. **If `cut-doc-version.ts --check` is red on a PR**, a cut is owed — run the script, don't work around the check.
+- **CLI** `alineo <verb> [args]` · **SDK method** the verb · **SDK class** the subject
+- **HTTP** `/{subjects}/:id/{verb}` · **MCP tool** `{subject}_{verb}` · **Event** `{subject}.{past-tense verb}`
 
-**If a PR touches `content/docs/core/vX.Y/` or `content/docs/alineo/vX.Y/` — where `vX.Y` is the current latest — directly instead of adding a new version folder, stop and check whether that's actually a version cut being done wrong.**
+Events are namespaced **by subject, not by the layer that emits them** — `agent.spawned`, not
+`alineod.agent_spawned`. Someone reading one mixed stream needs to know what an event is *about*.
+
+Two things the check can't see, so they're conventions:
+
+- **A retired command name goes in bold prose (`**alineo fork**`), never in a code span.** A
+  reader — or a model — skimming for something to run must never find a dead command formatted
+  as though it were live. Naming-history notes pass the check because of this.
+- **Renaming an event by hand is a trap.** `text`, `checkpoint` and `snapshot` are ordinary
+  English words; a bare-word find-and-replace turns "partial text" into "partial
+  message.updated". Match code spans and verbatim log/SSE samples only. This was hit twice.
+
+## Docs are unversioned — there is no version cut to owe
+
+`apps/docs/content/docs/` is one tree per product (`core`, `agent`, `alineo`, `alineod`,
+`workflow`, `cookbooks`, `examples`, `playground`). **Edit the page in place.**
+
+It was not always so. `core` and `alineo` were versioned into `vX.Y/` folders, with an "epoch"
+tracking `@alineo-labs/sandbox`'s published `major.minor`, a `cut-doc-version.ts` script in the
+release flow, and a CI job failing any PR where the epoch had moved past the latest folder.
+**All of that was removed in #232** — no `apps/docs/scripts/`, no `vX.Y` folders, no check.
+
+What survives is `apps/docs/public/_redirects`, which keeps the already-indexed versioned URLs
+(`/docs/core/0.3`, `/docs/core/v0.1`, …) resolving to the live unversioned page. Add a rule
+there when a page moves — see the `commands/fork` → `commands/spawn` entries from the CLI verb
+rename for the shape, including the case where a URL is deliberately *not* redirected because
+it still names a live page.
+

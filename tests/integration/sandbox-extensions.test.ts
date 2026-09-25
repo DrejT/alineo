@@ -2,16 +2,23 @@ import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
+// `useServerProxy` defaults on: an `alineo init` (Docker) server hands out
+// container-internal endpoints that aren't reachable from the host. Set
+// `OPEN_SANDBOX_SERVER_PROXY=false` for a bare `uvx opensandbox-server`, where the
+// direct endpoints work.
+const USE_SERVER_PROXY = process.env.OPEN_SANDBOX_SERVER_PROXY !== "false";
+
 // Covers the pure-SandboxHandle extension surface: diagnostics, metrics, pause/resume,
 // and BashSession. Alineo.resume()-style bridge-reconnection (the other half of
 // examples/sandbox-extensions) is intentionally not duplicated here — it needs a
 // real LLM API key and is a distinct scenario from agent.test.ts, which already
-// exercises Alineo.load()/prompt()/setEnv() against a live provider.
+// exercises Alineo.start()/prompt()/setEnv() against a live provider.
 test("sandbox extensions: diagnostics, metrics, pause/resume, BashSession", async () => {
   const client = new Sandbox({
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),
+    useServerProxy: USE_SERVER_PROXY,
   });
 
   const sb = await client.sandbox({

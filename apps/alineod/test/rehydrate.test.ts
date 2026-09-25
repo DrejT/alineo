@@ -30,7 +30,7 @@ interface Seed {
 function seed(s: Seed): string {
   const id = newAgentId();
   const name = s.name ?? "agent";
-  emit(s.runId, id, "agent_spawned", {
+  emit(s.runId, id, "agent.spawned", {
     parentAgentId: s.parentAgentId ?? null,
     runId: s.runId,
     specName: name,
@@ -43,11 +43,11 @@ function seed(s: Seed): string {
     waitFor: s.waitFor ?? null,
     prompt: s.prompt ?? null,
   });
-  if (s.sandbox) emit(s.runId, id, "agent_provisioned", { sandboxId: s.sandbox.sandboxId });
-  if (s.state) emit(s.runId, id, "agent_state_changed", { from: "provisioning", to: s.state });
+  if (s.sandbox) emit(s.runId, id, "agent.provisioned", { sandboxId: s.sandbox.sandboxId });
+  if (s.state) emit(s.runId, id, "agent.state_changed", { from: "provisioning", to: s.state });
   if (s.ended) {
-    emit(s.runId, id, "handle_settled", { outcome: s.ended, resultRef: null });
-    emit(s.runId, id, "agent_ended", { outcome: s.ended, endedAt: Date.now() });
+    emit(s.runId, id, "handle.settled", { outcome: s.ended, resultRef: null });
+    emit(s.runId, id, "agent.ended", { outcome: s.ended, endedAt: Date.now() });
   }
   return id;
 }
@@ -95,7 +95,7 @@ describe("agents with a sandbox", () => {
     expect(getAgentRow(id)).toMatchObject({ state: "lost", outcome: "lost" });
     expect(getHandle(id)?.state).toBe("settled");
     // OpenSandbox's raw JSON body is unwrapped to a sentence before it reaches the ledger.
-    expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+    expect(events(runId).find((e) => e.event === "agent.ended")).toMatchObject({
       error: `Sandbox ${sandbox.sandboxId} not found. (DOCKER::SANDBOX_NOT_FOUND)`,
     });
   });
@@ -118,7 +118,7 @@ describe("agents with a sandbox", () => {
 
     await Bun.sleep(100);
     expect(
-      events(runId).filter((e) => e.event === "handle_settled" && e.agentId === id),
+      events(runId).filter((e) => e.event === "handle.settled" && e.agentId === id),
     ).toHaveLength(1);
   }, 10_000);
 
@@ -136,7 +136,7 @@ describe("agents with a sandbox", () => {
 
       await until(() => getHandle(id)?.state === "settled", "catch-up settle after resume", 6_000);
       expect(getAgentRow(id)).toMatchObject({ state: "failed", outcome: "failed" });
-      expect(events(runId).find((e) => e.event === "agent_ended")).toMatchObject({
+      expect(events(runId).find((e) => e.event === "agent.ended")).toMatchObject({
         agentId: id,
         outcome: "failed",
         error: "catch-up: no retrievable result",
@@ -159,7 +159,7 @@ describe("agents with a sandbox", () => {
       });
       expect(getAgentRow(id)).toMatchObject({ state: "done", outcome: "success" });
       expect(
-        events(runId).filter((e) => e.event === "handle_settled" && e.agentId === id),
+        events(runId).filter((e) => e.event === "handle.settled" && e.agentId === id),
       ).toHaveLength(1);
     }, 10_000);
 
@@ -213,17 +213,73 @@ describe("agents with a sandbox", () => {
     expect(fakeSdk.calls.reattach).toEqual([]);
   });
 
-  test("a finished agent that can't be reconnected keeps its real outcome instead of becoming lost", async () => {
+  test("a finished agent whose sandbox is gone keeps its outcome and is released, once", async () => {
     const runId = newRunId();
     const sandbox = container(runId);
     const id = seed({ runId, sandbox, ended: "failed" });
     fakeSdk.reattachFails.add(sandbox.sandboxId);
-    fakeSdk.resumeFails.add(sandbox.sandboxId);
+    fakeSdk.resumeFails.add(sandbox.sandboxId); // OpenSandbox: DOCKER::SANDBOX_NOT_FOUND
 
     await rehydrate();
 
     expect(get(id)).toBeUndefined();
     expect(getAgentRow(id)).toMatchObject({ state: "failed", outcome: "failed" });
+    expect(getAgentRow(id)?.released_at).not.toBeNull();
+    const released = events(runId).filter((e) => e.agentId === id && e.event === "agent.released");
+    expect(released.map((e) => e.reason)).toEqual(["sandbox-missing"]);
+
+    // The next boot doesn't try it again, and doesn't release it twice.
+    fakeSdk.calls.reattach = [];
+    fakeSdk.calls.resume = [];
+    await rehydrate();
+    expect(fakeSdk.calls.reattach).toEqual([]);
+    expect(fakeSdk.calls.resume).toEqual([]);
+    expect(events(runId).filter((e) => e.event === "agent.released")).toHaveLength(1);
+  });
+
+  test("a finished agent that is only unreachable is not released, and is tried again next boot", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seed({ runId, sandbox, ended: "success" });
+    fakeSdk.reattachFails.add(sandbox.sandboxId);
+    fakeSdk.resumeUnavailable.add(sandbox.sandboxId); // OpenSandbox down, not "not found"
+
+    await rehydrate();
+
+    expect(getAgentRow(id)).toMatchObject({ state: "done", outcome: "success", released_at: null });
+    expect(events(runId).some((e) => e.event === "agent.released")).toBe(false);
+
+    fakeSdk.reattachFails.clear();
+    fakeSdk.resumeUnavailable.clear();
+    await rehydrate();
+    expect(get(id)).toBe(sandbox as never);
+  });
+
+  test("a released agent whose state still says running is not reconnected on every boot", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    // The shape found on the VPS: ended with an outcome, released, but its state left `running`.
+    const id = seed({ runId, sandbox, state: "running", ended: "success" });
+    emit(runId, id, "agent.state_changed", { from: "done", to: "running", reason: "prompt" });
+    emit(runId, id, "agent.released", { reason: "sandbox-missing" });
+
+    await rehydrate();
+
+    expect(fakeSdk.calls.reattach).toEqual([]);
+    expect(fakeSdk.calls.resume).toEqual([]);
+    expect(events(runId).filter((e) => e.event === "agent.released")).toHaveLength(1);
+  });
+
+  test("a finished agent that was stopped before the crash is not reconnected", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seed({ runId, sandbox, ended: "success" });
+    emit(runId, id, "agent.released", { reason: "stop:abort" });
+
+    await rehydrate();
+
+    expect(fakeSdk.calls.reattach).toEqual([]);
+    expect(fakeSdk.calls.resume).toEqual([]);
   });
 });
 
@@ -290,7 +346,7 @@ describe("agents that hadn't forked yet", () => {
     await rehydrate();
 
     const sandboxId = await until(() => getAgentRow(root)?.sandbox_id, "root to provision");
-    expect(fakeSdk.calls.load).toBe(1);
+    expect(fakeSdk.calls.start).toBe(1);
     await until(() => fakeSdk.sandboxes.get(sandboxId)?.prompts.includes("start"), "root prompt");
   });
 
@@ -305,7 +361,7 @@ describe("agents that hadn't forked yet", () => {
     await rehydrate();
 
     await until(() => getAgentRow(child)?.state === "lost", "child lost");
-    const ended = events(runId).find((e) => e.event === "agent_ended" && e.agentId === child);
+    const ended = events(runId).find((e) => e.event === "agent.ended" && e.agentId === child);
     expect(ended?.error).toContain("did not come back");
   });
 });
@@ -316,7 +372,7 @@ describe("paused agents", () => {
     sandbox.paused = true;
     sandbox.streaming = true;
     const id = seed({ runId, sandbox, state: "running" });
-    emit(runId, id, "agent_state_changed", { from: "running", to: "paused", reason: "operator" });
+    emit(runId, id, "agent.state_changed", { from: "running", to: "paused", reason: "operator" });
     return id;
   }
 

@@ -85,11 +85,11 @@ overridden per request with a `budget` object.
 - **`maxAgents`** — a ceiling on descendants, decremented the same way down each lineage. It is a per-lineage
   counter, not one global count shared across sibling branches.
 
-A refused spawn ends the child with outcome `budget-exceeded` and emits a `budget_denied` event naming the
+A refused spawn ends the child with outcome `budget-exceeded` and emits a `budget.denied` event naming the
 exhausted dimension.
 
 alineod tracks these budgets itself, because it calls `spawn()` from outside any sandbox — the SDK's in-sandbox
-mechanism (the `ALINEO_SPAWN_DEPTH` environment variable used by `alineo fork`) doesn't apply there.
+mechanism (the `ALINEO_SPAWN_DEPTH` environment variable used by `alineo spawn`) doesn't apply there.
 
 ## The ledger
 

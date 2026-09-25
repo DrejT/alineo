@@ -18,7 +18,7 @@ if (!NVIDIA_API_KEY) {
 
 const BASE = {
   $schema: "https://registry.alineo.tech/spec/agent.json",
-  cli: "pi" as const,
+  harness: "pi" as const,
   packages: ["python3"],
   provider: "nvidia",
   model: "nvidia/nemotron-3-nano-30b-a3b",
@@ -33,7 +33,7 @@ afterAll(async () => {
 
 async function load(spec: Record<string, unknown>): Promise<{ agent: Alineo; adapter: SQLiteAdapter }> {
   const adapter = new SQLiteAdapter(":memory:");
-  const agent = await Alineo.load(spec, { adapter });
+  const agent = await Alineo.start(spec, { adapter });
   agents.push(agent);
   return { agent, adapter };
 }
@@ -131,7 +131,7 @@ test(
 
     const events = await adapter.readAll(agent.name, agent.sandboxId);
     const kinds = events.map((e) => e.event);
-    expect(kinds).toContain("permission_requested");
+    expect(kinds).toContain("permission.requested");
     expect(kinds).toContain("permission_resolved");
   },
   600_000,

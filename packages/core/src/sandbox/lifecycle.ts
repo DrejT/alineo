@@ -73,7 +73,7 @@ export async function checkpoint(sb: SandboxInternal, name?: string): Promise<st
  *
  * @param runId  Override the forked sandbox's run correlation ID instead of inheriting
  *   whatever this sandbox's own creation closed over. Needed when forking across a process
- *   boundary (e.g. `alineo fork`, which re-`Alineo.attach()`es in a brand-new CLI process with
+ *   boundary (e.g. `alineo spawn`, which re-`Alineo.attach()`es in a brand-new CLI process with
  *   no access to the original in-memory closure) — the caller reads the correct value from
  *   `process.env.ALINEO_RUN_ID` and passes it explicitly rather than relying on this sandbox's
  *   own (possibly unknown) default.

@@ -52,7 +52,7 @@ export async function pauseAgent(
     throw new HttpError(502, `pause failed: ${msg}`);
   }
 
-  emit(row.run_id, agentId, "agent_state_changed", {
+  emit(row.run_id, agentId, "agent.state_changed", {
     from: row.state,
     to: "paused",
     reason: pausedBy,
@@ -78,7 +78,7 @@ export async function resumeAgent(agentId: string, opts: { by?: PausedBy } = {})
   }
 
   const pausedFrom = row.paused_from ?? "running";
-  emit(row.run_id, agentId, "agent_state_changed", {
+  emit(row.run_id, agentId, "agent.state_changed", {
     from: "paused",
     to: pausedFrom,
     reason: opts.by ?? "operator",
@@ -102,7 +102,7 @@ export async function resumeAgent(agentId: string, opts: { by?: PausedBy } = {})
     } catch (err) {
       const msg = errorMessage(err);
       if (row.ended_at === null) {
-        emit(row.run_id, agentId, "agent_ended", {
+        emit(row.run_id, agentId, "agent.ended", {
           outcome: "lost",
           endedAt: Date.now(),
           error: `bridge did not come back after resume: ${msg}`,

@@ -30,16 +30,16 @@ From your own Pi session:
 > use alineo to spawn ./examples/rlm-master/agents/master.json and give it this goal: <your actual goal>
 ```
 
-Pi already knows the `alineo spawn` syntax (injected by the extension — see
-`SPAWN_ONLY_GUIDANCE` in `packages/cli/pi-extension/alineo.ts`), so this
+Pi already knows the `alineo start` syntax (injected by the extension — see
+`START_ONLY_GUIDANCE` in `packages/cli/pi-extension/alineo.ts`), so this
 doesn't need to be a literal command; describing the goal is enough for a
-model to write the right `alineo spawn ./examples/rlm-master/agents/master.json
+model to write the right `alineo start ./examples/rlm-master/agents/master.json
 --prompt "<goal>" --json` call itself.
 
 The master's own sandbox also has the extension installed (baked in by a
-setup step), so once it's running, it has `alineo fork` guidance injected the
-same way — see `FORK_GUIDANCE` in the same file. It decides for itself
-whether the goal is worth decomposing; nothing forces it to fork anything.
+setup step), so once it's running, it has `alineo spawn` guidance injected the
+same way — see `SPAWN_GUIDANCE` in the same file. It decides for itself
+whether the goal is worth decomposing; nothing forces it to spawn anything.
 
 ## Customizing the master's mindset
 

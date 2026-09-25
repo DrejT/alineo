@@ -19,7 +19,7 @@ an event schema), any language can drive a swarm without an SDK of its own.
 
 - **Runs and spawn trees** — create a run with a root agent, then fork children from any live agent's sandbox.
 - **Fan-out / gather** — a child can `waitFor` other agents; their results are written into its sandbox before it starts.
-- **Budgets** — `spawnDepth` and `maxAgents` limits, enforced per lineage, refused with a `budget_denied` event.
+- **Budgets** — `spawnDepth` and `maxAgents` limits, enforced per lineage, refused with a `budget.denied` event.
 - **Live control** — `steer` a running turn, `pause`/`resume` an agent's container, `stop` an agent or delete a whole run.
 - **One event stream per run** — lifecycle events plus every agent's forwarded harness events, resumable with `Last-Event-ID`.
 - **Drive it from any MCP client** — `npx alineo-mcp` exposes these controls as tools for Claude Code, Claude Desktop, and Cursor. See [MCP server](/docs/alineod/getting-started/mcp).

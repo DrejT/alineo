@@ -60,7 +60,9 @@ export function events(runId: string): LedgerEvent[] {
 }
 
 export function spec(name: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return { name, cli: "pi", ...extra };
+  // `model` is required and alineod now validates the spec at the wire boundary, so a spec
+  // without one is a 400 rather than something the SDK rejects later.
+  return { name, harness: "pi", model: "test-model", ...extra };
 }
 
 export function deferred(): { promise: Promise<void>; resolve: () => void } {

@@ -4,9 +4,9 @@
   "title": "Read-only Agent",
   "description": "permissions: \"readonly\" — the gate strips write/edit/bash from the model's toolset entirely (via Pi setActiveTools), so it can inspect a repo but cannot change it.",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
-  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
   "packages": ["git"],
   "env": {
     "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"

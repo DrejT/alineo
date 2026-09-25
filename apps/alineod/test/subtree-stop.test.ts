@@ -66,7 +66,7 @@ describe("stop with scope: subtree", () => {
     expect(getAgentRow(quick.agentId)).toMatchObject({ state: "done", outcome: "success" });
     expect(quick.agent.closed).toBe(true);
     expect(
-      events(t.runId).filter((e) => e.event === "agent_released" && e.agentId === quick.agentId),
+      events(t.runId).filter((e) => e.event === "agent.released" && e.agentId === quick.agentId),
     ).toHaveLength(1);
 
     expect(t.c1.agent.aborted).toBe(false);
@@ -108,8 +108,8 @@ describe("stop on a finished agent (B8)", () => {
     expect(root.closed).toBe(true);
     expect(root.aborted).toBe(false);
     expect(getAgentRow(rootAgentId)).toMatchObject({ state: "done", outcome: "success" });
-    expect(events(runId).filter((e) => e.event === "agent_ended")).toHaveLength(1);
-    expect(events(runId).some((e) => e.event === "agent_released")).toBe(true);
+    expect(events(runId).filter((e) => e.event === "agent.ended")).toHaveLength(1);
+    expect(events(runId).some((e) => e.event === "agent.released")).toBe(true);
   });
 });
 
@@ -157,7 +157,7 @@ describe("stop before the fork (B9)", () => {
     expect(child?.prompts).toEqual([]);
     expect(getAgentRow(id)).toMatchObject({ state: "aborted", outcome: "aborted" });
     expect(
-      events(run.runId).find((e) => e.event === "agent_released" && e.agentId === id)?.reason,
+      events(run.runId).find((e) => e.event === "agent.released" && e.agentId === id)?.reason,
     ).toBe("stopped-before-provisioned");
   });
 

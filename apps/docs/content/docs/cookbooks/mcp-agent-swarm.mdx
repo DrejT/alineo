@@ -7,13 +7,13 @@ description: The same swarm code review as swarm-code-review, driven entirely th
   difficulty="Advanced"
   time="~15 min"
   primitives={[
-    "alineod_create_run",
-    "alineod_spawn_agent",
-    "alineod_pause_agent",
-    "alineod_resume_agent",
-    "alineod_steer_agent",
-    "alineod_watch_events",
-    "alineod_get_result",
+    "run_start",
+    "agent_spawn",
+    "agent_pause",
+    "agent_resume",
+    "agent_steer",
+    "run_watch",
+    "result_get",
   ]}
 />
 
@@ -101,16 +101,16 @@ Set `ALINEOD_URL` if the daemon isn't on `http://localhost:4600` — `mcp-client
 
 ### Check out the repository once
 
-`alineod_create_run` loads `agents/lead.json` (which installs `git` and clones `expressjs/cors` as a setup step)
+`run_start` loads `agents/lead.json` (which installs `git` and clones `expressjs/cors` as a setup step)
 with an initial prompt. The lead's first turn reports the commit under review, read back with
-`alineod_get_result`.
+`result_get`.
 
 </Step>
 <Step>
 
 ### Fork a reviewer per concern
 
-Two `alineod_spawn_agent` calls fork the lead's live sandbox into reviewers for security and correctness. Each
+Two `agent_spawn` calls fork the lead's live sandbox into reviewers for security and correctness. Each
 starts with `/workspace/cors` already present, so the repository is cloned exactly once. Every spawn carries an
 `idempotencyKey`, so a retried call can't fork a duplicate reviewer. The lead's `spawnDepth: 1` and `maxAgents: 4`
 cap how far the swarm can grow.
@@ -120,8 +120,8 @@ cap how far the swarm can grow.
 
 ### Intervene mid-review
 
-`alineod_pause_agent` / `alineod_resume_agent` freeze and thaw the correctness reviewer's container for five
-seconds without restarting it; `alineod_steer_agent` narrows the security reviewer's brief mid-turn — the steer
+`agent_pause` / `agent_resume` freeze and thaw the correctness reviewer's container for five
+seconds without restarting it; `agent_steer` narrows the security reviewer's brief mid-turn — the steer
 lands after its current tool call finishes, before its next model call.
 
 </Step>
@@ -129,7 +129,7 @@ lands after its current tool call finishes, before its next model call.
 
 ### Gather with `waitFor`
 
-One more `alineod_spawn_agent` call spawns the editor with `waitFor` on both reviewers. alineod holds it until
+One more `agent_spawn` call spawns the editor with `waitFor` on both reviewers. alineod holds it until
 they finish, then writes each reviewer's findings into its sandbox under `/inputs/`, plus an `/inputs.json`
 manifest carrying each outcome. The editor merges them into one report.
 
@@ -146,14 +146,14 @@ manifest carrying each outcome. The editor merges them into one report.
 
 ### Report and tear down
 
-The merged report comes back from `alineod_get_result`, is printed and written to `review.md`, followed by the
-final agent tree from `alineod_get_run`. `alineod_delete_run` then closes every sandbox in the swarm while keeping
+The merged report comes back from `result_get`, is printed and written to `review.md`, followed by the
+final agent tree from `run_get`. `run_stop` then closes every sandbox in the swarm while keeping
 the run's history.
 
 </Step>
 </Steps>
 
-Progress for every agent streams via repeated `alineod_watch_events` calls, each a bounded 20-second window
+Progress for every agent streams via repeated `run_watch` calls, each a bounded 20-second window
 resuming from the last event id seen (`sinceEventId`) — since an MCP tool call is request/response, this is a
 poll-and-collect loop rather than one held-open SSE connection, which is what
 [Swarm Code Review](/docs/cookbooks/swarm-code-review)'s raw-HTTP version uses instead. Compare `watch()` in each

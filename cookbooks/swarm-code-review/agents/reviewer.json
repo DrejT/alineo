@@ -4,9 +4,9 @@
   "title": "Reviewer",
   "description": "Reviews one concern of a repository already checked out in its (forked) sandbox.",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
-  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
   "env": {
     "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
   },

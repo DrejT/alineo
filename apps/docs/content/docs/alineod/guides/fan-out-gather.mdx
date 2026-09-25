@@ -16,7 +16,7 @@ content-type: application/json
 
 {
   "parentAgentId": "a_7b2e44d1",
-  "spec": { "name": "worker-auth", "cli": "pi", "...": "..." },
+  "spec": { "name": "worker-auth", "harness": "pi", "...": "..." },
   "prompt": "Review the auth module for injection bugs. Report findings as a list."
 }
 ```
@@ -33,7 +33,7 @@ content-type: application/json
 {
   "parentAgentId": "a_7b2e44d1",
   "waitFor": ["a_c01d9e3a", "a_5e8f2b71", "a_91aa0c4d"],
-  "spec": { "name": "gather", "cli": "pi", "...": "..." },
+  "spec": { "name": "gather", "harness": "pi", "...": "..." },
   "prompt": "Read /inputs.json and merge the three reports into one prioritized list."
 }
 ```

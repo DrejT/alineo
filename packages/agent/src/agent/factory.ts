@@ -55,7 +55,7 @@ export interface AgentConstructorArgs {
 
 /**
  * Validate `specInput` and return everything needed to construct a fully initialised `Alineo`.
- * See `Alineo.load()` for the public-facing docs.
+ * See `Alineo.start()` for the public-facing docs.
  */
 export async function loadAgent(
   specInput: AgentSpec | Record<string, unknown>,
@@ -81,12 +81,12 @@ export async function loadAgent(
   const resolvedEnv = resolveEnv(spec.env ?? {});
   const effectiveSpawnDepth = opts.spawnDepth ?? spec.spawnDepth;
   if (effectiveSpawnDepth !== undefined) {
-    assertValidSpawnDepth(effectiveSpawnDepth, "Alineo.load()");
+    assertValidSpawnDepth(effectiveSpawnDepth, "Alineo.start()");
     resolvedEnv.ALINEO_SPAWN_DEPTH = String(effectiveSpawnDepth);
   }
   const effectiveMaxAgents = opts.maxAgents ?? spec.maxAgents;
   if (effectiveMaxAgents !== undefined) {
-    assertValidMaxAgents(effectiveMaxAgents, "Alineo.load()");
+    assertValidMaxAgents(effectiveMaxAgents, "Alineo.start()");
     resolvedEnv.ALINEO_MAX_AGENTS = String(effectiveMaxAgents);
   }
   // Unlike spawnDepth/maxAgents (which stay unset unless the spec/caller opts in), runId is
@@ -112,7 +112,7 @@ export async function loadAgent(
   if (heldCredentials.length > 0 && !opts.onEgressRequest) {
     throw new Error(
       `AgentSpec.env has ${heldCredentials.length} credential binding(s) with approval: "hold" ` +
-        `(${heldHosts.join(", ")}) but Alineo.load() was called without an onEgressRequest handler.`,
+        `(${heldHosts.join(", ")}) but Alineo.start() was called without an onEgressRequest handler.`,
     );
   }
 
@@ -252,7 +252,7 @@ export async function loadAgent(
   if (!sb) throw new Error("internal error: sandbox was neither restored nor created");
   egressGate?.bind(sb);
 
-  // Applied on every load() (fresh or from-snapshot) — the vault is sidecar-runtime-only, so
+  // Applied on every start() (fresh or from-snapshot) — the vault is sidecar-runtime-only, so
   // whichever path just created `sb` needs these re-registered against its own sandboxId.
   // `approval: "hold"` bindings are skipped here — their host is denied, so the vault would
   // reject them; the gate registers them on approval instead.
@@ -320,7 +320,7 @@ export async function resumeAgent(
 
   // Three-way fallback, in order of preference: an already-parsed object (no I/O at all) >
   // an explicit path (one read) > guessing the path from the ledger's own record of this
-  // sandbox's name (see #184 -- unlike load(), resume() has no spec object to fall back to
+  // sandbox's name (see #184 -- unlike start(), resume() has no spec object to fall back to
   // when the caller genuinely doesn't have one on hand, so this guess stays load-bearing).
   let spec: AgentSpec;
   if (opts.spec) {
@@ -577,7 +577,7 @@ export async function attachAgent(
   } catch {
     // No file, or unreadable — keep "unknown" rather than failing the attach.
   }
-  const stubSpec: AgentSpec = { name: opts.name, cli: "pi", model };
+  const stubSpec: AgentSpec = { name: opts.name, harness: "pi", model };
   return {
     sandbox: sb,
     spec: stubSpec,
@@ -611,7 +611,7 @@ export async function spawnChild(
   // record — read from process.env, not self.env, since this code runs as a real CLI
   // process inside the parent's sandbox (same reasoning as ALINEO_SPAWN_DEPTH above),
   // and passed explicitly to fork() because a freshly-`Alineo.attach()`ed self (the
-  // `alineo fork` self-attach case) has no in-memory closure carrying it forward.
+  // `alineo spawn` self-attach case) has no in-memory closure carrying it forward.
   const runId = process.env.ALINEO_RUN_ID ?? crypto.randomUUID();
   const log = agentLog.child(
     process.env.ALINEO_RUN_ID ? { name: childSpec.name, runId } : { name: childSpec.name },

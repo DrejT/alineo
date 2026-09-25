@@ -38,6 +38,9 @@ jobs:
         run: bun run typecheck
         working-directory: apps/alineod
 
+      - name: Vocabulary check
+        run: bun run check:vocabulary
+
       - name: Lint
         run: bun run lint
 

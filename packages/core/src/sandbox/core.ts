@@ -159,14 +159,35 @@ export class SandboxCore implements SandboxInternal {
   emit(event: LedgerEvent, stepIndex: number, payload?: unknown): Promise<void> {
     // Captured synchronously so the recorded timestamp reflects when this was called,
     // not whenever the queue below gets around to actually writing it.
+    const ts = Date.now();
     const entry: LedgerEntry = {
-      ts: Date.now(),
+      ts,
       name: this.name,
       sandboxId: this.sandboxId,
       stepIndex,
       event,
       payload,
     };
+    // Before the queue, not after: the sink sees the event at the moment it happened, and a
+    // slow or broken exporter never delays the write it is exporting. `durable` is left
+    // absent because the adapter assigns `alineo_events.id` and does not hand it back — the
+    // sandbox session is the aggregate, and surfacing that id is a read-path change for the
+    // work that owns storage.
+    if (this.deps.sink) {
+      try {
+        this.deps.sink({
+          v: 1,
+          ts,
+          type: event,
+          // No `runId`: a SandboxCore does not carry one. It is recorded in the
+          // `sandbox.created` payload at the client level, which is where the aggregate for
+          // an SDK session is the sandbox itself rather than a run.
+          data: { sandboxId: this.sandboxId, name: this.name, stepIndex, payload },
+        });
+      } catch {
+        // A failing export must never fail the sandbox operation that produced the event.
+      }
+    }
     const result = this._ledgerQueue.then(() => this.deps.adapter.append(entry));
     // Keep the queue alive even if this append fails — otherwise every future emit()
     // on this sandbox would silently stop writing. The real rejection still propagates

@@ -5,16 +5,16 @@ import type { ExtensionAPI, ExtensionContext, ExecResult } from "@earendil-works
  * Kept in place for backward compatibility (the before_agent_start guidance injection and
  * ensureAlineoReady() bootstrap below still work) — no removal planned yet.
  *
- * Used to also register alineo_spawn/alineo_prompt/alineo_agents/alineo_kill as typed tool calls,
- * wrapping the CLI's session-lifecycle primitives so a Pi agent didn't have to hand-roll shell
- * commands for them. Removed (see issue #21 Bug B): `alineo fork` — the core RLM fan-out
- * primitive — was deliberately never wrapped as a typed tool, on the reasoning that forking is
- * a judgment call about how to decompose a task and belongs in a real shell command the model
- * writes itself, not a verbal decision to call a fixed-shape registered tool. That left spawn/
- * prompt/agents/kill as typed tools sitting right next to fork's bash-only form — an asymmetry
- * that measurably steered models toward the wrong primitive in practice (a real run picked the
- * typed `alineo_spawn` tool over the `alineo fork` shell command the guidance text recommended for
- * that exact scenario). All five subcommands are bash-only now, with no asymmetry to lean on.
+ * Used to also register typed tool calls wrapping the CLI's session-lifecycle primitives, so a
+ * Pi agent didn't have to hand-roll shell commands for them. Removed (see issue #21 Bug B):
+ * `alineo spawn` — the core RLM fan-out primitive — was deliberately never wrapped as a typed
+ * tool, on the reasoning that fanning out is a judgment call about how to decompose a task and
+ * belongs in a real shell command the model writes itself, not a verbal decision to call a
+ * fixed-shape registered tool. That left the rest as typed tools sitting right next to
+ * `alineo spawn`'s bash-only form — an asymmetry that measurably steered models toward the wrong
+ * primitive in practice (a real run picked the typed start-an-agent tool over the shell command
+ * the guidance text recommended for that exact scenario). All five subcommands are bash-only
+ * now, with no asymmetry to lean on.
  *
  * Install on a host machine (recommended — makes this available in every Pi
  * session afterward, not just one project):
@@ -35,13 +35,13 @@ export default function (pi: ExtensionAPI) {
   });
 
   // `ALINEO_SANDBOX_ID` is only set inside a sandbox created by an agent-creation
-  // path (Alineo.load()/resume()/spawn(), see packages/agent/src/agent.ts) — its
+  // path (Alineo.start()/resume()/spawn(), see packages/agent/src/agent.ts) — its
   // presence here means THIS Pi process is itself running inside one, so it has
   // live state (installed packages, a checked-out repo, files on disk) worth
-  // forking into children via `alineo fork`. A host-level session (a user's own
-  // local Pi, no sandbox of its own) has nothing to fork — only `alineo spawn`
-  // (start a fresh, independent agent) makes sense there.
-  const canFork = Boolean(process.env.ALINEO_SANDBOX_ID);
+  // spawning children from via `alineo spawn`. A host-level session (a user's own
+  // local Pi, no sandbox of its own) has no live state to spawn from — only
+  // `alineo start` (start a fresh, independent agent) makes sense there.
+  const canSpawn = Boolean(process.env.ALINEO_SANDBOX_ID);
 
   // Mechanical CLI guidance (above) is safe to inject unconditionally — it's
   // just "here's the syntax," true for any session. The RLM *mindset* prompt
@@ -60,33 +60,34 @@ export default function (pi: ExtensionAPI) {
       : "";
 
   pi.on("before_agent_start", (event) => ({
-    systemPrompt: event.systemPrompt + (canFork ? FORK_GUIDANCE : SPAWN_ONLY_GUIDANCE) + rlmMindset,
+    systemPrompt:
+      event.systemPrompt + (canSpawn ? SPAWN_GUIDANCE : START_ONLY_GUIDANCE) + rlmMindset,
   }));
 }
 
-const FORK_GUIDANCE = `
+const SPAWN_GUIDANCE = `
 
 ## Orchestrating sub-agents with alineo
 
 You have the \`alineo\` CLI available. Your own session is running inside a
-alineo-managed sandbox, so you can fork YOUR OWN live filesystem state
-(installed packages, a checked-out repo, any files already on disk) into
-independent child agents:
+alineo-managed sandbox, so you can spawn children from YOUR OWN live
+filesystem state (installed packages, a checked-out repo, any files already
+on disk):
 
-    alineo fork <your-session-name> <child-spec.json> --prompt "<plain-English instruction>" --json
+    alineo spawn <your-session-name> <child-spec.json> --prompt "<plain-English instruction>" --json
 
-Each forked child starts from your exact current state, not a fresh clone —
-use this when children need to see something you've already set up. Run this
-as an actual shell command via your bash tool, not by describing it — you
-decide how many children to fork and how to split the work; nothing scripts
-that decision for you. Add \`--depth N\` / \`--max N\` to override a spec's own
+Each child starts from your exact current state, not a fresh clone — use this
+when children need to see something you've already set up. Run this as an
+actual shell command via your bash tool, not by describing it — you decide how
+many children to spawn and how to split the work; nothing scripts that
+decision for you. Add \`--depth N\` / \`--max N\` to override a spec's own
 nesting-depth or total-descendant budget if it has one.
 
 To start a completely independent agent instead (no shared state needed):
-\`alineo spawn <spec.json> --prompt "<msg>" --json\`. Other commands:
+\`alineo start <spec.json> --prompt "<msg>" --json\`. Other commands:
 \`alineo agents [--json]\` (list running sessions), \`alineo prompt <sandbox-id>
 <msg>\` (continue talking to one), \`alineo steer <sandbox-id> <msg>\`
-(redirect a child that's already working — see below), \`alineo kill
+(redirect a child that's already working — see below), \`alineo stop
 <sandbox-id>\` (stop one).
 
 Steering a child: \`alineo steer\` delivers your message after the child's
@@ -96,37 +97,37 @@ corrupted. Write the message for THAT child specifically (what its new
 guidance means given what you asked it to do), not a copy of whatever
 instruction you yourself received — it has its own narrower context, not
 your full picture. If a child needs to stop immediately rather than finish
-and then redirect, use \`alineo kill\` instead; steer is for adjusting
+and then redirect, use \`alineo stop\` instead; steer is for adjusting
 course, not for an urgent stop.
 
-Only reach for forking when a task genuinely splits into independent pieces
+Only reach for spawning when a task genuinely splits into independent pieces
 of real size — for something you can finish yourself in a few tool calls,
 just do it directly.`;
 
-const SPAWN_ONLY_GUIDANCE = `
+const START_ONLY_GUIDANCE = `
 
 ## Starting sub-agents with alineo
 
 You have the \`alineo\` CLI available to start independent agent sessions in
 their own sandboxes:
 
-    alineo spawn <spec.json> --prompt "<msg>" --json
+    alineo start <spec.json> --prompt "<msg>" --json
 
 Other commands: \`alineo agents [--json]\` (list running sessions), \`alineo
 prompt <sandbox-id> <msg>\` (continue talking to one), \`alineo steer
 <sandbox-id> <msg>\` (redirect one that's already working — delivered after
-its current tool call finishes, not an interrupt; use \`alineo kill\` instead
-for an immediate stop), \`alineo kill <sandbox-id>\` (stop one). A spawned
-agent running inside its own sandbox may itself be able to fork further
-sub-agents from its own live state via \`alineo fork\` — that's its own
-decision to make, not yours to script for it.`;
+its current tool call finishes, not an interrupt; use \`alineo stop\` instead
+for an immediate stop), \`alineo stop <sandbox-id>\` (stop one). An agent
+running inside its own sandbox may itself be able to spawn further sub-agents
+from its own live state via \`alineo spawn\` — that's its own decision to
+make, not yours to script for it.`;
 
 const DEFAULT_RLM_MINDSET = `
 
-## Your role: RLM orchestrator
+## How to approach this work: as an RLM orchestrator
 
 Think in terms of decompose, delegate, redirect, and collect. When a task is
-large enough to genuinely split into independent pieces, prefer forking
+large enough to genuinely split into independent pieces, prefer spawning
 dedicated sub-agents over doing everything yourself in one long session —
 each sub-agent should get a clear, bounded slice of the work and report back a
 concise result, not its full transcript. Keep your own context focused on
@@ -136,7 +137,7 @@ should reflect the task's real shape, not be forced on something that
 doesn't need it.`;
 
 // Runs once per extension load, not once per `session_start` — that event
-// also fires on reload/new/resume/fork, and `alineo init` (while itself
+// also fires on reload/new/resume/spawn, and `alineo init` (while itself
 // idempotent) has a few seconds of Docker-state-check overhead not worth
 // repeating every time. Reset on failure so a later session_start can retry
 // instead of a transient failure (no network, Docker not running yet)

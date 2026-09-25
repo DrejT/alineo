@@ -78,7 +78,7 @@ describe("EgressApprovalGate", () => {
       expect(seen).toEqual(["api.github.com"]);
       expect(sb.patches).toEqual([[{ action: "allow", target: "api.github.com" }]]);
       expect(sb.credsSet).toEqual(["gh"]);
-      expect(sb.emits.map((e) => e.event)).toEqual(["permission_requested", "permission_resolved"]);
+      expect(sb.emits.map((e) => e.event)).toEqual(["permission.requested", "permission.resolved"]);
     } finally {
       await gate.stop();
     }
@@ -118,7 +118,7 @@ describe("EgressApprovalGate", () => {
       await fireWebhook(gate, "held.example.com.");
       expect(sb.patches).toEqual([]);
       expect(sb.credsSet).toEqual([]);
-      const resolved = sb.emits.find((e) => e.event === "permission_resolved");
+      const resolved = sb.emits.find((e) => e.event === "permission.resolved");
       expect(resolved?.payload).toMatchObject({ decision: { kind: "deny" } });
     } finally {
       await gate.stop();

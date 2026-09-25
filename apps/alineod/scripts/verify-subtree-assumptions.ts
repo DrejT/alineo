@@ -30,11 +30,11 @@ const save = () => writeFileSync(OUT, JSON.stringify(results, null, 2));
 const adapter = new SQLiteAdapter(resolve("verify-subtree-ledger.db"));
 await adapter.connect?.();
 
-const MODEL = process.env.VERIFY_MODEL ?? "nvidia/nemotron-3.5-lightning-30b-a3b";
+const MODEL = process.env.VERIFY_MODEL ?? "nvidia/nemotron-3-super-120b-a12b";
 function spec(name: string) {
   return {
     name,
-    cli: "pi",
+    harness: "pi",
     provider: "nvidia",
     model: MODEL,
     env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
@@ -88,7 +88,7 @@ async function closeAll() {
 
 async function v1v3() {
   log("V1/V3: loading parent agent");
-  const parent = await Alineo.load(spec("verify-v1-parent"), {
+  const parent = await Alineo.start(spec("verify-v1-parent"), {
     adapter,
     spawnDepth: 3,
     maxAgents: 5,
@@ -256,7 +256,7 @@ async function pollUntilIdle(agent: InstanceType<typeof Alineo>, startedAt: numb
 
 async function v2() {
   log("V2: loading agent");
-  const agent = await Alineo.load(spec("verify-v2"), { adapter });
+  const agent = await Alineo.start(spec("verify-v2"), { adapter });
   opened.push(agent);
   const v2: Record<string, unknown> = { sandboxId: agent.sandboxId, model: MODEL };
   results.v2 = v2;

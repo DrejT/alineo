@@ -71,7 +71,7 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
   const agent = get(agentId);
   if (!agent) return;
   // alineod's run, from the projection — NOT `agent.runId`, which is the SDK's own correlation id:
-  // the same for a root (alineod passes it to Alineo.load()), but a forked child picks its own,
+  // the same for a root (alineod passes it to Alineo.start()), but a forked child picks its own,
   // which filed every event of a child's turn under a run nobody is watching.
   const runId = getAgentRow(agentId)?.run_id;
   if (!runId) return;
@@ -93,19 +93,19 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     if (upstream) {
       // The model API refused the request and Pi ended the turn. Whatever text came before is kept
       // as the result, but the agent did not finish, so it is not a success.
-      emit(runId, agentId, "handle_settled", {
+      emit(runId, agentId, "handle.settled", {
         outcome: "failed",
         resultRef: text ? resultRef : null,
       });
-      emit(runId, agentId, "agent_ended", {
+      emit(runId, agentId, "agent.ended", {
         outcome: "failed",
         endedAt: Date.now(),
         error: upstream,
       });
       return;
     }
-    emit(runId, agentId, "handle_settled", { outcome: "success", resultRef });
-    emit(runId, agentId, "agent_ended", { outcome: "success", endedAt: Date.now() });
+    emit(runId, agentId, "handle.settled", { outcome: "success", resultRef });
+    emit(runId, agentId, "agent.ended", { outcome: "success", endedAt: Date.now() });
   } catch (err) {
     if (isStreamTimeout(err)) {
       log.warn("no stream activity — following the turn by polling instead", {
@@ -121,8 +121,8 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     const partial = await safeLastText(agent);
     const resultRef = writeResult(agentId, partial);
     const outcome = partial ? "success" : "failed";
-    emit(runId, agentId, "handle_settled", { outcome, resultRef: partial ? resultRef : null });
-    emit(runId, agentId, "agent_ended", { outcome, endedAt: Date.now(), error: message });
+    emit(runId, agentId, "handle.settled", { outcome, resultRef: partial ? resultRef : null });
+    emit(runId, agentId, "agent.ended", { outcome, endedAt: Date.now(), error: message });
   } finally {
     driving.delete(agentId);
   }
@@ -217,8 +217,8 @@ export async function catchUpTurn(
     const outcome = text && !upstream ? "success" : "failed";
     const error =
       giveUpReason ?? upstream ?? (text ? undefined : "catch-up: no retrievable result");
-    emit(runId, agentId, "handle_settled", { outcome, resultRef: text ? resultRef : null });
-    emit(runId, agentId, "agent_ended", {
+    emit(runId, agentId, "handle.settled", { outcome, resultRef: text ? resultRef : null });
+    emit(runId, agentId, "agent.ended", {
       outcome,
       endedAt: Date.now(),
       ...(error ? { error } : {}),
@@ -233,7 +233,7 @@ export function setState(agentId: string, to: string, reason?: string): void {
   const from = row?.state ?? "unknown";
   const runId = row?.run_id;
   if (!runId || from === to) return;
-  emit(runId, agentId, "agent_state_changed", { from, to, ...(reason ? { reason } : {}) });
+  emit(runId, agentId, "agent.state_changed", { from, to, ...(reason ? { reason } : {}) });
 }
 
 /** Matched by name, not `instanceof` — the SDK's error class isn't worth importing for this. */

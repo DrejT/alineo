@@ -13,34 +13,34 @@ servers (filesystem, GitHub, …), not a hosted worker like [`@alineo-labs/docs-
 **alineod — swarm control** (requires alineod running, default `http://127.0.0.1:4600`, override
 with `ALINEOD_URL`):
 
-| Tool                   | Route                           |                                                         |
-| ---------------------- | ------------------------------- | ------------------------------------------------------- |
-| `alineod_create_run`   | `POST /runs`                    | Load the root agent from an AgentSpec, start a run      |
-| `alineod_get_run`      | `GET /runs/:runId`              | The spawn tree — every agent, state, parent pointers    |
-| `alineod_delete_run`   | `DELETE /runs/:runId`           | Abort + close every live agent in the run               |
-| `alineod_watch_events` | `GET /runs/:runId/events` (SSE) | Collect lifecycle + harness events for a bounded window |
-| `alineod_spawn_agent`  | `POST /runs/:runId/agents`      | Fork a child under a live parent                        |
-| `alineod_get_agent`    | `GET /agents/:agentId`          | Inspect an agent + session stats                        |
-| `alineod_prompt_agent` | `POST /agents/:agentId/prompt`  | Drive one turn                                          |
-| `alineod_steer_agent`  | `POST /agents/:agentId/steer`   | Redirect the current turn                               |
-| `alineod_pause_agent`  | `POST /agents/:agentId/pause`   | Freeze the sandbox container                            |
-| `alineod_resume_agent` | `POST /agents/:agentId/resume`  | Thaw a paused container                                 |
-| `alineod_stop_agent`   | `POST /agents/:agentId/stop`    | Abort + close one agent                                 |
-| `alineod_get_result`   | `GET /agents/:agentId/result`   | Resolve a settled agent's output (optional long-poll)   |
+| Tool           | Route                           |                                                         |
+| -------------- | ------------------------------- | ------------------------------------------------------- |
+| `run_start`    | `POST /runs`                    | Load the root agent from an AgentSpec, start a run      |
+| `run_get`      | `GET /runs/:runId`              | The spawn tree — every agent, state, parent pointers    |
+| `run_stop`     | `DELETE /runs/:runId`           | Abort + close every live agent in the run               |
+| `run_watch`    | `GET /runs/:runId/events` (SSE) | Collect lifecycle + harness events for a bounded window |
+| `agent_spawn`  | `POST /runs/:runId/agents`      | Fork a child under a live parent                        |
+| `agent_get`    | `GET /agents/:agentId`          | Inspect an agent + session stats                        |
+| `agent_prompt` | `POST /agents/:agentId/prompt`  | Drive one turn                                          |
+| `agent_steer`  | `POST /agents/:agentId/steer`   | Redirect the current turn                               |
+| `agent_pause`  | `POST /agents/:agentId/pause`   | Freeze the sandbox container                            |
+| `agent_resume` | `POST /agents/:agentId/resume`  | Thaw a paused container                                 |
+| `agent_stop`   | `POST /agents/:agentId/stop`    | Abort + close one agent                                 |
+| `result_get`   | `GET /agents/:agentId/result`   | Resolve a settled agent's output (optional long-poll)   |
 
 **alineo — local bootstrap + spec management** (no alineod required for these):
 
-| Tool                 |                                                              |
-| -------------------- | ------------------------------------------------------------ |
-| `alineo_init`        | Start OpenSandbox + alineod locally via Docker               |
-| `alineo_add_spec`    | Fetch an AgentSpec (URL or local file), validate it, save it |
-| `alineo_list_specs`  | List saved agent specs                                       |
-| `alineo_remove_spec` | Remove a saved agent spec                                    |
+| Tool          |                                                              |
+| ------------- | ------------------------------------------------------------ |
+| `init`        | Start OpenSandbox + alineod locally via Docker               |
+| `spec_add`    | Fetch an AgentSpec (URL or local file), validate it, save it |
+| `spec_list`   | List saved agent specs                                       |
+| `spec_remove` | Remove a saved agent spec                                    |
 
 This mirrors alineod's core swarm-control routes and every `alineo-cli` subcommand except `telemetry`
 (local opt-in/out toggle, not an orchestration feature) and the CLI's direct-sandbox commands
-(`spawn`/`prompt`/`fork`/`agents`/`kill`/`logs`) — those drive a sandbox from _this_ process via
-`Alineo.load()`; alineod's routes are the equivalent, network-addressable operations for a
+(`start`/`prompt`/`spawn`/`agents`/`stop`/`logs`) — those drive a sandbox from _this_ process via
+`Alineo.start()`; alineod's routes are the equivalent, network-addressable operations for a
 swarm run through the daemon, which is what an MCP client actually talks to.
 
 Not exposed as tools yet: `scope: "subtree"` on pause/resume/stop/steer, `GET
@@ -88,7 +88,7 @@ launch and (optionally) environment variables to set. Where that JSON lives diff
 ```
 
 `env` is optional — omit it to use the default `http://127.0.0.1:4600`, which is what
-`alineo_init` (see below) starts alineod on.
+`init` (see below) starts alineod on.
 
 **Claude Code CLI**, no file editing needed:
 
@@ -120,12 +120,12 @@ recipe using `@modelcontextprotocol/client`'s `StdioClientTransport`.
 
 ## Configuration reference
 
-| Setting                | Where                                                                                                                                                      | Default                  | Affects                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------- |
-| `ALINEOD_URL`          | env var on the `alineo-mcp` process                                                                                                                        | `http://127.0.0.1:4600`  | Every `alineod_*` tool                                           |
-| `alineo.config.json`   | project-local file, or `~/.config/alineo/config.json` global fallback (same resolution as `alineo-cli`)                                                    | written by `alineo_init` | `agentsDir` for `alineo_add_spec` / `list_specs` / `remove_spec` |
-| Docker                 | must be installed and running                                                                                                                              | —                        | `alineo_init` only                                               |
-| Model provider API key | in the _caller's_ shell when running `alineo_init` (forwarded into the alineod container) — see the list in `@alineo-labs/cli-shared`'s `pi-model-keys.ts` | none                     | Whether spawned agents can actually call a model                 |
+| Setting                | Where                                                                                                                                               | Default                 | Affects                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------- |
+| `ALINEOD_URL`          | env var on the `alineo-mcp` process                                                                                                                 | `http://127.0.0.1:4600` | Every `run_*`/`agent_*`/`result_*` tool                   |
+| `alineo.config.json`   | project-local file, or `~/.config/alineo/config.json` global fallback (same resolution as `alineo-cli`)                                             | written by `init`       | `agentsDir` for `spec_add` / `list_specs` / `remove_spec` |
+| Docker                 | must be installed and running                                                                                                                       | —                       | `init` only                                               |
+| Model provider API key | in the _caller's_ shell when running `init` (forwarded into the alineod container) — see the list in `@alineo-labs/cli-shared`'s `pi-model-keys.ts` | none                    | Whether spawned agents can actually call a model          |
 
 `alineo.config.json`'s `agentsDir` is shared with `alineo-cli` — specs added via either tool show
 up in both, since they resolve the same config file and directory.
@@ -133,21 +133,21 @@ up in both, since they resolve the same config file and directory.
 ## Use
 
 ```bash
-alineo_init           # once, if alineod isn't already running (needs Docker)
+init           # once, if alineod isn't already running (needs Docker)
 ```
 
 Typical flow, as a client would call the tools:
 
-1. `alineo_add_spec` (or `alineo_list_specs` if you've already added one) → get an AgentSpec.
-2. `alineod_create_run` with that spec → get back a `runId` + `rootAgentId`.
-3. `alineod_spawn_agent` with `parentAgentId: rootAgentId` to fan out children — repeat per
+1. `spec_add` (or `spec_list` if you've already added one) → get an AgentSpec.
+2. `run_start` with that spec → get back a `runId` + `rootAgentId`.
+3. `agent_spawn` with `parentAgentId: rootAgentId` to fan out children — repeat per
    worker; pass `waitFor` on a later spawn to hold it until earlier agents settle.
-4. `alineod_prompt_agent` / `alineod_steer_agent` to drive them; `alineod_pause_agent` /
-   `alineod_resume_agent` to freeze/thaw without losing state.
-5. `alineod_watch_events` (poll as needed) or `alineod_get_run` to observe progress.
-6. `alineod_get_result` (optionally with `waitSeconds` to long-poll) to read each settled
+4. `agent_prompt` / `agent_steer` to drive them; `agent_pause` /
+   `agent_resume` to freeze/thaw without losing state.
+5. `run_watch` (poll as needed) or `run_get` to observe progress.
+6. `result_get` (optionally with `waitSeconds` to long-poll) to read each settled
    agent's output.
-7. `alineod_stop_agent` per agent and/or `alineod_delete_run` to tear the whole run down.
+7. `agent_stop` per agent and/or `run_stop` to tear the whole run down.
 
 See [`cookbooks/mcp-agent-swarm`](../../cookbooks/mcp-agent-swarm) for this flow as a complete,
 runnable script — a lead agent forks two reviewers, one gets paused/resumed and the other
@@ -156,14 +156,14 @@ MCP tools instead of raw HTTP.
 
 ## Troubleshooting
 
-| Symptom                                                                                                                 | Cause                                                                                                                                                                                    | Fix                                                                                                                                                                   |
-| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every `alineod_*` call returns `alineod error (network): Could not reach alineod...`                                    | alineod isn't running, or `ALINEOD_URL` points at the wrong address                                                                                                                      | Run `alineo_init` (needs Docker), or check what's actually listening on the configured URL                                                                            |
-| `alineod error (404): no run ...` / `no agent ...`                                                                      | Wrong ID, or the run/agent was already deleted/stopped                                                                                                                                   | Re-check the ID from the tool result that created it; `alineod_get_run` lists current agents                                                                          |
-| `alineod error (409): agent ... is not live`                                                                            | The agent's sandbox already ended                                                                                                                                                        | Check `alineod_get_agent`'s `state`/`outcome` before prompting again                                                                                                  |
-| `alineo_init` fails at "Checking Docker..."                                                                             | Docker isn't installed or the daemon isn't running                                                                                                                                       | Start Docker Desktop (or your Docker daemon) and retry                                                                                                                |
-| A spawned agent never produces a result                                                                                 | No model provider key was forwarded to alineod                                                                                                                                           | Set the relevant key (e.g. `NVIDIA_API_KEY`) in the shell _before_ running `alineo_init`, or add it to the running alineod container's env directly                   |
-| Raw `@alineo-labs/sandbox` SDK code on the host can't follow a sandbox's proxy URL, even though `alineo_init` succeeded | Windows/Mac: alineod reaches OpenSandbox via `host.docker.internal`, which the host itself can't reliably resolve back to itself — see `packages/cli/src/commands/init.ts`'s doc comment | Use `alineod_*` tools instead of the raw SDK against this same OpenSandbox instance, or run OpenSandbox via `uvx opensandbox-server` for direct host-based SDK access |
+| Symptom                                                                                                          | Cause                                                                                                                                                                                    | Fix                                                                                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every `run_*`/`agent_*`/`result_*` call returns `alineod error (network): Could not reach alineod...`            | alineod isn't running, or `ALINEOD_URL` points at the wrong address                                                                                                                      | Run `init` (needs Docker), or check what's actually listening on the configured URL                                                                                             |
+| `alineod error (404): no run ...` / `no agent ...`                                                               | Wrong ID, or the run/agent was already deleted/stopped                                                                                                                                   | Re-check the ID from the tool result that created it; `run_get` lists current agents                                                                                            |
+| `alineod error (409): agent ... is not live`                                                                     | The agent's sandbox already ended                                                                                                                                                        | Check `agent_get`'s `state`/`outcome` before prompting again                                                                                                                    |
+| `init` fails at "Checking Docker..."                                                                             | Docker isn't installed or the daemon isn't running                                                                                                                                       | Start Docker Desktop (or your Docker daemon) and retry                                                                                                                          |
+| A spawned agent never produces a result                                                                          | No model provider key was forwarded to alineod                                                                                                                                           | Set the relevant key (e.g. `NVIDIA_API_KEY`) in the shell _before_ running `init`, or add it to the running alineod container's env directly                                    |
+| Raw `@alineo-labs/sandbox` SDK code on the host can't follow a sandbox's proxy URL, even though `init` succeeded | Windows/Mac: alineod reaches OpenSandbox via `host.docker.internal`, which the host itself can't reliably resolve back to itself — see `packages/cli/src/commands/init.ts`'s doc comment | Use the `run_*`/`agent_*` tools instead of the raw SDK against this same OpenSandbox instance, or run OpenSandbox via `uvx opensandbox-server` for direct host-based SDK access |
 
 ## Local development
 
@@ -190,7 +190,7 @@ see `test/server.test.ts`.
 - **Every tool handler is error-safe.** A thrown error (alineod unreachable, a 404, invalid
   input) becomes an `isError` tool result, never an uncaught rejection that could take the
   server down mid-session.
-- **`alineod_watch_events` is poll-and-collect, not a live stream.** An MCP tool call is
+- **`run_watch` is poll-and-collect, not a live stream.** An MCP tool call is
   request/response; the tool collects SSE events for a bounded window (default 20s, capped at
   120s) and returns them, honoring `Last-Event-ID` via `sinceEventId` so repeated calls don't
   miss anything persisted.

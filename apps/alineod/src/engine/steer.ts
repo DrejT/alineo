@@ -32,7 +32,7 @@ export async function steerAgent(agentId: string, message: string): Promise<void
     throw new HttpError(502, `steer failed: ${msg}`);
   }
 
-  emit(row.run_id, agentId, "agent_steered", { message });
+  emit(row.run_id, agentId, "agent.steered", { message });
 }
 
 export interface RosterEntry {
@@ -95,7 +95,7 @@ export async function steerSubtree(parentId: string, message: string): Promise<S
     deliveredAs = "turn";
   }
 
-  emit(row.run_id, parentId, "agent_steered", {
+  emit(row.run_id, parentId, "agent.steered", {
     message,
     scope: "subtree",
     roster: roster.map((r) => r.agentId),
@@ -118,7 +118,7 @@ function composeEnvelope(
   const rows = children.map((c) => {
     const prompt = (c.prompt ?? "").replace(/\s+/g, " ").trim();
     const excerpt = prompt.length > PROMPT_EXCERPT ? `${prompt.slice(0, PROMPT_EXCERPT)}…` : prompt;
-    return `| ${c.agent_id} | ${c.sandbox_id ?? "(not forked yet)"} | ${c.spec_name} | ${c.state} | ${c.outcome ?? "—"} | ${excerpt || "—"} |`;
+    return `| ${c.agent_id} | ${c.sandbox_id ?? "(no sandbox yet)"} | ${c.spec_name} | ${c.state} | ${c.outcome ?? "—"} | ${excerpt || "—"} |`;
   });
   const roster =
     rows.length > 0
@@ -141,7 +141,7 @@ function composeEnvelope(
     "stop it, or leave it — and whether the new direction needs new sub-agents. Write each child a",
     "message for ITS task, not a copy of this one. Use:",
     '  alineo steer <sandboxId> "<message for that child>"',
-    "  alineo kill <sandboxId>",
-    '  alineo fork self <child-spec.json> --prompt "<task>"',
+    "  alineo stop <sandboxId>",
+    '  alineo spawn self <child-spec.json> --prompt "<task>"',
   ].join("\n");
 }

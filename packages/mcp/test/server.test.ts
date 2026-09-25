@@ -14,22 +14,22 @@ import { writeConfig } from "@alineo-labs/cli-shared";
 import { stubFetch } from "./fetch-stub.js";
 
 const EXPECTED_TOOLS = [
-  "alineod_create_run",
-  "alineod_get_run",
-  "alineod_delete_run",
-  "alineod_watch_events",
-  "alineod_spawn_agent",
-  "alineod_get_agent",
-  "alineod_prompt_agent",
-  "alineod_steer_agent",
-  "alineod_pause_agent",
-  "alineod_resume_agent",
-  "alineod_stop_agent",
-  "alineod_get_result",
-  "alineo_init",
-  "alineo_add_spec",
-  "alineo_list_specs",
-  "alineo_remove_spec",
+  "run_start",
+  "run_get",
+  "run_stop",
+  "run_watch",
+  "agent_spawn",
+  "agent_get",
+  "agent_prompt",
+  "agent_steer",
+  "agent_pause",
+  "agent_resume",
+  "agent_stop",
+  "result_get",
+  "init",
+  "spec_add",
+  "spec_list",
+  "spec_remove",
 ];
 
 async function connectedClient(
@@ -55,11 +55,11 @@ describe("alineo-mcp server", () => {
     }
   });
 
-  it("round-trips a successful alineod_create_run call", async () => {
+  it("round-trips a successful run_start call", async () => {
     const fetchImpl = stubFetch(async (url, init) => {
       expect(String(url)).toBe("http://test.local:4600/runs");
       expect(JSON.parse(String(init?.body))).toEqual({
-        spec: { name: "root", cli: "pi", model: "some-model" },
+        spec: { name: "root", harness: "pi", model: "some-model" },
       });
       return new Response(
         JSON.stringify({ runId: "r1", rootAgentId: "a1", state: "provisioning" }),
@@ -69,8 +69,8 @@ describe("alineo-mcp server", () => {
     const { client, close } = await connectedClient(fetchImpl);
     try {
       const result = await client.callTool({
-        name: "alineod_create_run",
-        arguments: { spec: { name: "root", cli: "pi", model: "some-model" } },
+        name: "run_start",
+        arguments: { spec: { name: "root", harness: "pi", model: "some-model" } },
       });
       expect(result.isError).toBeFalsy();
       const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
@@ -86,7 +86,7 @@ describe("alineo-mcp server", () => {
     );
     const { client, close } = await connectedClient(fetchImpl);
     try {
-      const result = await client.callTool({ name: "alineod_get_run", arguments: { runId: "r1" } });
+      const result = await client.callTool({ name: "run_get", arguments: { runId: "r1" } });
       expect(result.isError).toBe(true);
       const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
       expect(text).toContain("no run r1");
@@ -99,7 +99,7 @@ describe("alineo-mcp server", () => {
     const fetchImpl = stubFetch(async () => new Response(null, { status: 204 }));
     const { client, close } = await connectedClient(fetchImpl);
     try {
-      const result = await client.callTool({ name: "alineod_get_run", arguments: {} });
+      const result = await client.callTool({ name: "run_get", arguments: {} });
       expect(result.isError).toBe(true);
       const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
       expect(text).toContain("runId");
@@ -135,31 +135,34 @@ describe("alineo-mcp server local spec tools", () => {
 
   it("adds, lists, and removes a spec entirely over the protocol", async () => {
     const source = join(tempDir, "spec.json");
-    await Bun.write(source, JSON.stringify({ name: "reviewer", cli: "pi", model: "some-model" }));
+    await Bun.write(
+      source,
+      JSON.stringify({ name: "reviewer", harness: "pi", model: "some-model" }),
+    );
 
     const { client, close } = await connectedClient(
       stubFetch(async () => new Response(null, { status: 204 })),
     );
     try {
       const added = await client.callTool({
-        name: "alineo_add_spec",
+        name: "spec_add",
         arguments: { url: source },
       });
       expect(added.isError).toBeFalsy();
 
-      const listed = await client.callTool({ name: "alineo_list_specs", arguments: {} });
+      const listed = await client.callTool({ name: "spec_list", arguments: {} });
       const specs = JSON.parse(
         (listed.content as { type: string; text: string }[])[0]?.text ?? "[]",
       ) as { name: string }[];
       expect(specs.map((s) => s.name)).toEqual(["reviewer"]);
 
       const removed = await client.callTool({
-        name: "alineo_remove_spec",
+        name: "spec_remove",
         arguments: { name: "reviewer" },
       });
       expect(removed.isError).toBeFalsy();
 
-      const listedAfter = await client.callTool({ name: "alineo_list_specs", arguments: {} });
+      const listedAfter = await client.callTool({ name: "spec_list", arguments: {} });
       expect(
         JSON.parse((listedAfter.content as { type: string; text: string }[])[0]?.text ?? "[]"),
       ).toEqual([]);

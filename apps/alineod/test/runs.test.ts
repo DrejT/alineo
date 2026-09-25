@@ -13,7 +13,7 @@ test("GET /health", async () => {
 describe("POST /runs", () => {
   test("accepts immediately and records the root before provisioning finishes", async () => {
     const gate = deferred();
-    fakeSdk.loadGate = gate.promise;
+    fakeSdk.startGate = gate.promise;
 
     const res = await call("POST", "/runs", { spec: spec("coordinator") });
     expect(res.status).toBe(202);
@@ -41,9 +41,9 @@ describe("POST /runs", () => {
     );
     expect(view).toMatch(/^sb-/);
     expect(events(res.body.runId).map((e) => e.event)).toEqual([
-      "run_started",
-      "agent_spawned",
-      "agent_provisioned",
+      "run.started",
+      "agent.spawned",
+      "agent.provisioned",
     ]);
   });
 
@@ -63,11 +63,11 @@ describe("POST /runs", () => {
         result: "reply: say hi",
       },
     });
-    expect(events(runId).map((e) => e.event)).toContain("handle_settled");
+    expect(events(runId).map((e) => e.event)).toContain("handle.settled");
   });
 
   test("a provisioning failure ends the root as failed with the error", async () => {
-    fakeSdk.loadError = new Error("image pull failed");
+    fakeSdk.startError = new Error("image pull failed");
     const res = await call("POST", "/runs", { spec: spec("root") });
     expect(res.status).toBe(202);
 
@@ -76,7 +76,7 @@ describe("POST /runs", () => {
       return r.body.outcome ? r.body : null;
     });
     expect(view).toMatchObject({ state: "failed", outcome: "failed", sandboxId: null });
-    expect(events(res.body.runId).find((e) => e.event === "agent_ended")?.error).toBe(
+    expect(events(res.body.runId).find((e) => e.event === "agent.ended")?.error).toBe(
       "image pull failed",
     );
   });
@@ -153,7 +153,7 @@ describe("DELETE /runs/:runId", () => {
     expect(root.closed).toBe(true);
     expect(root.aborted).toBe(false);
     expect(getAgentRow(rootAgentId)).toMatchObject({ state: "done", outcome: "success" });
-    expect(events(runId).filter((e) => e.event === "agent_ended")).toHaveLength(1);
+    expect(events(runId).filter((e) => e.event === "agent.ended")).toHaveLength(1);
   });
 
   test("404 for an unknown run", async () => {

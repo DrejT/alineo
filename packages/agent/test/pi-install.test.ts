@@ -16,11 +16,11 @@ function fakeSandbox() {
 }
 
 function baseSpec(overrides: Partial<AgentSpec> = {}): AgentSpec {
-  return { name: "test-agent", cli: "pi", model: "some-model", ...overrides };
+  return { name: "test-agent", harness: "pi", model: "some-model", ...overrides };
 }
 
 describe("PiAdapter.install", () => {
-  it("installs the bare package when cliVersion is omitted", async () => {
+  it("installs the bare package when harnessVersion is omitted", async () => {
     const { sb, commands } = fakeSandbox();
     await new PiAdapter().install(sb, baseSpec());
     expect(commands).toContain("npm install -g --ignore-scripts @earendil-works/pi-coding-agent");
@@ -28,7 +28,7 @@ describe("PiAdapter.install", () => {
 
   it("pins an exact version", async () => {
     const { sb, commands } = fakeSandbox();
-    await new PiAdapter().install(sb, baseSpec({ cliVersion: "1.2.3" }));
+    await new PiAdapter().install(sb, baseSpec({ harnessVersion: "1.2.3" }));
     expect(commands).toContain(
       "npm install -g --ignore-scripts @earendil-works/pi-coding-agent@1.2.3",
     );
@@ -36,7 +36,7 @@ describe("PiAdapter.install", () => {
 
   it("passes through a semver range", async () => {
     const { sb, commands } = fakeSandbox();
-    await new PiAdapter().install(sb, baseSpec({ cliVersion: "^1.2.0" }));
+    await new PiAdapter().install(sb, baseSpec({ harnessVersion: "^1.2.0" }));
     expect(commands).toContain(
       "npm install -g --ignore-scripts @earendil-works/pi-coding-agent@^1.2.0",
     );
@@ -44,7 +44,7 @@ describe("PiAdapter.install", () => {
 
   it("passes through a dist-tag", async () => {
     const { sb, commands } = fakeSandbox();
-    await new PiAdapter().install(sb, baseSpec({ cliVersion: "latest" }));
+    await new PiAdapter().install(sb, baseSpec({ harnessVersion: "latest" }));
     expect(commands).toContain(
       "npm install -g --ignore-scripts @earendil-works/pi-coding-agent@latest",
     );
