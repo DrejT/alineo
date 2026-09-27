@@ -41,6 +41,15 @@ jobs:
       - name: Vocabulary check
         run: bun run check:vocabulary
 
+      - name: Spec freshness
+        run: |
+          bun run --cwd apps/alineod spec
+          if ! git diff --quiet -- apps/alineod/spec/; then
+            echo "::error::apps/alineod/spec is out of date. Run 'bun run --cwd apps/alineod spec' and commit the result."
+            git --no-pager diff -- apps/alineod/spec/
+            exit 1
+          fi
+
       - name: Lint
         run: bun run lint
 
