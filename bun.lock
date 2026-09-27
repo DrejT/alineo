@@ -726,6 +726,10 @@
         "@types/bun": "1.4.2",
       },
     },
+    "tools/oxlint/strict-ts": {
+      "name": "@alineo-labs/oxlint-strict-ts",
+      "version": "0.0.0",
+    },
   },
   "trustedDependencies": [
     "esbuild",
@@ -774,6 +778,8 @@
     "@alineo-labs/opensandbox": ["@alineo-labs/opensandbox@workspace:packages/opensandbox"],
 
     "@alineo-labs/otel": ["@alineo-labs/otel@workspace:packages/adapters/otel"],
+
+    "@alineo-labs/oxlint-strict-ts": ["@alineo-labs/oxlint-strict-ts@workspace:tools/oxlint/strict-ts"],
 
     "@alineo-labs/postgres": ["@alineo-labs/postgres@workspace:packages/adapters/postgres"],
 
