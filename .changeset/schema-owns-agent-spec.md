@@ -11,7 +11,7 @@ Both remain re-exported from `alineo`, so every existing import keeps working. W
 
 **alineod stops modelling `AgentSpec` as `z.record(z.string(), z.unknown())`.** It was an
 opaque pass-through on the reasoning that the SDK owns validation — true for validation, and
-not for the wire contract: `specs/alineod/openapi.json` documented the daemon's most important
+not for the wire contract: `apps/alineod/spec/openapi.json` documented the daemon's most important
 request body as "some object". It now carries the real shape, and an invalid spec comes back
 from `POST /runs` as a 400 naming the bad field rather than failing later inside
 `Alineo.start()`. That is a behaviour change: a spec alineod used to accept and fail on is now
