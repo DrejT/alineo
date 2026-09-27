@@ -3,6 +3,11 @@
 # (alineo, @alineo-labs/{core,sandbox,sqlite}) resolve via their `exports.import`
 # dist/ build output, same as CI's "Build all packages" step.
 #
+# This image is ONLY the backend. The dashboard frontend (`bun run deploy` in this
+# app — `astro build && wrangler pages deploy`) is not currently live; the docs
+# playground is this backend's only real consumer right now. Don't assume the two
+# are in sync — check the frontend's own deploy state before relying on it.
+#
 # Build from the repo root:
 #   docker build -f apps/sandbox/Dockerfile -t alineo-sandbox-api .
 #
