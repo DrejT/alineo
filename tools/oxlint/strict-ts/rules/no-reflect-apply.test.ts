@@ -5,7 +5,7 @@ import { noReflectApplyRule } from "./no-reflect-apply.ts";
 const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" } } });
 const error = { messageId: "reflectApply" };
 
-tester.run("anti-slop/no-reflect-apply", noReflectApplyRule, {
+tester.run("strict-ts/no-reflect-apply", noReflectApplyRule, {
   valid: [
     "const value = operation.apply(owner, args);",
     "Reflect.get(owner, key);",

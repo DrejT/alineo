@@ -6,7 +6,7 @@ const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" }
 
 const error = { messageId: "unsafeDictionary" };
 
-tester.run("anti-slop/no-unsafe-dictionary-type", noUnsafeDictionaryTypeRule, {
+tester.run("strict-ts/no-unsafe-dictionary-type", noUnsafeDictionaryTypeRule, {
 	valid: [
 		"type Commands = Record<string, Command>;",
 		"type Metadata = Record<PropertyKey, JsonValue>;",

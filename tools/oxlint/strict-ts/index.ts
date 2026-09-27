@@ -1,3 +1,12 @@
+/**
+ * Strict-TypeScript oxlint rules, vendored.
+ *
+ * Source: https://github.com/dmmulroy/anti-slop (MIT, see LICENSE). The upstream package is
+ * `private: true` and unpublished, and its README's install path is to copy `src/` into the
+ * consuming repo — so this is a vendored copy, not a dependency. Eight of upstream's eighteen
+ * rules are kept; the plugin is renamed `strict-ts` here because the name appears in every
+ * lint message. Re-apply the rename when syncing upstream changes.
+ */
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
 import { noReduceAccumulatorCopyRule } from "./rules/no-reduce-accumulator-copy.ts";
@@ -11,7 +20,7 @@ import { noWidenThenAssertRule } from "./rules/no-widen-then-assert.ts";
 
 /** Generic Oxlint rules that reject low-evidence and low-signal implementation patterns. */
 const antiSlopPlugin = eslintCompatPlugin({
-	meta: { name: "anti-slop" },
+	meta: { name: "strict-ts" },
 	rules: {
 		"no-reduce-accumulator-copy": noReduceAccumulatorCopyRule,
 		"no-chained-type-assertions": noChainedTypeAssertionsRule,

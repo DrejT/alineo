@@ -5,7 +5,7 @@ import { noReduceAccumulatorCopyRule } from "./no-reduce-accumulator-copy.ts";
 const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" } } });
 const error = { messageId: "accumulatorCopy" };
 
-tester.run("anti-slop/no-reduce-accumulator-copy", noReduceAccumulatorCopyRule, {
+tester.run("strict-ts/no-reduce-accumulator-copy", noReduceAccumulatorCopyRule, {
   valid: [
     "items.reduce((acc, item) => { acc.push(item); return acc; }, []);",
     "items.reduce((acc, item) => Object.assign(acc, item), {});",

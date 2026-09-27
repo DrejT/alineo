@@ -5,7 +5,7 @@ import { noReflectGetRule } from "./no-reflect-get.ts";
 const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" } } });
 const error = { messageId: "reflectGet" };
 
-tester.run("anti-slop/no-reflect-get", noReflectGetRule, {
+tester.run("strict-ts/no-reflect-get", noReflectGetRule, {
   valid: [
     "const value = owner.property;",
     "const value = owner[key];",

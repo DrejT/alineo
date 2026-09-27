@@ -33,7 +33,8 @@
     "apps/registry",
     "apps/sandbox",
     "apps/telemetry",
-    "apps/alineod"
+    "apps/alineod",
+    "tools/oxlint/strict-ts"
   ],
   "scripts": {
     "setup": "bun scripts/setup.ts",
