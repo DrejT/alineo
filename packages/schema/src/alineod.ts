@@ -2,7 +2,7 @@
  * alineod's wire contract, as Zod.
  *
  * Here rather than inside `apps/alineod` because three things need it and only one of them
- * is the daemon: alineod's own route validators, the emitted `specs/alineod/openapi.json`,
+ * is the daemon: alineod's own route validators, the emitted `apps/alineod/spec/openapi.json`,
  * and `alineo-mcp`, which talks to alineod over HTTP like any other client.
  *
  * `alineo-mcp` used to mirror eleven of these shapes by hand, documented as deliberate —
@@ -332,7 +332,7 @@ export const TranscriptResponse = z.object({
 // agreed — which is the duplication the schema package exists to end.
 //
 // Its only consumer is `scripts/emit-spec.ts`, so this is what puts alineod's events into
-// `specs/alineod/openapi.json`: a definition added to the schema shows up in the spec without
+// `apps/alineod/spec/openapi.json`: a definition added to the schema shows up in the spec without
 // anyone touching this file.
 //
 // Forwarded harness events (`tool.started`, `message.updated`, …) ride the same SSE stream
@@ -363,7 +363,7 @@ function alineodEventMembers(): z.ZodObject[] {
   }
   if (members.length === 0) {
     // The registry is filled by import side effects, and an empty one derives an empty union
-    // rather than failing — which once emptied `specs/alineod/events.schema.json` silently.
+    // rather than failing — which once emptied `apps/alineod/spec/events.schema.json` silently.
     throw new Error(
       "No alineod event definitions are registered. Did this module load without ./events?",
     );

@@ -8,7 +8,7 @@ import { allEvents } from "../src/index";
  * an empty registry does not throw — it derives an empty union and every caller carries on.
  *
  * It happened. Giving the wire contract its own entry point put it in a separate bundle that
- * never loaded the definitions, and `specs/alineod/events.schema.json` went from 594 lines to
+ * never loaded the definitions, and `apps/alineod/spec/events.schema.json` went from 594 lines to
  * one without a single failing test.
  */
 describe("the derived alineod event union", () => {

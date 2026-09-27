@@ -1,8 +1,8 @@
 /**
  * Emit the language-neutral protocol artifacts from the Zod schemas:
  *
- *   specs/alineod/openapi.json       — the routes
- *   specs/alineod/events.schema.json  — the SSE event union
+ *   apps/alineod/spec/openapi.json       — the routes
+ *   apps/alineod/spec/events.schema.json  — the SSE event union
  *
  * These two files ARE alineo-as-a-protocol (research/daemon.md §2, §7, milestone L5). Run
  * with `bun run spec` from apps/alineod.
@@ -36,7 +36,7 @@ import {
   AlineodEvent,
 } from "../src/schema";
 
-const OUT_DIR = join(import.meta.dir, "../../../specs/alineod");
+const OUT_DIR = join(import.meta.dir, "../spec");
 mkdirSync(OUT_DIR, { recursive: true });
 
 const json = (s: z.ZodType) => z.toJSONSchema(s, { target: "openapi-3.0" });

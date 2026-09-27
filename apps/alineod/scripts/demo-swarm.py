@@ -18,7 +18,7 @@ import urllib.request
 sys.stdout.reconfigure(line_buffering=True)  # so progress shows in a redirected log
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:4600"
-MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
+MODEL = "nvidia/nemotron-3-super-120b-a12b"
 NV = "${NVIDIA_API_KEY}"  # resolved from the alineod process env by the SDK
 
 
@@ -40,7 +40,7 @@ def call(method, path, body=None, timeout=320):
 
 def spec(name, **extra):
     return {
-        "name": name, "cli": "pi", "provider": "nvidia", "model": MODEL,
+        "name": name, "harness": "pi", "provider": "nvidia", "model": MODEL,
         "env": {"NVIDIA_API_KEY": NV},
         "resources": {"cpu": "1000m", "memory": "2Gi"},
         **extra,

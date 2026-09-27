@@ -1,6 +1,7 @@
 {
   "name": "alineo",
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/core",
     "packages/opensandbox",
@@ -33,7 +34,8 @@
     "apps/registry",
     "apps/sandbox",
     "apps/telemetry",
-    "apps/alineod"
+    "apps/alineod",
+    "tools/oxlint/strict-ts"
   ],
   "scripts": {
     "setup": "bun scripts/setup.ts",
@@ -44,8 +46,8 @@
     "check:vocabulary": "bun scripts/check-vocabulary.ts",
     "lint": "oxlint packages examples cookbooks && oxlint -c .oxlintrc.console.json apps/alineod apps/sandbox/server",
     "lint:fix": "oxlint --fix packages examples cookbooks",
-    "format": "oxfmt packages examples cookbooks apps \"!**/CHANGELOG.md\"",
-    "format:check": "oxfmt --check packages examples cookbooks apps \"!**/CHANGELOG.md\"",
+    "format": "oxfmt packages examples cookbooks apps \"!**/CHANGELOG.md\" \"!apps/alineod/spec/**\"",
+    "format:check": "oxfmt --check packages examples cookbooks apps \"!**/CHANGELOG.md\" \"!apps/alineod/spec/**\"",
     "release:version": "bun changeset version",
     "release:publish": "bun scripts/resolve-workspace-protocol.ts && bun changeset publish"
   },

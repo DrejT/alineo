@@ -13,7 +13,7 @@ client ── HTTP + SSE ──▶ alineod ── in-process ──▶ alineo SD
 
 alineod exposes an HTTP + SSE API for initiating and orchestrating agent swarms. Internally it
 drives OpenSandbox through the `alineo` SDK (`Alineo.start` / `.spawn` / `.prompt` / `.abort`).
-The **protocol** is this daemon's wire contract — `specs/alineod/openapi.json` +
+The **protocol** is this daemon's wire contract — `apps/alineod/spec/openapi.json` +
 `events.schema.json`, emitted from the Zod schemas in `src/schema.ts`.
 
 ## Run
@@ -71,7 +71,7 @@ running it bare).
 ## Emit the protocol spec
 
 ```bash
-bun run spec           # writes specs/alineod/{openapi.json,events.schema.json}
+bun run spec           # writes apps/alineod/spec/{openapi.json,events.schema.json}
 ```
 
 ## Routes

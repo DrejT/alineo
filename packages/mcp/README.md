@@ -185,7 +185,7 @@ see `test/server.test.ts`.
   channel, so nothing in this package may `console.log` — diagnostics go to `console.error`.
 - **Thin HTTP client, not the `alineo` SDK.** `src/alineod-client.ts` talks to alineod purely
   over its documented wire contract (`apps/alineod/src/schema.ts`,
-  `specs/alineod/openapi.json`), the same way any external MCP client would — alineod is
+  `apps/alineod/spec/openapi.json`), the same way any external MCP client would — alineod is
   "standalone by design" (its own README), and this package doesn't reach into its internals.
 - **Every tool handler is error-safe.** A thrown error (alineod unreachable, a 404, invalid
   input) becomes an `isError` tool result, never an uncaught rejection that could take the

@@ -5,7 +5,7 @@ import { noChainedTypeAssertionsRule } from "./no-chained-type-assertions.ts";
 const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" } } });
 const error = { messageId: "chained" };
 
-tester.run("anti-slop/no-chained-type-assertions", noChainedTypeAssertionsRule, {
+tester.run("strict-ts/no-chained-type-assertions", noChainedTypeAssertionsRule, {
   valid: [
     "const value = input as User;",
     "const value = (input as User);",

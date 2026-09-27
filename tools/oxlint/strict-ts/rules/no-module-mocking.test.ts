@@ -5,7 +5,7 @@ import { noModuleMockingRule } from "./no-module-mocking.ts";
 const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" } } });
 const error = { messageId: "moduleMock" };
 
-tester.run("anti-slop/no-module-mocking", noModuleMockingRule, {
+tester.run("strict-ts/no-module-mocking", noModuleMockingRule, {
   valid: [
     "const store = new InMemoryUserStore();",
     "vi.spyOn(store, 'save');",

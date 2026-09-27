@@ -5,7 +5,7 @@
  * reaches the registry without having loaded the definitions sees an empty one — and an empty
  * registry does not throw, it just quietly returns nothing. That bit once already: the
  * `@alineo-labs/schema/alineod` entry derives `AlineodEvent` from `allEvents()`, and splitting
- * it into its own bundle emptied `specs/alineod/events.schema.json` from 594 lines to one.
+ * it into its own bundle emptied `apps/alineod/spec/events.schema.json` from 594 lines to one.
  *
  * Every entry point imports this, so all of them share one populated registry.
  */
