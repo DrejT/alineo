@@ -27,7 +27,7 @@ export async function stopAgent(agentId: string, mode: "abort" | "drain"): Promi
   if (row.ended_at !== null) {
     if (!agent) return "noop";
     await closeQuietly(agentId);
-    emit(row.run_id, agentId, "agent_released", { reason: `stop:${mode}` });
+    emit(row.run_id, agentId, "agent.released", { reason: `stop:${mode}` });
     return "released";
   }
 
@@ -45,7 +45,7 @@ export async function stopAgent(agentId: string, mode: "abort" | "drain"): Promi
   }
   // No sandbox yet (held on waitFor or a paused parent): ending it here is what cancels the
   // spawn — provisionChild() checks for this before and after the fork.
-  emit(row.run_id, agentId, "agent_ended", { outcome: "aborted", endedAt: Date.now() });
+  emit(row.run_id, agentId, "agent.ended", { outcome: "aborted", endedAt: Date.now() });
   return "aborted";
 }
 
@@ -82,7 +82,7 @@ export async function deleteRun(runId: string): Promise<void> {
     if (!agent) {
       // Not forked yet: ending it cancels the pending spawn (provisionChild checks).
       if (!a.endedAt) {
-        emit(runId, a.agentId, "agent_ended", { outcome: "aborted", endedAt: Date.now() });
+        emit(runId, a.agentId, "agent.ended", { outcome: "aborted", endedAt: Date.now() });
       }
       continue;
     }
@@ -95,9 +95,9 @@ export async function deleteRun(runId: string): Promise<void> {
     }
     await closeQuietly(a.agentId);
     if (a.endedAt) {
-      emit(runId, a.agentId, "agent_released", { reason: "delete-run" });
+      emit(runId, a.agentId, "agent.released", { reason: "delete-run" });
     } else {
-      emit(runId, a.agentId, "agent_ended", { outcome: "aborted", endedAt: Date.now() });
+      emit(runId, a.agentId, "agent.ended", { outcome: "aborted", endedAt: Date.now() });
     }
   }
   // Ledger is intentionally left intact.

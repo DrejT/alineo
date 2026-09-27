@@ -9,10 +9,10 @@ bunx alineo-cli steer <sandbox-id> <message> [--spec <path>]
 
 ## Arguments
 
-| Argument     | Description                                                                    |
-| ------------ | ------------------------------------------------------------------------------ |
-| `sandbox-id` | The target's sandbox ID, as printed by `alineo spawn`/`alineo fork`. Required. |
-| `message`    | The steering instruction. Required.                                            |
+| Argument     | Description                                                                     |
+| ------------ | ------------------------------------------------------------------------------- |
+| `sandbox-id` | The target's sandbox ID, as printed by `alineo start`/`alineo spawn`. Required. |
+| `message`    | The steering instruction. Required.                                             |
 
 ## Flags
 
@@ -33,15 +33,15 @@ That's what makes steer safe to use on an agent that's busy.
 
 The message is delivered **after the tool calls in the target's current turn finish, and before its next model
 call**. It does not interrupt a tool call that is already running. To stop an agent immediately regardless of what
-it's doing, use [`alineo kill`](/docs/alineo/commands/kill).
+it's doing, use [`alineo stop`](/docs/alineo/commands/stop).
 
 ## Example
 
 A parent session that forked a child can redirect it from its own bash tool, using the `sandboxId` from
-`alineo fork --json`:
+`alineo spawn --json`:
 
 ```bash
-bunx alineo-cli fork my-session ./agents/worker.json \
+bunx alineo-cli spawn my-session ./agents/worker.json \
   --prompt "Audit src/ for security and performance issues" --json
 # {"name":"fork-my-session-a1b2c3","sandboxId":"6a69afcb-7a00-437a-9819-e032022cc736","reply":null}
 
@@ -57,7 +57,7 @@ bunx alineo-cli steer 6a69afcb-7a00-437a-9819-e032022cc736 \
 
 When a parent is redirected, it's usually better for the parent to decide what each child should now do than to
 send every child the same instruction. A child working on one slice of the task needs a message about **its**
-slice — and some children may be better stopped with `alineo kill`, or replaced with a fresh `alineo fork`.
+slice — and some children may be better stopped with `alineo stop`, or replaced with a fresh `alineo spawn`.
 
 The [Pi extension](/docs/alineo/commands#pi-extension) includes this guidance in the system prompt of sessions
 running inside a sandbox.

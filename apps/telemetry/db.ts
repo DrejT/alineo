@@ -10,11 +10,19 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DB_PATH } from "./config";
+import { migrateCommandNames } from "./migrate-command-names";
 
 /** Intentionally duplicated from `packages/cli/src/telemetry.ts`'s identical interface rather
  * than shared via a workspace package -- this app and `alineo` communicate purely over the
  * `POST /v1/events` HTTP contract, with no runtime/deploy dependency in either direction. Type
- * duplication across an HTTP boundary is the normal cost of that, not a code smell. */
+ * duplication across an HTTP boundary is the normal cost of that, not a code smell.
+ *
+ * Revisited when `@alineo-labs/schema` took over the other duplicated shapes, and left alone:
+ * this app has NO dependencies at all and is deployed by hand onto a VPS, so a workspace
+ * dependency would make a standalone service need the monorepo built to start. That is a
+ * worse trade than thirteen fields written twice. `cliVersion` here is the alineo CLI's own
+ * version, incidentally -- not `AgentSpec.harnessVersion`, which is a different field that
+ * used to share the name. */
 export interface CliTelemetryEvent {
   command: string;
   flags: Record<string, boolean>;
@@ -54,6 +62,14 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_received_at ON events (received_at);
 CREATE INDEX IF NOT EXISTS idx_events_anonymous_id ON events (anonymous_id);
 `);
+
+// Bring rows written by a pre-0.4.0 CLI onto the current verbs, so a count over `command`
+// stops splitting one action across two names — and stops reading pre-0.4.0 `spawn`, which
+// meant "create a root agent", as the `spawn` that now means "create a child".
+const renamedCommands = migrateCommandNames(db);
+if (renamedCommands > 0) {
+  console.log(`[telemetry] migrated ${renamedCommands} rows to the 0.4.0 command names`);
+}
 
 export function insertEvent(event: CliTelemetryEvent): void {
   db.run(

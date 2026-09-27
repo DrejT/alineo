@@ -12,13 +12,23 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { getLogger } from "@alineo-labs/logger";
 import { DB_PATH } from "../../config";
+import { migrateEventNames } from "./migrate-event-names";
+import { migrateAgentSpecs } from "./migrate-agent-specs";
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
 export const db = new Database(DB_PATH, { create: true });
 db.exec("PRAGMA journal_mode = WAL;");
+// Pinned rather than inherited: Bun's bundled SQLite defaults to FULL, but the build default is
+// what decides it (a system SQLite, or NORMAL under WAL, can drop the last commits on power
+// loss). A ledger event is only "committed" if it survives that.
+db.exec("PRAGMA synchronous = FULL;");
 db.exec("PRAGMA foreign_keys = ON;");
+// A second process can touch this file — an instance booting against it checks the lease
+// (lease.ts). Wait out its brief write lock instead of failing with SQLITE_BUSY.
+db.exec("PRAGMA busy_timeout = 5000;");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS ledger (
@@ -44,12 +54,12 @@ CREATE TABLE IF NOT EXISTS agents (
   sandbox_id      TEXT,
   -- Budget alineod passes to parent.spawn({ spawnDepth, maxAgents }) when THIS agent spawns.
   -- alineod owns this accounting because it drives .spawn() out-of-process -- the SDK's
-  -- ALINEO_SPAWN_DEPTH env mechanism only works for in-sandbox "alineo fork". Root gets it
+  -- ALINEO_SPAWN_DEPTH env mechanism only works for in-sandbox "alineo spawn". Root gets it
   -- from its spec / the run budget; each child gets parent - 1. NULL means spawning disabled.
   spawn_budget      INTEGER,
   max_agents_budget INTEGER,
   -- Persisted so a spawn that's still pre-fork (waiting on waitFor, or -- for a root --
-  -- still inside Alineo.load()) at crash time can be RETRIED on rehydrate instead of just
+  -- still inside Alineo.start()) at crash time can be RETRIED on rehydrate instead of just
   -- marked lost. Before this, that intent only ever lived in the dead process's closure.
   wait_for        TEXT,                   -- JSON array of agentIds, or NULL
   prompt          TEXT,
@@ -59,7 +69,10 @@ CREATE TABLE IF NOT EXISTS agents (
   paused_by       TEXT,
   created_at      INTEGER NOT NULL,
   ended_at        INTEGER,
-  outcome         TEXT                    -- success|failed|aborted|budget-exceeded|lost
+  outcome         TEXT,                   -- success|failed|aborted|budget-exceeded|lost
+  -- When a finished agent's sandbox was released (agent.released): stopped, its run deleted, or
+  -- found gone on rehydrate. A released agent is never reconnected. NULL while it is still open.
+  released_at     INTEGER
 );
 CREATE INDEX IF NOT EXISTS agents_run ON agents (run_id);
 CREATE INDEX IF NOT EXISTS agents_parent ON agents (parent_agent_id);
@@ -91,6 +104,7 @@ for (const alter of [
   "ALTER TABLE agents ADD COLUMN prompt TEXT",
   "ALTER TABLE agents ADD COLUMN paused_from TEXT",
   "ALTER TABLE agents ADD COLUMN paused_by TEXT",
+  "ALTER TABLE agents ADD COLUMN released_at INTEGER",
 ]) {
   try {
     db.exec(alter);
@@ -129,6 +143,22 @@ CREATE TABLE IF NOT EXISTS inbox (
 );
 CREATE INDEX IF NOT EXISTS inbox_agent ON inbox (agent_id, state);
 `);
+
+// Rename the `event` column to the namespaced names. Runs at boot, after the tables exist
+// and before anything reads them — a projection folding on the new names would silently skip
+// every old row, which presents as an empty swarm rather than as an error.
+const renamed = migrateEventNames(db);
+if (renamed > 0) {
+  getLogger("alineod").info("migrated ledger event names", { rows: renamed });
+}
+
+// And the spec each `agent.spawned` row carries. Same moment, same reason: `rehydrate()`
+// folds that spec back out and validates it, so one still spelling `cli` fails every
+// reattach and marks each still-running agent `lost` on the first boot after the upgrade.
+const respecced = migrateAgentSpecs(db);
+if (respecced > 0) {
+  getLogger("alineod").info("migrated stored agent spec fields", { rows: respecced });
+}
 
 export interface LedgerRow {
   seq: number;

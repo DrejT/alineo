@@ -11,9 +11,9 @@ review-lead ── clones expressjs/cors once
   editor ── waits for both, merges their findings into one report
 ```
 
-Every step below is an `alineo-mcp` tool call — `alineod_create_run`, `alineod_spawn_agent`,
-`alineod_pause_agent` / `resume_agent`, `alineod_steer_agent`, `alineod_watch_events`,
-`alineod_get_result`, `alineod_get_run`, `alineod_delete_run` — the same tools a chat client
+Every step below is an `alineo-mcp` tool call — `run_start`, `agent_spawn`,
+`agent_pause` / `resume_agent`, `agent_steer`, `run_watch`,
+`result_get`, `run_get`, `run_stop` — the same tools a chat client
 (Claude Code, Claude Desktop, Cursor) would call if you asked it to run this review for you once
 `alineo-mcp` is in its `mcpServers` config (see [`packages/mcp/README.md`](../../packages/mcp/README.md)).
 This recipe is that same client, scripted, via `mcp-client.ts`'s tiny wrapper around
@@ -50,24 +50,24 @@ through to `alineo-mcp` as the env var the server itself reads.
 
 1. **Connects to `alineo-mcp` over stdio** (`mcp-client.ts`), the same transport a chat client
    uses — `Bun.spawn`-launched, JSON-RPC over stdin/stdout.
-2. **Checks out the repository once**, via `alineod_create_run` with `agents/lead.json` (which
+2. **Checks out the repository once**, via `run_start` with `agents/lead.json` (which
    installs `git` and clones `expressjs/cors` as a setup step) and an initial prompt. The lead's
-   first turn reports the commit being reviewed (`alineod_get_result`).
-3. **Forks a reviewer per concern** — security and correctness — with `alineod_spawn_agent`. Each
+   first turn reports the commit being reviewed (`result_get`).
+3. **Forks a reviewer per concern** — security and correctness — with `agent_spawn`. Each
    is a fork of the lead's live sandbox, so the checkout is already on disk; nothing is cloned
    twice. Each spawn carries an `idempotencyKey`, so a retried call can't create a duplicate
    reviewer. The lead's `spawnDepth: 1` and `maxAgents: 4` cap how far the swarm can grow.
-4. **Intervenes mid-review** with three more tools: `alineod_pause_agent` / `alineod_resume_agent`
+4. **Intervenes mid-review** with three more tools: `agent_pause` / `agent_resume`
    freeze and thaw the correctness reviewer's container for five seconds without restarting it;
-   `alineod_steer_agent` narrows the security reviewer's brief mid-turn.
-5. **Gathers** with one more `alineod_spawn_agent` call for the editor, carrying `waitFor` on
+   `agent_steer` narrows the security reviewer's brief mid-turn.
+5. **Gathers** with one more `agent_spawn` call for the editor, carrying `waitFor` on
    both reviewers — alineod holds it until they finish, then writes each reviewer's findings into
    its sandbox under `/inputs/`, with an `/inputs.json` manifest including each outcome.
-6. **Reports.** The merged report comes back from `alineod_get_result` and is printed and written
-   to `review.md`, followed by the final agent tree from `alineod_get_run`. `alineod_delete_run`
+6. **Reports.** The merged report comes back from `result_get` and is printed and written
+   to `review.md`, followed by the final agent tree from `run_get`. `run_stop`
    then closes every sandbox.
 
-Progress for every agent streams via repeated `alineod_watch_events` calls, each a bounded
+Progress for every agent streams via repeated `run_watch` calls, each a bounded
 5-second window resuming from the last event id seen (`sinceEventId`) — since an MCP tool call is
 request/response, this is a poll-and-collect loop rather than one held-open SSE connection (which
 is what `../swarm-code-review`'s raw-HTTP version uses instead — compare `watch()` in each).

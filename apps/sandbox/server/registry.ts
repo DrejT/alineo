@@ -84,9 +84,9 @@ export async function createAgent(specName: string): Promise<Alineo> {
   if (!isAllowedAgentSpec(specName)) {
     throw new NotFoundError(`Unknown agent spec "${specName}"`);
   }
-  // Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+  // Alineo.start() no longer does its own file I/O (see #184) -- read the spec ourselves.
   const spec = await Bun.file(`${config.AGENTS_DIR}/${specName}.json`).json();
-  const agent = await Alineo.load(spec, { adapter });
+  const agent = await Alineo.start(spec, { adapter });
   agents.set(agent.sandboxId, agent);
   return agent;
 }
@@ -101,7 +101,7 @@ export async function deleteAgent(id: string): Promise<void> {
 /**
  * Rebuild the in-memory registries from the ledger on boot, so a backend
  * restart never leaves running containers orphaned/untracked. Alineo sandboxes
- * are identified by ledger `name` matching an allowed spec name (`Alineo.load()`
+ * are identified by ledger `name` matching an allowed spec name (`Alineo.start()`
  * names the sandbox after `spec.name`) — `SandboxOptions.metadata` is not
  * surfaced back through `SandboxDetails`, so it can't be used for this.
  */

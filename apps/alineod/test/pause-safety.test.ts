@@ -54,7 +54,7 @@ describe("stream timeouts", () => {
     await until(() => isCatchingUp(rootAgentId), "catch-up to start");
     expect(getHandle(rootAgentId)?.state).toBe("pending");
     expect(getAgentRow(rootAgentId)?.state).toBe("running");
-    expect(events(runId).some((e) => e.event === "agent_ended")).toBe(false);
+    expect(events(runId).some((e) => e.event === "agent.ended")).toBe(false);
 
     agent.lastText = "the full answer";
     agent.streaming = false;
@@ -107,7 +107,7 @@ describe("stream timeouts", () => {
 
     await until(() => getHandle(rootAgentId)?.state === "settled", "give up", 6_000);
     expect(getHandle(rootAgentId)).toMatchObject({ outcome: "success" });
-    const ended = events(runId).find((e) => e.event === "agent_ended");
+    const ended = events(runId).find((e) => e.event === "agent.ended");
     expect(ended?.error).toContain("still running");
   }, 10_000);
 
@@ -122,7 +122,7 @@ describe("stream timeouts", () => {
 
     await until(() => !isCatchingUp(rootAgentId), "catch-up to exit");
     expect(getAgentRow(rootAgentId)).toMatchObject({ state: "aborted", outcome: "aborted" });
-    expect(events(runId).filter((e) => e.event === "agent_ended")).toHaveLength(1);
+    expect(events(runId).filter((e) => e.event === "agent.ended")).toHaveLength(1);
   });
 });
 
@@ -136,7 +136,7 @@ describe("resume", () => {
 
     expect(getAgentRow(rootAgentId)).toMatchObject({ state: "done", outcome: "success" });
     await Bun.sleep(100);
-    expect(events(runId).filter((e) => e.event === "agent_ended")).toHaveLength(1);
+    expect(events(runId).filter((e) => e.event === "agent.ended")).toHaveLength(1);
   });
 });
 
@@ -164,7 +164,7 @@ describe("spawning under a paused parent", () => {
     await until(() => child.prompts.includes("go"), "child prompt");
 
     const reasons = events(runId)
-      .filter((e) => e.event === "agent_state_changed" && e.agentId === childId)
+      .filter((e) => e.event === "agent.state_changed" && e.agentId === childId)
       .map((e) => e.reason);
     expect(reasons).toEqual(["parent-paused", "parent-resumed", "prompt"]);
   });
@@ -209,7 +209,7 @@ describe("spawning under a paused parent", () => {
     await until(() => getAgentRow(childId)?.outcome, "child to end");
     expect(getAgentRow(childId)).toMatchObject({ state: "failed", outcome: "failed" });
     expect(
-      events(runId).find((e) => e.event === "agent_ended" && e.agentId === childId)?.error,
+      events(runId).find((e) => e.event === "agent.ended" && e.agentId === childId)?.error,
     ).toContain("no longer live");
   });
 });

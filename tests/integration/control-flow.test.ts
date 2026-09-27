@@ -3,11 +3,18 @@ import { workflow } from "@alineo-labs/workflow";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
+// `useServerProxy` defaults on: an `alineo init` (Docker) server hands out
+// container-internal endpoints that aren't reachable from the host. Set
+// `OPEN_SANDBOX_SERVER_PROXY=false` for a bare `uvx opensandbox-server`, where the
+// direct endpoints work.
+const USE_SERVER_PROXY = process.env.OPEN_SANDBOX_SERVER_PROXY !== "false";
+
 test("retry, when, and forEach all execute correctly", async () => {
   const client = new Sandbox({
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),
+    useServerProxy: USE_SERVER_PROXY,
   });
 
   const { stdout } = await workflow(client)

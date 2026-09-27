@@ -20,7 +20,7 @@ autonomous and a few moments to pause for a person.
 The quickest form is a string:
 
 ```json
-{ "name": "my-agent", "cli": "pi", "permissions": "readonly" }
+{ "name": "my-agent", "harness": "pi", "permissions": "readonly" }
 ```
 
 `"readonly"` restricts the model's toolset to the read-only tools (`read`, `grep`, `find`,
@@ -58,7 +58,7 @@ example — reads run untouched, writes pause for the operator, `rm -rf` is refu
 ## How it works
 
 Enforcement is a bundled Pi extension on the `tool_call` hook. When a rule resolves to
-`ask`, the extension holds the call and the SDK emits a `permission_request` on the agent
+`ask`, the extension holds the call and the SDK emits a `permission.requested` on the agent
 stream; your code answers it and the held call resumes or fails.
 
 ```mermaid

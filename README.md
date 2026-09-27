@@ -38,16 +38,16 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const spec: AgentSpec = {
   name: "hello-agent",
-  cli: "pi",
+  harness: "pi",
   provider: "nvidia",
-  model: "nvidia/nemotron-3.5-lightning-30b-a3b",
+  model: "nvidia/nemotron-3-super-120b-a12b",
   packages: ["python3"],
   env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }, // resolved from your shell
   resources: { cpu: "1000m", memory: "2Gi" },
 };
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
     process.stdout.write(chunk);

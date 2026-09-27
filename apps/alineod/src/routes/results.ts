@@ -58,7 +58,7 @@ function waitForSettle(runId: string, agentId: string, timeoutMs: number): Promi
     // Subscribe first, then check — a settle in the gap re-triggers the check via the listener.
     off = onRun(runId, (msg) => {
       if (
-        (msg.event === "handle_settled" || msg.event === "agent_ended") &&
+        (msg.event === "handle.settled" || msg.event === "agent.ended") &&
         (msg.data as { agentId?: string }).agentId === agentId
       ) {
         done();

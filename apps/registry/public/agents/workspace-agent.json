@@ -5,7 +5,7 @@
   "description": "Demonstrates setup steps: a small Node.js project is created before the snapshot.",
   "author": "alineo",
   "categories": ["agent", "setup-steps"],
-  "cli": "pi",
+  "harness": "pi",
   "model": "gemini-flash-latest",
   "packages": ["python3"],
   "env": {

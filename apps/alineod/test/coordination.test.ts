@@ -59,11 +59,11 @@ describe("waitFor regimes", () => {
     expect(row).toMatchObject({ state: "failed", outcome: "failed" });
     expect(forkedChild(run.root, "gather")).toBeUndefined();
     const endedEv = events(run.runId).find(
-      (e) => e.event === "agent_ended" && e.agentId === res.body.agentId,
+      (e) => e.event === "agent.ended" && e.agentId === res.body.agentId,
     );
     expect(endedEv?.error).toContain(`dep-failed: ${b.agentId}`);
     expect(
-      events(run.runId).find((e) => e.event === "wait_resolved" && e.agentId === res.body.agentId),
+      events(run.runId).find((e) => e.event === "wait.resolved" && e.agentId === res.body.agentId),
     ).toMatchObject({ mode: "all", outcome: "depfail" });
   });
 
@@ -158,7 +158,7 @@ describe("waitFor regimes", () => {
     const row = await ended(res.body.agentId);
     expect(row).toMatchObject({ outcome: "failed" });
     expect(
-      events(run.runId).find((e) => e.event === "agent_ended" && e.agentId === res.body.agentId)
+      events(run.runId).find((e) => e.event === "agent.ended" && e.agentId === res.body.agentId)
         ?.error,
     ).toContain("wait-deadline");
     slow.resolve();
@@ -172,10 +172,8 @@ describe("waitFor regimes", () => {
     await call("POST", `/agents/${a.agentId}/pause`);
     await until(
       () =>
-        events(run.runId).find(
-          (e) => e.event === "wait_blocked_on_paused" && e.agentId === res.body.agentId,
-        ),
-      "wait_blocked_on_paused",
+        events(run.runId).find((e) => e.event === "wait.blocked" && e.agentId === res.body.agentId),
+      "wait.blocked",
     );
     await call("POST", `/agents/${a.agentId}/resume`);
     slow.resolve();
@@ -224,9 +222,7 @@ describe("quiescence", () => {
       [run.rootAgentId, a.agentId].sort(),
     );
     expect(
-      events(run.runId).some(
-        (e) => e.event === "subtree_quiescent" && e.agentId === run.rootAgentId,
-      ),
+      events(run.runId).some((e) => e.event === "run.quiescent" && e.agentId === run.rootAgentId),
     ).toBe(true);
   });
 

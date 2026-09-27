@@ -19,7 +19,7 @@ export interface ChatView {
  * scrollbox instead of the DOM — other event types are currently ignored.
  * Pressing Escape returns to the dashboard without calling `agent.close()` —
  * the sandbox and Pi session keep running, same detach semantics as the
- * `spawn`/`prompt` commands.
+ * `start`/`prompt` commands.
  */
 export function createChatView(renderer: CliRenderer, agent: Alineo, onBack: () => void): ChatView {
   const box = new BoxRenderable(renderer, {

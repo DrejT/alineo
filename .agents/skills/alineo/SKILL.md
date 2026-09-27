@@ -36,7 +36,7 @@ where it fits and how it differs from everything else in this skill.
 This skill is organized into modular files. Depending on what you are doing, read the corresponding file in the `rules/` directory:
 
 - **[Architecture](rules/architecture.md)** — Core concepts: the agent SDK, CLI, storage adapters, and the event ledger.
-- **[Agent SDK](rules/agent-sdk.md)** — `Alineo.load/resume/attach/spawn`, agent specs, streaming, and session control.
+- **[Agent SDK](rules/agent-sdk.md)** — `Alineo.start/resume/attach/spawn`, agent specs, streaming, and session control.
 - **[Storage Adapters](rules/adapters.md)** — SQLite/Postgres adapter setup an agent's `opts.adapter` requires, and known issues.
 - **[CLI Reference](rules/cli.md)** — `alineo-cli` commands and config files.
 - **[Development & Testing](rules/development.md)** — Unit tests, integration tests, building, changesets, and the verification checklist.

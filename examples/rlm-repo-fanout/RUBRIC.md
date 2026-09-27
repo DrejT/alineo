@@ -31,15 +31,15 @@ full design rationale this example implements.
 
 ## Per-gate evidence
 
-| Gate                                                 | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **G1** — model-call outer shape                      | `master.prompt(...)` in `index.ts`: one prompt in, streamed text out. Unchanged from `alineo spawn --prompt`.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| **G2** — context externalized as symbolic state      | The goal is `TASK.md`, a file written by a setup step (see `agents/master.json`'s `setup`), not string-interpolated into the prompt. The prompt only names the file.                                                                                                                                                                                                                                                                                                                                                                           |
-| **G3** — root model has handles to that state        | The master reaches `TASK.md` via a path (`./TASK.md`) and reaches each child via a session name (`rlm-fanout-master` → forked child's own ledger name), not by having content pasted at it.                                                                                                                                                                                                                                                                                                                                                    |
-| **G4** — persistent executable environment           | The whole run is one OpenSandbox sandbox per agent — filesystem, installed packages (`git`, `alineo`), and the cloned repo all persist across every tool call in a turn. This is what a alineo sandbox already is.                                                                                                                                                                                                                                                                                                                             |
-| **G5** — code calls sub-LMs over constructed slices  | The master's own bash tool runs `alineo fork rlm-fanout-master ./agents/worker.json --prompt "<slice>" --json` in a loop it writes itself — a script inside the sandbox calling `Agent.spawn()` (via the CLI) over a constructed per-file instruction, not the master verbally invoking a registered typed tool. Verified in `index.ts`: every forked child found via the control plane has the master's exact `git rev-parse HEAD` — proof the child is a _fork_ of live state, not an independent `alineo spawn` from a spec's own snapshot. |
-| **G6** — model decides the decomposition             | `TASK.md` says "decide how to split the work" and never states a child count or a fixed loop. `index.ts` asserts only "at least one child was spawned," not an exact number — the actual count is the model's call, whatever it turns out to be for a given run.                                                                                                                                                                                                                                                                               |
-| **G7** — intermediate state stays in the environment | Each child's result is its own `git diff` output inside its own sandbox, reported back as that child's _own_ final answer (short diff text, not the full edited file re-pasted into the master's context) via the same `alineo fork ... --prompt ... --json` call that forked it.                                                                                                                                                                                                                                                              |
+| Gate                                                 | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **G1** — model-call outer shape                      | `master.prompt(...)` in `index.ts`: one prompt in, streamed text out. Unchanged from `alineo start --prompt`.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **G2** — context externalized as symbolic state      | The goal is `TASK.md`, a file written by a setup step (see `agents/master.json`'s `setup`), not string-interpolated into the prompt. The prompt only names the file.                                                                                                                                                                                                                                                                                                                                                                            |
+| **G3** — root model has handles to that state        | The master reaches `TASK.md` via a path (`./TASK.md`) and reaches each child via a session name (`rlm-fanout-master` → forked child's own ledger name), not by having content pasted at it.                                                                                                                                                                                                                                                                                                                                                     |
+| **G4** — persistent executable environment           | The whole run is one OpenSandbox sandbox per agent — filesystem, installed packages (`git`, `alineo`), and the cloned repo all persist across every tool call in a turn. This is what a alineo sandbox already is.                                                                                                                                                                                                                                                                                                                              |
+| **G5** — code calls sub-LMs over constructed slices  | The master's own bash tool runs `alineo spawn rlm-fanout-master ./agents/worker.json --prompt "<slice>" --json` in a loop it writes itself — a script inside the sandbox calling `Agent.spawn()` (via the CLI) over a constructed per-file instruction, not the master verbally invoking a registered typed tool. Verified in `index.ts`: every forked child found via the control plane has the master's exact `git rev-parse HEAD` — proof the child is a _fork_ of live state, not an independent `alineo start` from a spec's own snapshot. |
+| **G6** — model decides the decomposition             | `TASK.md` says "decide how to split the work" and never states a child count or a fixed loop. `index.ts` asserts only "at least one child was spawned," not an exact number — the actual count is the model's call, whatever it turns out to be for a given run.                                                                                                                                                                                                                                                                                |
+| **G7** — intermediate state stays in the environment | Each child's result is its own `git diff` output inside its own sandbox, reported back as that child's _own_ final answer (short diff text, not the full edited file re-pasted into the master's context) via the same `alineo spawn ... --prompt ... --json` call that forked it.                                                                                                                                                                                                                                                              |
 
 ## Independent verification (what `index.ts` actually checks, not what the model claims)
 
@@ -68,18 +68,28 @@ those tools out of `master.json` entirely meant every spawn in a real run of
 this example was provably a bash/script invocation, not a tool call — there
 was nothing else the model _could_ have used. Those typed tools have since
 been removed from the extension entirely (issue #21 Bug B — the asymmetry
-between them and the always-bash-only `alineo fork` measurably steered a
+between them and the always-bash-only `alineo spawn` measurably steered a
 model toward the wrong primitive elsewhere), so this is no longer a
 per-example opt-out; it's now true of every alineo-based spec by default.
 
 ## Why this model
 
-> **Note (2026-09-05):** both models this section settled on —
+> **Note (2026-09-05, revised 2026-09-23):** both models this section settled on —
 > `nvidia/nemotron-3-nano-30b-a3b` (worker) and `nvidia/nvidia-nemotron-nano-9b-v2`
 > (master) — have since reached end-of-life on the NVIDIA NIM API (`410 Gone` /
-> `404`). The specs now pin `nvidia/nemotron-3.5-lightning-30b-a3b` as a working
-> stand-in; the benchmark below is kept as the historical record and a proper
-> re-benchmark of the current model set is still pending.
+> `404`). The stand-in picked in September, `nvidia/nemotron-3.5-lightning-30b-a3b`,
+> turned out not to work here either: it answers `/v1/chat/completions` fine, but it
+> streams nothing while it reasons, and through the Pi bridge a **one-word** prompt
+> took 105s, 202s, and then tripped alineod's 180s `PROMPT_INACTIVITY_TIMEOUT_MS`
+> outright, across three samples. `nvidia/nemotron-3-super-120b-a12b` answered the
+> same prompt in ~1s twice and returned empty once (an upstream error ending the turn
+> early), so that is what both specs pin now. Measured with
+> `apps/alineod/scripts/probe-models.ts`, which exists because a `curl` at the API
+> cannot see the timeout that actually decides this.
+>
+> The benchmark below is the record of what was measured in September, not advice
+> about what to run today. A proper re-benchmark of the current model set is still
+> pending.
 
 Benchmarked several NVIDIA NIM models locally first (`pi -p --provider
 nvidia --model <id> ...`, outside any sandbox — a plain text prompt and a
@@ -135,8 +145,9 @@ per model tried, before landing on a model with none of them:
   generated Python script) using the `edit` tool and re-ran successfully,
   unprompted. Slower per call than several alternatives, but the only model
   tried that never corrupted a tool call across many multi-turn runs. Used
-  for the master; the worker keeps `nemotron-3.5-lightning-30b-a3b` since its job
-  is one bounded edit, not open-ended decomposition.
+  for the master; the worker kept `nemotron-3.5-lightning-30b-a3b` since its job
+  is one bounded edit, not open-ended decomposition. (Both now pin
+  `nemotron-3-super-120b-a12b` — see the note at the top of this section.)
 
 ## Strongest case against
 
@@ -178,11 +189,13 @@ per model tried, before landing on a model with none of them:
 ## Debugging history: every real bug found getting this to run live
 
 **Naming note**: the CLI command for forking a running session's own live
-sandbox was called `alineo spawn` at the time everything below happened. It
-was later renamed to `alineo fork` (`alineo spawn` now means "start a fresh
-agent," the old meaning of `alineo run`) — see the `feat/sandbox-id-addressing`
-branch. The entries below keep the name that existed at the time, for
-historical accuracy; read `alineo spawn` below as what's now `alineo fork`.
+sandbox has been called three things. It was `alineo spawn` when everything
+below happened, became **alineo fork** on the `feat/sandbox-id-addressing`
+branch, and is `alineo spawn` once more after the vocabulary alignment — so
+every `alineo spawn` below is both what existed at the time and what exists
+now, and needs no translation. What did change for good is the other command:
+starting a fresh agent from a spec was `alineo run`, then `alineo spawn`, and
+is now `alineo start`.
 
 Getting a live run of this example working surfaced a chain of real, distinct
 bugs — worth recording in full since several looked like something else
@@ -298,7 +311,7 @@ nvidia` and a working local `pi -p` call with the correct ID (no `:free`).
     `ALINEO_SANDBOX_ID` env var to `/etc/alineo-env`, and having `alineo spawn`
     resolve its own sandbox ID from that env var first, falling back to the
     old ledger lookup only if it's unset (`packages/agent/src/agent.ts`,
-    `packages/cli/src/commands/spawn.ts`).
+    `packages/cli/src/commands/start.ts`).
 13. **`Agent.attach()`'s own self-connect broke immediately after #12's
     fix.** Once self-identification worked, the very next call —
     `Agent.attach()` reading `/etc/alineo-env` via a network exec call to

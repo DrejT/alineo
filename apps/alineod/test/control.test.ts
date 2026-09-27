@@ -10,7 +10,7 @@ afterEach(() => fakeSdk.reset());
 /** An agent that exists in the run but has no live connection (e.g. still held by waitFor). */
 function notLiveAgent(runId: string): string {
   const id = newAgentId();
-  emit(runId, id, "agent_spawned", {
+  emit(runId, id, "agent.spawned", {
     parentAgentId: null,
     runId,
     specName: "held",
@@ -33,7 +33,7 @@ describe("POST /agents/:id/steer", () => {
     });
     expect(res.status).toBe(202);
     expect(root.steered).toEqual(["three bullets instead"]);
-    expect(events(runId).filter((e) => e.event === "agent_steered")).toEqual([
+    expect(events(runId).filter((e) => e.event === "agent.steered")).toEqual([
       expect.objectContaining({ agentId: rootAgentId, message: "three bullets instead" }),
     ]);
     gate.resolve();
@@ -55,7 +55,7 @@ describe("POST /agents/:id/steer", () => {
     const res = await call("POST", `/agents/${rootAgentId}/steer`, { message: "x" });
     expect(res.status).toBe(502);
     expect(res.body.error).toContain("bridge returned 500");
-    expect(events(runId).some((e) => e.event === "agent_steered")).toBe(false);
+    expect(events(runId).some((e) => e.event === "agent.steered")).toBe(false);
   });
 
   test("400 for an empty message", async () => {
@@ -80,7 +80,7 @@ describe("POST /agents/:id/pause and /resume", () => {
     expect((await call("GET", `/agents/${rootAgentId}`)).body.state).toBe("running");
 
     const transitions = events(runId).filter(
-      (e) => e.event === "agent_state_changed" && e.reason === "operator",
+      (e) => e.event === "agent.state_changed" && e.reason === "operator",
     );
     expect(transitions.map((e) => [e.from, e.to])).toEqual([
       ["running", "paused"],

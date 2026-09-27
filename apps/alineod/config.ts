@@ -89,6 +89,13 @@ export const ENV_VARS = {
     schema: ms,
     default: 30_000,
   }),
+  LEASE_TTL_MS: defineEnv({
+    name: "ALINEOD_LEASE_TTL_MS",
+    description:
+      "How long the instance lease survives without a heartbeat. A second alineod on the same database refuses to start while the lease is live; after a crash, the next boot waits up to this long to take it over.",
+    schema: ms,
+    default: 15_000,
+  }),
 } as const;
 
 const env = readEnvGroup(ENV_VARS, { onWarning: (message) => configWarnings.push(message) });
@@ -104,6 +111,7 @@ export const CATCH_UP_POLL_MS = env.CATCH_UP_POLL_MS;
 export const STATE_PROBE_TIMEOUT_MS = env.STATE_PROBE_TIMEOUT_MS;
 export const RESUME_BRIDGE_TIMEOUT_MS = env.RESUME_BRIDGE_TIMEOUT_MS;
 export const SUBTREE_MEMBER_TIMEOUT_MS = env.SUBTREE_MEMBER_TIMEOUT_MS;
+export const LEASE_TTL_MS = env.LEASE_TTL_MS;
 
 /**
  * Bun's socket idle timeout, in seconds. Bun.serve caps this at 255 and defaults it to ~10s —

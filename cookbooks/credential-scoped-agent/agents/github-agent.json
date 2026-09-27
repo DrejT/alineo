@@ -4,9 +4,9 @@
   "title": "GitHub Agent",
   "description": "A Pi agent that does real work against the GitHub API using a token it can never read — injected at the egress layer, never in its environment.",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
-  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
   "packages": ["curl", "jq", "ca-certificates"],
   "env": {
     "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",

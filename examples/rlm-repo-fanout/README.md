@@ -2,10 +2,10 @@
 
 The showcase example for `plans/alineo-rlm-substrate.md`: a master agent clones
 a repo, decides how to split a task across it, and forks child agents — via
-`alineo fork`, built on `Alineo.spawn()` — that each work on one slice starting
+`alineo spawn`, built on `Alineo.spawn()` — that each work on one slice starting
 from the _exact same checked-out commit_ as the master, not a fresh clone.
 This is the "shared live state" fan-out shape (pattern b in the plan), the
-one that needed new plumbing beyond what `alineo spawn` already gave for free.
+one that needed new plumbing beyond what `alineo start` already gave for free.
 
 See `RUBRIC.md` for the full gate-by-gate evidence packet against the
 [RLM rubric](https://github.com/rawwerks/recursive-coding-agents/blob/main/rlm-rubric/rlm-rubric.md).
@@ -20,18 +20,20 @@ Needs `NVIDIA_API_KEY` **in the repo root `.env`** — Bun only loads `.env`
 from the shell's CWD at invocation, not by walking up to the repo root, so
 this must be run as `bun examples/rlm-repo-fanout/index.ts` from the repo
 root, not from inside this directory (the script checks for this and
-refuses with a clear error otherwise). The worker uses NVIDIA NIM's
-`nvidia/nemotron-3.5-lightning-30b-a3b`. The models the `RUBRIC.md` "Why
+refuses with a clear error otherwise). Master and worker both use NVIDIA
+NIM's `nvidia/nemotron-3-super-120b-a12b`. The models the `RUBRIC.md` "Why
 this model" benchmark originally settled on (`nvidia-nemotron-nano-9b-v2`
-for the master, `nemotron-3-nano-30b-a3b` for the worker) have since
-reached end-of-life on the NIM API; the master spec still pins the former
-pending a re-benchmark.
+for the master, `nemotron-3-nano-30b-a3b` for the worker) have both since
+reached end-of-life on the NIM API — the first answers 410, the second 404
+for this account — so the benchmark's conclusions stand as a record of what
+was measured, not as advice about what to run today. `RUBRIC.md` has the
+numbers from the re-check.
 
 `index.ts` defaults `MASTER_AGENT_OPENSANDBOX_DOMAIN` to `172.17.0.1:8080`
 (the default Docker bridge gateway — the address a container uses to reach
 services running on the host) if unset — this is the address the master's
 own sandbox uses to reach the OpenSandbox server when it calls
-`alineo fork` on itself. If your OpenSandbox server isn't reachable there
+`alineo spawn` on itself. If your OpenSandbox server isn't reachable there
 (a non-standard Docker network, a remote server, etc.), override it:
 
 ```bash
@@ -40,14 +42,14 @@ export MASTER_AGENT_OPENSANDBOX_DOMAIN=<your-routable-host:port>
 
 An unset _and unreachable_ value fails silently rather than loudly — the
 server URL baked into the sandbox becomes the literal broken string
-`"http://"` (no host), and `alineo fork` fails with "Unable to connect"
+`"http://"` (no host), and `alineo spawn` fails with "Unable to connect"
 rather than a clear config error.
 
 See `examples/pi-agent/test-spawn-child.ts` for the two things that have to
 be true for a container to reach the server at all.
 
-**Note on `alineo fork` itself**: as of this writing, making `alineo fork`
-(named `alineo spawn` before a later CLI rename) work when called from
+**Note on `alineo spawn` itself**: as of this writing, making `alineo spawn`
+work when called from
 _inside_ the sandbox it's forking from (rather than from a host process)
 required two fixes in `packages/agent`/`packages/cli` — see `RUBRIC.md`'s
 debugging history, items 12–13. Those fixes aren't in a published
@@ -73,7 +75,7 @@ bun examples/rlm-repo-fanout/index.ts
    context, not pasted into the root context).
 3. The master is expected to inspect the repo, decide how many children to
    fork and how to split the work (G6 — left to the model, not scripted),
-   then loop `alineo fork rlm-fanout-master ./agents/worker.json --prompt
+   then loop `alineo spawn rlm-fanout-master ./agents/worker.json --prompt
 "<slice>" --json` once per slice (G5 — code inside the sandbox calling
    sub-agents over constructed slices, not the master verbally asking a tool).
    Each forked child starts from the master's exact live filesystem —
@@ -107,7 +109,7 @@ block, whether the run passed or failed.
 
 ## Known limitations
 
-- `alineo fork`'s two fixes (self-identification via `ALINEO_SANDBOX_ID`, and
+- `alineo spawn`'s two fixes (self-identification via `ALINEO_SANDBOX_ID`, and
   `Alineo.attach()`'s self-connect) aren't published to npm yet — see the
   setup note above and `RUBRIC.md`'s debugging history for the full story.
 - Model-driven runs can still fail on ordinary model noise (e.g. a typo like

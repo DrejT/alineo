@@ -39,7 +39,7 @@ function observe(view: View, runId: string): void {
   const was = lastSeen.get(view.rootAgentId);
   lastSeen.set(view.rootAgentId, view.quiescent);
   if (view.quiescent && was === false) {
-    emit(runId, view.rootAgentId, "subtree_quiescent", {
+    emit(runId, view.rootAgentId, "run.quiescent", {
       memberCount: view.members.length,
       asOf: view.asOf,
     });

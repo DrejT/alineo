@@ -22,11 +22,11 @@ function capture(level: LevelSetting = "info") {
 afterEach(resetLogger);
 
 function spawned(runId: string, agentId = newAgentId()) {
-  emit(runId, agentId, "agent_spawned", {
+  emit(runId, agentId, "agent.spawned", {
     parentAgentId: null,
     runId,
     specName: "worker",
-    specJson: JSON.stringify({ name: "worker", cli: "pi", env: { KEY: "sekret-value" } }),
+    specJson: JSON.stringify({ name: "worker", harness: "pi", env: { KEY: "sekret-value" } }),
     depth: 0,
     spawnIndex: 0,
     sandboxId: null,
@@ -45,7 +45,7 @@ describe("lifecycle events", () => {
     const agentId = spawned(runId);
     expect(records).toHaveLength(1);
     const [rec] = records;
-    expect(rec).toMatchObject({ level: "info", component: "alineod", msg: "agent_spawned" });
+    expect(rec).toMatchObject({ level: "info", component: "alineod", msg: "agent.spawned" });
     expect(rec?.fields).toMatchObject({
       runId,
       agentId,
@@ -70,7 +70,7 @@ describe("lifecycle events", () => {
     const runId = newRunId();
     const agentId = spawned(runId);
     records.length = 0;
-    emit(runId, agentId, "agent_steered", { message: "do not log me" });
+    emit(runId, agentId, "agent.steered", { message: "do not log me" });
     expect(records).toHaveLength(1);
     expect(JSON.stringify(records)).not.toContain("do not log me");
   });
@@ -82,7 +82,7 @@ describe("lifecycle events", () => {
     const ids = outcomes.map(() => spawned(runId));
     records.length = 0;
     outcomes.forEach((outcome, i) => {
-      emit(runId, ids[i] ?? null, "agent_ended", {
+      emit(runId, ids[i] ?? null, "agent.ended", {
         outcome,
         endedAt: Date.now(),
         ...(outcome === "failed" ? { error: "model returned 410" } : {}),
@@ -102,7 +102,7 @@ describe("lifecycle events", () => {
     const runId = newRunId();
     const id = spawned(runId);
     records.length = 0;
-    emit(runId, id, "agent_ended", { outcome: "failed", endedAt: 1, error: "x".repeat(5000) });
+    emit(runId, id, "agent.ended", { outcome: "failed", endedAt: 1, error: "x".repeat(5000) });
     const error = String(records[0]?.fields.error);
     expect(error.length).toBeLessThan(250);
     expect(error.endsWith("…")).toBe(true);
@@ -113,8 +113,8 @@ describe("lifecycle events", () => {
     const runId = newRunId();
     const id = spawned(runId);
     records.length = 0;
-    emit(runId, id, "budget_denied", { dimension: "maxAgents" });
-    expect(records[0]).toMatchObject({ level: "warn", msg: "budget_denied" });
+    emit(runId, id, "budget.denied", { dimension: "maxAgents" });
+    expect(records[0]).toMatchObject({ level: "warn", msg: "budget.denied" });
     expect(records[0]?.fields.dimension).toBe("maxAgents");
   });
 
@@ -122,10 +122,10 @@ describe("lifecycle events", () => {
     const runId = newRunId();
     const id = spawned(runId);
     capture("info");
-    emit(runId, id, "inbox_queued", { count: 1 });
+    emit(runId, id, "inbox.queued", { count: 1 });
     expect(records).toHaveLength(0);
     capture("debug");
-    emit(runId, id, "inbox_queued", { count: 1 });
+    emit(runId, id, "inbox.queued", { count: 1 });
     expect(records).toHaveLength(1);
     expect(records[0]?.level).toBe("debug");
   });
@@ -148,9 +148,11 @@ describe("harness events", () => {
       args: { command: "rm -rf /secret" },
     });
     emitHarness(runId, agentId, { type: "tool_end", toolName: "bash", isError: true });
+    // Fed the harness's own names, logged under alineo's — emit.ts is the boundary where the
+    // stream crosses into this vocabulary.
     expect(records.map((r) => [r.msg, r.level])).toEqual([
-      ["tool_start", "debug"],
-      ["tool_end", "debug"],
+      ["tool.started", "debug"],
+      ["tool.ended", "debug"],
     ]);
     expect(records[0]?.fields.toolName).toBe("bash");
     expect(records[1]?.fields.isError).toBe(true);

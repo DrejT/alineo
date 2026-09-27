@@ -1,0 +1,41 @@
+{
+  "name": "@alineo-labs/ledger",
+  "version": "0.1.0",
+  "description": "Behaviour for alineo's event ledger: sinks, fold helpers and an in-memory store. Shapes live in @alineo-labs/schema.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrejT/alineo.git",
+    "directory": "packages/ledger"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@alineo-labs/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "1.4.2",
+    "tsdown": "0.23.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.0"
+  }
+}

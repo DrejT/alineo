@@ -1,0 +1,595 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "run.started"
+          ]
+        }
+      },
+      "required": [
+        "runId",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "memberCount": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "asOf": {
+          "type": "number"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "run.quiescent"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "memberCount",
+        "asOf",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "parentAgentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "specName": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "spawnIndex": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "sandboxId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "waitFor": {
+          "description": "Persisted rather than left in the spec, so rehydrate() can retry a still-pending spawn instead of losing it.",
+          "nullable": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prompt": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.spawned"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "parentAgentId",
+        "runId",
+        "specName",
+        "depth",
+        "spawnIndex",
+        "sandboxId",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "sandboxId": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.provisioned"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "sandboxId",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "pausedBy": {
+          "description": "On a transition to paused: whether this agent was the target, or was reached by a subtree pause.",
+          "type": "string",
+          "enum": [
+            "operator",
+            "cascade"
+          ]
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.state_changed"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "from",
+        "to",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "subtree"
+          ]
+        },
+        "roster": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deliveredAs": {
+          "type": "string",
+          "enum": [
+            "steer",
+            "turn",
+            "queued"
+          ]
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.steered"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "message",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.released"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "reason",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "endedAt": {
+          "type": "number"
+        },
+        "error": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.ended"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "outcome",
+        "endedAt",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "resultRef": {
+          "nullable": true,
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "handle.settled"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "outcome",
+        "resultRef",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "any",
+            "quorum"
+          ]
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "satisfied",
+            "partial",
+            "deadline",
+            "depfail"
+          ]
+        },
+        "selected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "settled": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agentId": {
+                "type": "string"
+              },
+              "outcome": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "agentId",
+              "outcome"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "wait.resolved"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "mode",
+        "outcome",
+        "selected",
+        "settled",
+        "pending",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "blockedOn": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "wait.blocked"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "blockedOn",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "wake": {
+          "type": "boolean"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "notify.registered"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "on",
+        "wake",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "notification",
+            "steer"
+          ]
+        },
+        "aboutAgentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "aboutSpec": {
+          "nullable": true,
+          "type": "string"
+        },
+        "outcome": {
+          "nullable": true,
+          "type": "string"
+        },
+        "resultRef": {
+          "nullable": true,
+          "type": "string"
+        },
+        "excerpt": {
+          "nullable": true,
+          "type": "string"
+        },
+        "again": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox.queued"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "kind",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "seqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "as": {
+          "type": "string",
+          "enum": [
+            "steer",
+            "turn",
+            "prompt"
+          ]
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox.delivered"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "seqs",
+        "as",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "seqs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "inbox.dropped"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "seqs",
+        "reason",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "dimension": {
+          "type": "string",
+          "enum": [
+            "spawnDepth",
+            "maxAgents"
+          ]
+        },
+        "remaining": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "budget.denied"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "dimension",
+        "remaining",
+        "event"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

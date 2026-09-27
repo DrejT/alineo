@@ -10,6 +10,7 @@ import type {
 } from "@alineo-labs/core";
 import { SandboxStatus } from "@alineo-labs/core";
 import { MIGRATION_SQL } from "./migrations";
+import { renameEventsStatement } from "@alineo-labs/ledger";
 
 type Row = {
   sandbox_id: string;
@@ -89,6 +90,15 @@ export class PostgresAdapter implements IStorageAdapter {
 
   async connect(): Promise<void> {
     await this.sql.unsafe(MIGRATION_SQL);
+    // Same one-time event-name rename as the sqlite adapter, from the same shared table —
+    // see `@alineo-labs/sqlite`'s `rename-events.ts` for why it is one pass rather than one
+    // UPDATE per name. Postgres placeholders are `$1`-style, so the `?`s are renumbered here.
+    const rename = renameEventsStatement();
+    let n = 0;
+    await this.sql.unsafe(
+      rename.sql.replace(/\?/g, () => `$${++n}`),
+      rename.params,
+    );
   }
 
   async close(): Promise<void> {
@@ -125,7 +135,7 @@ export class PostgresAdapter implements IStorageAdapter {
     const rows = await this.sql<Row[]>`
       SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
       FROM alineo_events
-      WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'checkpoint_created'
+      WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'sandbox.checkpoint_created'
       ORDER BY ts DESC
       LIMIT 1
     `;
@@ -138,14 +148,14 @@ export class PostgresAdapter implements IStorageAdapter {
         SELECT
           name,
           sandbox_id,
-          MIN(CASE WHEN event = 'sandbox_created' THEN ts END) AS started_at,
-          MAX(CASE WHEN event = 'sandbox_closed'  THEN ts END) AS completed_at,
-          MAX(CASE WHEN event = 'sandbox_closed'  THEN 1 ELSE 0 END)::int AS is_closed,
-          COUNT(CASE WHEN event = 'exec_complete' THEN 1 END)::int AS exec_count,
-          MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'runId' END) AS run_id,
-          MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'resourceId' END) AS resource_id,
-          MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'teamId' END) AS team_id,
-          MAX(CASE WHEN event = 'sandbox_created' THEN payload->>'parentSandboxId' END) AS parent_sandbox_id
+          MIN(CASE WHEN event = 'sandbox.created' THEN ts END) AS started_at,
+          MAX(CASE WHEN event = 'sandbox.closed'  THEN ts END) AS completed_at,
+          MAX(CASE WHEN event = 'sandbox.closed'  THEN 1 ELSE 0 END)::int AS is_closed,
+          COUNT(CASE WHEN event = 'exec.completed' THEN 1 END)::int AS exec_count,
+          MAX(CASE WHEN event = 'sandbox.created' THEN payload->>'runId' END) AS run_id,
+          MAX(CASE WHEN event = 'sandbox.created' THEN payload->>'resourceId' END) AS resource_id,
+          MAX(CASE WHEN event = 'sandbox.created' THEN payload->>'teamId' END) AS team_id,
+          MAX(CASE WHEN event = 'sandbox.created' THEN payload->>'parentSandboxId' END) AS parent_sandbox_id
         FROM alineo_events
         ${whereClause}
         GROUP BY name, sandbox_id
@@ -178,7 +188,7 @@ export class PostgresAdapter implements IStorageAdapter {
     const rows = await this.sql<Row[]>`
       SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
       FROM alineo_events
-      WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'checkpoint_created'
+      WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'sandbox.checkpoint_created'
       ORDER BY ts ASC
     `;
     return rows.map((r) => {

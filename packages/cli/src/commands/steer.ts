@@ -17,18 +17,18 @@ import type { CliCommand } from "./types.js";
  * there with zero side effects, then a plain ack-only RPC call delivers the message.
  *
  * Addressed by sandbox ID only, same reasoning as `prompt.ts`: names aren't unique and a
- * name-based lookup can hand back a session that died ungracefully. `alineo fork ... --json`
+ * name-based lookup can hand back a session that died ungracefully. `alineo spawn ... --json`
  * already reports back the child's `sandboxId` — that's what a parent passes here.
  *
  * No spec is required — the sandbox's own ledger entry gives us its real name for a readable
- * log line; a bare `{ name, cli: "pi" }` stub is otherwise enough for `reattach()` (env/budget
+ * log line; a bare `{ name, harness: "pi" }` stub is otherwise enough for `reattach()` (env/budget
  * resolution only matters for a fresh bridge start, which this never does). Pass `--spec
  * <path>` only if the child's real spec happens to be on hand locally.
  *
  * Timing: `steer` is delivered after the target's CURRENT turn finishes its tool calls, but
  * before its next LLM call — it does not interrupt a tool call already running (Pi's own RPC
  * semantics, not alineo's). If you need to cut off a child immediately regardless of what
- * it's doing, use `alineo kill <sandbox-id>` instead; steer is for redirecting cleanly, not
+ * it's doing, use `alineo stop <sandbox-id>` instead; steer is for redirecting cleanly, not
  * stopping urgently.
  */
 export async function steer(
@@ -54,7 +54,9 @@ export async function steer(
 
   const agent = await Alineo.reattach(sandboxId, {
     adapter,
-    ...(opts.specPath ? { specPath: opts.specPath } : { spec: { name: displayName, cli: "pi" } }),
+    ...(opts.specPath
+      ? { specPath: opts.specPath }
+      : { spec: { name: displayName, harness: "pi" } }),
   });
 
   await agent.steer(message);

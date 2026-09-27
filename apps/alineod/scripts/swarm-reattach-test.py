@@ -12,7 +12,7 @@ import urllib.request
 
 sys.stdout.reconfigure(line_buffering=True)
 BASE = "http://localhost:4600"
-MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
+MODEL = "nvidia/nemotron-3-super-120b-a12b"
 NV = "${NVIDIA_API_KEY}"
 
 
@@ -28,7 +28,7 @@ def call(method, path, body=None, timeout=30):
 
 
 def spec(name, **extra):
-    return {"name": name, "cli": "pi", "provider": "nvidia", "model": MODEL,
+    return {"name": name, "harness": "pi", "provider": "nvidia", "model": MODEL,
             "env": {"NVIDIA_API_KEY": NV}, "resources": {"cpu": "1000m", "memory": "2Gi"}, **extra}
 
 

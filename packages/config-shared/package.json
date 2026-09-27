@@ -23,6 +23,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@alineo-labs/schema": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

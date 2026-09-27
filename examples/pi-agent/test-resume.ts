@@ -16,10 +16,10 @@ const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 
 // ── Step 1: Spawn a fresh agent and seed its session ─────────────────────────
 console.log("=== Step 1: Load agent and seed session ===\n");
-// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+// Alineo.start() no longer does its own file I/O (see #184) -- read the spec ourselves.
 // Alineo.resume() below still accepts a bare path via opts.specPath -- unchanged.
 const spec = await Bun.file(SPEC).json();
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 const sandboxId = agent.sandboxId;
 console.log(`SandboxHandle ID: ${sandboxId}\n`);
 

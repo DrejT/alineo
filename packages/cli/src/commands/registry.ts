@@ -13,7 +13,10 @@ import type { CliCommand } from "./types.js";
  * the switch statement's actual behavior with no visual signal at all.
  *
  * Adding a command: create the command file with its own `xCommand` export (see
- * types.ts), then add one entry here whose `variants` matches it.
+ * types.ts), then add one entry here whose `variants` matches it. The name has to
+ * be a verb from `@alineo-labs/schema`'s `VERBS`, or one of the nouns
+ * `scripts/check-vocabulary.ts` allowlists — that check is what keeps this list
+ * and the rest of alineo's surfaces speaking the same language.
  */
 export const commands: CliCommand[] = [
   {
@@ -43,19 +46,19 @@ export const commands: CliCommand[] = [
     run: async (argv) => (await import("./remove.js")).removeCommand.run(argv),
   },
   {
-    name: "spawn",
+    name: "start",
     group: "agent",
     variants: [
       {
-        usage: "alineo spawn <spec>",
+        usage: "alineo start <spec>",
         summary: "Start a fresh agent sandbox, print its name, exit",
       },
       {
-        usage: "alineo spawn <spec> --prompt <msg>",
+        usage: "alineo start <spec> --prompt <msg>",
         summary: "Start it, send one prompt, print the reply, exit",
       },
     ],
-    run: async (argv) => (await import("./spawn.js")).spawnCommand.run(argv),
+    run: async (argv) => (await import("./start.js")).startCommand.run(argv),
   },
   {
     name: "prompt",
@@ -69,15 +72,15 @@ export const commands: CliCommand[] = [
     run: async (argv) => (await import("./prompt.js")).promptCommand.run(argv),
   },
   {
-    name: "fork",
+    name: "spawn",
     group: "agent",
     variants: [
       {
-        usage: "alineo fork <name> <child-spec>",
-        summary: "Fork a running session's own live sandbox into a new child",
+        usage: "alineo spawn <parent> <child-spec>",
+        summary: "Spawn a child from a running session's own live sandbox",
       },
     ],
-    run: async (argv) => (await import("./fork.js")).forkCommand.run(argv),
+    run: async (argv) => (await import("./spawn.js")).spawnCommand.run(argv),
   },
   {
     name: "steer",
@@ -97,10 +100,10 @@ export const commands: CliCommand[] = [
     run: async (argv) => (await import("./agents.js")).agentsCommand.run(argv),
   },
   {
-    name: "kill",
+    name: "stop",
     group: "agent",
-    variants: [{ usage: "alineo kill <sandbox-id>", summary: "Stop a sandbox" }],
-    run: async (argv) => (await import("./kill.js")).killCommand.run(argv),
+    variants: [{ usage: "alineo stop <sandbox-id>", summary: "Stop a sandbox" }],
+    run: async (argv) => (await import("./stop.js")).stopCommand.run(argv),
   },
   {
     name: "logs",

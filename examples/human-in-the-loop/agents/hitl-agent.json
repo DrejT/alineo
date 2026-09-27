@@ -4,9 +4,9 @@
   "title": "Human-in-the-loop Agent",
   "description": "A Pi agent whose write/exec tool calls pause for operator approval. Demonstrates AgentSpec.permissions, the classify action, prompt({ onPermission }), listPendingPermissions(), and the ledger audit trail.",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
-  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
   "packages": ["git", "python3"],
   "env": {
     "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"

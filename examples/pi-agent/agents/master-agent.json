@@ -4,9 +4,9 @@
   "title": "Master Agent",
   "description": "A Pi agent with the alineo CLI + Pi extension installed, demonstrating an agent orchestrating its own child agent sessions via alineo CLI bash commands (spawn/prompt/agents/kill/fork) instead of raw osb bash commands. The extension's typed alineo_* tools were removed (see packages/cli/pi-extension/alineo.ts's deprecation note) -- this now exercises its remaining before_agent_start guidance injection only.",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
-  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
   "packages": ["nodejs_22"],
   "env": {
     "NVIDIA_API_KEY": "${NVIDIA_API_KEY}",
@@ -24,8 +24,8 @@
       "run": "mkdir -p agents && printf '{\"serverUrl\":\"http://%s\",\"useServerProxy\":false,\"apiKey\":\"\",\"adapterPath\":\"./.alineo/ledger.db\",\"agentsDir\":\"./agents\",\"defaults\":{\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}}' \"$MASTER_AGENT_OPENSANDBOX_DOMAIN\" > alineo.config.json"
     },
     {
-      "name": "Add a child spec for alineo spawn to launch",
-      "run": "printf '{\"name\":\"hello-agent\",\"cli\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3.5-lightning-30b-a3b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/hello-agent.json"
+      "name": "Add a child spec for alineo start to launch",
+      "run": "printf '{\"name\":\"hello-agent\",\"harness\":\"pi\",\"provider\":\"nvidia\",\"model\":\"nvidia/nemotron-3-super-120b-a12b\",\"env\":{\"NVIDIA_API_KEY\":\"%s\"},\"resources\":{\"cpu\":\"500m\",\"memory\":\"1Gi\"}}' \"$NVIDIA_API_KEY\" > agents/hello-agent.json"
     }
   ]
 }

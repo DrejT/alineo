@@ -93,7 +93,7 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
 
   // Synchronous prefix ends here — depth/spawnIndex/budgets are all read-then-written in this
   // one tick, so two concurrent spawns under the same parent can't compute the same spawnIndex.
-  emit(runId, childId, "agent_spawned", {
+  emit(runId, childId, "agent.spawned", {
     parentAgentId: body.parentAgentId,
     runId,
     specName,
@@ -109,7 +109,7 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
     prompt: body.prompt ?? null,
   });
   if (hasWaitFor) {
-    emit(runId, childId, "agent_state_changed", {
+    emit(runId, childId, "agent.state_changed", {
       from: "provisioning",
       to: "spawning",
       reason: "waitFor",
@@ -142,7 +142,7 @@ export async function provisionChild(
     if (wait) {
       waited = await waitForRegime(runId, childId, wait);
       if (isCancelled(childId)) return; // stopped while it waited — leave its ended state alone
-      emit(runId, childId, "wait_resolved", {
+      emit(runId, childId, "wait.resolved", {
         mode: wait.mode,
         outcome: waited.outcome,
         selected: waited.selected,
@@ -154,10 +154,10 @@ export async function provisionChild(
           waited.outcome === "depfail"
             ? `dep-failed: ${waited.failed.join(", ") || "quorum unreachable"}`
             : `wait-deadline: still waiting on ${waited.pending.join(", ")}`;
-        emit(runId, childId, "agent_ended", { outcome: "failed", endedAt: Date.now(), error });
+        emit(runId, childId, "agent.ended", { outcome: "failed", endedAt: Date.now(), error });
         return;
       }
-      emit(runId, childId, "agent_state_changed", {
+      emit(runId, childId, "agent.state_changed", {
         from: "spawning",
         to: "provisioning",
         reason: "deps-settled",
@@ -178,12 +178,12 @@ export async function provisionChild(
       } catch {
         /* ignore */
       }
-      emit(runId, childId, "agent_released", { reason: "stopped-before-provisioned" });
+      emit(runId, childId, "agent.released", { reason: "stopped-before-provisioned" });
       return;
     }
 
     register(childId, child);
-    emit(runId, childId, "agent_provisioned", { sandboxId: child.sandboxId });
+    emit(runId, childId, "agent.provisioned", { sandboxId: child.sandboxId });
 
     if (wait && waited) await injectInputs(child, wait, waited);
 
@@ -205,10 +205,10 @@ export async function provisionChild(
     let outcome = "failed";
     if (/refused|budget|spawn-depth|max-agents/i.test(message)) {
       const dimension = /max-agents/i.test(message) ? "maxAgents" : "spawnDepth";
-      emit(runId, parentAgentId, "budget_denied", { dimension, remaining: 0 });
+      emit(runId, parentAgentId, "budget.denied", { dimension, remaining: 0 });
       outcome = "budget-exceeded";
     }
-    emit(runId, childId, "agent_ended", { outcome, endedAt: Date.now(), error: message });
+    emit(runId, childId, "agent.ended", { outcome, endedAt: Date.now(), error: message });
   }
 }
 

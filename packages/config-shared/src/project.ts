@@ -3,80 +3,21 @@ import { loadConfig, loadConfigWithSources } from "./load";
 import type { LoadedConfig } from "./load";
 
 /**
- * The shape of `alineo.config.json`.
+ * The shape of `alineo.config.json` moved to `@alineo-labs/schema` — shapes with no behaviour
+ * belong there, and it is published, so someone writing the file by hand can get the type from
+ * the same place the tooling does. Re-exported here so every existing import keeps working.
  *
- * It lives here, with the mechanism, rather than in one consuming package because three
- * consumers read the same file — `packages/agent`, `packages/cli-shared` and (through the
- * Docker entrypoint) `apps/alineod`. Putting it in any one of them would force the other two
- * to depend on that package for a file none of them owns. Settings specific to a single
- * consumer — alineod's timeouts, for example — stay with that consumer and use
- * `defineEnv`/`loadConfig` directly.
+ * What stays in this file is the mechanism: reading the environment, and loading the file
+ * through `loadConfig`'s precedence chain.
  */
-const ProjectConfigObject = z.object({
-  /**
-   * 127.0.0.1, not "localhost" — some hosts resolve "localhost" to ::1 first, and OpenSandbox
-   * typically only listens on IPv4.
-   */
-  serverUrl: z.string().min(1).default("http://127.0.0.1:8080"),
-  /** OpenSandbox API key. Empty string for local dev with no auth. */
-  apiKey: z.string().default(""),
-  /**
-   * Route execd and proxy traffic through the OpenSandbox server. Required when the server runs
-   * in Docker (e.g. started by `alineo init`).
-   */
-  useServerProxy: z.boolean().default(true),
-  /**
-   * Anchor path used to derive the agent snapshot store location (`agent-snapshots.json` is
-   * written next to it). Does not select the ledger storage adapter.
-   */
-  adapterPath: z.string().min(1).default("./.alineo/ledger.db"),
-  /** Directory holding agent spec files. */
-  agentsDir: z.string().min(1).default("./agents"),
-  /**
-   * Applied when an agent spec omits the field.
-   *
-   * `.prefault({})` rather than `.default({})`: Zod 4 uses a `default` value as-is, so
-   * `.default({})` on a nested object would yield a literal `{}` and leave `cpu`/`memory`
-   * undefined. `prefault` parses the value through the schema, which fills the inner defaults.
-   */
-  defaults: z
-    .object({
-      resources: z
-        .object({
-          cpu: z.string().min(1).default("1000m"),
-          memory: z.string().min(1).default("1Gi"),
-        })
-        .prefault({}),
-    })
-    .prefault({}),
-});
-
-/**
- * In this file `null` means "not set", exactly as the hand-written reader's `??` chain used to
- * treat it. The file is hand-editable, an interrupted write can leave `{"defaults": {"resources":
- * null}}` behind, and no field here has a meaningful null value — so a stray null falls back to
- * the built-in default instead of failing validation and taking the CLI or the daemon down.
- */
-function dropNulls(value: unknown): unknown {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
-  const out: Record<string, unknown> = {};
-  for (const [key, inner] of Object.entries(value)) {
-    if (inner === null) continue;
-    out[key] = dropNulls(inner);
-  }
-  return out;
-}
-
-/** The project config schema, with nulls treated as absent. */
-export const ProjectConfigSchema = z.preprocess(dropNulls, ProjectConfigObject);
-
-/** The underlying object schema, for JSON Schema emit (preprocess has no JSON Schema form). */
-export const ProjectConfigObjectSchema = ProjectConfigObject;
-
-export type ProjectConfig = z.infer<typeof ProjectConfigObject>;
-
-/** `$schema` URL written into a generated `alineo.config.json`. */
-export const PROJECT_CONFIG_SCHEMA_URL = "https://alineo.tech/schema/alineo.config.json";
+export {
+  PROJECT_CONFIG_SCHEMA_URL,
+  ProjectConfigObjectSchema,
+  ProjectConfigSchema,
+} from "@alineo-labs/schema";
+export type { ProjectConfig } from "@alineo-labs/schema";
+import { ProjectConfigSchema } from "@alineo-labs/schema";
+import type { ProjectConfig } from "@alineo-labs/schema";
 
 function parseBoolean(raw: string, name: string): boolean {
   const value = raw.trim().toLowerCase();

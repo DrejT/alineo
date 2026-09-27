@@ -53,23 +53,23 @@ Returns `null` if Pi has not yet responded in the current session. Useful for bu
 
 ## Fork entry points
 
-`agent.getForkMessages()` lists the entry points in the current session that can be used as `fork()` targets:
+`agent.getBranchPoints()` lists the points in the current session a conversation can be branched from:
 
 ```ts
-const points = await agent.getForkMessages();
+const points = await agent.getBranchPoints();
 
 for (const { entryId, text } of points) {
   console.log(`${entryId}  "${text.slice(0, 60)}"`);
 }
 
-// Fork from a specific point
+// Branch from a specific point
 if (points.length > 0) {
-  const { text, cancelled } = await agent.fork(points[0].entryId);
-  console.log(`Forked at: "${text.slice(0, 60)}" (cancelled: ${cancelled})`);
+  const { text, cancelled } = await agent.branchSession(points[0].entryId);
+  console.log(`Branched at: "${text.slice(0, 60)}" (cancelled: ${cancelled})`);
 }
 ```
 
-Each entry corresponds to a user turn in Pi's session history. Forking creates a new session branch at that point — useful for trying alternative responses or replaying from a known state.
+Each entry corresponds to a user turn in the harness's session history. Branching creates a new session branch at that point — useful for trying alternative responses or replaying from a known state. It is a conversation branch, not a sandbox copy: `agent.sandbox.fork()` is what does the latter.
 
 ## Available commands
 

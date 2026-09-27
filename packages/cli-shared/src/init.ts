@@ -1,5 +1,5 @@
 /**
- * `alineo init` / `alineo_init` — starts OpenSandbox + alineod locally via Docker and writes
+ * `alineo init` / `init` — starts OpenSandbox + alineod locally via Docker and writes
  * `alineo.config.json`. Shared verbatim by `alineo-cli` (`packages/cli/src/commands/init.ts`,
  * which logs to stdout) and `alineo-mcp` (`packages/mcp/src/init.ts`, which collects a log array
  * instead — an MCP stdio server's stdout is the JSON-RPC channel, so tool handlers must never
@@ -15,6 +15,7 @@ import {
   restartContainer,
   removeContainer,
   runContainer,
+  setRestartPolicy,
   pullImage,
   pollHealth,
   isReachable,
@@ -45,6 +46,14 @@ const isAlineodHealthy = (body: unknown): boolean => (body as { ok?: boolean } |
 // `eip` (see `usesHostNetworking`'s doc comment) — computed once and threaded through so the two
 // can never drift apart.
 export const HOST_DOCKER_INTERNAL_SERVER_URL = "http://host.docker.internal:8080";
+
+/**
+ * Both containers come back after a reboot or a Docker daemon restart. Without this, a host
+ * reboot left OpenSandbox down, so nothing worked until someone ran `init` again — and alineod's
+ * crash recovery only helps if something restarts alineod. `unless-stopped` rather than
+ * `always`, so a deliberate `docker stop` sticks.
+ */
+const RESTART_ARGS = ["--restart", "unless-stopped"];
 
 /**
  * `--network host` (which makes alineod see `127.0.0.1` exactly as the host does, matching
@@ -98,6 +107,7 @@ export async function runInit(log: Log): Promise<InitResult> {
         "-d",
         "--name",
         OPENSANDBOX_CONTAINER_NAME,
+        ...RESTART_ARGS,
         "-p",
         "8080:8080",
         "-v",
@@ -121,6 +131,9 @@ export async function runInit(log: Log): Promise<InitResult> {
   }
 
   await ensureAlineod(log, openSandboxConfigChanged);
+  // New containers get this from RESTART_ARGS; this covers ones created by an older `init`.
+  await setRestartPolicy(OPENSANDBOX_CONTAINER_NAME, "unless-stopped");
+  await setRestartPolicy(ALINEOD_CONTAINER_NAME, "unless-stopped");
   await ensureProjectConfig(log);
   log(`OpenSandbox running at ${SERVER_URL}, alineod running at ${ALINEOD_URL} — ready.`);
 
@@ -180,7 +193,7 @@ async function ensureAlineod(log: Log, openSandboxConfigChanged: boolean): Promi
 
   // Model-agnostic: forward whatever Pi-supported provider key(s) are already in the
   // operator's shell. An AgentSpec's env map (e.g. `{ NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }`)
-  // is resolved from process.env inside whichever process calls Alineo.load()/.spawn() —
+  // is resolved from process.env inside whichever process calls Alineo.start()/.spawn() —
   // for a swarm run through alineod, that's this container — so any provider works as long
   // as Pi supports it, not just NVIDIA's free tier.
   const foundModelKeys = PI_MODEL_API_KEY_ENV_VARS.filter((name) => process.env[name]);
@@ -230,6 +243,7 @@ function startAlineodContainer(useHostNetworking: boolean, modelKeyArgs: string[
       "-d",
       "--name",
       ALINEOD_CONTAINER_NAME,
+      ...RESTART_ARGS,
       ...networkArgs,
       "-e",
       `ALINEO_SERVER_URL=${alineodServerUrl}`,

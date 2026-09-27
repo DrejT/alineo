@@ -6,15 +6,15 @@ import { recordTuiLaunch, withTelemetry } from "./telemetry.js";
 
 const [, , cmd, ...argv] = process.argv;
 
-const HELP_NOTES = `  Add --json to spawn/prompt/fork/agents/logs for machine-readable output.
-  Add --depth <n> to spawn/fork to override the spec's "spawnDepth" — the
-  nesting-depth budget for further forks.
-  Add --max <n> to spawn/fork to override the spec's "maxAgents" — a separate,
+const HELP_NOTES = `  Add --json to start/prompt/spawn/agents/logs for machine-readable output.
+  Add --depth <n> to start/spawn to override the spec's "spawnDepth" — the
+  nesting-depth budget for further spawns.
+  Add --max <n> to start/spawn to override the spec's "maxAgents" — a separate,
   optional ceiling on total descendants for this lineage (not coordinated
   across sibling branches spawned in parallel).
   Add --spec <path> to prompt to skip the ledger lookup for the spec file
   (needed when the sandbox's own creation event lives in a different ledger,
-  e.g. a child spawned via 'alineo fork' from inside another sandbox).`;
+  e.g. a child spawned via 'alineo spawn' from inside another sandbox).`;
 
 const GROUPS: { key: CliCommand["group"]; label: string }[] = [
   { key: "sdk", label: "SDK — OpenSandbox config and the local spec cache:" },
@@ -64,7 +64,7 @@ async function main(): Promise<void> {
     // installed on the TUI path above — stderr writes would corrupt the TUI's screen.
     installLoggerFromEnv({ defaultLevel: "info" });
     await withTelemetry(found.name, argv, () => found.run(argv));
-    // spawn/fork/prompt deliberately leave their sandbox running (that's the whole point --
+    // start/spawn/prompt deliberately leave their sandbox running (that's the whole point --
     // `alineo agents`/`alineo prompt <id>` interact with it afterward), so we can't clean up
     // by closing the Alineo/SandboxHandle object: that would delete the very sandbox the command just
     // reported. But the SDK's underlying exec client keeps a connection open to support further

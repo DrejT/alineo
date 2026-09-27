@@ -157,7 +157,7 @@ export function waitUntil<T>(
 ): Promise<T> {
   const events =
     opts.events ??
-    new Set(["handle_settled", "agent_ended", "agent_state_changed", "agent_spawned"]);
+    new Set(["handle.settled", "agent.ended", "agent.state_changed", "agent.spawned"]);
   return new Promise((resolve) => {
     let finished = false;
     let off = () => {};
@@ -203,7 +203,7 @@ export function waitForRegime(
       if (reportedPaused.has(dep)) continue;
       if (getAgentRow(dep)?.state === "paused" && getHandle(dep)?.state !== "settled") {
         reportedPaused.add(dep);
-        emit(runId, waiterId, "wait_blocked_on_paused", { blockedOn: dep });
+        emit(runId, waiterId, "wait.blocked", { blockedOn: dep });
       }
     }
     return null;

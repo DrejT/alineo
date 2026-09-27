@@ -336,7 +336,7 @@ export function mountAgentChat(agentId: string): { dispose(): void } {
       item.title = point.text;
       item.textContent = point.text.slice(0, 60) || point.entryId;
       item.addEventListener("click", () => {
-        send({ type: "fork", entryId: point.entryId });
+        send({ type: "branchSession", entryId: point.entryId });
         sessionMenu.open = false;
       });
       forkList.appendChild(item);
@@ -371,7 +371,7 @@ export function mountAgentChat(agentId: string): { dispose(): void } {
     sessionMenu.open = false;
   });
   sessionCloneBtn.addEventListener("click", () => {
-    send({ type: "clone" });
+    send({ type: "duplicateSession" });
     sessionMenu.open = false;
   });
   sessionExportBtn.addEventListener("click", () => {

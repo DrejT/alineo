@@ -10,7 +10,7 @@ export interface SessionSnapshot {
 }
 
 /**
- * Data layer shared by `alineo ps` and the TUI dashboard: alineo-tracked running
+ * Data layer shared by `alineo agents` and the TUI dashboard: alineo-tracked running
  * sessions from the ledger, merged with raw OpenSandbox sandboxes the ledger
  * never recorded.
  *

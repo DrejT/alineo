@@ -41,11 +41,11 @@ Requires OpenSandbox running locally. Agent integration test setup:
 import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const agent = await Alineo.load(specPath, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
+const agent = await Alineo.start(specPath, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
 ```
 
 Always close the agent in `afterAll`/`finally` — avoids container leaks and ensures
-`sandbox_closed` is written to the ledger.
+`sandbox.closed` is written to the ledger.
 
 Assert on observable behaviour, not internals:
 

@@ -18,7 +18,7 @@ Create an agent spec (`agents/my-agent.json`):
 {
   "$schema": "https://registry.alineo.tech/spec/agent.json",
   "name": "my-agent",
-  "cli": "pi",
+  "harness": "pi",
   "model": "gemini-flash-latest",
   "packages": ["python3"],
   "env": { "GEMINI_API_KEY": "${GEMINI_API_KEY}" },
@@ -32,7 +32,7 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const spec = await Bun.file("./agents/my-agent.json").json();
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 try {
   for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world script."))) {
     process.stdout.write(chunk);
@@ -50,19 +50,19 @@ try {
 
 The spec JSON controls the agent's environment, model, and workspace setup.
 
-| Field        | Type                     | Description                                                                                    |
-| ------------ | ------------------------ | ---------------------------------------------------------------------------------------------- |
-| `name`       | `string`                 | Unique identifier, used as the sandbox session name                                            |
-| `cli`        | `"pi"`                   | CLI to run (currently only `"pi"`)                                                             |
-| `cliVersion` | `string?`                | Pin to a specific Pi version, e.g. `"0.80.2"`. Defaults to latest.                             |
-| `model`      | `string?`                | Model ID passed to Pi via `--model`                                                            |
-| `provider`   | `string?`                | AI provider passed via `--provider`. Omit for direct Google API key.                           |
-| `packages`   | `string[]?`              | APT packages to install before Pi. e.g. `["git", "python3"]`                                   |
-| `env`        | `Record<string,string>?` | Env vars in the sandbox. Values may reference host env: `"${MY_KEY}"`                          |
-| `resources`  | `object?`                | CPU/memory limits: `{ cpu: "1000m", memory: "2Gi" }`                                           |
-| `setup`      | `SetupStep[]?`           | Workspace setup steps (see below)                                                              |
-| `spawnDepth` | `number?`                | Nesting-depth budget for `agent.spawn()` — see [Spawning child agents](#spawning-child-agents) |
-| `maxAgents`  | `number?`                | Optional cap on total descendants for this lineage — see below                                 |
+| Field            | Type                     | Description                                                                                    |
+| ---------------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
+| `name`           | `string`                 | Unique identifier, used as the sandbox session name                                            |
+| `harness`        | `"pi"`                   | Agent-loop driver to run (currently only `"pi"`)                                               |
+| `harnessVersion` | `string?`                | Pin to a specific Pi version, e.g. `"0.80.2"`. Defaults to latest.                             |
+| `model`          | `string?`                | Model ID passed to Pi via `--model`                                                            |
+| `provider`       | `string?`                | AI provider passed via `--provider`. Omit for direct Google API key.                           |
+| `packages`       | `string[]?`              | APT packages to install before Pi. e.g. `["git", "python3"]`                                   |
+| `env`            | `Record<string,string>?` | Env vars in the sandbox. Values may reference host env: `"${MY_KEY}"`                          |
+| `resources`      | `object?`                | CPU/memory limits: `{ cpu: "1000m", memory: "2Gi" }`                                           |
+| `setup`          | `SetupStep[]?`           | Workspace setup steps (see below)                                                              |
+| `spawnDepth`     | `number?`                | Nesting-depth budget for `agent.spawn()` — see [Spawning child agents](#spawning-child-agents) |
+| `maxAgents`      | `number?`                | Optional cap on total descendants for this lineage — see below                                 |
 
 ### Setup steps
 
@@ -71,7 +71,7 @@ The spec JSON controls the agent's environment, model, and workspace setup.
 ```json
 {
   "name": "my-agent",
-  "cli": "pi",
+  "harness": "pi",
   "setup": [
     { "name": "Create workspace", "run": "mkdir -p /workspace" },
     { "name": "Install deps", "run": "npm install", "cwd": "/workspace" },
@@ -90,7 +90,7 @@ Each step:
 
 ### Validation
 
-`Alineo.load()`/`Alineo.resume()` validate the spec (via `validateAgentSpec()`, backed by
+`Alineo.start()`/`Alineo.resume()` validate the spec (via `validateAgentSpec()`, backed by
 [Zod](https://zod.dev)) before doing anything else. An invalid spec throws
 `AgentSpecValidationError` — every problem is reported in one throw, not just the first, and
 `.issues` gives you each one structured (`{ path, message, code }`) instead of having to parse
@@ -101,7 +101,7 @@ import { Alineo, AgentSpecValidationError } from "alineo";
 
 try {
   const spec = await Bun.file("./agent.json").json();
-  const agent = await Alineo.load(spec, { adapter });
+  const agent = await Alineo.start(spec, { adapter });
 } catch (e) {
   if (e instanceof AgentSpecValidationError) {
     for (const issue of e.issues) console.error(`${issue.path.join(".")}: ${issue.message}`);
@@ -114,23 +114,23 @@ try {
 
 ## Snapshotting
 
-On first load, `Alineo.load()` installs the Pi CLI and any `setup` steps, then checkpoints the sandbox. Subsequent loads restore from that snapshot — skipping the install entirely.
+On first load, `Alineo.start()` installs the Pi CLI and any `setup` steps, then checkpoints the sandbox. Subsequent loads restore from that snapshot — skipping the install entirely.
 
 ```
 Load 1 (cold):   sandbox → Pi install → setup steps → checkpoint → bridge   ~50s
 Load 2 (warm):   snapshot restore → bridge                                   ~5s
 ```
 
-The snapshot is invalidated automatically when `cli`, `cliVersion`, `packages`, or `setup` change.
+The snapshot is invalidated automatically when `harness`, `harnessVersion`, `packages`, or `setup` change.
 
 ```ts
 // adapter: an IStorageAdapter — SQLiteAdapter or PostgresAdapter, see Quickstart
 const spec = await Bun.file("./agents/my-agent.json").json();
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 console.log(agent.fromSnapshot); // false on first load, true after
 
 // Force a full reinstall:
-const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
+const agent2 = await Alineo.start(spec, { adapter, rebuild: true });
 ```
 
 ---
@@ -209,7 +209,7 @@ for await (const ev of agent.prompt("Run /workspace/script.py with python3.")) {
 
 ### Loading and lifecycle
 
-#### `Alineo.load(spec, opts)`
+#### `Alineo.start(spec, opts)`
 
 Validate `spec`, spin up a sandbox, install Pi, run setup steps, and return a ready `Alineo`. Restores from snapshot on subsequent calls. `opts.adapter` is required (see [Quickstart](#quickstart)).
 
@@ -217,8 +217,8 @@ Validate `spec`, spin up a sandbox, install Pi, run setup steps, and return a re
 
 ```ts
 const spec = await Bun.file("./agents/my-agent.json").json();
-const agent = await Alineo.load(spec, { adapter });
-const agent2 = await Alineo.load(spec, { adapter, rebuild: true });
+const agent = await Alineo.start(spec, { adapter });
+const agent2 = await Alineo.start(spec, { adapter, rebuild: true });
 ```
 
 #### `Alineo.resume(sandboxId, opts)`
@@ -240,7 +240,7 @@ const agent3 = await Alineo.resume(savedSandboxId, { adapter, spec });
 
 Connect to an already-running sandbox **without** touching its Pi bridge — unlike `resume()`, which kills and restarts the bridge process. Use this when you only need `.spawn()`/`.sandbox`, not `.prompt()`/`.bash()` (the returned `Alineo` has no bridge, so those throw).
 
-The main caller is `alineo fork`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
+The main caller is `alineo spawn`: it runs as a fresh CLI process started BY the very Pi bash-tool call it's attaching to (a session forking a child from inside its own turn) — going through `resume()` there would kill the bridge currently running the call itself.
 
 ```ts
 const self = await Alineo.attach(process.env.ALINEO_SANDBOX_ID!, {
@@ -260,7 +260,7 @@ Stop the sandbox container and release all resources. Always call in a `finally`
 
 #### `agent.spawn(childSpecPath, opts?)`
 
-Fork **this agent's own live sandbox** — filesystem, installed packages, checked-out state, everything currently on disk — into a brand-new independent sandbox running its own Pi bridge. Unlike `Alineo.load()` (always starts from a spec's own snapshot) or `fork()`/`clone()` (Pi's own conversation-branching — same container, same bridge, new session branch), this is sandbox-level forking: the child sees exactly what this agent's sandbox sees right now, including uncommitted work. No install/setup steps run — the child inherits whatever is already installed on this agent's sandbox.
+Fork **this agent's own live sandbox** — filesystem, installed packages, checked-out state, everything currently on disk — into a brand-new independent sandbox running its own Pi bridge. Unlike `Alineo.start()` (always starts from a spec's own snapshot) or `fork()`/`clone()` (Pi's own conversation-branching — same container, same bridge, new session branch), this is sandbox-level forking: the child sees exactly what this agent's sandbox sees right now, including uncommitted work. No install/setup steps run — the child inherits whatever is already installed on this agent's sandbox.
 
 ```ts
 const child = await agent.spawn("./agents/worker.json", { spawnDepth: 2, maxAgents: 5 });
@@ -331,13 +331,15 @@ Interrupt the current in-progress response immediately.
 
 Start a fresh Pi conversation, clearing all context. Filesystem and workspace are unchanged.
 
-#### `agent.clone()`
+#### `agent.duplicateSession()`
 
-Branch the current Pi session at the current position. Returns `{ cancelled: boolean }`.
+Branch the harness conversation at its current position. Returns `{ cancelled: boolean }`.
 
-#### `agent.fork(entryId)`
+#### `agent.branchSession(entryId)`
 
-Branch from a specific message entry in the conversation history. Returns `{ text, cancelled }`.
+Branch the harness conversation from a specific message entry in its history. Returns `{ text, cancelled }`.
+
+Both branch a conversation inside the same container. `agent.sandbox.fork()` is the one that copies a filesystem.
 
 #### `agent.switchSession(sessionPath)`
 
@@ -425,7 +427,7 @@ console.log(`${stats.tokens.total} tokens used, $${stats.cost.toFixed(6)} cost`)
 
 Retrieve the text of Pi's most recent assistant response without iterating the stream. Returns `null` if Pi hasn't responded yet.
 
-#### `agent.getForkMessages()`
+#### `agent.getBranchPoints()`
 
 List the fork entry points available in the current session. Each entry has `entryId` (pass to `fork()`) and `text`.
 

@@ -5,6 +5,7 @@
     "": {
       "name": "drej",
       "devDependencies": {
+        "@alineo-labs/schema": "workspace:*",
         "@changesets/cli": "3.0.2",
         "@oxlint/plugins": "^1.82.0",
         "oxfmt": "^0.67.0",
@@ -18,7 +19,9 @@
       "dependencies": {
         "@alineo-labs/config-shared": "workspace:*",
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/ledger": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
+        "@alineo-labs/schema": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@elysiajs/openapi": "^1.4.9",
         "alineo": "workspace:*",
@@ -424,6 +427,7 @@
       "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/ledger": "workspace:*",
         "postgres": "3.4.9",
       },
       "devDependencies": {
@@ -450,6 +454,7 @@
       "version": "0.2.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/ledger": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.4.2",
@@ -491,6 +496,7 @@
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/memory": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/schema": "workspace:*",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -552,6 +558,7 @@
       "name": "@alineo-labs/config-shared",
       "version": "0.0.1",
       "dependencies": {
+        "@alineo-labs/schema": "workspace:*",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -566,6 +573,7 @@
       "dependencies": {
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/schema": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.4.2",
@@ -574,12 +582,25 @@
         "vitest": "5.0.0",
       },
     },
-    "packages/harness": {
-      "name": "@alineo-labs/harness",
+    "packages/instructions": {
+      "name": "@alineo-labs/instructions",
       "version": "0.1.1",
       "devDependencies": {
         "bun-types": "1.4.2",
         "typescript": "6.0.3",
+      },
+    },
+    "packages/ledger": {
+      "name": "@alineo-labs/ledger",
+      "version": "0.1.0",
+      "dependencies": {
+        "@alineo-labs/schema": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "tsdown": "0.23.0",
+        "typescript": "6.0.3",
+        "vitest": "5.0.0",
       },
     },
     "packages/logger": {
@@ -599,6 +620,7 @@
         "alineo-mcp": "./dist/index.mjs",
       },
       "dependencies": {
+        "@alineo-labs/schema": "workspace:*",
         "@modelcontextprotocol/server": "^2.0.0",
         "alineo": "workspace:*",
         "zod": "^4",
@@ -649,12 +671,26 @@
         "vitest": "5.0.0",
       },
     },
+    "packages/schema": {
+      "name": "@alineo-labs/schema",
+      "version": "0.1.0",
+      "dependencies": {
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "tsdown": "0.23.0",
+        "typescript": "6.0.3",
+        "vitest": "5.0.0",
+      },
+    },
     "packages/sdks/typescript": {
       "name": "@alineo-labs/sandbox",
       "version": "0.4.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/schema": "workspace:*",
         "@alineo-labs/vault": "workspace:*",
       },
       "devDependencies": {
@@ -723,9 +759,11 @@
 
     "@alineo-labs/flue": ["@alineo-labs/flue@workspace:packages/adapters/flue"],
 
-    "@alineo-labs/harness": ["@alineo-labs/harness@workspace:packages/harness"],
+    "@alineo-labs/instructions": ["@alineo-labs/instructions@workspace:packages/instructions"],
 
     "@alineo-labs/integration-tests": ["@alineo-labs/integration-tests@workspace:tests/integration"],
+
+    "@alineo-labs/ledger": ["@alineo-labs/ledger@workspace:packages/ledger"],
 
     "@alineo-labs/logger": ["@alineo-labs/logger@workspace:packages/logger"],
 
@@ -746,6 +784,8 @@
     "@alineo-labs/sandbox": ["@alineo-labs/sandbox@workspace:packages/sdks/typescript"],
 
     "@alineo-labs/sandbox-app": ["@alineo-labs/sandbox-app@workspace:apps/sandbox"],
+
+    "@alineo-labs/schema": ["@alineo-labs/schema@workspace:packages/schema"],
 
     "@alineo-labs/sqlite": ["@alineo-labs/sqlite@workspace:packages/adapters/sqlite"],
 

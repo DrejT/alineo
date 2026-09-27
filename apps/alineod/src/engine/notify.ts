@@ -51,7 +51,7 @@ export function registerNotify(
       throw new HttpError(400, `unknown agent ${id} in run ${runId}`);
     if (id === subscriberId) throw new HttpError(400, "an agent can't subscribe to itself");
   }
-  emit(runId, subscriberId, "notify_registered", { on: onIds, wake });
+  emit(runId, subscriberId, "notify.registered", { on: onIds, wake });
   for (const id of onIds) {
     const row = getAgentRow(id);
     if (row?.ended_at != null) queueNotification(subscriberId, id, row.outcome);
@@ -64,7 +64,7 @@ function queueNotification(subscriberId: string, aboutId: string, outcome: strin
   const about = getAgentRow(aboutId);
   if (!sub || !about) return;
   const text = readResult(aboutId);
-  emit(sub.run_id, subscriberId, "inbox_queued", {
+  emit(sub.run_id, subscriberId, "inbox.queued", {
     kind: "notification",
     aboutAgentId: aboutId,
     aboutSpec: about.spec_name,
@@ -80,11 +80,11 @@ function queueNotification(subscriberId: string, aboutId: string, outcome: strin
 export function queueSteer(agentId: string, text: string): void {
   const row = getAgentRow(agentId);
   if (!row) return;
-  emit(row.run_id, agentId, "inbox_queued", { kind: "steer", text });
+  emit(row.run_id, agentId, "inbox.queued", { kind: "steer", text });
 }
 
 onEmit((_runId, agentId, event, payload) => {
-  if (event !== "agent_ended" || !agentId) return;
+  if (event !== "agent.ended" || !agentId) return;
   for (const sub of subscribersOf(agentId)) {
     queueNotification(sub.subscriber_id, agentId, (payload.outcome as string | undefined) ?? null);
   }
@@ -137,7 +137,7 @@ async function deliverNow(agentId: string, opts: { wake?: boolean }): Promise<De
   const agent = get(agentId);
 
   if (CLOSED_STATES.has(row.state) || (row.ended_at !== null && !agent)) {
-    emit(row.run_id, agentId, "inbox_dropped", { seqs, reason: "recipient-closed" });
+    emit(row.run_id, agentId, "inbox.dropped", { seqs, reason: "recipient-closed" });
     return "dropped";
   }
   if (!agent || !row.sandbox_id || row.state === "paused") return "held";
@@ -149,7 +149,7 @@ async function deliverNow(agentId: string, opts: { wake?: boolean }): Promise<De
     } catch {
       return "held"; // retried at the next delivery point
     }
-    emit(row.run_id, agentId, "inbox_delivered", { seqs, as: "steer" });
+    emit(row.run_id, agentId, "inbox.delivered", { seqs, as: "steer" });
     return "steer";
   }
 
@@ -162,7 +162,7 @@ async function deliverNow(agentId: string, opts: { wake?: boolean }): Promise<De
         (p.about_agent_id !== null && subscription(agentId, p.about_agent_id)?.wake === 1),
     );
   if (!wake) return "held";
-  emit(row.run_id, agentId, "inbox_delivered", { seqs, as: "turn" });
+  emit(row.run_id, agentId, "inbox.delivered", { seqs, as: "turn" });
   void driveTurn(agentId, text);
   return "turn";
 }
@@ -176,6 +176,6 @@ export function withInbox(agentId: string, prompt: string): string {
   const row = getAgentRow(agentId);
   const pending = pendingInbox(agentId);
   if (!row || pending.length === 0) return prompt;
-  emit(row.run_id, agentId, "inbox_delivered", { seqs: pending.map((p) => p.seq), as: "prompt" });
+  emit(row.run_id, agentId, "inbox.delivered", { seqs: pending.map((p) => p.seq), as: "prompt" });
   return `${composeInbox(pending)}\n\n${prompt}`;
 }

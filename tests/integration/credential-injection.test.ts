@@ -2,6 +2,12 @@ import { Sandbox, type SandboxHandle } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { test, expect } from "bun:test";
 
+// `useServerProxy` defaults on: an `alineo init` (Docker) server hands out
+// container-internal endpoints that aren't reachable from the host. Set
+// `OPEN_SANDBOX_SERVER_PROXY=false` for a bare `uvx opensandbox-server`, where the
+// direct endpoints work.
+const USE_SERVER_PROXY = process.env.OPEN_SANDBOX_SERVER_PROXY !== "false";
+
 // Not a real secret — httpbin.org/headers just echoes back whatever it received, so this
 // value round-tripping through the response body is what proves the sidecar actually injected
 // it (rather than requiring a real GitHub token, unlike examples/credential-injection/index.ts).
@@ -12,6 +18,7 @@ test("credential injected transparently, never present in the sandbox's own env"
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),
+    useServerProxy: USE_SERVER_PROXY,
   });
 
   const sb = await client.sandbox({
@@ -52,6 +59,7 @@ test("fork() carries the parent's bound credentials to the child automatically",
     baseUrl: process.env.OPEN_SANDBOX_URL ?? "http://127.0.0.1:8080",
     apiKey: process.env.OPEN_SANDBOX_API_KEY ?? "",
     adapter: new SQLiteAdapter(":memory:"),
+    useServerProxy: USE_SERVER_PROXY,
   });
 
   const sb = await client.sandbox({

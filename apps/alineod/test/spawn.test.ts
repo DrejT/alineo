@@ -92,14 +92,17 @@ describe("spawning a child", () => {
     expect(run.root.spawns).toHaveLength(2);
   });
 
+  // The specs here have to be VALID, or every case 400s on body validation before the thing
+  // it is actually testing is reached — alineod validates the AgentSpec at the boundary now,
+  // rather than passing it through opaquely for the SDK to reject later.
   test.each([
-    ["no parentAgentId", { spec: { name: "w" } }, 400],
+    ["no parentAgentId", { spec: spec("w") }, 400],
     ["no spec", { parentAgentId: "PARENT" }, 400],
-    ["a parent from another run", { parentAgentId: "OTHER", spec: { name: "w" } }, 404],
-    ["an unknown parent", { parentAgentId: "a_missing", spec: { name: "w" } }, 404],
+    ["a parent from another run", { parentAgentId: "OTHER", spec: spec("w") }, 404],
+    ["an unknown parent", { parentAgentId: "a_missing", spec: spec("w") }, 404],
     [
       "waitFor on an unknown agent",
-      { parentAgentId: "PARENT", spec: { name: "w" }, waitFor: ["a_missing"] },
+      { parentAgentId: "PARENT", spec: spec("w"), waitFor: ["a_missing"] },
       400,
     ],
   ])("rejects %s", async (_label, body, status) => {
@@ -127,11 +130,11 @@ test("a forked child's turn events are filed under alineod's run, not the SDK's 
   const child = await spawnChild(run.runId, run.rootAgentId, { prompt: "hello" });
   expect(child.agent.runId).not.toBe(run.runId); // the SDK's correlation id differs
   await until(
-    () => events(run.runId).some((e) => e.event === "agent_ended" && e.agentId === child.agentId),
+    () => events(run.runId).some((e) => e.event === "agent.ended" && e.agentId === child.agentId),
     "the child's agent_ended in its run",
   );
   expect(
-    events(run.runId).some((e) => e.event === "handle_settled" && e.agentId === child.agentId),
+    events(run.runId).some((e) => e.event === "handle.settled" && e.agentId === child.agentId),
   ).toBe(true);
 });
 
@@ -166,7 +169,7 @@ describe("budgets", () => {
       outcome: "budget-exceeded",
       depth: 2,
     });
-    expect(events(run.runId).filter((e) => e.event === "budget_denied")).toEqual([
+    expect(events(run.runId).filter((e) => e.event === "budget.denied")).toEqual([
       expect.objectContaining({ agentId: child.agentId, dimension: "spawnDepth", remaining: 0 }),
     ]);
     expect(child.agent.spawns).toHaveLength(0);
@@ -190,7 +193,7 @@ describe("budgets", () => {
       spec: spec("grandchild"),
     });
     expect(await endedView(res.body.agentId)).toMatchObject({ outcome: "budget-exceeded" });
-    expect(events(run.runId).find((e) => e.event === "budget_denied")).toMatchObject({
+    expect(events(run.runId).find((e) => e.event === "budget.denied")).toMatchObject({
       dimension: "maxAgents",
     });
   });
@@ -244,7 +247,7 @@ describe("waitFor", () => {
     await until(() => gather.prompts.includes("combine"));
 
     const transitions = events(run.runId).filter(
-      (e) => e.event === "agent_state_changed" && e.agentId === gatherId,
+      (e) => e.event === "agent.state_changed" && e.agentId === gatherId,
     );
     expect(transitions.map((e) => e.reason)).toEqual(["waitFor", "deps-settled", "prompt"]);
   });
@@ -265,7 +268,7 @@ describe("waitFor", () => {
 
     expect(await endedView(res.body.agentId)).toMatchObject({ outcome: "failed" });
     expect(
-      events(run.runId).find((e) => e.event === "agent_ended" && e.agentId === res.body.agentId)
+      events(run.runId).find((e) => e.event === "agent.ended" && e.agentId === res.body.agentId)
         ?.error,
     ).toContain("no longer live");
   });

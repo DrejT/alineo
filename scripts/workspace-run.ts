@@ -23,9 +23,12 @@ if (task !== "build" && task !== "typecheck" && task !== "test") {
 const root = join(import.meta.dir, "..");
 const rootPkg = await Bun.file(join(root, "package.json")).json();
 
-// Only packages/** — examples/* and apps/* are out of scope for these tasks,
-// matching current behavior.
-const packagePatterns = (rootPkg.workspaces as string[]).filter((w) => w.startsWith("packages/"));
+// packages/** and tools/** — examples/* and apps/* are out of scope for these tasks.
+// tools/** carries no publishable code; it is here so the oxlint plugin's own rule tests
+// run in CI like any other suite (they need `node --test`, which its package.json sets).
+const packagePatterns = (rootPkg.workspaces as string[]).filter(
+  (w) => w.startsWith("packages/") || w.startsWith("tools/"),
+);
 
 interface Pkg {
   dir: string;

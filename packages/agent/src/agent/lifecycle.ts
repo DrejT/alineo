@@ -3,18 +3,20 @@ import { toShellExports } from "../adapters/pi";
 import type { AgentInternal } from "./internal";
 
 /**
- * Fork Pi's session at the given entry ID, creating a new branch.
- * Returns the text of the forked message and whether the fork was cancelled.
+ * Branch the harness conversation at the given entry ID.
+ *
+ * `a.adapter.fork` keeps Pi's own name: the adapter speaks the harness's vocabulary (its
+ * bridge endpoint is literally `/fork`), and alineo speaks its own on the way out.
  */
-export async function fork(
+export async function branchSession(
   a: AgentInternal,
   entryId: string,
 ): Promise<{ text: string; cancelled: boolean }> {
   return a.adapter.fork(entryId);
 }
 
-/** Clone the current Pi session into a new branch at the current position. */
-export async function clone(a: AgentInternal): Promise<{ cancelled: boolean }> {
+/** Branch the harness conversation at its current position. */
+export async function duplicateSession(a: AgentInternal): Promise<{ cancelled: boolean }> {
   return a.adapter.clone();
 }
 

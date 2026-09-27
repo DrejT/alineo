@@ -22,7 +22,7 @@ curl -s -X POST localhost:4600/agents/a_c01d9e3a/steer \
   -d '{"message": "Skip the tests directory — focus only on src/auth."}'
 ```
 
-The route returns `202` once the agent's harness has accepted the message, and an `agent_steered` event is
+The route returns `202` once the agent's harness has accepted the message, and an `agent.steered` event is
 recorded on the run stream.
 
 ### When the message lands
@@ -96,7 +96,7 @@ curl -s -X POST localhost:4600/agents/a_c01d9e3a/resume
 
 Pause freezes the agent's container — the harness process and any tool it's running are suspended. Resume thaws
 it and it carries on from exactly where it stopped. A turn's stream simply goes quiet while paused; it doesn't
-error. Each transition emits `agent_state_changed` with `reason: "operator"`.
+error. Each transition emits `agent.state_changed` with `reason: "operator"`.
 
 - Pausing an already-paused agent is a no-op.
 - Resuming an agent that isn't paused returns `409`.
@@ -176,7 +176,7 @@ so anything waiting on it is released. The body is optional. `mode` accepts `abo
 currently behaves the same as `abort`.
 
 - **A finished agent** keeps its sandbox open so it can be prompted again or spawned from. Stopping it closes that
-  sandbox and emits `agent_released`, and its recorded outcome, e.g. `success`, is kept.
+  sandbox and emits `agent.released`, and its recorded outcome, e.g. `success`, is kept.
 - **A paused agent** is closed directly, without an abort, since its frozen harness can't answer.
 - **A child that hasn't forked yet**, one still waiting on `waitFor` or on a paused parent, is cancelled: it
   never forks.

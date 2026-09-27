@@ -32,7 +32,7 @@ async function onEgressRequest(req: EgressRequest): Promise<EgressDecision> {
 }
 
 rule('1 · load the agent — api.github.com starts denied (approval: "hold")');
-const agent = await Alineo.load(await Bun.file("./agents/egress-agent.json").json(), {
+const agent = await Alineo.start(await Bun.file("./agents/egress-agent.json").json(), {
   adapter,
   onEgressRequest,
 });
@@ -52,7 +52,7 @@ try {
   rule("3 · the ledger audit trail — every egress request + resolution");
   const entries = await adapter.readAll(agent.name, agent.sandboxId);
   for (const e of entries) {
-    if (e.event === "permission_requested" || e.event === "permission_resolved") {
+    if (e.event === "permission.requested" || e.event === "permission.resolved") {
       console.log(`  ${e.event.padEnd(22)} ${JSON.stringify(e.payload)}`);
     }
   }

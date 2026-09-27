@@ -1,3 +1,4 @@
+import type { LedgerEnvelope } from "@alineo-labs/schema/types";
 import type { ControlClient, NetworkPolicy, CodeLanguage } from "@alineo-labs/opensandbox";
 import type { IStorageAdapter } from "../ledger";
 import type { ExecResult } from "../exec-handle";
@@ -66,6 +67,17 @@ export interface SandboxHooks {
 export interface SandboxDeps {
   control: ControlClient;
   adapter: IStorageAdapter;
+  /**
+   * Receives a `LedgerEnvelope` for every event this sandbox emits, beside the ledger write.
+   *
+   * Synchronous and must not throw — it runs on the write path of a sandbox operation, so an
+   * async sink would become backpressure and a throwing one would fail the very operation
+   * being recorded. Deliberately NOT joined to `_ledgerQueue` for the same reason.
+   *
+   * @internal Sinks are an export path and the ledger is the system of record; the public
+   * shape of this belongs with the work that owns export.
+   */
+  sink?: (envelope: LedgerEnvelope) => void;
   hooks?: SandboxHooks;
   /** Broker for `sb.credentials.*` — undefined unless the sandbox was created with `credentialProxy: true`. */
   credentialBroker?: CredentialBroker;

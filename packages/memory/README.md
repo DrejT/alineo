@@ -18,7 +18,7 @@ semantic memory are keyed by `resourceId` because their entire point is survivin
 session they were learned in.
 
 `resourceId` (and `parentSandboxId`, for forked sandboxes) ride along in the ledger's existing
-`sandbox_created` event payload — the same mechanism `SandboxDetails.runId` already used —
+`sandbox.created` event payload — the same mechanism `SandboxDetails.runId` already used —
 so there's no ledger schema change. Set it when creating a sandbox:
 
 ```ts
@@ -353,7 +353,7 @@ const sb = await client.sandbox({
 `spawn()` carries it over to the child automatically:
 
 ```ts
-const agent = await Alineo.load(spec, { adapter, memory });
+const agent = await Alineo.start(spec, { adapter, memory });
 await agent.memory?.remember(agent.resourceRef, { content: "user prefers concise answers" });
 ```
 

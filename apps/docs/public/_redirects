@@ -26,6 +26,17 @@
 /docs/alineo/0.3          /docs/alineo               301
 /docs/alineo/0.3/*         /docs/alineo/:splat        301
 
+# CLI verb rename: `alineo fork` became `alineo spawn` and `alineo kill` became
+# `alineo stop`, so their doc pages moved with them.
+#
+# There is deliberately NO rule for /docs/alineo/commands/spawn. That URL is still a
+# live page — it just documents a different command now (the old `fork`). Redirecting
+# it to /start would send readers of the *new* spawn away from the page they asked
+# for. Anyone landing there from an old link gets a page about a command that still
+# exists under that name, which is the least-wrong outcome available.
+/docs/alineo/commands/fork   /docs/alineo/commands/spawn   301
+/docs/alineo/commands/kill   /docs/alineo/commands/stop    301
+
 # Static export can't perform a real server redirect for "/" — Next instead bakes
 # it as an error-boundary shell that a client script replaces via router.replace()
 # after hydration, which a no-JS client or crawler would see as the actual response.

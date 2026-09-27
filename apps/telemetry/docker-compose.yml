@@ -1,0 +1,29 @@
+# Replaces the `alineo-telemetry.service` user unit, whose WorkingDirectory and
+# TELEMETRY_DB_PATH both pointed at `/home/drejt/drej-oss/...` — a path that stopped existing
+# when the repo was renamed to `alineo`. The service kept running only because it already held
+# the open file descriptor; it could not have survived a restart.
+services:
+  telemetry:
+    build: .
+    container_name: alineo-telemetry
+    restart: unless-stopped
+    ports:
+      # Host 3002, because Caddy already proxies telemetry.alineo.tech to it. Publishing the
+      # same port is what makes this swap invisible to the reverse proxy.
+      - "3002:3002"
+    volumes:
+      # A bind mount, not a named volume: the database is already at ./data on the VPS with
+      # real history in it, and this keeps it there — readable with sqlite3 from the host, and
+      # backed up by copying files rather than by going through a container.
+      #
+      # Copy `telemetry.db-wal` too. The main file is ~4 KB; in WAL mode essentially every
+      # event lives in the -wal until a checkpoint, so a backup of `telemetry.db` alone is an
+      # empty database that looks like a real one.
+      - ./data:/app/data
+    logging:
+      # An append-only analytics ingest on a 49 GB disk: cap the logs rather than discover
+      # them at 3am.
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -7,7 +7,7 @@
  *   setAutoCompaction, compact
  *   clone, fork
  *   setAutoRetry, abortRetry
- *   abortBash, getSessionStats, getLastAssistantText, getForkMessages
+ *   abortBash, getSessionStats, getLastAssistantText, getBranchPoints
  *   getCommands, setSessionName, setSteeringMode, setFollowUpMode, exportHtml
  *   setEnv, getLogs
  *   sandbox.exec, sandbox.writeFile, sandbox.readFile
@@ -23,9 +23,9 @@ function section(label: string) {
 }
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-// Alineo.load() no longer does its own file I/O (see #184) -- read the spec ourselves.
+// Alineo.start() no longer does its own file I/O (see #184) -- read the spec ourselves.
 const spec = await Bun.file("./agents/hello-agent.json").json();
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 console.log(`\nSandbox: ${agent.sandboxId}\n${"─".repeat(60)}`);
 await agent.sandbox.exec("mkdir -p /workspace");
 
@@ -147,28 +147,28 @@ try {
   }
   console.log("\n");
 
-  // ── 10. clone ─────────────────────────────────────────────────────────────────
-  // Clone creates a new Pi session branch at the current position.
-  section("10. clone — branch current session");
-  const cloned = await agent.clone();
-  console.log(`clone → cancelled: ${cloned.cancelled}\n`);
+  // ── 10. duplicateSession ──────────────────────────────────────────────────────
+  // Branches the harness conversation at the current position. Same container.
+  section("10. duplicateSession — branch the conversation here");
+  const duplicated = await agent.duplicateSession();
+  console.log(`duplicateSession → cancelled: ${duplicated.cancelled}\n`);
 
-  // ── 11. fork ──────────────────────────────────────────────────────────────────
-  // Fork branches from a specific user message entry in the history.
-  section("11. fork — branch from a specific history entry");
+  // ── 11. branchSession ─────────────────────────────────────────────────────────
+  // Branches the harness conversation from a specific user message in the history.
+  section("11. branchSession — branch from a specific history entry");
   const history = await agent.getMessages();
-  const forkableMsg = history.find((m) => m.role === "user" && (m.id ?? m.entryId));
-  if (forkableMsg) {
-    const entryId = (forkableMsg.id ?? forkableMsg.entryId) as string;
+  const branchPoint = history.find((m) => m.role === "user" && (m.id ?? m.entryId));
+  if (branchPoint) {
+    const entryId = (branchPoint.id ?? branchPoint.entryId) as string;
     try {
-      const forked = await agent.fork(entryId);
-      console.log(`fork(${entryId.slice(0, 12)}…) → cancelled: ${forked.cancelled}`);
-      console.log(`  forked from: "${String(forked.text).slice(0, 60)}…"`);
+      const branched = await agent.branchSession(entryId);
+      console.log(`branchSession(${entryId.slice(0, 12)}…) → cancelled: ${branched.cancelled}`);
+      console.log(`  branched from: "${String(branched.text).slice(0, 60)}…"`);
     } catch (e) {
-      console.log(`fork failed: ${(e as Error).message}`);
+      console.log(`branchSession failed: ${(e as Error).message}`);
     }
   } else {
-    console.log("no forkable message found (id field not exposed for this model)");
+    console.log("no branchable message found (id field not exposed for this model)");
   }
   console.log();
 
@@ -258,16 +258,16 @@ try {
   }
   console.log();
 
-  // ── 18. getForkMessages — list fork entry points in current session ───────────
-  section("18. getForkMessages — list fork entry points");
-  const forkMessages = await agent.getForkMessages();
-  console.log(`${forkMessages.length} fork point(s) available:`);
-  for (const m of forkMessages.slice(0, 3)) {
+  // ── 18. getBranchPoints — where the conversation can be branched ──────────────
+  section("18. getBranchPoints — where the conversation can branch");
+  const branchPoints = await agent.getBranchPoints();
+  console.log(`${branchPoints.length} branch point(s) available:`);
+  for (const m of branchPoints.slice(0, 3)) {
     console.log(
       `  ${m.entryId.slice(0, 12)}… "${String(m.text).slice(0, 60).replace(/\n/g, " ")}"`,
     );
   }
-  if (forkMessages.length > 3) console.log(`  … and ${forkMessages.length - 3} more`);
+  if (branchPoints.length > 3) console.log(`  … and ${branchPoints.length - 3} more`);
   console.log();
 
   // ── 19. getCommands — introspect Pi slash commands, skills, prompt templates ──

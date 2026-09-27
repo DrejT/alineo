@@ -56,11 +56,11 @@ if (!process.env.GH_TOKEN) {
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
 const spec = await Bun.file("./agents/github-agent.json").json();
 
-// `env.GITHUB_TOKEN` in the spec is a credential binding, not a string — so `Alineo.load()`
+// `env.GITHUB_TOKEN` in the spec is a credential binding, not a string — so `Alineo.start()`
 // creates the sandbox with `credentialProxy: true` and registers the token with the egress
 // sidecar's Credential Vault instead of exporting it. `env.NVIDIA_API_KEY`, a plain string,
 // goes into the container's environment the ordinary way.
-const agent = await Alineo.load(spec, { adapter });
+const agent = await Alineo.start(spec, { adapter });
 
 try {
   section("what the agent is allowed to reach");

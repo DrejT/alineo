@@ -24,7 +24,7 @@ const rule = (s: string) => console.log(`\n${"─".repeat(72)}\n${s}\n${"─".re
 // ── 1. read-only agent: the toolset itself is restricted ───────────────────────
 rule('1 · permissions: "readonly" — write/edit/bash are not in the model\'s toolset');
 
-const ro = await Alineo.load(await Bun.file("./agents/readonly-agent.json").json(), { adapter });
+const ro = await Alineo.start(await Bun.file("./agents/readonly-agent.json").json(), { adapter });
 try {
   console.log('prompt: "Create a file notes.txt containing the word hello."\n');
   process.stdout.write("> ");
@@ -48,7 +48,7 @@ try {
 // ── 2–6. the full gate: classify, onPermission, deny-with-feedback, audit ──────
 rule("2 · classify + onPermission — reads run free, writes pause, rm -rf is hard-denied");
 
-const agent = await Alineo.load(await Bun.file("./agents/hitl-agent.json").json(), { adapter });
+const agent = await Alineo.start(await Bun.file("./agents/hitl-agent.json").json(), { adapter });
 
 const toolCalls = new Map<string, { label: string; asked: boolean; blocked: boolean }>();
 

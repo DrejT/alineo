@@ -38,6 +38,18 @@ jobs:
         run: bun run typecheck
         working-directory: apps/alineod
 
+      - name: Vocabulary check
+        run: bun run check:vocabulary
+
+      - name: Spec freshness
+        run: |
+          bun run --cwd apps/alineod spec
+          if ! git diff --quiet -- apps/alineod/spec/; then
+            echo "::error::apps/alineod/spec is out of date. Run 'bun run --cwd apps/alineod spec' and commit the result."
+            git --no-pager diff -- apps/alineod/spec/
+            exit 1
+          fi
+
       - name: Lint
         run: bun run lint
 
@@ -53,6 +65,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
+
+      # The oxlint plugin's rule tests run under `node --test`: oxlint's RuleTester
+      # refuses to run on Bun, and type-stripping .test.ts needs Node >= 22.18.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
       - name: Install dependencies
         run: bun install

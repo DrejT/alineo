@@ -389,3 +389,21 @@ describe("SQLiteAdapter", () => {
     });
   });
 });
+
+describe("SQLiteAdapter durability settings", () => {
+  const path = join(tmpdir(), `alineo-sqlite-sync-${process.pid}.db`);
+
+  afterEach(() => {
+    for (const suffix of ["", "-wal", "-shm"]) rmSync(path + suffix, { force: true });
+  });
+
+  it("runs a file-backed ledger in WAL with synchronous = FULL", async () => {
+    const adapter = new SQLiteAdapter(path);
+    await adapter.connect();
+    // The pragma is per-connection, so it has to be read on the adapter's own (private) one.
+    const conn = adapter["db"];
+    expect(conn.query("PRAGMA journal_mode").get()).toEqual({ journal_mode: "wal" });
+    expect(conn.query("PRAGMA synchronous").get()).toEqual({ synchronous: 2 });
+    await adapter.close();
+  });
+});

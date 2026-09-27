@@ -69,7 +69,7 @@ const spec = await Bun.file("./agents/support-agent.json").json();
 // ── Session 1 — a customer's first conversation ────────────────────────────────
 section("Session 1 — first contact");
 
-let agent = await Alineo.load(spec, { adapter, memory });
+let agent = await Alineo.start(spec, { adapter, memory });
 console.log(`sandbox: ${agent.sandboxId}  |  resourceRef: ${JSON.stringify(agent.resourceRef)}`);
 
 await agent.sandbox.exec("mkdir -p /workspace");
@@ -104,7 +104,7 @@ console.log("(session 1 ended — sandbox closed, memory file remains)");
 // ── Session 2 — a new sandbox, days later, same customer ───────────────────────
 section("Session 2 — same customer, brand-new sandbox");
 
-agent = await Alineo.load(spec, { adapter, memory });
+agent = await Alineo.start(spec, { adapter, memory });
 console.log(`sandbox: ${agent.sandboxId}  (different from session 1's)`);
 
 // Nothing about this sandbox knows anything yet — everything below comes back purely because

@@ -11,7 +11,7 @@ import { SDK_LEDGER_PATH } from "../../config";
 
 const agents = new Map<string, Alineo>();
 
-/** One shared SDK ledger adapter for every `Alineo.load()` / `.resume()` alineod makes. */
+/** One shared SDK ledger adapter for every `Alineo.start()` / `.resume()` alineod makes. */
 export const sdkAdapter = new SQLiteAdapter(SDK_LEDGER_PATH);
 
 export async function connectSdkAdapter(): Promise<void> {

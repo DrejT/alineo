@@ -1,0 +1,49 @@
+{
+  "name": "@alineo-labs/schema",
+  "version": "0.1.0",
+  "description": "The shapes of the system: the ledger envelope, every event definition, and the subjects and verbs that CLI commands, SDK methods, HTTP routes, MCP tools and event names are built out of. Types and Zod schemas only — no behaviour.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrejT/alineo.git",
+    "directory": "packages/schema"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    },
+    "./types": {
+      "import": "./dist/types.mjs",
+      "types": "./dist/types.d.mts"
+    },
+    "./alineod": {
+      "import": "./dist/alineod.mjs",
+      "types": "./dist/alineod.d.mts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "bun-types": "1.4.2",
+    "tsdown": "0.23.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.0"
+  }
+}

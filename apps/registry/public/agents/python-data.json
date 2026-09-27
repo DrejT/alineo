@@ -5,7 +5,7 @@
   "description": "A Pi agent on node:22 with Python 3 and pandas/numpy pre-installed for data analysis tasks.",
   "author": "alineo",
   "categories": ["agent", "python", "data"],
-  "cli": "pi",
+  "harness": "pi",
   "model": "gemini-flash-latest",
   "packages": ["python3", "python3-pip"],
   "env": {

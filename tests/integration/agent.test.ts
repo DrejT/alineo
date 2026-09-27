@@ -19,7 +19,7 @@ if (!GEMINI_API_KEY) {
 const SPEC = {
   $schema: "https://registry.alineo.tech/spec/agent.json",
   name: "test-agent",
-  cli: "pi" as const,
+  harness: "pi" as const,
   packages: [],
   model: "gemini-flash-latest",
   env: { GEMINI_API_KEY: "${GEMINI_API_KEY}" },
@@ -29,9 +29,9 @@ const SPEC = {
 let agent: Alineo;
 
 beforeAll(async () => {
-  // Alineo.load() no longer does its own file I/O (see #184) -- SPEC is already an object,
+  // Alineo.start() no longer does its own file I/O (see #184) -- SPEC is already an object,
   // so no round trip through a temp file is needed at all.
-  agent = await Alineo.load(SPEC, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
+  agent = await Alineo.start(SPEC, { adapter: new SQLiteAdapter("./.alineo/ledger.db") });
 }, 600_000);
 
 afterAll(async () => {

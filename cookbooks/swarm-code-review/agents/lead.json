@@ -4,9 +4,9 @@
   "title": "Review Lead",
   "description": "Checks out the repository under review; every reviewer is forked from this sandbox.",
   "author": "alineo",
-  "cli": "pi",
+  "harness": "pi",
   "provider": "nvidia",
-  "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
   "packages": ["git"],
   "setup": [
     {

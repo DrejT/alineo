@@ -37,6 +37,8 @@ import {
 } from "./environment";
 
 export { SandboxHandle, BashSession } from "@alineo-labs/core";
+import type { LedgerEntry } from "@alineo-labs/core";
+
 export type {
   ExecHandle,
   InteractiveExecHandle,
@@ -121,6 +123,7 @@ function assertValidNetworkPolicy(policy: NetworkPolicy | undefined): void {
 export class Sandbox {
   private readonly _control: ControlClient;
   private readonly _adapter: IStorageAdapter;
+  private readonly _sink: SandboxClientOptions["sink"];
   private readonly _credentialBroker: CredentialBroker;
   private readonly _maxConcurrency: number | undefined;
   private readonly _useServerProxy: boolean;
@@ -130,12 +133,45 @@ export class Sandbox {
   private _adapterClosed = false;
   private readonly _envBuilds = new Map<string, Promise<string>>();
 
+  /**
+   * The five `sandbox.created` writes below do not go through `SandboxCore.emit()` — the
+   * handle does not exist yet when they happen. This is their shared funnel, so a sink is
+   * attached to all five or none, rather than to four of them.
+   *
+   * The sink runs before the append for the same reason it does in `emit()`: an exporter
+   * must not delay, or fail, the write it is exporting.
+   */
+  private async _append(entry: LedgerEntry): Promise<void> {
+    if (this._sink) {
+      try {
+        this._sink({
+          v: 1,
+          ts: entry.ts,
+          type: entry.event,
+          ...(typeof (entry.payload as { runId?: string } | undefined)?.runId === "string"
+            ? { runId: (entry.payload as { runId: string }).runId }
+            : {}),
+          data: {
+            sandboxId: entry.sandboxId,
+            name: entry.name,
+            stepIndex: entry.stepIndex,
+            payload: entry.payload,
+          },
+        });
+      } catch {
+        // A failing export must never fail the sandbox operation that produced the event.
+      }
+    }
+    await this._adapter.append(entry);
+  }
+
   constructor(options: SandboxClientOptions) {
     this._control = new ControlClient({
       baseUrl: options.baseUrl,
       apiKey: options.apiKey ?? "",
     });
     this._adapter = options.adapter;
+    this._sink = options.sink;
     this._maxConcurrency = options.maxConcurrency;
     this._useServerProxy = options.useServerProxy ?? false;
     this._credentialBroker =
@@ -209,7 +245,7 @@ export class Sandbox {
       await this._waitForRunning(sandboxId);
 
       const name = opts.name ?? `sandbox-${sandboxId.slice(0, 8)}`;
-      await this._adapter.append({
+      await this._append({
         ts: Date.now(),
         name,
         sandboxId,
@@ -229,6 +265,7 @@ export class Sandbox {
       const sb = new SandboxHandle(sandboxId, name, {
         control: this._control,
         adapter: this._adapter,
+        sink: this._sink,
         credentialBroker: this._credentialBroker,
         hooks: opts.hooks,
         onClose: () => {
@@ -437,7 +474,7 @@ export class Sandbox {
       const newSessionId = rawSb.id;
       await this._waitForRunning(newSessionId);
 
-      await this._adapter.append({
+      await this._append({
         ts: Date.now(),
         name,
         sandboxId: newSessionId,
@@ -461,6 +498,7 @@ export class Sandbox {
         {
           control: this._control,
           adapter: this._adapter,
+          sink: this._sink,
           credentialBroker: this._credentialBroker,
           onClose: () => {
             this._releaseSlot();
@@ -529,7 +567,7 @@ export class Sandbox {
    * @param opts.runId  Default run-correlation ID for any later `.fork()` call on the
    *   returned `SandboxHandle`. `connect()` has no way to discover the sandbox's original
    *   `runId` (no ledger lookup is attempted — the caller may be using a completely
-   *   different adapter than whatever originally created it, as `alineo fork` does when
+   *   different adapter than whatever originally created it, as `alineo spawn` does when
    *   self-attaching). Omit this and pass `runId` explicitly to `.fork()` itself instead.
    *
    * @example
@@ -577,6 +615,7 @@ export class Sandbox {
     const handle = new SandboxHandle(sandboxId, name, {
       control: this._control,
       adapter: this._adapter,
+      sink: this._sink,
       credentialBroker: this._credentialBroker,
       onClose: () => {
         this._releaseSlot();
@@ -665,7 +704,7 @@ export class Sandbox {
       });
       const newId = rawSb.id;
       await this._waitForRunning(newId);
-      await this._adapter.append({
+      await this._append({
         ts: Date.now(),
         name,
         sandboxId: newId,
@@ -684,6 +723,7 @@ export class Sandbox {
       return new SandboxHandle(newId, name, {
         control: this._control,
         adapter: this._adapter,
+        sink: this._sink,
         credentialBroker: this._credentialBroker,
         onClose: () => {
           this._releaseSlot();
@@ -889,7 +929,7 @@ export class Sandbox {
       // `EnvironmentSandboxOptions`) the same way `restoreSnapshot()` reads from its own opts.
       const resourceId = extra?.resourceId;
       const teamId = extra?.teamId;
-      await this._adapter.append({
+      await this._append({
         ts: Date.now(),
         name: sessionName,
         sandboxId: newId,
@@ -908,6 +948,7 @@ export class Sandbox {
       const sb = new SandboxHandle(newId, sessionName, {
         control: this._control,
         adapter: this._adapter,
+        sink: this._sink,
         credentialBroker: this._credentialBroker,
         hooks: extra?.hooks,
         onClose: () => {
@@ -976,7 +1017,7 @@ export class Sandbox {
       await this._waitForRunning(newId);
 
       const sessionName = `fork-${parentName}-${newId.slice(0, 8)}`;
-      await this._adapter.append({
+      await this._append({
         ts: Date.now(),
         name: sessionName,
         sandboxId: newId,
@@ -1004,6 +1045,7 @@ export class Sandbox {
       return new SandboxHandle(newId, sessionName, {
         control: this._control,
         adapter: this._adapter,
+        sink: this._sink,
         credentialBroker: this._credentialBroker,
         onClose: () => {
           this._releaseSlot();

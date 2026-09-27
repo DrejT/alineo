@@ -45,7 +45,7 @@ Parents whose own turn already finished are reconnected the same way, so a pendi
 ### Retry spawns that hadn't forked yet
 
 Agents recorded before their sandbox existed — a child held by `waitFor`, or a root still being provisioned — are
-retried from what was persisted in their `agent_spawned` event: the spec, `waitFor` list, prompt, and budget. A
+retried from what was persisted in their `agent.spawned` event: the spec, `waitFor` list, prompt, and budget. A
 gather agent that was waiting on workers goes back to waiting and starts normally once they settle.
 
 A child whose parent could not be reconnected ends as `lost`.

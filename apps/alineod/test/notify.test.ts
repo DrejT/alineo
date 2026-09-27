@@ -197,7 +197,7 @@ describe("notifyOn delivery", () => {
         })
       ).status,
     ).toBe(400);
-    expect(events(run.runId).some((e) => e.event === "agent_spawned" && e.specName === "x")).toBe(
+    expect(events(run.runId).some((e) => e.event === "agent.spawned" && e.specName === "x")).toBe(
       false,
     );
   });
