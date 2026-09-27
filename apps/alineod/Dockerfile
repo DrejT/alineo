@@ -16,7 +16,9 @@
 # `eip` must be routable from this container — see apps/alineod/README.md.
 
 # ---- build: install + build the workspace packages alineod imports ----
-FROM oven/bun:1 AS build
+# Pinned to match CI's bun-version (.github/workflows/ci.yml) — the floating `:1` tag on
+# Docker Hub has moved ahead of the committed lockfile before, breaking --frozen-lockfile.
+FROM oven/bun:1.3.14 AS build
 WORKDIR /app
 
 COPY . .
@@ -24,7 +26,7 @@ RUN bun install --frozen-lockfile \
  && bun run build
 
 # ---- runtime ----
-FROM oven/bun:1
+FROM oven/bun:1.3.14
 WORKDIR /data
 
 # Only what the daemon actually needs at runtime: the root deps, the built
