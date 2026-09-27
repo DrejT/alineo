@@ -32,6 +32,7 @@ COPY packages packages
 COPY examples examples
 COPY cookbooks cookbooks
 COPY tests/integration tests/integration
+COPY tools tools
 COPY apps apps
 
 RUN bun install --frozen-lockfile
