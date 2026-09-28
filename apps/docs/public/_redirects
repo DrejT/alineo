@@ -42,3 +42,14 @@
 # after hydration, which a no-JS client or crawler would see as the actual response.
 # An edge-level 301 here sidesteps that.
 /                      /docs/core                301
+
+# The blog moved to alineo.tech/blog (apps/www, drej-private) — see
+# plans/move-blog-to-www.md. These keep every already-indexed docs.alineo.tech/blog
+# URL (index, posts, RSS) resolving to the live page on its new domain instead of
+# 404ing. /blog-og/* (the per-post OG image route) and /blog-assets/* (cover images
+# and demo GIFs) are separate path prefixes, not caught by /blog/*, so each needs its
+# own rule.
+/blog                https://alineo.tech/blog                  301
+/blog/*              https://alineo.tech/blog/:splat            301
+/blog-og/*           https://alineo.tech/blog/:splat            301
+/blog-assets/*       https://alineo.tech/blog-assets/:splat     301
