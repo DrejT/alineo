@@ -1,7 +1,6 @@
-import { defineDocs, defineConfig, defineCollections } from "fumadocs-mdx/config";
+import { defineDocs, defineConfig } from "fumadocs-mdx/config";
 import lastModified from "fumadocs-mdx/plugins/last-modified";
 import { remarkMdxMermaid } from "fumadocs-core/mdx-plugins/remark-mdx-mermaid";
-import { z } from "zod";
 
 const docs = { postprocess: { includeProcessedMarkdown: true } };
 
@@ -13,26 +12,6 @@ export const alineodDocs = defineDocs({ dir: "content/docs/alineod", docs });
 export const examplesDocs = defineDocs({ dir: "content/docs/examples", docs });
 export const cookbooksDocs = defineDocs({ dir: "content/docs/cookbooks", docs });
 export const playgroundDocs = defineDocs({ dir: "content/docs/playground", docs });
-
-export const blogPosts = defineCollections({
-  type: "doc",
-  dir: "content/blog",
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    date: z.coerce.date(),
-    author: z.string().default("The alineo team"),
-    /** Section label on the card and post header. */
-    tag: z.enum(["Product", "Engineering", "Docs"]).default("Product"),
-    /**
-     * Card / hero image — an absolute path under `/blog-assets/<slug>/`. May be a `.png`,
-     * `.gif`, `.jpg`, or `.webp`. Falls back to the generated `/blog-og/<slug>` image on
-     * the index card when unset.
-     */
-    cover: z.string().optional(),
-    coverAlt: z.string().optional(),
-  }),
-});
 
 // `lastModified` (git commit date per file) feeds the sitemap's <lastmod> and the
 // per-page TechArticle `dateModified`. Needs full git history — the docs deploy
