@@ -348,6 +348,31 @@ The `uvx` path does not need `useServerProxy` — the server is on the host, so 
 
 We are currently focused exclusively on making the **TypeScript sandbox client SDK** (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) full-featured and production-ready. Python SDK is maintained but not the priority. Do not add new features to the Python SDK unless explicitly asked.
 
+## `plans/` — dated, gitignored, local-only
+
+`plans/` is gitignored (a plan is a live working doc, not something the repo tracks) and
+organized as `plans/<DD-MM-YYYY>/<plan-name>.md` — one dated folder per plan.
+
+- **The date is when the plan was started, not last touched, and it never changes.** A plan
+  gets revised in place for months (`foundation-packages.md` has been edited across several
+  weeks under one folder) — the folder is fixed at creation, like a blog post's publish date,
+  not a last-modified timestamp. Never `mv` a plan to a new date because it was revised; edit it
+  where it is.
+- **Format is `DD-MM-YYYY`**, not ISO — this is a filesystem/directory-listing convention, not a
+  data field, so it sorts less naturally but reads unambiguously either way at a glance.
+- **A new plan goes under today's date**, in its own folder if none exists yet for that day, or
+  alongside same-day plans if one does.
+- **A plan's own content should still say when it was created** (e.g. a `> **Status (YYYY-MM-DD):**`
+  line near the top, the convention several existing plans already use) — the folder date and the
+  in-file status date should agree at creation; only the in-file date moves as the plan evolves.
+- **Research docs that live in `plans/` follow the same scheme** (e.g. a prior-art doc informing
+  a plan) — dated by when the research was done, not bundled under the plan it informs.
+
+This was retrofitted 2026-09-28 onto ~53 pre-existing flat `plans/*.md` files. Each was filed
+under the earliest `Status (YYYY-MM-DD)` date found in its own text where one existed (6 files),
+or its filesystem mtime otherwise (47 files) — mtime is an approximation of creation for those,
+since nothing better survived.
+
 ## Releases
 
 The TypeScript sandbox client SDK (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) is published to npm via changesets, same as every other publishable package (`alineo`, `alineo-cli`, `@alineo-labs/*`). Every PR that changes publishable packages needs a changeset (`bunx changeset`). CI enforces this. Releases are cut automatically via `changesets/action` on merge to `main`.
