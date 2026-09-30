@@ -10,7 +10,7 @@
  * has its slot here.
  *
  * Not a rejection (429/409) — a hold, the same shape as `waitFor`'s hold-then-spawn
- * (`spawn.ts`/`waitfor.ts`). An agent's own `alineo fork` call, issued mid-reasoning from inside
+ * (`spawn.ts`/`waitfor.ts`). An agent's own `alineo spawn` call, issued mid-reasoning from inside
  * a running turn, has no sensible way to interpret or retry an HTTP error triggered by *someone
  * else's* concurrent provisioning load.
  */
