@@ -56,7 +56,10 @@ export async function withIdempotency<T>(
   } catch (err) {
     const status = err instanceof HttpError ? err.status : 500;
     const error = err instanceof Error ? err.message : String(err);
-    completeIdempotentCommand(agentId, command, key, "failed", { status, error } satisfies StoredFailure);
+    completeIdempotentCommand(agentId, command, key, "failed", {
+      status,
+      error,
+    } satisfies StoredFailure);
     throw err;
   }
 }

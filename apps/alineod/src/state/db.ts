@@ -264,10 +264,7 @@ export type ReserveCommandResult =
   | { won: true }
   | { won: false; status: CommandIdempotentStatus; response: unknown };
 
-const insertCommandIdempotent = db.query<
-  unknown,
-  [string, string, string, number]
->(
+const insertCommandIdempotent = db.query<unknown, [string, string, string, number]>(
   `INSERT INTO command_idempotency (agent_id, command, key, status, created_at)
    VALUES (?, ?, ?, 'pending', ?)
    ON CONFLICT (agent_id, command, key) DO NOTHING`,
