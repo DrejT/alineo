@@ -43,6 +43,15 @@ export function isCatchingUp(agentId: string): boolean {
 }
 
 /**
+ * A real process death drops these too — a fresh process's `driving`/`catchingUp` start empty.
+ * Test/fault-harness seam only, mirroring `emit.ts`'s `clearSinks()`. @internal
+ */
+export function forgetAllTurnTrackingForFaultInjection(): void {
+  driving.clear();
+  catchingUp.clear();
+}
+
+/**
  * The error a turn ended on, if any. When the model API refuses a request ("overloaded", a 429,
  * a 404 for a model the account can't use) Pi stops the turn normally, with `stopReason: "error"`
  * and the provider's text in `errorMessage` on its last assistant message. The stream then ends
