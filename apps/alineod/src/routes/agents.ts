@@ -59,30 +59,30 @@ export const agentsRoutes = new Elysia()
   })
 
   .post("/agents/:agentId/steer", async ({ params, body }) => {
-    const { message, scope } = parseBody(SteerBody, body);
+    const { message, scope, idempotencyKey } = parseBody(SteerBody, body);
     if (scope === "subtree") return steerSubtree(params.agentId, message);
-    await steerAgent(params.agentId, message);
+    await steerAgent(params.agentId, message, { idempotencyKey });
     return new Response(null, { status: 202 });
   })
 
   .post("/agents/:agentId/pause", async ({ params, body }) => {
-    const { scope } = parseBody(ControlScopeBody, body ?? {});
+    const { scope, idempotencyKey } = parseBody(ControlScopeBody, body ?? {});
     if (scope === "subtree") return pauseSubtree(params.agentId);
-    await pauseAgent(params.agentId);
+    await pauseAgent(params.agentId, { idempotencyKey });
     return new Response(null, { status: 202 });
   })
 
   .post("/agents/:agentId/resume", async ({ params, body }) => {
-    const { scope } = parseBody(ControlScopeBody, body ?? {});
+    const { scope, idempotencyKey } = parseBody(ControlScopeBody, body ?? {});
     if (scope === "subtree") return resumeSubtree(params.agentId);
-    await resumeAgent(params.agentId);
+    await resumeAgent(params.agentId, { idempotencyKey });
     return new Response(null, { status: 202 });
   })
 
   .post("/agents/:agentId/stop", async ({ params, body }) => {
-    const { mode, scope } = parseBody(StopAgentBody, body ?? {});
+    const { mode, scope, idempotencyKey } = parseBody(StopAgentBody, body ?? {});
     if (scope === "subtree") return stopSubtree(params.agentId, mode);
-    await stopAgent(params.agentId, mode);
+    await stopAgent(params.agentId, mode, { idempotencyKey });
     return new Response(null, { status: 202 });
   })
 

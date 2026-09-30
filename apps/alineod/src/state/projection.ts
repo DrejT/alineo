@@ -5,7 +5,7 @@
  * `apply()` is called on every appended row and is the ONLY writer of these two tables, so
  * they stay a pure function of the ledger and `rebuild()` can throw them away and refold.
  */
-import { db, readAllLedger, type LedgerRow } from "./db";
+import { db, readAllLedger, forgetIdempotentCommandsFor, type LedgerRow } from "./db";
 import type { AgentView } from "../schema";
 
 // ── writers (ledger-driven only) ─────────────────────────────────────────────
@@ -156,7 +156,18 @@ export function apply(row: LedgerRow): void {
       }
       break;
     case "agent.released":
-      if (row.agent_id) markReleased.run({ $agentId: row.agent_id, $at: row.ts });
+      if (row.agent_id) {
+        markReleased.run({ $agentId: row.agent_id, $at: row.ts });
+        // Retention for command_idempotency (pause/resume/stop/steer): rows for an agent that
+        // is gone for good have nothing left to replay a response for. Known narrow edge case:
+        // when the STOP command itself is what causes this release, this wipes stop's own
+        // still-in-flight reservation for that (agentId, key) before idempotency.ts's
+        // `completeIdempotentCommand` writes it — a retry with that key then re-derives "noop"
+        // (the agent is already gone) rather than replaying the cached "released". Both are
+        // truthful and there is no double side effect, so this is left as-is rather than adding
+        // ordering complexity to prevent a command from ever observing its own release.
+        forgetIdempotentCommandsFor(row.agent_id);
+      }
       break;
     case "agent.ended":
       endAgentRow.run({

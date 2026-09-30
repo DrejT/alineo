@@ -16,23 +16,37 @@ import { emit } from "./emit";
 import { HttpError } from "./errors";
 import { driveTurn, isTurnActive } from "./stream";
 import { queueSteer, withInbox } from "./notify";
+import { withIdempotency } from "./idempotency";
 import { errorMessage } from "../util";
 
-export async function steerAgent(agentId: string, message: string): Promise<void> {
-  const row = getAgentRow(agentId);
-  if (!row) throw new HttpError(404, `no agent ${agentId}`);
+/**
+ * `steerAgent` does NOT run under agent-lock.ts's per-agent queue — a steer isn't a state
+ * transition (idempotent-commands.md's semantics table), and serializing it behind an unrelated
+ * concurrent resume's bridge-probe/restart chain would block a legitimate steer for no reason.
+ * `idempotencyKey`, when given, still dedupes a retried delivery via `command_idempotency` —
+ * `withIdempotency`'s atomic reserve is what makes that safe without the lock.
+ */
+export function steerAgent(
+  agentId: string,
+  message: string,
+  opts: { idempotencyKey?: string } = {},
+): Promise<void> {
+  return withIdempotency(agentId, "steer", opts.idempotencyKey, async () => {
+    const row = getAgentRow(agentId);
+    if (!row) throw new HttpError(404, `no agent ${agentId}`);
 
-  const agent = get(agentId);
-  if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot steer it)`);
+    const agent = get(agentId);
+    if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot steer it)`);
 
-  try {
-    await agent.steer(message);
-  } catch (err) {
-    const msg = errorMessage(err);
-    throw new HttpError(502, `steer failed: ${msg}`);
-  }
+    try {
+      await agent.steer(message);
+    } catch (err) {
+      const msg = errorMessage(err);
+      throw new HttpError(502, `steer failed: ${msg}`);
+    }
 
-  emit(row.run_id, agentId, "agent.steered", { message });
+    emit(row.run_id, agentId, "agent.steered", { message });
+  });
 }
 
 export interface RosterEntry {
