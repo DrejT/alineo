@@ -7,11 +7,20 @@
  *
  * `loopd` / `swarmd` were taken as names elsewhere; this is `alineod`. See research/daemon.md.
  */
+import { availableParallelism } from "node:os";
 import { defineEnv, readEnvGroup } from "@alineo-labs/config-shared";
 import { z } from "zod";
 
 const ms = z.coerce.number().int().positive();
 const path = z.string().min(1);
+
+/**
+ * Adaptive default for admission concurrency (admission-control.md): self-sizes per box instead
+ * of encoding one VPS's number as gospel — `central-config.md`'s own incident ("four concurrent
+ * forks on one vCPU left an agent unprovisioned after 325s") was exactly that mistake. Leaves one
+ * core of headroom for the event loop / everything else alineod does concurrently; never below 1.
+ */
+const defaultAdmissionConcurrency = Math.max(1, availableParallelism() - 1);
 
 /**
  * Warnings raised while reading the environment (deprecated names, so far).
@@ -96,6 +105,20 @@ export const ENV_VARS = {
     schema: ms,
     default: 15_000,
   }),
+  ADMISSION_CONCURRENCY: defineEnv({
+    name: "ALINEOD_ADMISSION_CONCURRENCY",
+    description:
+      "Max concurrent provisioning operations (Alineo.start() / parent.spawn()) this instance runs at once. Default is host vCPUs minus one, self-sized per box rather than one VPS's number encoded as gospel.",
+    schema: z.coerce.number().int().positive(),
+    default: defaultAdmissionConcurrency,
+  }),
+  ADMISSION_TIMEOUT_MS: defineEnv({
+    name: "ALINEOD_ADMISSION_TIMEOUT_MS",
+    description:
+      "Bound on how long a spawn can wait for a free provisioning slot before failing loudly with admission_timeout, instead of hanging silently. Generous by design: provisioning itself is measured at 72-165s cold, so several queued requests ahead of one can legitimately take minutes.",
+    schema: ms,
+    default: 10 * 60_000,
+  }),
 } as const;
 
 const env = readEnvGroup(ENV_VARS, { onWarning: (message) => configWarnings.push(message) });
@@ -112,6 +135,8 @@ export const STATE_PROBE_TIMEOUT_MS = env.STATE_PROBE_TIMEOUT_MS;
 export const RESUME_BRIDGE_TIMEOUT_MS = env.RESUME_BRIDGE_TIMEOUT_MS;
 export const SUBTREE_MEMBER_TIMEOUT_MS = env.SUBTREE_MEMBER_TIMEOUT_MS;
 export const LEASE_TTL_MS = env.LEASE_TTL_MS;
+export const ADMISSION_CONCURRENCY = env.ADMISSION_CONCURRENCY;
+export const ADMISSION_TIMEOUT_MS = env.ADMISSION_TIMEOUT_MS;
 
 /**
  * Bun's socket idle timeout, in seconds. Bun.serve caps this at 255 and defaults it to ~10s —

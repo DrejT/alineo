@@ -25,6 +25,7 @@ import { emit } from "./emit";
 import { driveTurn, setState } from "./stream";
 import { registerNotify, withInbox } from "./notify";
 import { isNotRunningError, waitUntilNotPaused } from "./hold";
+import { acquireAdmission } from "./admission";
 import { errorMessage, sleep } from "../util";
 import {
   normalizeWait,
@@ -165,10 +166,29 @@ export async function provisionChild(
     }
 
     const specPath = writeSpecFile(childId, body.spec);
-    const child = await forkFromParent(runId, childId, parentAgentId, specPath, {
-      spawnDepth: spawnBudget,
-      maxAgents: maxAgentsBudget,
-    });
+
+    // Admission (admission-control.md): global backpressure on provisioning, composing with
+    // fork-lock.ts's per-parent serialization below rather than replacing it. Held for the fork
+    // itself only — not for injectInputs/driveTurn after, which aren't the CPU/IO-heavy operation
+    // the concurrency cap exists for.
+    const admission = await acquireAdmission(runId, childId);
+    if (admission.outcome === "timeout") {
+      emit(runId, childId, "agent.ended", {
+        outcome: "admission_timeout",
+        endedAt: Date.now(),
+        error: "no provisioning slot became free in time",
+      });
+      return;
+    }
+    let child: Alineo | null;
+    try {
+      child = await forkFromParent(runId, childId, parentAgentId, specPath, {
+        spawnDepth: spawnBudget,
+        maxAgents: maxAgentsBudget,
+      });
+    } finally {
+      admission.release();
+    }
     if (!child) return; // stopped while waiting on its paused parent
 
     if (isCancelled(childId)) {
