@@ -8,6 +8,7 @@
     "start": "bun server.ts",
     "dev": "bun --watch server.ts",
     "test": "bun test",
+    "fault": "bun test test/fault-harness.test.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "spec": "bun scripts/emit-spec.ts"
   },

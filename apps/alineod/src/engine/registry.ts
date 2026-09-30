@@ -33,3 +33,12 @@ export function forget(agentId: string): void {
 export function has(agentId: string): boolean {
   return agents.has(agentId);
 }
+
+/**
+ * Drop every live connection, without touching the ledger — what a real process death leaves
+ * behind for the next boot to rehydrate from. Test/fault-harness seam only, mirroring
+ * `emit.ts`'s `clearSinks()`. @internal
+ */
+export function forgetAllForFaultInjection(): void {
+  agents.clear();
+}
