@@ -15,6 +15,11 @@
  * and every descendant (research/swarm-control.md §5c, §6). Resume restores the state the agent had
  * before the pause (`paused_from`). Each pause records who caused it (`paused_by`): `operator` for the
  * target of the call, `cascade` for a descendant a subtree pause reached.
+ *
+ * Both bodies run under `withAgentLock` (agent-lock.ts): each has a real `await` to the sandbox
+ * between its state check and its effect — resume especially, a whole chain of them — so two
+ * concurrent commands on the same agent could otherwise interleave against a live sandbox
+ * instead of just racing a redundant no-op.
  */
 import { Alineo } from "alineo";
 import { get, register, sdkAdapter } from "./registry";
@@ -23,6 +28,7 @@ import { attempt, sweepSubtree, type MemberResult } from "./subtree";
 import { emit } from "./emit";
 import { catchUpTurn, driveTurn, isTurnActive } from "./stream";
 import { deliverPending, withInbox } from "./notify";
+import { withAgentLock } from "./agent-lock";
 import { HttpError } from "./errors";
 import { errorMessage, withTimeout } from "../util";
 import { RESUME_BRIDGE_TIMEOUT_MS } from "../../config";
@@ -33,104 +39,105 @@ const log = getLogger("alineod");
 
 export type PausedBy = "operator" | "cascade";
 
-export async function pauseAgent(
-  agentId: string,
-  opts: { pausedBy?: PausedBy } = {},
-): Promise<void> {
-  const pausedBy = opts.pausedBy ?? "operator";
-  const row = getAgentRow(agentId);
-  if (!row) throw new HttpError(404, `no agent ${agentId}`);
-  if (row.state === "paused") return; // idempotent
+export function pauseAgent(agentId: string, opts: { pausedBy?: PausedBy } = {}): Promise<void> {
+  return withAgentLock(agentId, async () => {
+    const pausedBy = opts.pausedBy ?? "operator";
+    const row = getAgentRow(agentId);
+    if (!row) throw new HttpError(404, `no agent ${agentId}`);
+    if (row.state === "paused") return; // idempotent
 
-  const agent = get(agentId);
-  if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot pause it)`);
+    const agent = get(agentId);
+    if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot pause it)`);
 
-  try {
-    await agent.sandbox.pause();
-  } catch (err) {
-    const msg = errorMessage(err);
-    throw new HttpError(502, `pause failed: ${msg}`);
-  }
+    try {
+      await agent.sandbox.pause();
+    } catch (err) {
+      const msg = errorMessage(err);
+      throw new HttpError(502, `pause failed: ${msg}`);
+    }
 
-  emit(row.run_id, agentId, "agent.state_changed", {
-    from: row.state,
-    to: "paused",
-    reason: pausedBy,
-    pausedBy,
+    emit(row.run_id, agentId, "agent.state_changed", {
+      from: row.state,
+      to: "paused",
+      reason: pausedBy,
+      pausedBy,
+    });
   });
 }
 
-export async function resumeAgent(agentId: string, opts: { by?: PausedBy } = {}): Promise<void> {
-  const row = getAgentRow(agentId);
-  if (!row) throw new HttpError(404, `no agent ${agentId}`);
-  if (row.state !== "paused") {
-    throw new HttpError(409, `agent ${agentId} is not paused (state: ${row.state})`);
-  }
+export function resumeAgent(agentId: string, opts: { by?: PausedBy } = {}): Promise<void> {
+  return withAgentLock(agentId, async () => {
+    const row = getAgentRow(agentId);
+    if (!row) throw new HttpError(404, `no agent ${agentId}`);
+    if (row.state !== "paused") {
+      throw new HttpError(409, `agent ${agentId} is not paused (state: ${row.state})`);
+    }
 
-  const agent = get(agentId);
-  if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot resume it)`);
+    const agent = get(agentId);
+    if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot resume it)`);
 
-  try {
-    await agent.sandbox.resume();
-  } catch (err) {
-    const msg = errorMessage(err);
-    throw new HttpError(502, `resume failed: ${msg}`);
-  }
-
-  const pausedFrom = row.paused_from ?? "running";
-  emit(row.run_id, agentId, "agent.state_changed", {
-    from: "paused",
-    to: pausedFrom,
-    reason: opts.by ?? "operator",
-  });
-
-  // An agent reconnected while paused (after a restart) was registered without probing its
-  // bridge — a frozen bridge can't answer (rehydrate.ts). Check it now that the container runs.
-  const bridgeOk = await withTimeout(
-    agent.adapter.waitReady(RESUME_BRIDGE_TIMEOUT_MS).then(() => true),
-    RESUME_BRIDGE_TIMEOUT_MS + 1_000,
-  );
-  if (!bridgeOk) {
     try {
-      const restarted = await Alineo.resume(agent.sandboxId, {
-        adapter: sdkAdapter,
-        spec: JSON.parse(row.spec_json),
-        runId: row.run_id,
-      });
-      register(agentId, restarted);
-      log.info("bridge didn't answer after resume — restarted it", { agentId });
+      await agent.sandbox.resume();
     } catch (err) {
       const msg = errorMessage(err);
-      if (row.ended_at === null) {
-        emit(row.run_id, agentId, "agent.ended", {
-          outcome: "lost",
-          endedAt: Date.now(),
-          error: `bridge did not come back after resume: ${msg}`,
-        });
-      }
-      throw new HttpError(502, `resumed, but the agent's bridge did not come back: ${msg}`);
+      throw new HttpError(502, `resume failed: ${msg}`);
     }
-  }
 
-  // A turn that was running when the agent was paused, and that nothing is following any more
-  // (alineod restarted while it was paused), is followed by polling until it finishes.
-  if (pausedFrom === "running" && !isTurnActive(agentId)) {
-    void catchUpTurn(row.run_id, agentId, { afterStream: true });
-  }
+    const pausedFrom = row.paused_from ?? "running";
+    emit(row.run_id, agentId, "agent.state_changed", {
+      from: "paused",
+      to: pausedFrom,
+      reason: opts.by ?? "operator",
+    });
 
-  // A child that forked while an ancestor was paused joined the pause before its first prompt ran
-  // (spawn.ts) — start that prompt now.
-  if (
-    pausedFrom === "provisioning" &&
-    row.prompt &&
-    getHandle(agentId)?.state === "pending" &&
-    !isTurnActive(agentId)
-  ) {
-    void driveTurn(agentId, withInbox(agentId, row.prompt));
-  }
+    // An agent reconnected while paused (after a restart) was registered without probing its
+    // bridge — a frozen bridge can't answer (rehydrate.ts). Check it now that the container runs.
+    const bridgeOk = await withTimeout(
+      agent.adapter.waitReady(RESUME_BRIDGE_TIMEOUT_MS).then(() => true),
+      RESUME_BRIDGE_TIMEOUT_MS + 1_000,
+    );
+    if (!bridgeOk) {
+      try {
+        const restarted = await Alineo.resume(agent.sandboxId, {
+          adapter: sdkAdapter,
+          spec: JSON.parse(row.spec_json),
+          runId: row.run_id,
+        });
+        register(agentId, restarted);
+        log.info("bridge didn't answer after resume — restarted it", { agentId });
+      } catch (err) {
+        const msg = errorMessage(err);
+        if (row.ended_at === null) {
+          emit(row.run_id, agentId, "agent.ended", {
+            outcome: "lost",
+            endedAt: Date.now(),
+            error: `bridge did not come back after resume: ${msg}`,
+          });
+        }
+        throw new HttpError(502, `resumed, but the agent's bridge did not come back: ${msg}`);
+      }
+    }
 
-  // Anything that arrived for it while it was paused (notifications, a queued subtree steer).
-  void deliverPending(agentId);
+    // A turn that was running when the agent was paused, and that nothing is following any more
+    // (alineod restarted while it was paused), is followed by polling until it finishes.
+    if (pausedFrom === "running" && !isTurnActive(agentId)) {
+      void catchUpTurn(row.run_id, agentId, { afterStream: true });
+    }
+
+    // A child that forked while an ancestor was paused joined the pause before its first prompt
+    // ran (spawn.ts) — start that prompt now.
+    if (
+      pausedFrom === "provisioning" &&
+      row.prompt &&
+      getHandle(agentId)?.state === "pending" &&
+      !isTurnActive(agentId)
+    ) {
+      void driveTurn(agentId, withInbox(agentId, row.prompt));
+    }
+
+    // Anything that arrived for it while it was paused (notifications, a queued subtree steer).
+    void deliverPending(agentId);
+  });
 }
 
 // ── subtree scope ─────────────────────────────────────────────────────────────

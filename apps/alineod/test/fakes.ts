@@ -81,13 +81,38 @@ export class FakeAgent {
   forkGate?: Promise<void>;
   private forking = false;
 
+  /** Same idea as `forkGate`/`forking`, for `sandbox.pause()`/`.resume()` — catches a concurrent
+   *  pause/resume landing on this sandbox while the other is still in flight (agent-lock.ts is
+   *  what's supposed to prevent that). */
+  pauseGate?: Promise<void>;
+  resumeGate?: Promise<void>;
+  private pauseOrResumeInFlight = false;
+
   readonly sandbox = {
     pause: async (): Promise<void> => {
-      if (this.pauseError) throw this.pauseError;
-      this.paused = true;
+      if (this.pauseOrResumeInFlight) {
+        throw new Error(`concurrent pause()/resume() on ${this.sandboxId}`);
+      }
+      this.pauseOrResumeInFlight = true;
+      try {
+        if (this.pauseGate) await this.pauseGate;
+        if (this.pauseError) throw this.pauseError;
+        this.paused = true;
+      } finally {
+        this.pauseOrResumeInFlight = false;
+      }
     },
     resume: async (): Promise<void> => {
-      this.paused = false;
+      if (this.pauseOrResumeInFlight) {
+        throw new Error(`concurrent pause()/resume() on ${this.sandboxId}`);
+      }
+      this.pauseOrResumeInFlight = true;
+      try {
+        if (this.resumeGate) await this.resumeGate;
+        this.paused = false;
+      } finally {
+        this.pauseOrResumeInFlight = false;
+      }
     },
     writeFile: async (path: string, content: string): Promise<void> => {
       this.files.set(path, content);

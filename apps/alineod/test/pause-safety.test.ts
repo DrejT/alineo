@@ -213,3 +213,48 @@ describe("spawning under a paused parent", () => {
     ).toContain("no longer live");
   });
 });
+
+describe("concurrent commands on the same agent are serialized (agent-lock.ts)", () => {
+  test("two concurrent pause calls never overlap against the sandbox", async () => {
+    const { rootAgentId, root: agent } = await startRun({ prompt: "quick" });
+    await until(() => getAgentRow(rootAgentId)?.state === "done", "turn to finish");
+
+    const gate = deferred();
+    agent.pauseGate = gate.promise; // stretch the in-flight window so any overlap gets caught
+
+    const calls = Promise.all([
+      call("POST", `/agents/${rootAgentId}/pause`),
+      call("POST", `/agents/${rootAgentId}/pause`),
+    ]);
+    await Bun.sleep(20); // the first pause is now mid-flight, waiting on the gate
+    gate.resolve();
+    const [a, b] = await calls;
+
+    // Neither request errored (the fake throws "concurrent pause()/resume()" on overlap), and
+    // the second call correctly saw the already-paused state once it was its turn to run.
+    expect([a.status, b.status]).toEqual([202, 202]);
+    expect(getAgentRow(rootAgentId)?.state).toBe("paused");
+  });
+
+  test("a pause landing while a resume is still in flight queues instead of interleaving", async () => {
+    const { rootAgentId, root: agent } = await startRun({ prompt: "quick" });
+    await until(() => getAgentRow(rootAgentId)?.state === "done", "turn to finish");
+    await call("POST", `/agents/${rootAgentId}/pause`);
+
+    const gate = deferred();
+    agent.resumeGate = gate.promise;
+
+    const resumeCall = call("POST", `/agents/${rootAgentId}/resume`);
+    await Bun.sleep(20); // resume is now mid-flight, waiting on the gate
+    const pauseCall = call("POST", `/agents/${rootAgentId}/pause`);
+    await Bun.sleep(20);
+    gate.resolve();
+
+    const [resumeRes, pauseRes] = await Promise.all([resumeCall, pauseCall]);
+    expect(resumeRes.status).toBe(202);
+    expect(pauseRes.status).toBe(202);
+    // The pause queued behind the resume rather than racing it against the live sandbox: final
+    // state is paused, reached via a real resume-then-pause sequence.
+    expect(getAgentRow(rootAgentId)?.state).toBe("paused");
+  });
+});
