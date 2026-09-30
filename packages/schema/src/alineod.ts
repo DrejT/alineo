@@ -206,6 +206,13 @@ export const ControlScopeBody = z
       .describe(
         '"agent" (default): the named agent only. "subtree": the agent and every descendant — pause parents-first, resume children-first.',
       ),
+    idempotencyKey: z
+      .string()
+      .optional()
+      .describe(
+        "A retried request with the same key returns the original response instead of acting " +
+          'twice. scope: "agent" only — a subtree op does not support per-request idempotency.',
+      ),
   })
   .default({ scope: "agent" });
 
@@ -246,6 +253,13 @@ export const StopAgentBody = z
       .describe(
         '"subtree": the agent and every descendant, leaves first, with one result per member.',
       ),
+    idempotencyKey: z
+      .string()
+      .optional()
+      .describe(
+        "A retried request with the same key returns the original response instead of acting " +
+          'twice. scope: "agent" only — a subtree op does not support per-request idempotency.',
+      ),
   })
   .default({ mode: "abort", scope: "agent" });
 
@@ -263,6 +277,14 @@ export const SteerBody = z
       .default("agent")
       .describe(
         '"subtree": deliver ONE message to this agent — your text plus a roster of its direct children — so it re-plans and redirects each child itself. Never a broadcast.',
+      ),
+    idempotencyKey: z
+      .string()
+      .optional()
+      .describe(
+        "A retried delivery with the same key is not delivered twice, and returns the same " +
+          'acknowledgement. scope: "agent" only — a subtree steer does not support ' +
+          "per-request idempotency.",
       ),
   })
   .describe("Injected into the agent's current turn (research/swarm-control.md §8).");

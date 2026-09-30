@@ -87,6 +87,11 @@ export class FakeAgent {
   pauseGate?: Promise<void>;
   resumeGate?: Promise<void>;
   private pauseOrResumeInFlight = false;
+  /** How many times sandbox.pause()/.resume() actually ran — for asserting a cached idempotent
+   *  replay didn't re-execute the side effect (as opposed to the command's own no-op guard,
+   *  which would also skip re-pausing an already-paused agent with no idempotency involved). */
+  pauseCallCount = 0;
+  resumeCallCount = 0;
 
   readonly sandbox = {
     pause: async (): Promise<void> => {
@@ -94,6 +99,7 @@ export class FakeAgent {
         throw new Error(`concurrent pause()/resume() on ${this.sandboxId}`);
       }
       this.pauseOrResumeInFlight = true;
+      this.pauseCallCount++;
       try {
         if (this.pauseGate) await this.pauseGate;
         if (this.pauseError) throw this.pauseError;
@@ -107,6 +113,7 @@ export class FakeAgent {
         throw new Error(`concurrent pause()/resume() on ${this.sandboxId}`);
       }
       this.pauseOrResumeInFlight = true;
+      this.resumeCallCount++;
       try {
         if (this.resumeGate) await this.resumeGate;
         this.paused = false;

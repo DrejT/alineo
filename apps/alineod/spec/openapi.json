@@ -1177,6 +1177,10 @@
                       "agent",
                       "subtree"
                     ]
+                  },
+                  "idempotencyKey": {
+                    "description": "A retried delivery with the same key is not delivered twice, and returns the same acknowledgement. scope: \"agent\" only — a subtree steer does not support per-request idempotency.",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1292,6 +1296,10 @@
                       "agent",
                       "subtree"
                     ]
+                  },
+                  "idempotencyKey": {
+                    "description": "A retried request with the same key returns the original response instead of acting twice. scope: \"agent\" only — a subtree op does not support per-request idempotency.",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1395,6 +1403,10 @@
                       "agent",
                       "subtree"
                     ]
+                  },
+                  "idempotencyKey": {
+                    "description": "A retried request with the same key returns the original response instead of acting twice. scope: \"agent\" only — a subtree op does not support per-request idempotency.",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1507,6 +1519,10 @@
                       "agent",
                       "subtree"
                     ]
+                  },
+                  "idempotencyKey": {
+                    "description": "A retried request with the same key returns the original response instead of acting twice. scope: \"agent\" only — a subtree op does not support per-request idempotency.",
+                    "type": "string"
                   }
                 },
                 "required": [

@@ -17,6 +17,7 @@ import { emit } from "./emit";
 import { setState } from "./stream";
 import { getAgentRow, getRunAgentViews, type AgentRow } from "../state/projection";
 import { withAgentLock } from "./agent-lock";
+import { withIdempotency } from "./idempotency";
 import { HttpError } from "./errors";
 import { attempt, sweepSubtree, type MemberResult } from "./subtree";
 import type { SubtreeOpResult } from "../schema";
@@ -24,36 +25,42 @@ import type { SubtreeOpResult } from "../schema";
 /** What a stop did: ended a live agent, released a finished one's sandbox, or nothing. */
 export type StopEffect = "aborted" | "released" | "noop";
 
-export function stopAgent(agentId: string, mode: "abort" | "drain"): Promise<StopEffect> {
-  return withAgentLock(agentId, async () => {
-    const row = getAgentRow(agentId);
-    if (!row) throw new HttpError(404, `no agent ${agentId}`);
-    const agent = get(agentId);
+export function stopAgent(
+  agentId: string,
+  mode: "abort" | "drain",
+  opts: { idempotencyKey?: string } = {},
+): Promise<StopEffect> {
+  return withAgentLock(agentId, () =>
+    withIdempotency(agentId, "stop", opts.idempotencyKey, async () => {
+      const row = getAgentRow(agentId);
+      if (!row) throw new HttpError(404, `no agent ${agentId}`);
+      const agent = get(agentId);
 
-    if (row.ended_at !== null) {
-      if (!agent) return "noop";
-      await closeQuietly(agentId);
-      emit(row.run_id, agentId, "agent.released", { reason: `stop:${mode}` });
-      return "released";
-    }
-
-    setState(agentId, "aborted", `stop:${mode}`);
-    if (agent) {
-      // A frozen bridge can't answer an abort; closing the sandbox is enough.
-      if (row.state !== "paused") {
-        try {
-          await agent.abort();
-        } catch {
-          /* already stopped */
-        }
+      if (row.ended_at !== null) {
+        if (!agent) return "noop";
+        await closeQuietly(agentId);
+        emit(row.run_id, agentId, "agent.released", { reason: `stop:${mode}` });
+        return "released";
       }
-      await closeQuietly(agentId);
-    }
-    // No sandbox yet (held on waitFor or a paused parent): ending it here is what cancels the
-    // spawn — provisionChild() checks for this before and after the fork.
-    emit(row.run_id, agentId, "agent.ended", { outcome: "aborted", endedAt: Date.now() });
-    return "aborted";
-  });
+
+      setState(agentId, "aborted", `stop:${mode}`);
+      if (agent) {
+        // A frozen bridge can't answer an abort; closing the sandbox is enough.
+        if (row.state !== "paused") {
+          try {
+            await agent.abort();
+          } catch {
+            /* already stopped */
+          }
+        }
+        await closeQuietly(agentId);
+      }
+      // No sandbox yet (held on waitFor or a paused parent): ending it here is what cancels the
+      // spawn — provisionChild() checks for this before and after the fork.
+      emit(row.run_id, agentId, "agent.ended", { outcome: "aborted", endedAt: Date.now() });
+      return "aborted";
+    }),
+  );
 }
 
 /**

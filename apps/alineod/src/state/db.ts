@@ -94,6 +94,21 @@ CREATE TABLE IF NOT EXISTS spawn_idempotency (
   agent_id TEXT NOT NULL,
   PRIMARY KEY (run_id, key)
 );
+
+-- Generalizes spawn_idempotency to pause/resume/stop/steer, which act on an existing agent
+-- rather than minting one -- scoped by (agent_id, command, key), not (run_id, key). Same
+-- non-ledger status as spawn_idempotency: request-dedup bookkeeping, not swarm history.
+-- Reserve -> act -> record, per plan: a 'pending' row exists between the reserve and the
+-- record, so a concurrent duplicate can see "in flight" rather than double-acting.
+CREATE TABLE IF NOT EXISTS command_idempotency (
+  agent_id      TEXT NOT NULL,
+  command       TEXT NOT NULL,
+  key           TEXT NOT NULL,
+  status        TEXT NOT NULL,   -- pending | completed | failed
+  response_json TEXT,
+  created_at    INTEGER NOT NULL,
+  PRIMARY KEY (agent_id, command, key)
+);
 `);
 
 /** Additive column migrations — `ALTER TABLE ADD COLUMN` throws if the column already exists. */
@@ -239,4 +254,75 @@ export function recordIdempotent(runId: string, key: string, agentId: string): v
 
 export function findIdempotent(runId: string, key: string): string | null {
   return selectIdempotent.get(runId, key)?.agent_id ?? null;
+}
+
+// ── command idempotency (pause/resume/stop/steer) ────────────────────────────
+
+export type CommandIdempotentStatus = "pending" | "completed" | "failed";
+
+export type ReserveCommandResult =
+  | { won: true }
+  | { won: false; status: CommandIdempotentStatus; response: unknown };
+
+const insertCommandIdempotent = db.query<unknown, [string, string, string, number]>(
+  `INSERT INTO command_idempotency (agent_id, command, key, status, created_at)
+   VALUES (?, ?, ?, 'pending', ?)
+   ON CONFLICT (agent_id, command, key) DO NOTHING`,
+);
+const selectCommandIdempotent = db.query<
+  { status: CommandIdempotentStatus; response_json: string | null },
+  [string, string, string]
+>(
+  `SELECT status, response_json FROM command_idempotency
+   WHERE agent_id = ? AND command = ? AND key = ?`,
+);
+const completeCommandIdempotent = db.query<
+  unknown,
+  [CommandIdempotentStatus, string | null, string, string, string]
+>(
+  `UPDATE command_idempotency SET status = ?, response_json = ?
+   WHERE agent_id = ? AND command = ? AND key = ?`,
+);
+const deleteCommandIdempotentForAgent = db.query<unknown, [string]>(
+  `DELETE FROM command_idempotency WHERE agent_id = ?`,
+);
+
+/**
+ * Atomically reserve (agentId, command, key) — `won: true` if this call's insert landed (the
+ * caller should now act and call `completeIdempotentCommand`), `won: false` with the existing
+ * row's status/response otherwise (someone else already reserved or finished it).
+ */
+export function reserveIdempotentCommand(
+  agentId: string,
+  command: string,
+  key: string,
+): ReserveCommandResult {
+  const { changes } = insertCommandIdempotent.run(agentId, command, key, Date.now());
+  if (changes === 1) return { won: true };
+  // The row must exist: our insert conflicted with it. Falling back to a fresh "pending" read is
+  // just defensive shape-safety for the type checker, not a real branch this can take.
+  const row = selectCommandIdempotent.get(agentId, command, key) ?? {
+    status: "pending" as const,
+    response_json: null,
+  };
+  return {
+    won: false,
+    status: row.status,
+    response: row.response_json ? JSON.parse(row.response_json) : null,
+  };
+}
+
+export function completeIdempotentCommand(
+  agentId: string,
+  command: string,
+  key: string,
+  status: "completed" | "failed",
+  response: unknown,
+): void {
+  completeCommandIdempotent.run(status, JSON.stringify(response ?? null), agentId, command, key);
+}
+
+/** Retention: a released agent's own command-idempotency rows are gone for good with it. */
+export function forgetIdempotentCommandsFor(agentId: string): void {
+  deleteCommandIdempotentForAgent.run(agentId);
 }
