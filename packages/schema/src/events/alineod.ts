@@ -224,3 +224,39 @@ export const BudgetDenied = defineEvent({
     remaining: z.number().int(),
   }),
 });
+
+// ── admission control (backpressure on provisioning) ────────────────────────
+//
+// Scope: provisioning only (Alineo.start()/parent.spawn(), cold-fork, CPU/IO-heavy) — composes
+// with, does not replace, per-parent fork serialization. Namespaced under `agent`, not a
+// standalone "admission" subject: these describe something happening to the spawning agent's own
+// provisioning, the same way `budget.denied` above is namespaced by what it's about.
+
+export const AgentAdmissionQueued = defineEvent({
+  type: "agent.admission_queued",
+  durable: true,
+  version: 1,
+  description:
+    "No free provisioning slot was available, so the fork is held instead of run immediately. " +
+    "Only emitted when a real wait happens — the common uncontended case emits nothing, to keep " +
+    "this a signal for genuinely stuck spawns, not noise on every spawn.",
+  schema: z.object({ agentId: z.string().nullable(), capacity: z.number().int() }),
+});
+
+export const AgentAdmissionGranted = defineEvent({
+  type: "agent.admission_granted",
+  durable: true,
+  version: 1,
+  description: "A held provisioning request got its slot and is proceeding.",
+  schema: z.object({ agentId: z.string().nullable() }),
+});
+
+export const AgentAdmissionTimeout = defineEvent({
+  type: "agent.admission_timeout",
+  durable: true,
+  version: 1,
+  description:
+    "A held provisioning request never got a slot within the bound and failed loudly instead " +
+    "of hanging silently.",
+  schema: z.object({ agentId: z.string().nullable(), waitedMs: z.number().int() }),
+});

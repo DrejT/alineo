@@ -16,6 +16,7 @@ import { sdkAdapter, register } from "./registry";
 import { emit } from "./emit";
 import { driveTurn } from "./stream";
 import { withInbox } from "./notify";
+import { acquireAdmission } from "./admission";
 import { errorMessage } from "../util";
 
 export interface CreateRunResult {
@@ -67,6 +68,15 @@ export async function provisionRoot(
   rootAgentId: string,
   body: CreateRunBody,
 ): Promise<void> {
+  const admission = await acquireAdmission(runId, rootAgentId);
+  if (admission.outcome === "timeout") {
+    emit(runId, rootAgentId, "agent.ended", {
+      outcome: "admission_timeout",
+      endedAt: Date.now(),
+      error: "no provisioning slot became free in time",
+    });
+    return;
+  }
   try {
     const agent = await Alineo.start(body.spec, {
       adapter: sdkAdapter,
@@ -85,6 +95,8 @@ export async function provisionRoot(
       endedAt: Date.now(),
       error: message,
     });
+  } finally {
+    admission.release();
   }
 }
 

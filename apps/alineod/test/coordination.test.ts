@@ -41,6 +41,17 @@ function forkedChild(parent: FakeAgent, name: string): FakeAgent | undefined {
   return parent.spawns.find((s) => s.child.name === name)?.child;
 }
 
+/**
+ * `parent.spawns` gets an entry the instant `parent.spawn()` returns — BEFORE `injectInputs`
+ * (spawn.ts) has awaited its way through writing `/inputs.json`. A caller that's about to read
+ * `manifest()` needs the write to have landed too, not just the child to exist, or it reads the
+ * manifest mid-write depending on how many microtask ticks separate the two in a given run.
+ */
+function forkedChildWithManifest(parent: FakeAgent, name: string): FakeAgent | undefined {
+  const child = forkedChild(parent, name);
+  return child?.files.has("/inputs.json") ? child : undefined;
+}
+
 function manifest(child: FakeAgent): Record<string, unknown> {
   return JSON.parse(child.files.get("/inputs.json") ?? "{}") as Record<string, unknown>;
 }
@@ -76,7 +87,7 @@ describe("waitFor regimes", () => {
       mode: "all",
       onDepFailure: "proceed",
     });
-    const child = await until(() => forkedChild(run.root, "gather"), "gather to fork");
+    const child = await until(() => forkedChildWithManifest(run.root, "gather"), "gather to fork");
     expect(
       Object.keys(manifest(child))
         .filter((k) => k !== "__wait")
@@ -91,7 +102,7 @@ describe("waitFor regimes", () => {
     const b = await dep(run.runId, run.rootAgentId, "b");
     await spawnHeld(run.runId, run.rootAgentId, { agents: [a.agentId, b.agentId], mode: "any" });
 
-    const child = await until(() => forkedChild(run.root, "gather"), "gather to fork");
+    const child = await until(() => forkedChildWithManifest(run.root, "gather"), "gather to fork");
     const m = manifest(child);
     expect(m[b.agentId]).toBeDefined();
     expect(m[a.agentId]).toBeUndefined();
@@ -112,7 +123,10 @@ describe("waitFor regimes", () => {
       { agents: [a.agentId, b.agentId, c.agentId], mode: "quorum", k: 2 },
       "quorum-ok",
     );
-    const child = await until(() => forkedChild(run.root, "quorum-ok"), "quorum child to fork");
+    const child = await until(
+      () => forkedChildWithManifest(run.root, "quorum-ok"),
+      "quorum child to fork",
+    );
     expect(
       Object.keys(manifest(child))
         .filter((k) => k !== "__wait")
@@ -142,7 +156,10 @@ describe("waitFor regimes", () => {
       { agents: [a.agentId, b.agentId], deadlineSec: 0.3 },
       "partial",
     );
-    const child = await until(() => forkedChild(run.root, "partial"), "partial child to fork");
+    const child = await until(
+      () => forkedChildWithManifest(run.root, "partial"),
+      "partial child to fork",
+    );
     expect(manifest(child).__wait).toMatchObject({
       mode: "settled",
       outcome: "partial",
