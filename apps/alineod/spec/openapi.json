@@ -314,6 +314,24 @@
                             "additionalProperties": {}
                           }
                         ]
+                      },
+                      "onFailure": {
+                        "type": "string",
+                        "enum": [
+                          "ask",
+                          "retry",
+                          "fail"
+                        ]
+                      },
+                      "maxRetries": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxConsecutiveFailures": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
                       }
                     },
                     "required": [
@@ -864,6 +882,24 @@
                             "additionalProperties": {}
                           }
                         ]
+                      },
+                      "onFailure": {
+                        "type": "string",
+                        "enum": [
+                          "ask",
+                          "retry",
+                          "fail"
+                        ]
+                      },
+                      "maxRetries": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxConsecutiveFailures": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
                       }
                     },
                     "required": [

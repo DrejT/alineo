@@ -307,7 +307,9 @@ export function runAsOf(runId: string): number {
   return qMaxSeq.get(runId)?.m ?? 0;
 }
 
-const LIVE_STATES = new Set(["provisioning", "running", "spawning", "paused"]);
+// "blocked" (agent-supervision.md): held awaiting an operator decision after a failed turn --
+// live, reconnectable, sandbox open, same posture as "paused".
+const LIVE_STATES = new Set(["provisioning", "running", "spawning", "paused", "blocked"]);
 
 /**
  * Agents rehydrate has to drive. A released agent is excluded even if its state still says live:
@@ -357,7 +359,7 @@ export interface InboxRow {
   seq: number;
   run_id: string;
   agent_id: string;
-  kind: "notification" | "steer";
+  kind: "notification" | "steer" | "supervision";
   about_agent_id: string | null;
   about_spec: string | null;
   outcome: string | null;

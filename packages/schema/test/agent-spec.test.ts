@@ -65,6 +65,9 @@ describe("AgentSpec and AgentSpecSchema cannot drift", () => {
         disabledTools: ["write"],
         restrictToTools: ["read", "bash"],
       },
+      onFailure: "retry",
+      maxRetries: 3,
+      maxConsecutiveFailures: 3,
     };
     expect(() => AgentSpecSchema.parse(spec)).not.toThrow();
   });

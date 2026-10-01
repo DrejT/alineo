@@ -443,7 +443,8 @@
           "type": "string",
           "enum": [
             "notification",
-            "steer"
+            "steer",
+            "supervision"
           ]
         },
         "aboutAgentId": {
@@ -659,6 +660,69 @@
       "required": [
         "agentId",
         "waitedMs",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "consecutiveFailures": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.turn_failed"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "error",
+        "consecutiveFailures",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "retries-exhausted",
+            "circuit-tripped"
+          ]
+        },
+        "error": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.supervision_needed"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "reason",
+        "error",
         "event"
       ],
       "additionalProperties": false

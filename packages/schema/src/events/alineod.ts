@@ -178,10 +178,11 @@ export const InboxQueued = defineEvent({
   durable: true,
   version: 1,
   description:
-    "Something for this agent to be told — a notification, or a steer waiting for it to resume.",
+    "Something for this agent to be told — a notification, a steer waiting for it to resume, " +
+    "or a child needing a supervision decision.",
   schema: z.object({
     agentId: z.string().nullable(),
-    kind: z.enum(["notification", "steer"]),
+    kind: z.enum(["notification", "steer", "supervision"]),
     aboutAgentId: z.string().nullable().optional(),
     aboutSpec: z.string().nullable().optional(),
     outcome: z.string().nullable().optional(),
@@ -259,4 +260,35 @@ export const AgentAdmissionTimeout = defineEvent({
     "A held provisioning request never got a slot within the bound and failed loudly instead " +
     "of hanging silently.",
   schema: z.object({ agentId: z.string().nullable(), waitedMs: z.number().int() }),
+});
+
+// ── agent supervision (failure policy) ───────────────────────────────────────
+
+export const AgentTurnFailed = defineEvent({
+  type: "agent.turn_failed",
+  durable: true,
+  version: 1,
+  description:
+    "A turn concluded in failure -- recorded before the failure-policy decision (settle, " +
+    "auto-retry, or hold) is made, so the circuit breaker's consecutive-failure count is " +
+    "accurate regardless of what's decided next.",
+  schema: z.object({
+    agentId: z.string().nullable(),
+    error: z.string(),
+    consecutiveFailures: z.number().int(),
+  }),
+});
+
+export const AgentSupervisionNeeded = defineEvent({
+  type: "agent.supervision_needed",
+  durable: true,
+  version: 1,
+  description:
+    "The agent is held (state: blocked) awaiting an operator decision: POST .../prompt to " +
+    "retry (optionally with corrective text), POST .../stop to give up.",
+  schema: z.object({
+    agentId: z.string().nullable(),
+    reason: z.enum(["ask", "retries-exhausted", "circuit-tripped"]),
+    error: z.string(),
+  }),
 });

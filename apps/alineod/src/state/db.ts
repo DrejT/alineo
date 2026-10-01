@@ -128,6 +128,22 @@ for (const alter of [
   }
 }
 
+// agent-supervision.md: non-ledger bookkeeping, own table rather than columns on `agents` --
+// same reason spawn_idempotency isn't columns on `agents` either: a fault-harness invariant
+// snapshots `agents`/`handles` whole and replays the ledger to confirm they match exactly
+// (tree-consistency.md #2). Mixing non-ledger counters into that table would make the invariant
+// fail on a row that genuinely, correctly, doesn't survive a replay by design. Direct SQL writes,
+// not replayed by rebuild(). A crash loses the exact count (worst case: a few extra retries
+// before the circuit trips post-restart) -- the same bounded tolerance already accepted for a
+// lost waitFor hold ("the operator just re-issues it").
+db.exec(`
+CREATE TABLE IF NOT EXISTS supervision_counters (
+  agent_id             TEXT PRIMARY KEY,
+  turn_retry_count     INTEGER NOT NULL DEFAULT 0,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0
+);
+`);
+
 // Tier 2 notifications (research/tier-1-2-plan.md #5) — both are ledger projections like
 // agents/handles: rebuilt from notify_registered / inbox_* events, never written directly.
 db.exec(`
@@ -325,4 +341,54 @@ export function completeIdempotentCommand(
 /** Retention: a released agent's own command-idempotency rows are gone for good with it. */
 export function forgetIdempotentCommandsFor(agentId: string): void {
   deleteCommandIdempotentForAgent.run(agentId);
+}
+
+// ── supervision counters (agent-supervision.md) ──────────────────────────────
+//
+// Non-ledger bookkeeping, own table -- see this file's migration comment above for why.
+
+const incrementConsecutiveFailures = db.query<{ consecutive_failures: number }, [string]>(
+  `INSERT INTO supervision_counters (agent_id, consecutive_failures) VALUES (?, 1)
+   ON CONFLICT (agent_id) DO UPDATE SET consecutive_failures = consecutive_failures + 1
+   RETURNING consecutive_failures`,
+);
+const incrementTurnRetryCount = db.query<{ turn_retry_count: number }, [string]>(
+  `INSERT INTO supervision_counters (agent_id, turn_retry_count) VALUES (?, 1)
+   ON CONFLICT (agent_id) DO UPDATE SET turn_retry_count = turn_retry_count + 1
+   RETURNING turn_retry_count`,
+);
+const resetFailureCountersQuery = db.query<unknown, [string]>(
+  `INSERT INTO supervision_counters (agent_id, turn_retry_count, consecutive_failures)
+   VALUES (?, 0, 0)
+   ON CONFLICT (agent_id) DO UPDATE SET turn_retry_count = 0, consecutive_failures = 0`,
+);
+const selectSupervisionCounters = db.query<
+  { turn_retry_count: number; consecutive_failures: number },
+  [string]
+>(`SELECT turn_retry_count, consecutive_failures FROM supervision_counters WHERE agent_id = ?`);
+
+/** Record one more consecutive failed turn; returns the new count. */
+export function recordConsecutiveFailure(agentId: string): number {
+  return incrementConsecutiveFailures.get(agentId)?.consecutive_failures ?? 0;
+}
+
+/** Record one more automatic retry attempt; returns the new count. */
+export function recordTurnRetry(agentId: string): number {
+  return incrementTurnRetryCount.get(agentId)?.turn_retry_count ?? 0;
+}
+
+/** A turn succeeded: clear the slate for next time. */
+export function resetFailureCounters(agentId: string): void {
+  resetFailureCountersQuery.run(agentId);
+}
+
+export function getSupervisionCounters(agentId: string): {
+  turnRetryCount: number;
+  consecutiveFailures: number;
+} {
+  const row = selectSupervisionCounters.get(agentId);
+  return {
+    turnRetryCount: row?.turn_retry_count ?? 0,
+    consecutiveFailures: row?.consecutive_failures ?? 0,
+  };
 }

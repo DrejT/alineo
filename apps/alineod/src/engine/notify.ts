@@ -83,6 +83,31 @@ export function queueSteer(agentId: string, text: string): void {
   emit(row.run_id, agentId, "inbox.queued", { kind: "steer", text });
 }
 
+/**
+ * Tell a parent its child needs a supervision decision (agent-supervision.md) — automatic, NOT
+ * opt-in like `notifyOn`/`registerNotify`: this is a safety-net relationship inherent to the
+ * spawn tree itself, not a general pub/sub feature. Delivered through the same inbox mechanism
+ * as any other notification (steers in if running, holds if paused, prepends to the next prompt
+ * if idle) — the `agent.supervision_needed` ledger event is the real source of truth regardless
+ * of whether the parent is even live to receive this.
+ */
+export function queueSupervisionNotice(
+  parentId: string,
+  childId: string,
+  reason: string,
+  error: string,
+): void {
+  const row = getAgentRow(parentId);
+  if (!row) return;
+  emit(row.run_id, parentId, "inbox.queued", {
+    kind: "supervision",
+    aboutAgentId: childId,
+    outcome: reason,
+    excerpt: error.length > EXCERPT_CHARS ? `${error.slice(0, EXCERPT_CHARS)}…` : error,
+  });
+  void deliverPending(parentId);
+}
+
 onEmit((_runId, agentId, event, payload) => {
   if (event !== "agent.ended" || !agentId) return;
   for (const sub of subscribersOf(agentId)) {
@@ -90,9 +115,10 @@ onEmit((_runId, agentId, event, payload) => {
   }
 });
 
-/** One message for everything pending — notifications first, then any queued steer text. */
+/** One message for everything pending — notifications first, then supervision, then any queued steer text. */
 export function composeInbox(items: InboxRow[]): string {
   const notes = items.filter((i) => i.kind === "notification");
+  const supervision = items.filter((i) => i.kind === "supervision");
   const steers = items.filter((i) => i.kind === "steer");
   const parts: string[] = [];
   if (notes.length > 0) {
@@ -106,6 +132,15 @@ export function composeInbox(items: InboxRow[]): string {
       return `- ${who} ${verb}: ${n.outcome ?? "unknown"}.${ref}${excerpt}`;
     });
     parts.push(`[alineo] Update from agents you're watching:\n${lines.join("\n")}`);
+  }
+  if (supervision.length > 0) {
+    const lines = supervision.map(
+      (s) => `- ${s.about_agent_id} is blocked (${s.outcome}): ${s.excerpt ?? ""}`,
+    );
+    parts.push(
+      `[alineo] Sub-agents waiting on your decision — alineo prompt <id> "<guidance>" to retry, ` +
+        `alineo stop <id> to give up:\n${lines.join("\n")}`,
+    );
   }
   for (const s of steers) if (s.text) parts.push(s.text);
   return parts.join("\n\n");
