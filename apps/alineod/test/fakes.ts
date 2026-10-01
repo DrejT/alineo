@@ -247,6 +247,8 @@ export const fakeSdk = {
   startGate: undefined as Promise<void> | undefined,
   startError: undefined as Error | undefined,
   reattachFails: new Set<string>(),
+  /** Fails the first reattach call for this sandbox, then succeeds — a transient hiccup, not a dead bridge. */
+  reattachFailsOnce: new Set<string>(),
   resumeFails: new Set<string>(),
   /** Resume fails the way a transient outage does (OpenSandbox unreachable), not "not found". */
   resumeUnavailable: new Set<string>(),
@@ -262,6 +264,7 @@ export const fakeSdk = {
     this.startGate = undefined;
     this.startError = undefined;
     this.reattachFails.clear();
+    this.reattachFailsOnce.clear();
     this.resumeFails.clear();
     this.resumeUnavailable.clear();
     this.calls = { start: 0, reattach: [], reattachOpts: [], resume: [] };
@@ -283,6 +286,9 @@ export const FakeAlineo = {
     const agent = fakeSdk.sandboxes.get(sandboxId);
     // The real reattach probes the bridge, which a frozen container can't answer.
     const probeFails = agent?.paused && !opts?.skipReadyCheck;
+    if (fakeSdk.reattachFailsOnce.delete(sandboxId)) {
+      throw new Error(`sandbox ${sandboxId} reported Paused transiently`);
+    }
     if (!agent || fakeSdk.reattachFails.has(sandboxId) || probeFails) {
       throw new Error(`bridge in ${sandboxId} did not answer`);
     }
