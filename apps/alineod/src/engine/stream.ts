@@ -15,8 +15,10 @@ import type { Alineo } from "alineo";
 import { get } from "./registry";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
+import { resolveTurnFailure } from "./supervision";
 import { errorMessage, sleep, withTimeout } from "../util";
 import { getAgentRow, getHandle } from "../state/projection";
+import { resetFailureCounters } from "../state/db";
 import {
   CATCH_UP_POLL_MS,
   PROMPT_INACTIVITY_TIMEOUT_MS,
@@ -75,6 +77,17 @@ export function turnError(messages: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * A `"retry"` decision re-invokes `driveTurn` for the SAME agentId the current call is still
+ * unwinding from — calling it directly, inline, would have the new call's `driving.add(agentId)`
+ * run before the old call's own `finally { driving.delete(agentId) }`, which would then
+ * immediately (and wrongly) clear the new call's tracking. Deferring to a fresh microtask
+ * guarantees the old call's finally has already run first.
+ */
+function deferRetry(agentId: string, message: string): void {
+  queueMicrotask(() => void driveTurn(agentId, message));
+}
+
 /** Runs in the background — callers do not await this. */
 export async function driveTurn(agentId: string, message: string): Promise<void> {
   const agent = get(agentId);
@@ -102,17 +115,15 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     if (upstream) {
       // The model API refused the request and Pi ended the turn. Whatever text came before is kept
       // as the result, but the agent did not finish, so it is not a success.
-      emit(runId, agentId, "handle.settled", {
-        outcome: "failed",
-        resultRef: text ? resultRef : null,
-      });
-      emit(runId, agentId, "agent.ended", {
-        outcome: "failed",
-        endedAt: Date.now(),
+      const decision = resolveTurnFailure(runId, agentId, {
         error: upstream,
+        resultRef: text ? resultRef : null,
+        retryMessage: message,
       });
+      if (decision.action === "retry") deferRetry(agentId, decision.message);
       return;
     }
+    resetFailureCounters(agentId);
     emit(runId, agentId, "handle.settled", { outcome: "success", resultRef });
     emit(runId, agentId, "agent.ended", { outcome: "success", endedAt: Date.now() });
   } catch (err) {
@@ -125,13 +136,22 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
       void catchUpTurn(runId, agentId, { afterStream: true });
       return;
     }
-    const message = errorMessage(err);
+    const errMessage = errorMessage(err);
     // A failed turn may still have produced partial assistant text — keep it.
     const partial = await safeLastText(agent);
     const resultRef = writeResult(agentId, partial);
-    const outcome = partial ? "success" : "failed";
-    emit(runId, agentId, "handle.settled", { outcome, resultRef: partial ? resultRef : null });
-    emit(runId, agentId, "agent.ended", { outcome, endedAt: Date.now(), error: message });
+    if (!partial) {
+      const decision = resolveTurnFailure(runId, agentId, {
+        error: errMessage,
+        resultRef: null,
+        retryMessage: message,
+      });
+      if (decision.action === "retry") deferRetry(agentId, decision.message);
+    } else {
+      resetFailureCounters(agentId);
+      emit(runId, agentId, "handle.settled", { outcome: "success", resultRef });
+      emit(runId, agentId, "agent.ended", { outcome: "success", endedAt: Date.now() });
+    }
   } finally {
     driving.delete(agentId);
   }
@@ -226,12 +246,30 @@ export async function catchUpTurn(
     const outcome = text && !upstream ? "success" : "failed";
     const error =
       giveUpReason ?? upstream ?? (text ? undefined : "catch-up: no retrievable result");
-    emit(runId, agentId, "handle.settled", { outcome, resultRef: text ? resultRef : null });
-    emit(runId, agentId, "agent.ended", {
-      outcome,
-      endedAt: Date.now(),
-      ...(error ? { error } : {}),
-    });
+    if (outcome === "failed") {
+      // No withInbox() here deliberately — that would import from notify.ts, which already
+      // imports driveTurn/isTurnActive from this file; this stays a one-way dependency. Skipping
+      // it just means an internal auto-retry doesn't carry pending inbox text the way an
+      // externally-triggered prompt does — not a correctness issue, those still deliver on the
+      // agent's next real interaction.
+      const decision = resolveTurnFailure(runId, agentId, {
+        error: error ?? "unknown failure",
+        resultRef: text ? resultRef : null,
+        retryMessage: row.prompt,
+      });
+      if (decision.action === "retry") deferRetry(agentId, decision.message);
+    } else {
+      resetFailureCounters(agentId);
+      emit(runId, agentId, "handle.settled", { outcome, resultRef: text ? resultRef : null });
+      // `error` can be set even on a "success" settle here — e.g. catch-up gave up on a turn
+      // that was still running (giveUpReason) but kept its partial text; that explanation is
+      // still worth recording even though the outcome itself is a success.
+      emit(runId, agentId, "agent.ended", {
+        outcome,
+        endedAt: Date.now(),
+        ...(error ? { error } : {}),
+      });
+    }
   } finally {
     catchingUp.delete(agentId);
   }

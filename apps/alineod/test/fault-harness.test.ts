@@ -14,6 +14,7 @@ import { getAgentRow, getHandle } from "../src/state/projection";
 import { call, deferred, spec, startRun, until, wipeState } from "./helpers";
 import { fakeSdk } from "./fakes";
 import {
+  assertCircuitBreakerBoundHolds,
   assertNoOrphanedPendingHandles,
   assertProjectionMatchesLedgerReplay,
 } from "./fault/invariants";
@@ -66,5 +67,35 @@ describe("fault: kill-9 — alineod dies with a mid-turn worker and a held gathe
     // ── invariants must still hold once the swarm has finished progressing ──
     assertProjectionMatchesLedgerReplay();
     assertNoOrphanedPendingHandles();
+  }, 10_000);
+});
+
+describe("fault: chronic-failure — an agent that always fails never costs more than its own bound", () => {
+  test("a generous retry budget doesn't save it from a tight circuit breaker", async () => {
+    const coordinator = await startRun({ spec: spec("coordinator", { spawnDepth: 2 }) });
+
+    fakeSdk.nextTurn = { text: null, error: "the model API is permanently unavailable" };
+    const workerRes = await call("POST", `/runs/${coordinator.runId}/agents`, {
+      parentAgentId: coordinator.rootAgentId,
+      // maxRetries is generous (100) on purpose — the whole point is that the circuit breaker,
+      // not the retry budget, is what actually bounds the cost here.
+      spec: spec("worker", { onFailure: "retry", maxRetries: 100, maxConsecutiveFailures: 3 }),
+      prompt: "do the work",
+    });
+    const workerId = workerRes.body.agentId as string;
+
+    const blocked = await until(
+      () => getAgentRow(workerId)?.state === "blocked",
+      "circuit to trip",
+      6_000,
+    );
+    expect(blocked).toBe(true);
+    const sandbox = fakeSdk.sandboxes.get(getAgentRow(workerId)!.sandbox_id!)!;
+    expect(sandbox.prompts.length).toBe(3); // tripped at 3, nowhere near the 100-attempt budget
+    expect(getHandle(workerId)?.state).toBe("pending"); // never settled, never will be on its own
+
+    assertProjectionMatchesLedgerReplay();
+    assertNoOrphanedPendingHandles();
+    assertCircuitBreakerBoundHolds();
   }, 10_000);
 });

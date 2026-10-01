@@ -74,3 +74,37 @@ export function assertNoOrphanedPendingHandles(): void {
     );
   }
 }
+
+interface BlockedAgentRow {
+  agent_id: string;
+  spec_json: string;
+  consecutive_failures: number | null;
+}
+
+/**
+ * Invariant (agent-supervision.md): the circuit breaker's own bound actually holds — no agent
+ * sitting in `blocked` has a `consecutive_failures` count (supervision_counters -- non-ledger,
+ * joined in here rather than being part of the agents/handles snapshot the other invariants
+ * check) past its own spec's `maxConsecutiveFailures` (default 3). This is what makes "the
+ * circuit trips before an unbounded cost loop" a checked property, not an assumed one.
+ */
+export function assertCircuitBreakerBoundHolds(): void {
+  const blocked = db
+    .query<BlockedAgentRow, []>(
+      `SELECT a.agent_id, a.spec_json, s.consecutive_failures
+       FROM agents a LEFT JOIN supervision_counters s ON s.agent_id = a.agent_id
+       WHERE a.state = 'blocked'`,
+    )
+    .all();
+  const violations = blocked.filter((a) => {
+    const spec = JSON.parse(a.spec_json) as { maxConsecutiveFailures?: number };
+    const bound = spec.maxConsecutiveFailures ?? 3;
+    return (a.consecutive_failures ?? 0) > bound;
+  });
+  if (violations.length > 0) {
+    throw new Error(
+      `${violations.length} blocked agent(s) exceeded their own circuit-breaker bound: ` +
+        violations.map((a) => a.agent_id).join(", "),
+    );
+  }
+}

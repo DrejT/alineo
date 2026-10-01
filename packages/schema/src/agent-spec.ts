@@ -226,6 +226,30 @@ export interface AgentSpec {
    * `agent.resolvePermission(requestId, decision)`.
    */
   permissions?: PermissionMode | PermissionPolicy;
+  /**
+   * Policy for a turn that didn't finish successfully — a model/tool failure (an upstream API
+   * error ending the turn) or alineod restarting mid-turn, unified under one field rather than
+   * two separate half-answers to the same question. `"fail"` (the default — unchanged from
+   * behavior before this field existed) settles the turn failed immediately, no hold. `"ask"`
+   * holds the agent — state `"blocked"` — until an operator resolves it: `alineo prompt` to
+   * retry (optionally with corrective text), `alineo stop` to give up. `"retry"` automatically
+   * re-prompts up to `maxRetries` times before falling back to an `"ask"`-style hold. Supervision
+   * is opt-in: every spec written before this field existed keeps settling failed immediately,
+   * and a turn can have real side effects (a sent email, a `git push`), so silent auto-retry is
+   * never assumed — a deployment that wants `"ask"` or `"retry"` opts in explicitly.
+   */
+  onFailure?: "ask" | "retry" | "fail";
+  /** Required in effect when `onFailure` is `"retry"` — how many automatic re-prompts before
+   *  falling back to `"ask"`. No default: an explicit number is required, not guessed. */
+  maxRetries?: number;
+  /**
+   * Cross-turn circuit breaker, independent of `onFailure`/`maxRetries`: after this many
+   * CONSECUTIVE failed turns — however they were triggered, automatic retries or an operator
+   * manually re-prompting a blocked agent — the agent is forced to `"blocked"` regardless of
+   * what `onFailure` says, so a declared retry budget (or a patient operator) can't turn into an
+   * unbounded cost loop. Resets to zero on any turn that succeeds. Default 3.
+   */
+  maxConsecutiveFailures?: number;
 }
 
 /**
@@ -340,6 +364,9 @@ export const AgentSpecSchema = z
     teamId: z.string().optional(),
     resourceId: z.string().optional(),
     permissions: PermissionsSchema.optional(),
+    onFailure: z.enum(["ask", "retry", "fail"]).optional(),
+    maxRetries: nonNegativeIntSpecField("maxRetries"),
+    maxConsecutiveFailures: nonNegativeIntSpecField("maxConsecutiveFailures"),
   })
   // Unknown keys pass through untouched rather than being stripped or rejected — matches the
   // old hand-rolled validator's behavior (it only ever checked a few fields and cast the rest
