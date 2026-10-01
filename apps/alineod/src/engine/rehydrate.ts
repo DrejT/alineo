@@ -36,6 +36,7 @@ import { parseStoredWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
 import { errorMessage } from "../util";
+import { REATTACH_RETRY_DELAY_MS } from "../../config";
 
 const log = getLogger("alineod");
 
@@ -62,7 +63,8 @@ export async function rehydrate(): Promise<void> {
     preFork: preFork.length,
   });
 
-  // Pass 1 — awaited: fast (~100-200ms each, verified live), and pass 2 needs these parents
+  // Pass 1 — awaited: fast (~100-200ms each, verified live) unless a reattach needs its one retry
+  // (REATTACH_RETRY_DELAY_MS, only on a failed first attempt), and pass 2 needs these parents
   // registered before it can retry a spawn under them.
   for (const a of reattachSet.values()) await reattachOne(a);
 
@@ -85,13 +87,13 @@ async function reattachOne(a: AgentRow): Promise<void> {
   }
 
   try {
-    const agent = await Alineo.reattach(a.sandbox_id!, opts);
+    const agent = await reattachWithRetry(a.sandbox_id!, opts);
     register(a.agent_id, agent);
     log.info("reattached — bridge preserved", { agentId: a.agent_id, sandboxId: a.sandbox_id });
     if (wasRunning) void catchUpTurn(a.run_id, a.agent_id);
     return;
   } catch (reattachErr) {
-    log.warn("reattach failed — falling back to resume", {
+    log.warn("reattach failed (after retry) — falling back to resume", {
       agentId: a.agent_id,
       error: errorMessage(reattachErr),
     });
@@ -135,6 +137,31 @@ async function reattachOne(a: AgentRow): Promise<void> {
         outcome: a.outcome,
       });
     }
+  }
+}
+
+/**
+ * One retry, after a short delay, before `reattachOne` falls back to `resume()`. Observed live on
+ * a VPS run of `swarm-reattach-test.py` (durability-roadmap M0.2, 2026-10-01): a just-checkpointed
+ * sandbox was momentarily reported `Paused` by OpenSandbox at the exact instant alineod reattached
+ * to it, and had cleared back to `Running` about a second later. Without this retry, that one
+ * transient error reads as "parent unreachable" and cascades to every still-pending child of that
+ * parent being marked `lost` in `retryProvision` below — a false pessimism, not a real loss.
+ *
+ * Skips the retry when the sandbox is gone for good (`isSandboxGone`): waiting doesn't help a
+ * deleted container, so that case fails fast into the existing resume/lost fallback below.
+ */
+async function reattachWithRetry(
+  sandboxId: string,
+  opts: { adapter: typeof sdkAdapter; spec: unknown; runId: string },
+): Promise<Awaited<ReturnType<typeof Alineo.reattach>>> {
+  const reattachOpts = { ...opts, spec: opts.spec as Record<string, unknown> };
+  try {
+    return await Alineo.reattach(sandboxId, reattachOpts);
+  } catch (err) {
+    if (isSandboxGone(err)) throw err;
+    await Bun.sleep(REATTACH_RETRY_DELAY_MS);
+    return await Alineo.reattach(sandboxId, reattachOpts);
   }
 }
 

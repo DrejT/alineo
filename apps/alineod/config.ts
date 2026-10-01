@@ -119,6 +119,13 @@ export const ENV_VARS = {
     schema: ms,
     default: 10 * 60_000,
   }),
+  REATTACH_RETRY_DELAY_MS: defineEnv({
+    name: "ALINEOD_REATTACH_RETRY_DELAY_MS",
+    description:
+      "On rehydrate, how long to wait before retrying a failed reattach once more before falling back to resume. Covers a transient per-sandbox hiccup (observed live: OpenSandbox briefly reported a just-checkpointed sandbox as Paused, clearing within ~1s) so it doesn't cascade into every still-pending child of that parent being marked lost.",
+    schema: ms,
+    default: 1_000,
+  }),
 } as const;
 
 const env = readEnvGroup(ENV_VARS, { onWarning: (message) => configWarnings.push(message) });
@@ -137,6 +144,7 @@ export const SUBTREE_MEMBER_TIMEOUT_MS = env.SUBTREE_MEMBER_TIMEOUT_MS;
 export const LEASE_TTL_MS = env.LEASE_TTL_MS;
 export const ADMISSION_CONCURRENCY = env.ADMISSION_CONCURRENCY;
 export const ADMISSION_TIMEOUT_MS = env.ADMISSION_TIMEOUT_MS;
+export const REATTACH_RETRY_DELAY_MS = env.REATTACH_RETRY_DELAY_MS;
 
 /**
  * Bun's socket idle timeout, in seconds. Bun.serve caps this at 255 and defaults it to ~10s —

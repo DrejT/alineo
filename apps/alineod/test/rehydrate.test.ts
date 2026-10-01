@@ -364,6 +364,23 @@ describe("agents that hadn't forked yet", () => {
     const ended = events(runId).find((e) => e.event === "agent.ended" && e.agentId === child);
     expect(ended?.error).toContain("did not come back");
   });
+
+  test("a transient reattach failure is retried, so a pending child isn't wrongly lost", async () => {
+    // Live on a VPS (durability-roadmap M0.2, 2026-10-01): a just-checkpointed sandbox was
+    // reported Paused by OpenSandbox for about a second, exactly when alineod tried to reattach.
+    const runId = newRunId();
+    const rootBox = container(runId, "root");
+    const root = seed({ runId, name: "root", sandbox: rootBox, ended: "success" });
+    const child = seed({ runId, name: "child", parentAgentId: root });
+    fakeSdk.reattachFailsOnce.add(rootBox.sandboxId);
+
+    await rehydrate();
+
+    await until(() => getAgentRow(child)?.sandbox_id, "child to fork despite the hiccup");
+    expect(fakeSdk.calls.reattach).toEqual([rootBox.sandboxId, rootBox.sandboxId]);
+    expect(fakeSdk.calls.resume).toEqual([]); // retry succeeded; never fell back to resume
+    expect(getAgentRow(root)?.outcome).toBe("success");
+  });
 });
 
 describe("paused agents", () => {

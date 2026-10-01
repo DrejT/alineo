@@ -19,6 +19,7 @@ process.env.ALINEOD_TURN_MAX_MS = "2000"; // unpaused time before catch-up gives
 process.env.ALINEOD_CATCH_UP_POLL_MS = "25";
 process.env.ALINEOD_STATE_PROBE_TIMEOUT_MS = "100";
 process.env.ALINEOD_RESUME_BRIDGE_TIMEOUT_MS = "100";
+process.env.ALINEOD_REATTACH_RETRY_DELAY_MS = "10";
 // Small and deterministic rather than the adaptive (host-core-derived) production default, so
 // admission.test.ts can exercise real contention with just a couple of fake agents.
 process.env.ALINEOD_ADMISSION_CONCURRENCY = "2";
