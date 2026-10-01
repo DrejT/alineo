@@ -159,7 +159,7 @@ How it arrives depends on what the subscriber is doing:
 - **Merged:** everything pending when a delivery happens goes out as one message.
 - **Already finished:** subscribing to an agent that has already finished notifies at once.
 - **Finishing again:** an agent prompted again that finishes again notifies again, as "finished again".
-- **Durable:** notifications are stored in the ledger, so pending ones survive a daemon restart.
+- **Crash-tolerant:** notifications are stored in the ledger, so pending ones survive a daemon restart.
 
 `GET /agents/:id/inbox` lists pending and delivered notifications. The events are `notify.registered`,
 `inbox.queued`, `inbox.delivered` and `inbox.dropped`.

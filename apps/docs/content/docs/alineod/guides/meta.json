@@ -5,6 +5,7 @@
     "fan-out-gather",
     "coordination",
     "steering-and-pausing",
-    "crash-recovery"
+    "crash-recovery",
+    "durability-contract"
   ]
 }

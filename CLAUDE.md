@@ -162,6 +162,16 @@ packages/adapters/otel/           — OpenTelemetry hooks adapter (published as 
 packages/adapters/flue/           — Flue runtime adapter (published as "@alineo-labs/flue")
   src/index.ts                    — SandboxApi/SandboxFactory implementation backing @flue/runtime with a SandboxHandle
 
+packages/adapters/vault/          — credential vault client (published as "@alineo-labs/vault")
+  src/vault-client.ts             — VaultClient: CRUD over a vault's credentials/bindings/matches
+  src/broker.ts                   — OpenSandboxCredentialBroker: injects a vault-resolved credential into a
+                                    running sandbox (egress enforcement's approve-on-egress path)
+
+packages/adapters/sqlite-memory/  — SQLite backing for @alineo-labs/memory (published as "@alineo-labs/sqlite-memory")
+  src/working.ts, src/semantic.ts — working/semantic memory store implementations over bun:sqlite
+packages/adapters/postgres-memory/ — Postgres backing for @alineo-labs/memory (published as "@alineo-labs/postgres-memory")
+  src/working.ts, src/semantic.ts — same interface as sqlite-memory, over Postgres
+
 packages/agent/                   — Alineo SDK (published to npm as "alineo")
   src/agent/factory.ts            — load()/resume()/attach()/spawn() bodies (snapshot restore, env resolution,
                                     spawn-depth/max-agents enforcement) — returns constructor args, not an Alineo
@@ -268,6 +278,8 @@ apps/alineod/                     — the swarm control daemon: HTTP + SSE, Bun 
   src/schema.ts                   — the wire contract as Zod. AgentSpec is the real schema now, and the
                                     event union is DERIVED from @alineo-labs/schema's definitions
 apps/docs/                        — the documentation site (Next.js static export)
+apps/docs-mcp/                    — alineo-docs MCP server: search_docs/get_doc/list_docs over docs.alineo.tech,
+                                    read-only, no sandbox orchestration
 apps/telemetry/                   — anonymous CLI usage telemetry receiver
 apps/registry/                    — the agent-spec registry, and the published JSON Schema
 apps/sandbox/                     — the browser playground
@@ -343,10 +355,6 @@ mode = "dns"
 ```
 
 The `uvx` path does not need `useServerProxy` — the server is on the host, so direct container IPs are reachable.
-
-## SDK focus
-
-We are currently focused exclusively on making the **TypeScript sandbox client SDK** (`packages/sdks/typescript`, published as `@alineo-labs/sandbox`) full-featured and production-ready. Python SDK is maintained but not the priority. Do not add new features to the Python SDK unless explicitly asked.
 
 ## `plans/` — dated, gitignored, local-only
 

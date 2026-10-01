@@ -1,0 +1,53 @@
+---
+title: Durability contract
+description: Exactly which failures a swarm survives today, and which it doesn't yet.
+---
+
+"Durable" and "crash-tolerant" mean different things here, and the stack is currently the second one, not
+the first:
+
+- **Crash-tolerant**: a coordinator process (alineod, the agent SDK's bridge) can die and restart without
+  losing the swarm. The container and its disk are still there.
+- **Durable**: the swarm can be reconstructed after the _container_ or the _disk_ is gone, from something
+  stored elsewhere. That needs a checkpoint mechanism alineod doesn't use for recovery yet.
+
+Don't take either word further than this page says — if a capability isn't in the table below, it isn't
+built, regardless of what any other page implies.
+
+## What survives what, today
+
+| Layer                                    | Survives coordinator crash                                      | Survives container loss                                                                        | Survives disk/host loss                                  |
+| ---------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Sandbox session (`client.resume`)        | yes                                                             | **yes, to the last checkpoint** — snapshot + exec replay                                       | no — a snapshot is a `docker commit` on the sandbox host |
+| Agent SDK (`Alineo.reattach` / `resume`) | yes                                                             | no — `resume()` connects to the _existing_ sandbox; there's nothing to connect to if it's gone | no                                                       |
+| alineod swarm                            | yes — see [Crash recovery](/docs/alineod/guides/crash-recovery) | no — a missing container's agent ends `lost`                                                   | no                                                       |
+
+The ledgers (alineod's and the SDK's) record _what happened_. They cannot rebuild _what an agent was
+doing_ — that state (the workspace, the coding agent's session file) lives only inside the container. The
+one real durability mechanism in the stack — sandbox-level checkpoint + replay — exists at the sandbox
+layer; neither the Agent SDK nor alineod uses it for recovery yet.
+
+## Definitions
+
+- **Durable** — once the system acknowledges a step as committed, no failure in the declared failure set
+  can undo it.
+- **Resumable** — after any failure in that set, the system returns to the last committed point without a
+  human reconstructing state by hand.
+- **Honest gap** — work done after the last commit is either redone or explicitly reported as interrupted
+  (`lost`) — never silently lost, never silently repeated.
+
+**Side effects are at-least-once, not exactly-once.** A turn that ran `git push` or called an external API
+and was then interrupted may repeat that effect on retry. Nothing in the stack de-duplicates a side effect
+a model decided to take mid-turn — only alineod's own commands (`spawn`, `pause`, `resume`, `stop`,
+`steer`) are idempotent, via `idempotencyKey`.
+
+## What this unlocks today
+
+**Crash-tolerant orchestration. Run one alineod per database.** That's it — not "durable," not
+"resumable across container loss." A daemon restart is safe; a container or host disappearing is not yet
+recoverable.
+
+See [Crash recovery](/docs/alineod/guides/crash-recovery) for exactly what alineod does on restart, and
+[Scaling](/docs/alineod/getting-started/deployment#scaling) for why only one instance per database is
+supported. Checkpoint-based recovery across container loss is tracked as future work, not shipped — this
+page will move it into the table above once a fault test proves it, not before.

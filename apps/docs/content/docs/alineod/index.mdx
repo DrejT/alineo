@@ -5,7 +5,9 @@ description: A swarm control daemon — start, fork, steer, pause, and collect r
 
 alineod is a long-running daemon that exposes an HTTP + Server-Sent Events API for orchestrating **swarms** of
 agents. Every agent in a swarm is an `alineo` agent running in its own OpenSandbox container; alineod drives them
-in-process through the [Agent SDK](/docs/agent) and keeps a durable, append-only record of the whole swarm.
+in-process through the [Agent SDK](/docs/agent) and keeps a crash-tolerant, append-only record of the whole
+swarm — see the [durability contract](/docs/alineod/guides/durability-contract) for exactly what that does
+and doesn't survive.
 
 ```
 client ── HTTP + SSE ──▶ alineod ── in-process ──▶ alineo SDK ──▶ OpenSandbox + Pi
