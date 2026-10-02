@@ -12,7 +12,6 @@
 import { getAgentRow, type AgentRow } from "../state/projection";
 import { recordConsecutiveFailure, recordTurnRetry } from "../state/db";
 import { emit } from "./emit";
-import { queueSupervisionNotice } from "./notify";
 
 export type SupervisionReason = "ask" | "retries-exhausted" | "circuit-tripped";
 
@@ -99,7 +98,4 @@ export function resolveTurnFailure(
 function block(runId: string, row: AgentRow, reason: SupervisionReason, error: string): void {
   emit(runId, row.agent_id, "agent.state_changed", { from: row.state, to: "blocked", reason });
   emit(runId, row.agent_id, "agent.supervision_needed", { reason, error });
-  if (row.parent_agent_id) {
-    queueSupervisionNotice(row.parent_agent_id, row.agent_id, reason, error);
-  }
 }
