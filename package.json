@@ -44,6 +44,7 @@
     "test": "bun scripts/workspace-run.ts test",
     "test:integration": "bun run --cwd tests/integration test",
     "check:vocabulary": "bun scripts/check-vocabulary.ts",
+    "check:dead-code": "fallow dead-code",
     "lint": "oxlint packages examples cookbooks && oxlint -c .oxlintrc.console.json apps/alineod apps/sandbox/server",
     "lint:fix": "oxlint --fix packages examples cookbooks",
     "format": "oxfmt packages examples cookbooks apps \"!**/CHANGELOG.md\" \"!apps/alineod/spec/**\"",
@@ -55,6 +56,7 @@
     "@alineo-labs/schema": "workspace:*",
     "@changesets/cli": "3.0.2",
     "@oxlint/plugins": "^1.82.0",
+    "fallow": "3.31.0",
     "oxfmt": "^0.67.0",
     "oxlint": "^1.82.0",
     "oxlint-tsgolint": "^7.0.2001"

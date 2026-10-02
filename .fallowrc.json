@@ -1,0 +1,50 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "apps/alineod/scripts/*.ts",
+    "examples/pi-agent/test-*.ts",
+    "packages/*/pi-extension/*.ts",
+    "packages/agent/src/adapters/pi-permission-gate.js",
+    "scripts/*.ts"
+  ],
+  "dynamicallyLoaded": ["packages/cli/src/commands/*.ts"],
+  "ignorePatterns": ["examples/rlm-master/**"],
+  "publicPackages": [
+    "alineo",
+    "alineo-cli",
+    "alineo-mcp",
+    "@alineo-labs/core",
+    "@alineo-labs/flue",
+    "@alineo-labs/ledger",
+    "@alineo-labs/logger",
+    "@alineo-labs/memory",
+    "@alineo-labs/opensandbox",
+    "@alineo-labs/otel",
+    "@alineo-labs/postgres",
+    "@alineo-labs/postgres-memory",
+    "@alineo-labs/sandbox",
+    "@alineo-labs/schema",
+    "@alineo-labs/sqlite",
+    "@alineo-labs/sqlite-memory",
+    "@alineo-labs/vault",
+    "@alineo-labs/workflow"
+  ],
+  "ignoreExports": [
+    { "file": "apps/sandbox/server/routes/*.ts", "exports": ["*"] },
+    { "file": "apps/sandbox/server/ws/*.ts", "exports": ["*"] },
+    { "file": "apps/sandbox/server/registry.ts", "exports": ["*"] },
+    { "file": "packages/core/src/sandbox/credentials.ts", "exports": ["*"] },
+    { "file": "packages/core/src/sandbox/egress.ts", "exports": ["*"] },
+    { "file": "apps/docs/src/app/**/route.{ts,tsx}", "exports": ["generateStaticParams"] }
+  ],
+  "overrides": [
+    {
+      "files": ["apps/alineod/test/**"],
+      "rules": { "unused-class-members": "off" }
+    },
+    {
+      "files": ["apps/docs/src/lib/playground/client.ts"],
+      "rules": { "unused-class-members": "off" }
+    }
+  ]
+}

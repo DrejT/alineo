@@ -41,6 +41,9 @@ jobs:
       - name: Vocabulary check
         run: bun run check:vocabulary
 
+      - name: Dead code (fallow)
+        run: bun run check:dead-code
+
       - name: Spec freshness
         run: |
           bun run --cwd apps/alineod spec
