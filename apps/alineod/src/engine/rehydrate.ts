@@ -90,7 +90,10 @@ async function reattachOne(a: AgentRow): Promise<void> {
     const agent = await reattachWithRetry(a.sandbox_id!, opts);
     register(a.agent_id, agent);
     log.info("reattached — bridge preserved", { agentId: a.agent_id, sandboxId: a.sandbox_id });
-    if (wasRunning) void catchUpTurn(a.run_id, a.agent_id);
+    if (wasRunning) {
+      emit(a.run_id, a.agent_id, "agent.turn_interrupted", {});
+      void catchUpTurn(a.run_id, a.agent_id);
+    }
     return;
   } catch (reattachErr) {
     log.warn("reattach failed (after retry) — falling back to resume", {
@@ -105,7 +108,10 @@ async function reattachOne(a: AgentRow): Promise<void> {
     log.info("resumed — bridge restarted", { agentId: a.agent_id, sandboxId: a.sandbox_id });
     // The turn that was running died with the old bridge process, and nothing is following it:
     // catch-up sees the new (idle) bridge, records whatever text survived, and settles the handle.
-    if (wasRunning) void catchUpTurn(a.run_id, a.agent_id);
+    if (wasRunning) {
+      emit(a.run_id, a.agent_id, "agent.turn_interrupted", {});
+      void catchUpTurn(a.run_id, a.agent_id);
+    }
   } catch (err) {
     const message = errorMessage(err);
     // An agent that had already ended (this is the "finished-but-open" reconnect case, not the

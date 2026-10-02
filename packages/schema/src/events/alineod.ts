@@ -279,6 +279,21 @@ export const AgentTurnFailed = defineEvent({
   }),
 });
 
+export const AgentTurnInterrupted = defineEvent({
+  type: "agent.turn_interrupted",
+  durable: true,
+  version: 1,
+  description:
+    "alineod found this agent still `running` on boot — its turn died with the previous " +
+    "process, mid-stream, with no SDK around to report it. Recorded before the catch-up poll " +
+    "that follows (`rehydrate.ts`'s `wasRunning` checks), so a turn a crash interrupted carries " +
+    "an audit trail distinct from one that ran straight through, whatever catch-up later finds. " +
+    "Named under `agent`, not `turn`: `turn.*` is reserved for events the harness itself " +
+    "reports, and the harness has nothing to report here — the same reasoning that renamed " +
+    "`turn.failed` to `agent.turn_failed`.",
+  schema: z.object({ agentId: z.string().nullable() }),
+});
+
 export const AgentSupervisionNeeded = defineEvent({
   type: "agent.supervision_needed",
   durable: true,
