@@ -30,7 +30,7 @@ export function forget(agentId: string): void {
   agents.delete(agentId);
 }
 
-export function has(agentId: string): boolean {
+function has(agentId: string): boolean {
   return agents.has(agentId);
 }
 

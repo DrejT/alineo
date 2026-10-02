@@ -228,7 +228,7 @@ export class FakeAgent {
 }
 
 /** The SDK's own budget refusals (packages/agent/src/agent/{validation,factory}.ts), reproduced verbatim. */
-export function sdkSpawnCheck(opts: SpawnOpts): void {
+function sdkSpawnCheck(opts: SpawnOpts): void {
   if (opts.spawnDepth === undefined || !Number.isInteger(opts.spawnDepth) || opts.spawnDepth <= 0) {
     throw new Error(
       `Alineo.spawn() refused: spawn depth must be a positive integer (got ${opts.spawnDepth ?? "unset"}). ` +

@@ -27,7 +27,7 @@ const ENTRY_PKG_DIR = join(ROOT, "packages/cli");
 
 /** Every workspace package `alineo-cli` reaches, transitively — anything left out would be
  *  resolved from npm at its published version, which is the version this is avoiding. */
-export async function workspaceClosure(entryDir: string): Promise<string[]> {
+async function workspaceClosure(entryDir: string): Promise<string[]> {
   const byName = new Map<string, string>();
   const root = await Bun.file(join(ROOT, "package.json")).json();
   for (const pattern of root.workspaces as string[]) {
@@ -75,7 +75,7 @@ export async function localCliSetupSteps(): Promise<SetupStep[]> {
 
 const INSTALL_STEP = /npm install\s+(-g|--global)\s+alineo-cli\b/;
 
-export async function withLocalCli(
+async function withLocalCli(
   spec: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const setup = (spec.setup ?? []) as SetupStep[];

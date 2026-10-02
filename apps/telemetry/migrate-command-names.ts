@@ -27,7 +27,7 @@ import type { Database } from "bun:sqlite";
 export const FIRST_RENAMED_VERSION = "0.4.0";
 
 /** Old spelling → new, as of `alineo-cli@0.4.0`. */
-export const RENAMED_COMMANDS: [string, string][] = [
+const RENAMED_COMMANDS: [string, string][] = [
   ["spawn", "start"],
   ["fork", "spawn"],
   ["kill", "stop"],

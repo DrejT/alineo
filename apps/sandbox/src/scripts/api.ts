@@ -8,7 +8,7 @@ export interface AgentSummary {
   name: string;
 }
 
-export interface FileEntry {
+interface FileEntry {
   path: string;
   type: "file" | "directory" | "symlink";
   size: number;

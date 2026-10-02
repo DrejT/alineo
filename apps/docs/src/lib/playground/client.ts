@@ -10,17 +10,17 @@
 export const HOSTED_ENDPOINT = "https://sandbox-api.alineo.tech";
 export const LOCAL_ENDPOINT = "http://localhost:3000";
 
-export interface SandboxSummary {
+interface SandboxSummary {
   id: string;
   name: string;
 }
 
-export interface AgentSummary {
+interface AgentSummary {
   id: string;
   name: string;
 }
 
-export interface Checkpoint {
+interface Checkpoint {
   snapshotId: string;
   tag?: string;
   createdAt: number;
@@ -37,7 +37,7 @@ export type ExecFrame =
   | { type: "exit"; exitCode: number; stderr: string }
   | { type: "error"; message: string };
 
-export class PlaygroundApiError extends Error {
+class PlaygroundApiError extends Error {
   constructor(
     message: string,
     readonly status: number,

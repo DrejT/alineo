@@ -125,7 +125,7 @@ onEmit((_runId, agentId, event, payload) => {
 });
 
 /** One message for everything pending — notifications first, then supervision, then any queued steer text. */
-export function composeInbox(items: InboxRow[]): string {
+function composeInbox(items: InboxRow[]): string {
   const notes = items.filter((i) => i.kind === "notification");
   const supervision = items.filter((i) => i.kind === "supervision");
   const steers = items.filter((i) => i.kind === "steer");

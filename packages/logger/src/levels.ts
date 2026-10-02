@@ -8,7 +8,7 @@ const RANK: Record<LevelSetting, number> = {
   silent: 100,
 };
 
-export function isLevelSetting(value: unknown): value is LevelSetting {
+function isLevelSetting(value: unknown): value is LevelSetting {
   return typeof value === "string" && Object.hasOwn(RANK, value);
 }
 

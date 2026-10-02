@@ -41,7 +41,7 @@ export const READ_ONLY_TOOLS = ["read", "grep", "find", "ls"] as const;
  * and by the `bash` rule `"readonly"` installs. Deliberately conservative: an unrecognised
  * command falls through to `ask`, never to `allow`.
  */
-export const SAFE_BASH_COMMANDS = [
+const SAFE_BASH_COMMANDS = [
   "ls",
   "cat",
   "head",
@@ -94,7 +94,7 @@ export const SAFE_BASH_COMMANDS = [
 ] as const;
 
 /** `git <sub>` combinations that only read. */
-export const SAFE_GIT_SUBCOMMANDS = [
+const SAFE_GIT_SUBCOMMANDS = [
   "status",
   "log",
   "diff",

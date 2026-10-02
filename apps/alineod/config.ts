@@ -31,7 +31,7 @@ const defaultAdmissionConcurrency = Math.max(1, availableParallelism() - 1);
  */
 export const configWarnings: string[] = [];
 
-export const ENV_VARS = {
+const ENV_VARS = {
   PORT: defineEnv({
     name: "ALINEOD_PORT",
     description: "HTTP + SSE listen port.",
