@@ -50,6 +50,8 @@ export const SUBJECTS = [
   "event",
   "result",
   "transcript",
+  "checkpoint",
+  "metric",
 ] as const;
 
 /**
