@@ -1,5 +1,6 @@
 /** Agent routes: spawn under a run, inspect, prompt, steer, pause/resume, stop. */
 import { Elysia } from "elysia";
+import { z } from "zod";
 import {
   SpawnAgentBody,
   StopAgentBody,
@@ -117,4 +118,23 @@ export const agentsRoutes = new Elysia()
   .post("/agents/:agentId/inbox/deliver", async ({ params }) => {
     if (!getAgentRow(params.agentId)) throw new HttpError(404, `no agent ${params.agentId}`);
     return { delivery: await deliverPending(params.agentId, { wake: true }) };
+  })
+
+  // Resolves a pending tool-use permission request. alineod forwards `permission_request` /
+  // `permission_resolved` events on the SSE stream today but never let a client answer one —
+  // this closes that loop by calling straight through to the live `Alineo` handle.
+  .patch("/agents/:agentId/permissions/:requestId", async ({ params, body }) => {
+    const agent = get(params.agentId);
+    if (!agent) throw new HttpError(409, `agent ${params.agentId} is not live`);
+    const { decision } = parseBody(PermissionDecisionBody, body);
+    await agent.resolvePermission(params.requestId, decision);
+    return new Response(null, { status: 204 });
   });
+
+const PermissionDecisionBody = z.object({
+  decision: z.union([
+    z.object({ kind: z.literal("once") }),
+    z.object({ kind: z.literal("always") }),
+    z.object({ kind: z.literal("reject"), feedback: z.string().optional() }),
+  ]),
+});

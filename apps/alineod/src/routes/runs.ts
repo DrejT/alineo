@@ -4,7 +4,7 @@ import { CreateRunBody } from "../schema";
 import { parseBody } from "./http";
 import { createRun } from "../engine/runs";
 import { deleteRun } from "../engine/lifecycle";
-import { getRunAgentViews, runAsOf } from "../state/projection";
+import { getRunAgentViews, runAsOf, listRuns } from "../state/projection";
 import { HttpError } from "../engine/errors";
 import { sseResponse } from "./sse";
 
@@ -13,6 +13,8 @@ export const runsRoutes = new Elysia({ prefix: "/runs" })
     set.status = 202; // async — provisioning happens in the background, poll for real state
     return createRun(parseBody(CreateRunBody, body));
   })
+
+  .get("/", () => ({ runs: listRuns() }))
 
   .get("/:runId", ({ params }) => {
     const agents = getRunAgentViews(params.runId);
