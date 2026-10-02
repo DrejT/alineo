@@ -108,6 +108,9 @@ describe("agents with a sandbox", () => {
 
     await rehydrate();
     expect(getHandle(id)?.state).toBe("pending");
+    expect(events(runId).find((e) => e.event === "agent.turn_interrupted")).toMatchObject({
+      agentId: id,
+    });
 
     sandbox.lastText = "finished while alineod was down";
     sandbox.streaming = false;
@@ -133,6 +136,9 @@ describe("agents with a sandbox", () => {
 
       await rehydrate();
       expect(fakeSdk.calls.resume).toEqual([sandbox.sandboxId]);
+      expect(events(runId).find((e) => e.event === "agent.turn_interrupted")).toMatchObject({
+        agentId: id,
+      });
 
       await until(() => getHandle(id)?.state === "settled", "catch-up settle after resume", 6_000);
       expect(getAgentRow(id)).toMatchObject({ state: "failed", outcome: "failed" });
@@ -175,6 +181,7 @@ describe("agents with a sandbox", () => {
       expect(get(id)).toBe(sandbox as never);
       expect(getHandle(id)?.state).not.toBe("settled");
       expect(getAgentRow(id)?.state).toBe("provisioning");
+      expect(events(runId).find((e) => e.event === "agent.turn_interrupted")).toBeUndefined();
     });
   });
 

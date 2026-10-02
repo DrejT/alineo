@@ -11,7 +11,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { getAgentRow, getHandle } from "../src/state/projection";
-import { call, deferred, spec, startRun, until, wipeState } from "./helpers";
+import { call, deferred, events, spec, startRun, until, wipeState } from "./helpers";
 import { fakeSdk } from "./fakes";
 import {
   assertCircuitBreakerBoundHolds,
@@ -52,6 +52,13 @@ describe("fault: kill-9 — alineod dies with a mid-turn worker and a held gathe
     // ── invariants must hold immediately after rehydrate, before anything else runs ──
     assertProjectionMatchesLedgerReplay();
     assertNoOrphanedPendingHandles();
+    // The worker was mid-turn at crash time — its ledger now carries a durable record of that,
+    // distinct from a turn that ran straight through (durability-roadmap.md M1.2).
+    expect(
+      events(coordinator.runId).find(
+        (e) => e.event === "agent.turn_interrupted" && e.agentId === workerId,
+      ),
+    ).toBeDefined();
 
     // ── the swarm still finishes correctly from here, exactly as if nothing happened ──
     gate.resolve();
