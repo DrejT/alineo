@@ -117,36 +117,6 @@ export enum LedgerEvent {
    * `{ requestId, decision }`.
    */
   PermissionResolved = "permission.resolved",
-
-  // ── Workflow layer events (used by @alineo-labs/workflow) ────────────────────────
-  /**
-   * Emitted once when a workflow run starts, before any steps execute.
-   *
-   * Its value is `workflow.started`, not `run.started` — alineod's swarm run owns the latter.
-   * The two were both `run_started` and a reader had to know which store it was looking at.
-   */
-  RunStarted = "workflow.started",
-  /** Emitted at the beginning of each step. */
-  StepStart = "step.started",
-  /** Emitted when a step finishes successfully. */
-  StepComplete = "step.completed",
-  /** Emitted when a step throws an unrecoverable error. */
-  StepFailed = "step.failed",
-  /** Emitted when a step's rollback handler completes during saga compensation. */
-  StepRolledBack = "step.rolled_back",
-  /** Emitted after all steps finish without error. */
-  WorkflowComplete = "workflow.completed",
-  /** Emitted after rollback completes following a step failure. */
-  WorkflowFailed = "workflow.failed",
-  /** Durable resumption point written after each successful step. */
-  Checkpoint = "step.checkpointed",
-  /**
-   * @deprecated Emits `sandbox.checkpoint_created` — the same event `CheckpointCreated`
-   * writes, because that is what it always recorded: a sandbox checkpoint that the workflow
-   * engine happened to take. Kept as a member so existing call sites still compile; use
-   * `CheckpointCreated`.
-   */
-  Snapshot = "sandbox.checkpoint_created",
 }
 
 /** A single event record written to the storage adapter during a session. */
@@ -163,7 +133,7 @@ export interface LedgerEntry {
   event: LedgerEvent;
   /** Event-specific data (step output, snapshot ID, exec text, etc.). */
   payload?: unknown;
-  /** Error message when `event` is `StepFailed` or `WorkflowFailed`. */
+  /** Error message, when the event records a failure. */
   error?: string;
 }
 
