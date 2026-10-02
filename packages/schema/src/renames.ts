@@ -40,7 +40,9 @@ export const RENAMED_EVENTS: Readonly<Record<string, string>> = Object.freeze({
   step_complete: "step.completed",
   step_failed: "step.failed",
   step_rolled_back: "step.rolled_back",
-  checkpoint: "step.checkpointed",
+  // `checkpoint` is deliberately absent: the workflow's per-step resumption point, written by an
+  // early version and by nothing since. A store may still hold rows with that name; they are left
+  // as they are, because no event now means what it did.
   // `snapshot` is dropped, not renamed — it recorded a sandbox checkpoint the workflow engine
   // happened to take, so it folds into the event that already describes that.
   snapshot: "sandbox.checkpoint_created",

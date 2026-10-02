@@ -121,10 +121,13 @@ describe("the rename table", () => {
     expect(renamedEventType("not_an_event")).toBeUndefined();
   });
 
-  it("folds the three checkpoint-ish names onto two events", () => {
+  it("folds the checkpoint-ish names onto sandbox.checkpoint_created", () => {
     expect(renamedEventType("checkpoint_created")).toBe("sandbox.checkpoint_created");
     expect(renamedEventType("snapshot")).toBe("sandbox.checkpoint_created");
-    expect(renamedEventType("checkpoint")).toBe("step.checkpointed");
+  });
+
+  it("leaves `checkpoint` unmapped, since no event now means a workflow resumption point", () => {
+    expect(renamedEventType("checkpoint")).toBeUndefined();
   });
 
   it("sends `text` to message.updated, since it was a delta of exactly one message", () => {
