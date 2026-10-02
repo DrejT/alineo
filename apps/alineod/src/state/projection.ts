@@ -348,7 +348,7 @@ export function reconnectableTerminalAgents(): AgentRow[] {
 
 // ── notifications ───────────────────────────────────────────────────────────
 
-export interface SubscriptionRow {
+interface SubscriptionRow {
   subscriber_id: string;
   on_agent_id: string;
   run_id: string;

@@ -3,7 +3,6 @@ import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import type { PiAdapter } from "../adapters/pi";
 import type { AgentSpec } from "../schema";
 import type { AlineoAgentConfig } from "../config";
-import type { AgentSnapshotRecord } from "../snapshots";
 import type {
   AgentStream,
   CompactResult,
@@ -678,5 +677,3 @@ export class Alineo {
     return lifecycle.close(this);
   }
 }
-
-export type { AgentSnapshotRecord };

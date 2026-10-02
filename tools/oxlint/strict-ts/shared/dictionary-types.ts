@@ -31,14 +31,14 @@ export type UnsafeDictionary = {
 	readonly unsafeValue: "any" | "empty-object" | "object" | "union" | "unknown";
 };
 
-export type WideningTargetKind =
+type WideningTargetKind =
 	| "anonymous object"
 	| "generic container"
 	| "object"
 	| "open dictionary"
 	| "unknown";
 
-export type WideningTarget = {
+type WideningTarget = {
 	readonly kind: WideningTargetKind;
 };
 
@@ -317,7 +317,7 @@ export function classifyUnsafeDictionary(
 	return null;
 }
 
-export function classifyWideningTarget(
+function classifyWideningTarget(
 	type: ESTree.TSType,
 	environment: TypeEnvironment,
 ): WideningTarget | null {
@@ -474,42 +474,5 @@ function classifyAliasBroadTarget(
 		environment,
 		nextSubstitutions,
 		nextResolving,
-	);
-}
-
-export function isPopulatedObjectExpression(expression: ESTree.Expression): boolean {
-	let current = expression;
-	while (
-		current.type === "ParenthesizedExpression" ||
-		current.type === "TSAsExpression" ||
-		current.type === "TSTypeAssertion" ||
-		current.type === "TSNonNullExpression"
-	) {
-		current = current.expression;
-	}
-	return current.type === "ObjectExpression" && current.properties.length > 0;
-}
-
-export function isKnownEvidenceExpression(expression: ESTree.Expression): boolean {
-	let current = expression;
-	while (
-		current.type === "ParenthesizedExpression" ||
-		current.type === "TSAsExpression" ||
-		current.type === "TSTypeAssertion" ||
-		current.type === "TSNonNullExpression" ||
-		current.type === "TSSatisfiesExpression"
-	) {
-		current = current.expression;
-	}
-	if (current.type === "ObjectExpression") return true;
-	return (
-		current.type === "ArrayExpression" ||
-		current.type === "ArrowFunctionExpression" ||
-		current.type === "ClassExpression" ||
-		current.type === "FunctionExpression" ||
-		current.type === "NewExpression" ||
-		current.type === "Literal" ||
-		current.type === "TemplateLiteral" ||
-		current.type === "UnaryExpression"
 	);
 }

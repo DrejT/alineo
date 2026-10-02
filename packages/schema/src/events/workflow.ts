@@ -10,8 +10,8 @@
  *     `workflow.started` and `run.started` now, and nothing has to guess from context.
  *   - `snapshot` is **dropped**. It recorded a sandbox checkpoint that the workflow engine
  *     happened to take — so it emits `sandbox.checkpoint_created`, the event that already
- *     describes it. `checkpoint` (the workflow's own resumption point) stays, as
- *     `step.checkpointed`.
+ *     describes it. `checkpoint` (the workflow's own resumption point) is **dropped** too: an early
+ *     version wrote it, nothing has for a long time, and nothing reads it.
  */
 import { z } from "zod";
 import { defineEvent } from "../define";
@@ -67,12 +67,4 @@ export const StepRolledBack = defineEvent({
   version: 1,
   description: "A step's rollback handler completed during saga compensation.",
   schema: z.object({}),
-});
-
-export const StepCheckpointed = defineEvent({
-  type: "step.checkpointed",
-  durable: true,
-  version: 1,
-  description: "A durable resumption point, written after each successful step. Was `checkpoint`.",
-  schema: z.object({ stepIndex: z.number().int().optional(), state: z.unknown().optional() }),
 });

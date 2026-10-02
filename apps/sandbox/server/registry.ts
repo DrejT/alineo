@@ -22,7 +22,7 @@ export class NotFoundError extends Error {
 
 const adapter = new SQLiteAdapter(config.LEDGER_PATH);
 
-export const client = new Sandbox({
+const client = new Sandbox({
   baseUrl: config.OPENSANDBOX_URL,
   apiKey: config.OPENSANDBOX_API_KEY,
   adapter,

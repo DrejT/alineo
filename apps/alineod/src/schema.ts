@@ -6,10 +6,8 @@
  */
 export {
   AgentDetail,
-  AgentSpec,
   AgentView,
   AlineodEvent,
-  BudgetOverride,
   ControlScopeBody,
   CreateRunBody,
   CreateRunResponse,
@@ -25,9 +23,6 @@ export {
   StopAgentBody,
   SubtreeOpResult,
   SubtreeSteerResponse,
-  TranscriptMessage,
   TranscriptResponse,
   TreeView,
-  WaitForSpec,
-  WaitMode,
 } from "@alineo-labs/schema/alineod";

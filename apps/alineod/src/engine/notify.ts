@@ -91,7 +91,7 @@ export function queueSteer(agentId: string, text: string): void {
  * if idle) — the `agent.supervision_needed` ledger event is the real source of truth regardless
  * of whether the parent is even live to receive this.
  */
-export function queueSupervisionNotice(
+function queueSupervisionNotice(
   parentId: string,
   childId: string,
   reason: string,
@@ -115,8 +115,17 @@ onEmit((_runId, agentId, event, payload) => {
   }
 });
 
+// Supervision lives in supervision.ts, which only emits the event. Listening here, rather than
+// importing this module from there, keeps the engine imports acyclic.
+onEmit((_runId, agentId, event, payload) => {
+  if (event !== "agent.supervision_needed" || !agentId) return;
+  const parentId = getAgentRow(agentId)?.parent_agent_id;
+  if (!parentId) return;
+  queueSupervisionNotice(parentId, agentId, payload.reason as string, payload.error as string);
+});
+
 /** One message for everything pending — notifications first, then supervision, then any queued steer text. */
-export function composeInbox(items: InboxRow[]): string {
+function composeInbox(items: InboxRow[]): string {
   const notes = items.filter((i) => i.kind === "notification");
   const supervision = items.filter((i) => i.kind === "supervision");
   const steers = items.filter((i) => i.kind === "steer");

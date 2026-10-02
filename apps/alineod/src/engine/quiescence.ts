@@ -14,7 +14,7 @@ const TERMINAL = new Set(["done", "failed", "aborted", "lost"]);
 
 type View = typeof QuiescenceView._zod.output;
 
-export function quiescence(rootId: string): View | null {
+function quiescence(rootId: string): View | null {
   const root = getAgentRow(rootId);
   if (!root) return null;
   const members = resolveSubtree(rootId);

@@ -5,5 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test rules/*.test.ts"
+  },
+  "devDependencies": {
+    "@oxlint/plugins": "^1.82.0"
   }
 }

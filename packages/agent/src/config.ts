@@ -40,18 +40,3 @@ export function resolveProjectConfig(override?: AlineoAgentConfig): AlineoAgentC
   cache.set(cwd, config);
   return config;
 }
-
-/**
- * Read `alineo.config.json`, merged with built-in defaults.
- *
- * Kept `async` because every caller already awaits it; the read itself is synchronous and
- * cached.
- */
-export async function readProjectConfig(): Promise<AlineoAgentConfig> {
-  return resolveProjectConfig();
-}
-
-/** Drop cached configs. For tests that change the working directory or the file on disk. */
-export function clearProjectConfigCache(): void {
-  cache.clear();
-}

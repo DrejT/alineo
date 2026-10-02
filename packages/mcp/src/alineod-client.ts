@@ -40,7 +40,6 @@ export class AlineodError extends Error {
 import type { z } from "zod";
 import type {
   AgentDetail as AgentDetailSchema,
-  AgentView as AgentViewSchema,
   BudgetOverride as BudgetOverrideSchema,
   CreateRunResponse as CreateRunResponseSchema,
   ResultResponse as ResultResponseSchema,
@@ -51,7 +50,6 @@ import type {
 export type BudgetOverride = z.infer<typeof BudgetOverrideSchema>;
 export type CreateRunResponse = z.infer<typeof CreateRunResponseSchema>;
 export type SpawnAgentResponse = z.infer<typeof SpawnAgentResponseSchema>;
-export type AgentView = z.infer<typeof AgentViewSchema>;
 export type AgentDetail = z.infer<typeof AgentDetailSchema>;
 export type TreeView = z.infer<typeof TreeViewSchema>;
 export type ResultResponse = z.infer<typeof ResultResponseSchema>;

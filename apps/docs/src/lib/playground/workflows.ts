@@ -55,7 +55,7 @@ function track(rt: StepRuntime, sandboxId: string) {
 }
 
 /** Stream one command into the step log; return its exit code. */
-export async function run(
+async function run(
   rt: StepRuntime,
   sandboxId: string,
   command: string,

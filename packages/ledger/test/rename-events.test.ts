@@ -34,7 +34,10 @@ describe("eventRenames", () => {
 
   it("folds snapshot into the sandbox checkpoint it always recorded", () => {
     expect(eventRenames()).toContainEqual(["snapshot", "sandbox.checkpoint_created"]);
-    expect(eventRenames()).toContainEqual(["checkpoint", "step.checkpointed"]);
+  });
+
+  it("leaves `checkpoint` unmapped", () => {
+    expect(eventRenames().map(([from]) => from)).not.toContain("checkpoint");
   });
 });
 

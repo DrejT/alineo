@@ -8,14 +8,13 @@ export interface AgentSummary {
   name: string;
 }
 
-export interface FileEntry {
+interface FileEntry {
   path: string;
   type: "file" | "directory" | "symlink";
   size: number;
 }
 
 import type { PiModel, PiSessionState, SessionStats } from "alineo";
-export type { PiModel, PiSessionState, SessionStats, ThinkingLevel } from "alineo";
 
 export interface ForkPoint {
   entryId: string;

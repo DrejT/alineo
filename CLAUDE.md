@@ -192,7 +192,7 @@ packages/agent/                   — Alineo SDK (published to npm as "alineo")
                                       its own module location and copied into dist/ by tsdown's `copy` config
   src/schema.ts                    — AgentSpec interface + SetupStep interface + validateAgentSpec()
   src/snapshots.ts                 — AgentSnapshotStore, computeSetupHash() (hashes harness+harnessVersion+packages+setup)
-  src/config.ts                    — AlineoAgentConfig, readProjectConfig() (reads alineo.config.json)
+  src/config.ts                    — AlineoAgentConfig, resolveProjectConfig() (reads alineo.config.json)
   src/types.ts                     — AgentEvent (text|tool_start|tool_update|tool_end), AgentStream, textOnly(),
                                       PromptStream (deprecated alias), PiModel, ThinkingLevel, PiMessage, CompactResult
   src/index.ts                     — barrel exports
@@ -423,6 +423,35 @@ Two things the check can't see, so they're conventions:
 - **Renaming an event by hand is a trap.** `text`, `checkpoint` and `snapshot` are ordinary
   English words; a bare-word find-and-replace turns "partial text" into "partial
   message.updated". Match code spans and verbatim log/SSE samples only. This was hit twice.
+
+## Dead code goes in its own commit, checked in CI
+
+`bun run check:dead-code` (`fallow dead-code`, config in `.fallowrc.json`) runs in the CI `check`
+job. It fails on an unused file, export, type or dependency, an import cycle, and an undeclared
+dependency.
+
+**Removing dead code is always its own commit, never mixed into a feature, a fix or a refactor.**
+This holds for any PR, not only one that fixes a fallow finding. Split by kind when it helps:
+
+- deleting code that nothing calls
+- dropping `export` from a symbol that is only used in its own file
+- removing unused dependencies (with the lockfile)
+- removing public API of a published package. This one is breaking, so it gets its own commit and
+  a changeset
+
+Why: a removal commit can be read, reverted or bisected on its own, without touching live code.
+`git log -S<name>` then shows when something was added and when it was removed, so the history of a
+feature stays traceable. When a removal is buried in a diff that also changes behavior, the
+reviewer cannot tell what was meant to go.
+
+In the commit message, say what was removed and how you know it is dead: no callers by search, and
+the typecheck passes. fallow is not enough alone. It does not follow `(await import(...)).x` member
+reads or the type of a property receiver, and it can be wrong in both directions.
+
+Do not silence a finding with a `fallow-ignore` comment. If fallow cannot see a real use, add the
+file to `entry` or `dynamicallyLoaded`, or add a scoped `ignoreExports` or `overrides` entry in
+`.fallowrc.json`, and say why in the PR. A published package is covered by `publicPackages`, so
+fallow does not flag its unused API. Check those by hand before you remove them.
 
 ## Docs are unversioned — there is no version cut to owe
 

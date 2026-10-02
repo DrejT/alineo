@@ -10,23 +10,17 @@
 export const HOSTED_ENDPOINT = "https://sandbox-api.alineo.tech";
 export const LOCAL_ENDPOINT = "http://localhost:3000";
 
-export interface SandboxSummary {
+interface SandboxSummary {
   id: string;
   name: string;
 }
 
-export interface AgentSummary {
+interface AgentSummary {
   id: string;
   name: string;
 }
 
-export interface FileEntry {
-  path: string;
-  type: "file" | "directory" | "symlink";
-  size: number;
-}
-
-export interface Checkpoint {
+interface Checkpoint {
   snapshotId: string;
   tag?: string;
   createdAt: number;
@@ -43,7 +37,7 @@ export type ExecFrame =
   | { type: "exit"; exitCode: number; stderr: string }
   | { type: "error"; message: string };
 
-export class PlaygroundApiError extends Error {
+class PlaygroundApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -108,10 +102,6 @@ export class PlaygroundClient {
 
   // --- sandboxes -------------------------------------------------------------
 
-  listSandboxes() {
-    return this.request<{ sandboxes: SandboxSummary[]; max: number }>("/api/sandboxes");
-  }
-
   createSandbox() {
     return this.request<SandboxSummary>("/api/sandboxes", { method: "POST" });
   }
@@ -138,12 +128,6 @@ export class PlaygroundClient {
   readFile(id: string, path: string) {
     return this.request<{ path: string; content: string }>(
       `/api/sandboxes/${id}/file?path=${encodeURIComponent(path)}`,
-    );
-  }
-
-  listDirectory(id: string, path: string) {
-    return this.request<{ entries: FileEntry[] }>(
-      `/api/sandboxes/${id}/files?path=${encodeURIComponent(path)}`,
     );
   }
 
@@ -209,14 +193,6 @@ export class PlaygroundClient {
   }
 
   // --- agents ---------------------------------------------------------------
-
-  listAgents() {
-    return this.request<{
-      agents: AgentSummary[];
-      max: number;
-      allowedSpecs: readonly string[];
-    }>("/api/agents");
-  }
 
   createAgent(specName: string) {
     return this.request<AgentSummary>("/api/agents", {
