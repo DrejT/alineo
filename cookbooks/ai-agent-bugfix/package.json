@@ -6,8 +6,6 @@
     "start": "bun index.ts"
   },
   "dependencies": {
-    "@alineo-labs/opensandbox": "workspace:*",
-    "@alineo-labs/sandbox": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
     "alineo": "workspace:*"
   }

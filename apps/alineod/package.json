@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@alineo-labs/config-shared": "workspace:*",
-    "@alineo-labs/core": "workspace:*",
     "@alineo-labs/ledger": "workspace:*",
     "@alineo-labs/logger": "workspace:*",
     "@alineo-labs/schema": "workspace:*",
