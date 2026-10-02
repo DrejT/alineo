@@ -20,12 +20,6 @@ export interface AgentSummary {
   name: string;
 }
 
-export interface FileEntry {
-  path: string;
-  type: "file" | "directory" | "symlink";
-  size: number;
-}
-
 export interface Checkpoint {
   snapshotId: string;
   tag?: string;
@@ -108,10 +102,6 @@ export class PlaygroundClient {
 
   // --- sandboxes -------------------------------------------------------------
 
-  listSandboxes() {
-    return this.request<{ sandboxes: SandboxSummary[]; max: number }>("/api/sandboxes");
-  }
-
   createSandbox() {
     return this.request<SandboxSummary>("/api/sandboxes", { method: "POST" });
   }
@@ -138,12 +128,6 @@ export class PlaygroundClient {
   readFile(id: string, path: string) {
     return this.request<{ path: string; content: string }>(
       `/api/sandboxes/${id}/file?path=${encodeURIComponent(path)}`,
-    );
-  }
-
-  listDirectory(id: string, path: string) {
-    return this.request<{ entries: FileEntry[] }>(
-      `/api/sandboxes/${id}/files?path=${encodeURIComponent(path)}`,
     );
   }
 
@@ -209,14 +193,6 @@ export class PlaygroundClient {
   }
 
   // --- agents ---------------------------------------------------------------
-
-  listAgents() {
-    return this.request<{
-      agents: AgentSummary[];
-      max: number;
-      allowedSpecs: readonly string[];
-    }>("/api/agents");
-  }
 
   createAgent(specName: string) {
     return this.request<AgentSummary>("/api/agents", {

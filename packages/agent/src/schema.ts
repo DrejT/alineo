@@ -10,7 +10,6 @@ import { AgentSpecSchema } from "@alineo-labs/schema";
 import { AgentSpecValidationError } from "./errors";
 
 export type { AgentSpec, CredentialEnvBinding, SetupStep } from "@alineo-labs/schema";
-export { AgentSpecSchema } from "@alineo-labs/schema";
 import type { AgentSpec } from "@alineo-labs/schema";
 
 /**

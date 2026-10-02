@@ -192,7 +192,7 @@ packages/agent/                   — Alineo SDK (published to npm as "alineo")
                                       its own module location and copied into dist/ by tsdown's `copy` config
   src/schema.ts                    — AgentSpec interface + SetupStep interface + validateAgentSpec()
   src/snapshots.ts                 — AgentSnapshotStore, computeSetupHash() (hashes harness+harnessVersion+packages+setup)
-  src/config.ts                    — AlineoAgentConfig, readProjectConfig() (reads alineo.config.json)
+  src/config.ts                    — AlineoAgentConfig, resolveProjectConfig() (reads alineo.config.json)
   src/types.ts                     — AgentEvent (text|tool_start|tool_update|tool_end), AgentStream, textOnly(),
                                       PromptStream (deprecated alias), PiModel, ThinkingLevel, PiMessage, CompactResult
   src/index.ts                     — barrel exports

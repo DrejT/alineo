@@ -137,34 +137,3 @@ export async function packLocalPackagesForGlobalInstall(
     await rm(destDir, { recursive: true, force: true });
   }
 }
-
-/** Same idea as `packLocalPackagesForGlobalInstall`, for a single package with no local siblings. */
-export async function packLocalPackageSetupStep(pkgDir: string): Promise<SetupStep> {
-  const pkgJson = await Bun.file(join(pkgDir, "package.json")).json();
-  const pkgName: string = pkgJson.name;
-
-  const destDir = await mkdtemp(join(tmpdir(), "alineo-pack-"));
-  try {
-    if (pkgJson.scripts?.build) {
-      await $`bun run build`.cwd(pkgDir).quiet();
-    }
-    await $`bun pm pack --destination ${destDir}`.cwd(pkgDir).quiet();
-    const [tgzName] = (await readdir(destDir)).filter((f) => f.endsWith(".tgz"));
-    if (!tgzName) throw new Error(`bun pm pack produced no .tgz in ${destDir} for ${pkgName}`);
-
-    const tarball = await readFile(join(destDir, tgzName));
-    const b64 = tarball.toString("base64");
-    const remotePath = `/tmp/${tgzName}`;
-    const scratchPrefix = "/tmp/alineo-local-pkg-install";
-
-    return {
-      name: `Install ${pkgName} from local build (private package, not published to npm)`,
-      run:
-        `base64 -d <<'ALINEO_LOCAL_PKG_EOF' > ${remotePath}\n${b64}\nALINEO_LOCAL_PKG_EOF\n` +
-        `mkdir -p ${scratchPrefix} && npm install --no-save --prefix ${scratchPrefix} ${remotePath} && ` +
-        `mkdir -p /node_modules && cp -r ${scratchPrefix}/node_modules/. /node_modules/`,
-    };
-  } finally {
-    await rm(destDir, { recursive: true, force: true });
-  }
-}
