@@ -112,9 +112,11 @@ export enum LedgerEvent {
    */
   PermissionRequested = "permission.requested",
   /**
-   * Emitted when a `PermissionRequested` is answered — by a caller, a batched
-   * always/reject decision, a timeout, or a session resume dropping it. Payload is
-   * `{ requestId, decision }`.
+   * Emitted when a `PermissionRequested` reaches a final state — answered by a caller, a
+   * batched always/reject decision, a timeout, or a session resume dropping it. Payload is
+   * `{ requestId, decision }`. `decision.kind` is one of `PermissionDecision`'s real answers
+   * (`once`/`always`/`reject`) for every case except the dropped one, which is `"dropped"` —
+   * deliberately not a `PermissionDecision`, because nobody answered it.
    */
   PermissionResolved = "permission.resolved",
 }

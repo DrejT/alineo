@@ -397,7 +397,22 @@ export async function resumeAgent(
   return { sandbox: sb, spec, env: resolvedEnv, adapter, fromSnapshot: false, runId };
 }
 
-async function reconcileDroppedPermissions(
+/**
+ * durability-roadmap.md M1.3: this used to resolve a dropped request with
+ * `decision: { kind: "reject" }` — `PermissionDecision`'s `"reject"` is documented as *a
+ * human's answer*, and no human answered this one. Nobody could: the tool call it was about
+ * died with the old Pi process (OpenSandbox restore is rootfs-only, so it isn't still parked
+ * anywhere to answer). `"dropped"` says what actually happened instead of fabricating a
+ * decision nobody made.
+ *
+ * This is the narrow fix — an honest ledger, not a re-opened decision. The better path forward
+ * is giving a human an actual chance to weigh in: alineod has no live route to answer a
+ * permission request at all today (`driveTurn` calls `agent.prompt()` with no `onPermission`),
+ * so there's nothing yet for a "re-issue this to an operator" version of this function to
+ * re-issue *into*. Once that live path exists, this should queue the same way
+ * `agent.supervision_needed` already does, instead of resolving anything here.
+ */
+export async function reconcileDroppedPermissions(
   adapter: IStorageAdapter,
   sb: SandboxHandle,
   name: string,
@@ -418,8 +433,8 @@ async function reconcileDroppedPermissions(
       if (rid && !resolved.has(rid)) {
         await sb.emit(LedgerEvent.PermissionResolved, -1, {
           requestId: rid,
-          decision: { kind: "reject" },
-          note: "session resumed — pending approval dropped",
+          decision: { kind: "dropped" },
+          note: "session resumed — the tool call this was about is gone; no one answered it",
         });
       }
     }
