@@ -1,5 +1,17 @@
 # @alineo-labs/vault
 
+## 0.3.3
+
+### Patch Changes
+
+- Updated dependencies [79b74cc]
+- Updated dependencies [8baafa7]
+- Updated dependencies [b9afb28]
+- Updated dependencies [e604a70]
+- Updated dependencies [c9c8f2f]
+  - @alineo-labs/core@0.5.0
+  - @alineo-labs/opensandbox@0.3.2
+
 ## 0.3.2
 
 ### Patch Changes

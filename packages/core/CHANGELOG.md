@@ -1,5 +1,76 @@
 # @drej/core
 
+## 0.5.0
+
+### Minor Changes
+
+- e604a70: **BREAKING:** remove nine `LedgerEvent` members that nothing in alineo emits or reads:
+  `RunStarted`, `StepStart`, `StepComplete`, `StepFailed`, `StepRolledBack`, `WorkflowComplete`,
+  `WorkflowFailed`, `Checkpoint`, and the deprecated `Snapshot`.
+
+  Workflow event names (`workflow.started`, `step.started`, and the rest) are defined in
+  `@alineo-labs/schema`, not in this enum. Use `LedgerEvent.CheckpointCreated` in place of
+  `LedgerEvent.Snapshot`.
+
+- c9c8f2f: **BREAKING:** the SDK ledger's event names are namespaced. `LedgerEvent` members are unchanged;
+  their **values** are not:
+
+  ```
+  sandbox_created    → sandbox.created        exec_start    → exec.started
+  checkpoint_created → sandbox.checkpoint_created   exec_event    → exec.output
+  credential_bound   → credential.bound       exec_complete → exec.completed
+  run_started        → workflow.started       checkpoint    → step.checkpointed
+  ```
+
+  `run_started` meant a workflow run here and a _swarm_ run in alineod. It is `workflow.started`
+  now, and `run.started` belongs to alineod alone.
+
+  `LedgerEvent.Snapshot` is deprecated and emits `sandbox.checkpoint_created` — the same value
+  `CheckpointCreated` has, because that is what it always recorded: a sandbox checkpoint the
+  workflow engine happened to take.
+
+  **Code using the `LedgerEvent` enum keeps compiling.** Code comparing `entry.event` against a
+  raw string does not, and neither does a query filtering on one.
+
+  **Existing databases migrate on `connect()`** — both the sqlite and postgres adapters run a
+  one-time, idempotent rename of `alineo_events.event`. It matters that it runs before any read:
+  `getSandboxDetails` aggregates on literal names, so an unmigrated row does not error, it
+  silently stops existing. **One-way**: an older SDK reading a migrated database would find
+  sessions it cannot see.
+
+  Both adapters share one statement from `@alineo-labs/ledger` — a single `CASE` over one scan
+  rather than ~25 `UPDATE`s, because `event` is unindexed on that table.
+
+  `Sandbox` accepts an `@internal` `sink` that receives a `LedgerEnvelope` for every event,
+  beside the ledger write. Synchronous, isolated, and it runs _before_ the ledger queue, so a
+  slow or broken exporter can neither delay nor fail the operation it is exporting.
+
+  Unchanged: the harness `AgentEvent` stream (`tool_start`, `text`, …). Those are the SDK's
+  public streaming API, not what it stores; alineod translates them at its own boundary.
+
+### Patch Changes
+
+- 79b74cc: A permission request still pending when a session resumes (its parked tool call died with the
+  previous Pi process, and can't be recovered) is now recorded with `decision: { kind: "dropped" }`
+  instead of `decision: { kind: "reject" }`. The old value claimed a human rejected the request;
+  none did — nobody could, since the call it was about no longer exists. `"dropped"` says what
+  actually happened. If anything reads `decision.kind` from `permission.resolved` ledger entries
+  looking specifically for a human rejection, it should no longer match this case.
+- Updated dependencies [f9d1c2e]
+- Updated dependencies [e8756ae]
+- Updated dependencies [316dd94]
+- Updated dependencies [c2a9c22]
+- Updated dependencies [d22672b]
+- Updated dependencies [8baafa7]
+- Updated dependencies [b9afb28]
+- Updated dependencies [e604a70]
+- Updated dependencies [3b47fb1]
+- Updated dependencies [680bced]
+- Updated dependencies [f5f9999]
+- Updated dependencies [be6be44]
+  - @alineo-labs/schema@0.2.0
+  - @alineo-labs/opensandbox@0.3.2
+
 ## 0.4.2
 
 ### Patch Changes

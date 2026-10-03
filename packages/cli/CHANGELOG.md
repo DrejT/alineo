@@ -1,5 +1,127 @@
 # drejx
 
+## 0.4.0
+
+### Minor Changes
+
+- 157f974: **BREAKING:** the three session-lifecycle verbs are renamed so that one word means one thing
+  across the CLI, the SDK and the MCP tools.
+
+  | Before                            | Now                                  |
+  | --------------------------------- | ------------------------------------ |
+  | `alineo spawn <spec>`             | `alineo start <spec>`                |
+  | `alineo fork <name> <child-spec>` | `alineo spawn <parent> <child-spec>` |
+  | `alineo kill <sandbox-id>`        | `alineo stop <sandbox-id>`           |
+
+  `spawn` used to mean the opposite of what `Alineo.spawn()` means: the CLI created a **root**
+  agent, the SDK a **child**. Anyone who learned one and moved to the other was actively misled.
+  It now means "child" on both.
+
+  **There are deliberately no aliases.** `spawn` did not disappear — it changed meaning, so an
+  alias would silently do the wrong thing with the right-looking command. `alineo spawn ./spec.json`
+  now fails on its arguments instead, which is the outcome you want: its first argument is a
+  parent session name. Use `alineo start ./spec.json`.
+
+  Also updated so a running agent is told the truth: the Pi extension's injected guidance, the
+  alineod operator-steer message, the TUI (`s` stops a session; `k` still works), and every help,
+  error and doc string that quoted a verb. `scripts/check-vocabulary.ts` now fails CI on a command
+  name that is not in `@alineo-labs/schema`'s `VERBS`, and on any text quoting a command that does
+  not exist — the check that would have caught `alineo ps`, a command documented in the source for
+  months that never existed.
+
+### Patch Changes
+
+- a5bd004: **BREAKING:** `AgentSpec.cli` → `AgentSpec.harness`, `cliVersion` → `harnessVersion`.
+
+  ```diff
+  -{ "name": "my-agent", "cli": "pi", "cliVersion": "1.2.3", "model": "…" }
+  +{ "name": "my-agent", "harness": "pi", "harnessVersion": "1.2.3", "model": "…" }
+  ```
+
+  `cli: "pi"` said the agent-loop driver _is_ a CLI. True of Pi, accidental in general — Claude
+  Code, Codex and opencode are the next drivers, and `cli: "claude-code"` would read as a category
+  error the day one ships. Renaming now costs one field; renaming after three drivers ship costs a
+  migration and a docs rewrite.
+
+  There is no alias, but a spec that still uses `cli` gets told so by name rather than
+  "must have a 'harness' field":
+
+  ```
+  ✖ Agent spec must have a 'harness' field. Supported values: pi
+
+  This spec uses 'cli' and 'cliVersion', renamed to 'harness' and 'harnessVersion':
+  the field names the agent-loop driver, which is not always a CLI.
+  ```
+
+  **Your cached snapshots survive.** `computeSetupHash()` deliberately keeps the old key names in
+  the object it hashes — it is a cache key nobody reads, and changing the spelling would have
+  invalidated every existing snapshot, turning a field rename into a ~90s rebuild of every agent.
+
+  `alineo list` now heads that column `HARNESS`, and `alineo-mcp`'s `SpecSummary.cli` is
+  `SpecSummary.harness`. The published JSON Schema at `registry.alineo.tech/spec/agent.json`
+  requires `harness`, so an editor validating an old spec against `$schema` will flag it.
+
+  Unchanged: telemetry's own `cliVersion`, which is the version of the alineo CLI itself — a
+  different field that happens to share a name.
+
+- de786a7: Config is now found, merged and validated in one place.
+
+  `alineo.config.json` is located by walking up from the working directory (bounded by a `.git`
+  directory, `$HOME`, or the filesystem root) instead of being read only from the exact working
+  directory. Running a script from a subdirectory previously fell back to built-in defaults in
+  silence, which looked identical to having no config at all.
+
+  Sources are merged lowest-first — `~/.config/alineo/config.json`, then `alineo.config.json`,
+  then `ALINEO_CONFIG_CONTENT` (inline JSON), then `ALINEO_SERVER_URL` / `ALINEO_API_KEY` /
+  `ALINEO_USE_SERVER_PROXY`, then explicit options — validated once, then frozen. A malformed file
+  or a bad value now fails with the offending key and file named, rather than being dropped.
+
+  `Alineo.load()`, `.resume()`, `.reattach()` and `.attach()` accept `opts.config` to skip file and
+  environment discovery entirely, for embedded callers and tests that must not depend on the
+  working directory. The config is also read once per working directory now, not on every call.
+
+  Three behaviour changes worth noting.
+
+  A project config found by walking up will now apply where defaults were previously used.
+
+  A global `~/.config/alineo/config.json` is merged under a project config instead of being ignored
+  whenever a project config exists. The SDK previously ignored the global config entirely while
+  `alineo-cli` already read it, so on a machine with a global config and no project config the two
+  disagreed about `adapterPath` — and therefore used different agent snapshot caches. They now
+  agree. If that describes your setup, the first `Alineo.load()` of each spec after upgrading
+  rebuilds its snapshot at the new location instead of reusing the old one; nothing is lost, but
+  expect one slow run per spec.
+
+  A spec that relied on the built-in `adapterPath`/`agentsDir` defaults while a global config set
+  different ones will now follow the global config. Pass `opts.config`, or set the value explicitly
+  in a project `alineo.config.json`, to pin it.
+
+- 14ecd92: `alineo init` now starts OpenSandbox and alineod with `--restart unless-stopped`, and sets that
+  policy on containers an earlier `init` created. Before, a reboot or a Docker daemon restart left
+  both down — OpenSandbox first, so nothing worked until `init` ran again, and alineod's crash
+  recovery never got the chance to run because nothing restarted alineod. `docker stop` still
+  sticks.
+- 8baafa7: `ControlClient.listSandboxes()` now returns every sandbox, not just the first 20. OpenSandbox
+  paginates with `page`/`pageSize` and ignores the `limit`/`offset` this client was sending, so every
+  listing stopped at the server's default page. The visible symptom: `alineo agents` cross-checks the
+  ledger against the live list, so with more than 20 sandboxes running it reported the rest as
+  gone. `limit` and `offset` still work — they are applied after every page is fetched.
+- Updated dependencies [a5bd004]
+- Updated dependencies [548ba60]
+- Updated dependencies [de786a7]
+- Updated dependencies [79b74cc]
+- Updated dependencies [8baafa7]
+- Updated dependencies [b9afb28]
+- Updated dependencies [3b47fb1]
+- Updated dependencies [c9c8f2f]
+- Updated dependencies [06e7c2f]
+- Updated dependencies [de786a7]
+- Updated dependencies [7fb0241]
+  - alineo@0.7.0
+  - @alineo-labs/opensandbox@0.3.2
+  - @alineo-labs/sandbox@0.5.0
+  - @alineo-labs/sqlite@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes
