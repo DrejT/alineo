@@ -1,6 +1,6 @@
 {
   "name": "@alineo-labs/ledger",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Behaviour for alineo's event ledger: sinks, fold helpers and an in-memory store. Shapes live in @alineo-labs/schema.",
   "license": "Apache-2.0",
   "repository": {
