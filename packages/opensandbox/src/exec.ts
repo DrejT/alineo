@@ -91,6 +91,37 @@ async function* parseSSE(
           return;
         }
       }
+
+      // Some execd streams (confirmed: /metrics/watch) emit single-`\n`-delimited raw JSON
+      // lines rather than the `\n\n`-framed SSE the block split above expects — those never
+      // produce a blank-line separator, so every line would sit in `buffer` forever and this
+      // generator would yield nothing for the stream's whole lifetime. Pull out any complete,
+      // independently-parseable JSON lines from what's left after the `\n\n` pass; a line that
+      // isn't a standalone JSON object (e.g. an `event:`/`data:` pair still waiting on its own
+      // blank-line terminator) is put back rather than dropped.
+      if (buffer.includes("\n")) {
+        const lines = buffer.split("\n");
+        const tail = lines.pop() ?? "";
+        const unconsumed: string[] = [];
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("{")) {
+            try {
+              const event = JSON.parse(trimmed) as SSEEvent;
+              yield event;
+              if (isTerminal?.(event)) {
+                terminatedEarly = true;
+                return;
+              }
+              continue;
+            } catch {
+              // not actually complete JSON — fall through and re-buffer it below
+            }
+          }
+          unconsumed.push(line);
+        }
+        buffer = unconsumed.length > 0 ? `${unconsumed.join("\n")}\n${tail}` : tail;
+      }
     }
   } finally {
     if (!terminatedEarly) {
