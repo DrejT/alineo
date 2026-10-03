@@ -206,6 +206,9 @@ describe("fault: kill-bridge — the bridge dies mid-turn, alineod does not (M2.
     agent.turn = { text: "back online" };
     const res = await call("POST", `/agents/${rootAgentId}/prompt`, { text: "still there?" });
     expect(res.status).toBe(202);
-    await until(() => agent.prompts.includes("still there?"), "new prompt reaches the restarted bridge");
+    await until(
+      () => agent.prompts.includes("still there?"),
+      "new prompt reaches the restarted bridge",
+    );
   }, 10_000);
 });
