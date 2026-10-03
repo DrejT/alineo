@@ -12,6 +12,7 @@
 import { Sandbox, type SandboxHandle } from "@alineo-labs/sandbox";
 import { loadProjectConfig } from "@alineo-labs/config-shared";
 import { sdkAdapter } from "./registry";
+import { recallResources } from "../state/sandbox-resources";
 
 const projectConfig = loadProjectConfig({ cwd: process.cwd() });
 
@@ -59,8 +60,13 @@ export async function resolveLive(sandboxId: string): Promise<SandboxHandle> {
   const details = await findSandboxDetails(sandboxId);
   if (!details) throw new Error(`no sandbox ${sandboxId}`);
 
+  // Without `resources`, `connect()` doesn't wire up `.fork()` at all (it has no ledger lookup
+  // of its own — see its doc comment) — pass along whatever this alineod instance remembers
+  // creating this sandbox with, so a sandbox reconnected after a restart keeps fork support.
+  const resources = recallResources(sandboxId) ?? undefined;
+
   try {
-    const sb = await client.connect(sandboxId, details.name, { allowPaused: true });
+    const sb = await client.connect(sandboxId, details.name, { allowPaused: true, resources });
     register(sb);
     return sb;
   } catch {
