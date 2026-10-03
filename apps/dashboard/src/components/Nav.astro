@@ -1,0 +1,37 @@
+---
+const links = [
+  { href: "/", label: "Sandboxes" },
+  { href: "/sessions", label: "Sessions" },
+  { href: "/swarms", label: "Swarms" },
+  { href: "/workflows", label: "Workflows" },
+  { href: "/audit", label: "Audit" },
+  { href: "/settings", label: "Settings" },
+];
+const path = Astro.url.pathname;
+function isActive(href: string): boolean {
+  if (href === "/") return path === "/";
+  return path.startsWith(href);
+}
+---
+
+<nav
+  class="fixed top-0 left-0 right-0 z-50 flex items-center"
+  style="height: var(--nav-height); background: color-mix(in oklch, var(--color-bg), transparent 12%); backdrop-filter: blur(8px); border-bottom: 1px solid var(--color-border);"
+>
+  <div class="mx-auto flex w-full items-center gap-6 px-4" style="max-width: var(--max-width);">
+    <a href="/" class="mono text-sm font-medium" style="letter-spacing: -0.02em;">alineo</a>
+    <div class="flex items-center gap-4">
+      {
+        links.map((l) => (
+          <a
+            href={l.href}
+            class="text-sm transition-colors"
+            style={`color: ${isActive(l.href) ? "var(--color-fg)" : "var(--color-muted)"};`}
+          >
+            {l.label}
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</nav>

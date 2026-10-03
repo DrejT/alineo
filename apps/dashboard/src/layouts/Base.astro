@@ -1,0 +1,26 @@
+---
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · alineo</title>
+  </head>
+  <body>
+    <Nav />
+    <main class="mx-auto px-4 py-6" style={`max-width: var(--max-width); margin-top: var(--nav-height);`}>
+      <slot />
+    </main>
+  </body>
+</html>

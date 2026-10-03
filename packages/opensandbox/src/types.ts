@@ -217,10 +217,21 @@ export interface FileReplacement {
   new: string;
 }
 
+/**
+ * execd's actual `/metrics` and `/metrics/watch` payload shape — verified live against a real
+ * sandbox (`{"cpu_count":2,"cpu_used_pct":6.5,"mem_total_mib":3777.6,"mem_used_mib":687,
+ * "timestamp":1790966916469}`). The field names here previously read `cpu`/`memory`/
+ * `timestamp: string`, which execd has never actually sent — `ExecClient.getMetrics()`/
+ * `.watchMetrics()` just pass the response through untyped, so nothing coerced it to match,
+ * and `SandboxHandle.watchMetrics()`'s own `isMetrics()` guard (checking for `cpu`/`memory`)
+ * silently filtered out every real event as a result.
+ */
 export interface Metrics {
-  cpu: number;
-  memory: number;
-  timestamp: string;
+  cpu_count: number;
+  cpu_used_pct: number;
+  mem_total_mib: number;
+  mem_used_mib: number;
+  timestamp: number;
 }
 
 export interface CreateSessionRequest {
