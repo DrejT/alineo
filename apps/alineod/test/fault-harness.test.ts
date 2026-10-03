@@ -212,3 +212,37 @@ describe("fault: kill-bridge — the bridge dies mid-turn, alineod does not (M2.
     );
   }, 10_000);
 });
+
+describe("fault: bridge-disconnect — the connection closes without [DONE] (M2.1 follow-up)", () => {
+  test("is treated as an interruption, not recorded as a silent false success", async () => {
+    // Live on my-vps (2026-10-03): kill -9'ing the real bridge mid-tool-call settled the turn
+    // as a false "success" with no text in under 20s — the real sseStream() can't tell a raw
+    // connection close apart from the bridge's own [DONE] sentinel, so it never even reached
+    // the inactivity-timeout/catch-up path the kill-bridge scenario above covers. The SDK now
+    // throws BridgeDisconnectedError for this (packages/agent/src/adapters/pi.ts); this
+    // scenario checks alineod's driveTurn routes that error to catch-up instead of settling
+    // success immediately.
+    const gate = deferred();
+    fakeSdk.nextTurn = { gate: gate.promise, disconnect: true };
+    const { runId, rootAgentId, root: agent } = await startRun({ prompt: "do the work" });
+    await until(() => getAgentRow(rootAgentId)?.state === "running", "root mid-turn");
+
+    agent.hangState = true;
+    gate.resolve();
+
+    await until(() => isCatchingUp(rootAgentId), "disconnect hands the turn to catch-up");
+    await until(
+      () => fakeSdk.calls.resume.includes(agent.sandboxId),
+      "catch-up restarts the dead bridge",
+    );
+    expect(
+      events(runId).find((e) => e.event === "agent.turn_interrupted" && e.agentId === rootAgentId),
+    ).toBeDefined();
+
+    agent.streaming = false;
+    agent.lastText = "whatever survived";
+    await until(() => getHandle(rootAgentId)?.state === "settled", "settles after restart");
+    assertProjectionMatchesLedgerReplay();
+    assertNoOrphanedPendingHandles();
+  }, 10_000);
+});

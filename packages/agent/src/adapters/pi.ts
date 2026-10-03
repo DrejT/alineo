@@ -7,7 +7,7 @@ import type {
   ExecOptions,
   ExecResult,
 } from "@alineo-labs/core";
-import { PromptTimeoutError } from "../errors";
+import { BridgeDisconnectedError, PromptTimeoutError } from "../errors";
 import { normalizePermissions } from "../permissions";
 import type { AgentSpec, CredentialEnvBinding } from "../schema";
 import type { PendingPermission, PermissionDecision } from "../types";
@@ -561,8 +561,13 @@ async function* sseStream(
 
       const { done, value } = result;
       if (done) {
+        // A raw TCP-level EOF, not the bridge's own `[DONE]` sentinel (that branch below
+        // returns before ever reaching here) -- the connection closed without Pi ever
+        // signalling the turn was actually finished. Indistinguishable from a legitimate
+        // finish at the reader level, so it has to be surfaced explicitly rather than treated
+        // as a silent success (M2.1).
         reachedNaturalEnd = true;
-        break;
+        throw new BridgeDisconnectedError(bridgeUrl);
       }
       buf += decoder.decode(value, { stream: true });
       const lines = buf.split("\n");

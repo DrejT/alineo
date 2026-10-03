@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "bun:test";
 import { PiAdapter, type PiSandbox } from "../src/adapters/pi";
-import { PromptTimeoutError } from "../src/errors";
+import { BridgeDisconnectedError, PromptTimeoutError } from "../src/errors";
 
 function stubFetch(impl: () => Promise<Response>): typeof fetch {
   return Object.assign(impl, { preconnect: () => {} });
@@ -102,5 +102,27 @@ describe("PiAdapter.prompt inactivity timeout", () => {
       if (ev.type === "text") texts.push(ev.text);
     }
     expect(texts).toEqual(["a", "b"]);
+  });
+
+  it("throws when the connection closes without the bridge's own [DONE] sentinel (M2.1)", async () => {
+    // Simulates the bridge process dying mid-stream: the underlying connection just closes
+    // (a raw reader EOF), with no `[DONE]` ever sent -- indistinguishable from a legitimate
+    // finish unless the SDK itself tells the two apart.
+    const chunks = ['data: {"type":"text","text":"a"}\n\n'];
+    globalThis.fetch = stubFetch(() => Promise.resolve(sseResponse(chunks, { intervalMs: 10 })));
+
+    const adapter = await adapterWithBridge();
+    const stream = adapter.prompt("hi", { inactivityTimeoutMs: 5_000 });
+
+    const texts: string[] = [];
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression
+    await expect(
+      (async () => {
+        for await (const ev of stream) {
+          if (ev.type === "text") texts.push(ev.text);
+        }
+      })(),
+    ).rejects.toThrow(BridgeDisconnectedError);
+    expect(texts).toEqual(["a"]); // whatever arrived before the connection died is still kept
   });
 });

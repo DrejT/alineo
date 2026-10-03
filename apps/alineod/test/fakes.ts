@@ -35,6 +35,14 @@ export interface FakeTurn {
    * `lastText` and flips `streaming` to false.
    */
   detach?: boolean;
+  /**
+   * Stands in for the bridge process dying mid-stream: after the gate, the stream throws
+   * `BridgeDisconnectedError` (M2.1) — the real `sseStream()`'s own distinction between a raw
+   * connection close and the bridge's `[DONE]` sentinel, collapsed here to one flag since the
+   * fake has no actual HTTP stream to close. `streaming` stays true (same reasoning as
+   * `detach`) until the test flips it, standing in for "the new process after a restart."
+   */
+  disconnect?: boolean;
 }
 
 export interface SpawnOpts {
@@ -149,6 +157,12 @@ export class FakeAgent {
         detached = true;
         const err = new Error("Prompt produced no activity for 180s");
         err.name = "PromptTimeoutError";
+        throw err;
+      }
+      if (turn.disconnect) {
+        detached = true;
+        const err = new Error("Bridge connection closed before signalling done");
+        err.name = "BridgeDisconnectedError";
         throw err;
       }
       if (turn.error) {
