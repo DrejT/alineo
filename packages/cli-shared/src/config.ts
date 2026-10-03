@@ -92,8 +92,8 @@ export function serverDataDir(): string {
  * "bwrap archive not cached for linux/amd64 -- isolation will be unavailable" and isolation
  * sessions (and anything that depends on them, e.g. pause()/resume()) hung indefinitely
  * instead of failing cleanly. OpenSandbox's own docs: >=v1.0.20 has base isolation-session
- * support, >=v1.0.21 is recommended for full functionality -- the "v1.1.0+" the warning
- * message itself suggests does not exist as a published tag. v1.0.22 is the latest.
+ * support, >=v1.0.21 is recommended for full functionality. v1.1.0 (published 2026-08-26) is
+ * the latest and is what the warning message's "v1.1.0+" suggestion points at.
  */
 /**
  * `egress.image`/`egress.mode` are configured unconditionally, not opt-in. Per OpenSandbox's
@@ -113,7 +113,7 @@ eip = "${eip}"
 
 [runtime]
 type = "docker"
-execd_image = "opensandbox/execd:v1.0.22"
+execd_image = "opensandbox/execd:v1.1.0"
 
 [docker]
 network_mode = "bridge"
