@@ -10,6 +10,10 @@
  * same way `bun test` always filters: `bun run fault -- -t kill-9`.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getAgentRow, getHandle } from "../src/state/projection";
 import { call, deferred, events, spec, startRun, until, wipeState } from "./helpers";
 import { fakeSdk } from "./fakes";
@@ -104,5 +108,55 @@ describe("fault: chronic-failure — an agent that always fails never costs more
     assertProjectionMatchesLedgerReplay();
     assertNoOrphanedPendingHandles();
     assertCircuitBreakerBoundHolds();
+  }, 10_000);
+});
+
+describe("fault: kill-9-write-burst — a real process death during a write-heavy burst (M1.1)", () => {
+  test("every acknowledged ledger row survives, and the file is not corrupted", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "alineod-write-burst-"));
+    const dbPath = join(dir, "burst.db");
+    const workerPath = join(import.meta.dir, "fault/write-burst-worker.ts");
+
+    const proc = Bun.spawn(["bun", workerPath, dbPath], { stdout: "pipe", stderr: "pipe" });
+    const state = { lastAcked: 0 };
+    let leftover = "";
+    const drained = (async () => {
+      for await (const chunk of proc.stdout) {
+        leftover += Buffer.from(chunk).toString("utf8");
+        const lines = leftover.split("\n");
+        leftover = lines.pop() ?? "";
+        for (const line of lines) {
+          const seq = Number(line);
+          if (Number.isFinite(seq) && seq > state.lastAcked) state.lastAcked = seq;
+        }
+      }
+    })();
+
+    // Let a real burst build up before killing it mid-stream — the point is to catch the
+    // process while it is actively writing, not right after it starts.
+    await until(() => state.lastAcked >= 200, "write burst to get going", 5_000);
+
+    proc.kill(9);
+    await proc.exited;
+    // Bytes already sitting in the pipe at kill time are still delivered after the process is
+    // gone — only once this resolves is state.lastAcked the final, true "acknowledged" count.
+    await drained;
+    expect(state.lastAcked).toBeGreaterThanOrEqual(200);
+
+    const db = new Database(dbPath);
+    const integrity = db.query("PRAGMA integrity_check;").all() as Array<{
+      integrity_check: string;
+    }>;
+    expect(integrity).toEqual([{ integrity_check: "ok" }]);
+
+    const row = db.query("SELECT COUNT(*) as n, MAX(seq) as max FROM ledger;").get() as {
+      n: number;
+      max: number;
+    };
+    // AUTOINCREMENT, one row per seq, no gaps: every row the worker said was acknowledged
+    // actually made it to disk, and nothing else is missing in between.
+    expect(row.max).toBeGreaterThanOrEqual(state.lastAcked);
+    expect(row.n).toBe(row.max);
+    db.close();
   }, 10_000);
 });
