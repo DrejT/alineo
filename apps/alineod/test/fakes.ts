@@ -313,6 +313,9 @@ export const FakeAlineo = {
     // Restarting the bridge execs into the container, which fails while it's frozen.
     if (agent.paused) throw new Error(`sandbox ${sandboxId} is paused`);
     agent.bridgeDown = false;
+    // A resumed bridge is a fresh process — whatever made the old one unresponsive (hangState)
+    // is gone with it, the same way bridgeDown clears above.
+    agent.hangState = false;
     return agent;
   },
 };
