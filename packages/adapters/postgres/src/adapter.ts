@@ -89,6 +89,10 @@ export class PostgresAdapter implements IStorageAdapter {
   }
 
   async connect(): Promise<void> {
+    // Superseded by MIGRATION_SQL's composite alineo_events_name_sandbox_ts index — drop them
+    // on an existing database too, same reasoning as the sqlite adapter's connect().
+    await this.sql.unsafe("DROP INDEX IF EXISTS alineo_events_sandbox_id;");
+    await this.sql.unsafe("DROP INDEX IF EXISTS alineo_events_name;");
     await this.sql.unsafe(MIGRATION_SQL);
     // Same one-time event-name rename as the sqlite adapter, from the same shared table —
     // see `@alineo-labs/sqlite`'s `rename-events.ts` for why it is one pass rather than one
@@ -126,7 +130,7 @@ export class PostgresAdapter implements IStorageAdapter {
       SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
       FROM alineo_events
       WHERE name = ${name} AND sandbox_id = ${sandboxId}
-      ORDER BY ts ASC
+      ORDER BY ts ASC, id ASC
     `;
     return rows.map(rowToEntry);
   }
@@ -136,7 +140,7 @@ export class PostgresAdapter implements IStorageAdapter {
       SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
       FROM alineo_events
       WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'sandbox.checkpoint_created'
-      ORDER BY ts DESC
+      ORDER BY ts DESC, id DESC
       LIMIT 1
     `;
     return rows.length ? rowToEntry(rows[0]) : null;
@@ -189,7 +193,7 @@ export class PostgresAdapter implements IStorageAdapter {
       SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
       FROM alineo_events
       WHERE name = ${name} AND sandbox_id = ${sandboxId} AND event = 'sandbox.checkpoint_created'
-      ORDER BY ts ASC
+      ORDER BY ts ASC, id ASC
     `;
     return rows.map((r) => {
       const p = (r.payload ?? {}) as { snapshotId: string; name?: string };
