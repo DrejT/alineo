@@ -24,7 +24,10 @@ export async function* watchMetrics(sb: SandboxInternal): AsyncGenerator<Metrics
 /** `ExecClient.watchMetrics()` types every SSE payload as `SSEEvent`; this checks it's actually metrics. */
 function isMetrics(ev: object): ev is Metrics {
   return (
-    "cpu" in ev && typeof ev.cpu === "number" && "memory" in ev && typeof ev.memory === "number"
+    "cpu_used_pct" in ev &&
+    typeof ev.cpu_used_pct === "number" &&
+    "mem_used_mib" in ev &&
+    typeof ev.mem_used_mib === "number"
   );
 }
 
