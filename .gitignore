@@ -16,3 +16,4 @@ alineo.config.json
 apps/www/.astro/
 apps/registry/.astro/
 apps/sandbox/.astro/
+apps/dashboard/.astro/
