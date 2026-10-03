@@ -136,6 +136,23 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
       void catchUpTurn(runId, agentId, { afterStream: true });
       return;
     }
+    if (isBridgeDisconnected(err)) {
+      // The connection closed without the bridge ever signalling the turn was actually done —
+      // indistinguishable from a clean finish at the stream level, so the SDK surfaces it as
+      // its own error (M2.1) instead of letting it fall through to the generic catch below,
+      // which would otherwise record this as a false success. Hand off to catch-up exactly
+      // like a stream timeout: its probe loop will find the bridge genuinely unreachable and
+      // restart it.
+      log.warn(
+        "bridge connection closed without signalling done — following the turn by polling instead",
+        {
+          agentId,
+        },
+      );
+      driving.delete(agentId);
+      void catchUpTurn(runId, agentId, { afterStream: true });
+      return;
+    }
     const errMessage = errorMessage(err);
     // A failed turn may still have produced partial assistant text — keep it.
     const partial = await safeLastText(agent);
@@ -323,6 +340,11 @@ export function setState(agentId: string, to: string, reason?: string): void {
 /** Matched by name, not `instanceof` — the SDK's error class isn't worth importing for this. */
 function isStreamTimeout(err: unknown): boolean {
   return err instanceof Error && err.name === "PromptTimeoutError";
+}
+
+/** Matched by name, same reasoning as `isStreamTimeout` above. */
+function isBridgeDisconnected(err: unknown): boolean {
+  return err instanceof Error && err.name === "BridgeDisconnectedError";
 }
 
 async function safeTurnError(agent: Alineo): Promise<string | undefined> {

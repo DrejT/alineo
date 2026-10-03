@@ -25,6 +25,26 @@ export class PromptTimeoutError extends WorkflowError {
 }
 
 /**
+ * Thrown when a prompt/bash SSE stream's underlying connection closes (`reader.read()` reports
+ * `done: true`) without the bridge ever having sent its own `[DONE]` sentinel first -- the
+ * signal that the bridge process died mid-stream (e.g. a crash, an OOM kill), not that Pi
+ * actually finished the turn. Previously `sseStream()` treated this exactly like a clean finish
+ * (durability-roadmap M2.1, verified live on `my-vps` 2026-10-03: `kill -9`ing the bridge process
+ * mid-tool-call settled the turn as a false `success` with no text, in under 20s, instead of
+ * ever reaching the inactivity-timeout/catch-up path at all) -- a TCP-level EOF and an
+ * application-level `[DONE]` are indistinguishable to a bare `for await` without this.
+ */
+export class BridgeDisconnectedError extends WorkflowError {
+  constructor(public readonly bridgeUrl: string) {
+    super(
+      `Bridge connection closed (${bridgeUrl}) before signalling the turn was done -- ` +
+        `the underlying agent process likely died`,
+    );
+    this.name = "BridgeDisconnectedError";
+  }
+}
+
+/**
  * Thrown by `validateAgentSpec()` when a spec object fails schema validation. Carries every
  * failing field in one pass (`.issues`, mirroring `z.ZodIssue[]` shape) rather than surfacing
  * only the first problem found -- see #185. `.message` is a pre-formatted, human-readable
