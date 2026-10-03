@@ -32,6 +32,8 @@ export const sandboxesRoutes = new Elysia({ prefix: "/sandboxes" })
 
   .get("/:id", async ({ params }) => engine.getSandbox(params.id))
 
+  .get("/:id/events", async ({ params }) => ({ events: await engine.getSandboxLedger(params.id) }))
+
   .delete("/:id", async ({ params }) => {
     await engine.closeSandbox(params.id);
     return new Response(null, { status: 204 });
@@ -96,18 +98,19 @@ export const sandboxesRoutes = new Elysia({ prefix: "/sandboxes" })
       if (!ok) socket.close(1011, "sandbox unavailable");
     },
     message(socket, raw) {
-      const text = typeof raw === "string" ? raw : Buffer.from(raw as ArrayBuffer).toString("utf-8");
-      try {
-        const msg = JSON.parse(text) as
-          | { type: "input"; data: string }
-          | { type: "resize"; cols: number; rows: number }
-          | { type: "signal"; name: string };
-        if (msg.type === "input") ws.writeExec(socket.id, msg.data);
-        else if (msg.type === "resize") ws.resizeExec(socket.id, msg.cols, msg.rows);
-        else if (msg.type === "signal") ws.signalExec(socket.id, msg.name);
-      } catch {
-        // malformed frame — ignore
-      }
+      // Elysia's default WS message parser already JSON.parses incoming text frames (see
+      // createWSMessageParser in its ws/index.js) — `raw` arrives as the parsed object, not a
+      // string to parse ourselves.
+      const msg = raw as
+        | { type: "input"; data: string }
+        | { type: "resize"; cols: number; rows: number }
+        | { type: "signal"; name: string }
+        | null
+        | undefined;
+      if (!msg || typeof msg !== "object") return;
+      if (msg.type === "input") ws.writeExec(socket.id, msg.data);
+      else if (msg.type === "resize") ws.resizeExec(socket.id, msg.cols, msg.rows);
+      else if (msg.type === "signal") ws.signalExec(socket.id, msg.name);
     },
     async close(socket) {
       await ws.closeExecSession(socket.id);

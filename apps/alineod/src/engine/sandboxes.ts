@@ -9,6 +9,7 @@ import { client, register, resolveLive, forget, findSandboxDetails } from "./san
 import { sdkAdapter } from "./registry";
 import { HttpError } from "./errors";
 import { errorMessage } from "../util";
+import { rememberResources, recallResources } from "../state/sandbox-resources";
 
 export interface CreateSandboxBody {
   name?: string;
@@ -42,6 +43,7 @@ export async function createSandbox(body: CreateSandboxBody): Promise<SandboxDet
     throw new HttpError(502, `failed to create sandbox: ${errorMessage(err)}`);
   }
   register(sb);
+  rememberResources(sb.sandboxId, body.resources);
   const details = await sdkAdapter.getSandboxDetails(sb.name, sb.sandboxId);
   if (!details) throw new HttpError(500, "sandbox created but missing from the ledger");
   return details;
@@ -61,6 +63,16 @@ export async function getSandbox(sandboxId: string): Promise<SandboxDetails> {
   const details = await findSandboxDetails(sandboxId);
   if (!details) throw new HttpError(404, `no sandbox ${sandboxId}`);
   return details;
+}
+
+/** The raw substrate ledger for one sandbox (`sandbox.created`, `exec.started`/`.output`/
+ *  `.completed`, `sandbox.checkpoint_created`, ...) — the audit trail's per-sandbox view. alineod
+ *  never exposed this over HTTP before; `sb.exec()`'s own replay-on-resume is what consumes it
+ *  internally, but an operator reading what happened had no route to ask for it either. */
+export async function getSandboxLedger(sandboxId: string) {
+  const details = await findSandboxDetails(sandboxId);
+  if (!details) throw new HttpError(404, `no sandbox ${sandboxId}`);
+  return sdkAdapter.readAll(details.name, sandboxId);
 }
 
 export async function closeSandbox(sandboxId: string): Promise<void> {
@@ -87,6 +99,8 @@ export async function forkSandbox(
   const sb = await resolveOrThrow(sandboxId);
   const child = await sb.fork(tag);
   register(child);
+  const parentResources = recallResources(sandboxId);
+  if (parentResources) rememberResources(child.sandboxId, parentResources);
   return { sandboxId: child.sandboxId, name: child.name };
 }
 
