@@ -1,0 +1,263 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Sandbox">
+  <div class="mb-4">
+    <a href="/" class="eyebrow">← sandboxes</a>
+  </div>
+
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">loading…</div>
+  <div id="state-error" class="card mono text-sm hidden" style="border-color: var(--color-danger); color: var(--color-danger);"></div>
+
+  <div id="panel" class="hidden">
+    <div class="mb-4 flex items-start justify-between">
+      <div>
+        <h1 id="sb-name" class="mono text-xl font-semibold"></h1>
+        <div class="mt-1 flex items-center gap-2">
+          <span id="sb-status-dot" class="status-dot"></span>
+          <span id="sb-id" class="id-pill"></span>
+          <span id="sb-age" class="mono text-xs" style="color: var(--color-muted);"></span>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button id="btn-checkpoint" class="btn">Checkpoint</button>
+        <button id="btn-fork" class="btn">Fork</button>
+        <button id="btn-close" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+
+    <div class="mb-4 flex gap-5" style="border-bottom: 1px solid var(--color-border);">
+      <button class="tab-btn active" data-tab="terminal">Terminal</button>
+      <button class="tab-btn" data-tab="telemetry">Telemetry</button>
+      <button class="tab-btn" data-tab="checkpoints">Checkpoints</button>
+      <button class="tab-btn" data-tab="credentials">Credentials</button>
+      <button class="tab-btn" data-tab="egress">Egress</button>
+    </div>
+
+    <section data-panel="terminal">
+      <div class="code-wrapper">
+        <div class="code-header">
+          <span class="status-dot-live"></span>
+          <span class="filename">bash</span>
+          <span class="node-tag">live</span>
+        </div>
+        <div id="terminal" style="height: 420px;"></div>
+      </div>
+    </section>
+
+    <section data-panel="telemetry" class="hidden">
+      <div class="card">
+        <canvas id="metrics-canvas" style="width: 100%; height: 220px; display: block;"></canvas>
+        <p id="metrics-readout" class="mono mt-2 text-xs" style="color: var(--color-muted);">waiting for metrics…</p>
+      </div>
+    </section>
+
+    <section data-panel="checkpoints" class="hidden">
+      <div class="card">
+        <div class="mb-3 flex items-center justify-between">
+          <span class="eyebrow">checkpoints</span>
+        </div>
+        <ul id="checkpoint-list" class="mono flex flex-col gap-2 text-sm"></ul>
+        <p id="checkpoint-empty" class="mono text-sm hidden" style="color: var(--color-muted);">No checkpoints yet.</p>
+      </div>
+    </section>
+
+    <section data-panel="credentials" class="hidden">
+      <div class="card">
+        <span class="eyebrow">bound credentials</span>
+        <ul id="credential-list" class="mono mt-3 flex flex-col gap-2 text-sm"></ul>
+        <form id="credential-form" class="mt-4 flex flex-wrap items-end gap-2">
+          <label class="flex flex-col gap-1 text-xs">name<input name="name" required class="btn" style="cursor:text;" /></label>
+          <label class="flex flex-col gap-1 text-xs">value<input name="value" required type="password" class="btn" style="cursor:text;" /></label>
+          <label class="flex flex-col gap-1 text-xs">host<input name="host" required class="btn" style="cursor:text;" placeholder="api.github.com" /></label>
+          <label class="flex flex-col gap-1 text-xs">header name<input name="header" required class="btn" style="cursor:text;" value="Authorization" /></label>
+          <button type="submit" class="btn btn-primary">Bind</button>
+        </form>
+        <p class="mt-2 text-xs" style="color: var(--color-muted);">Requires the sandbox to have been created with egress + credential proxy enabled.</p>
+      </div>
+    </section>
+
+    <section data-panel="egress" class="hidden">
+      <div class="card">
+        <span class="eyebrow">egress rules</span>
+        <ul id="egress-list" class="mono mt-3 flex flex-col gap-2 text-sm"></ul>
+        <form id="egress-form" class="mt-4 flex flex-wrap items-end gap-2">
+          <label class="flex flex-col gap-1 text-xs">
+            action
+            <select name="action" class="btn"><option value="allow">allow</option><option value="deny">deny</option></select>
+          </label>
+          <label class="flex flex-col gap-1 text-xs">target<input name="target" required class="btn" style="cursor:text;" placeholder="api.github.com" /></label>
+          <button type="submit" class="btn btn-primary">Add rule</button>
+        </form>
+      </div>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { sandboxes } from "../../lib/api";
+  import { mountTerminal, type TerminalHandle } from "../../scripts/terminal";
+  import { mountMetricsChart, type MetricsHandle } from "../../scripts/metricsChart";
+
+  const id = new URLSearchParams(location.search).get("id");
+  const $loading = document.getElementById("state-loading")!;
+  const $error = document.getElementById("state-error")!;
+  const $panel = document.getElementById("panel")!;
+
+  function fail(message: string) {
+    $loading.classList.add("hidden");
+    $error.textContent = message;
+    $error.classList.remove("hidden");
+  }
+
+  if (!id) {
+    fail("no sandbox id in the URL");
+  } else {
+    init(id);
+  }
+
+  async function init(sandboxId: string) {
+    try {
+      const sb = await sandboxes.get(sandboxId);
+      $loading.classList.add("hidden");
+      $panel.classList.remove("hidden");
+
+      document.getElementById("sb-name")!.textContent = sb.name;
+      document.getElementById("sb-id")!.textContent = sb.sandboxId;
+      (document.getElementById("sb-status-dot") as HTMLElement).style.background =
+        sb.status === "running" ? "var(--color-ok)" : "var(--color-muted)";
+      document.getElementById("sb-age")!.textContent = new Date(sb.startedAt).toLocaleString();
+
+      wireTabs();
+      wireActions(sandboxId);
+      let term: TerminalHandle | undefined;
+      let metrics: MetricsHandle | undefined;
+      if (sb.status === "running") {
+        term = mountTerminal(document.getElementById("terminal")!, sandboxId);
+        metrics = mountMetricsChart(
+          document.getElementById("metrics-canvas") as HTMLCanvasElement,
+          document.getElementById("metrics-readout")!,
+          sandboxId,
+        );
+        window.addEventListener("resize", () => {
+          term?.fit();
+          metrics?.resize();
+        });
+        // The canvas is inside a `hidden` panel at mount time (Terminal tab is active by
+        // default), so its bounding rect is zero-size until the Telemetry tab is actually
+        // shown — wireTabs() dispatches "visible" on the canvas each time that happens.
+        document.getElementById("metrics-canvas")!.addEventListener("visible", () => metrics?.resize());
+        setTimeout(() => metrics?.resize(), 50);
+      } else {
+        document.getElementById("terminal")!.innerHTML =
+          '<p class="mono p-4 text-sm" style="color: var(--color-code-muted);">sandbox is not running</p>';
+      }
+
+      await loadCheckpoints(sandboxId);
+      await loadCredentials(sandboxId);
+      await loadEgress(sandboxId);
+    } catch (err) {
+      fail(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function wireTabs() {
+    const buttons = document.querySelectorAll<HTMLButtonElement>(".tab-btn");
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        buttons.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll<HTMLElement>("[data-panel]").forEach((panel) => {
+          panel.classList.toggle("hidden", panel.dataset.panel !== btn.dataset.tab);
+        });
+        if (btn.dataset.tab === "telemetry") {
+          (document.getElementById("metrics-canvas") as HTMLCanvasElement).dispatchEvent(new Event("visible"));
+        }
+      });
+    });
+  }
+
+  function wireActions(sandboxId: string) {
+    document.getElementById("btn-checkpoint")!.addEventListener("click", async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      btn.disabled = true;
+      try {
+        await sandboxes.checkpoint(sandboxId, `checkpoint-${new Date().toLocaleTimeString()}`);
+        await loadCheckpoints(sandboxId);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    document.getElementById("btn-fork")!.addEventListener("click", async () => {
+      const child = await sandboxes.fork(sandboxId);
+      location.href = `/sandboxes/detail?id=${child.sandboxId}`;
+    });
+    document.getElementById("btn-close")!.addEventListener("click", async () => {
+      if (!confirm("Delete this sandbox? This stops the container.")) return;
+      await sandboxes.close(sandboxId);
+      location.href = "/";
+    });
+
+    document.getElementById("credential-form")!.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target as HTMLFormElement);
+      await sandboxes.setCredential(sandboxId, String(data.get("name")), String(data.get("value")), {
+        host: String(data.get("host")),
+        injection: { type: "header", name: String(data.get("header")) },
+      });
+      (e.target as HTMLFormElement).reset();
+      await loadCredentials(sandboxId);
+    });
+
+    document.getElementById("egress-form")!.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(e.target as HTMLFormElement);
+      await sandboxes.patchEgress(sandboxId, [
+        { action: data.get("action") as "allow" | "deny", target: String(data.get("target")) },
+      ]);
+      (e.target as HTMLFormElement).reset();
+      await loadEgress(sandboxId);
+    });
+  }
+
+  async function loadCheckpoints(sandboxId: string) {
+    const { checkpoints } = await sandboxes.listCheckpoints(sandboxId);
+    const list = document.getElementById("checkpoint-list")!;
+    const empty = document.getElementById("checkpoint-empty")!;
+    if (checkpoints.length === 0) {
+      empty.classList.remove("hidden");
+      list.innerHTML = "";
+      return;
+    }
+    empty.classList.add("hidden");
+    list.innerHTML = checkpoints
+      .map((c) => `<li>${new Date(c.createdAt).toLocaleString()} — ${c.snapshotId}${c.tag ? ` (${c.tag})` : ""}</li>`)
+      .join("");
+  }
+
+  async function loadCredentials(sandboxId: string) {
+    try {
+      const { bindings } = await sandboxes.listCredentials(sandboxId);
+      document.getElementById("credential-list")!.innerHTML = bindings.length
+        ? bindings.map((b) => `<li>${b.name} → ${JSON.stringify(b.binding)}</li>`).join("")
+        : `<li style="color: var(--color-muted);">none bound</li>`;
+    } catch {
+      document.getElementById("credential-list")!.innerHTML =
+        `<li style="color: var(--color-muted);">unavailable (credential proxy not enabled)</li>`;
+    }
+  }
+
+  async function loadEgress(sandboxId: string) {
+    try {
+      const policy = (await sandboxes.getEgress(sandboxId)) as { policy?: { egress?: { action: string; target: string }[] } };
+      const rules = policy.policy?.egress ?? [];
+      document.getElementById("egress-list")!.innerHTML = rules.length
+        ? rules.map((r) => `<li>${r.action} ${r.target}</li>`).join("")
+        : `<li style="color: var(--color-muted);">no rules</li>`;
+    } catch {
+      document.getElementById("egress-list")!.innerHTML =
+        `<li style="color: var(--color-muted);">unavailable (no network policy on this sandbox)</li>`;
+    }
+  }
+</script>

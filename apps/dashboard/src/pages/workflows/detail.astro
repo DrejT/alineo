@@ -1,0 +1,113 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Workflow run">
+  <div class="mb-4">
+    <a href="/workflows" class="eyebrow">← workflows</a>
+  </div>
+
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">loading…</div>
+  <div id="state-error" class="card mono text-sm hidden" style="border-color: var(--color-danger); color: var(--color-danger);"></div>
+
+  <div id="panel" class="hidden">
+    <div class="mb-4 flex items-start justify-between">
+      <div>
+        <h1 id="wf-name" class="mono text-xl font-semibold"></h1>
+        <div class="mt-1 flex items-center gap-2">
+          <span id="wf-status-dot" class="status-dot"></span>
+          <span id="wf-status" class="id-pill"></span>
+        </div>
+      </div>
+      <button id="btn-retry" class="btn">Retry (fresh run)</button>
+    </div>
+
+    <div id="steps" class="flex flex-col gap-3"></div>
+  </div>
+</Base>
+
+<script>
+  import { workflows, type WorkflowRun, type WorkflowStep } from "../../lib/api";
+
+  const id = new URLSearchParams(location.search).get("id");
+  const $loading = document.getElementById("state-loading")!;
+  const $error = document.getElementById("state-error")!;
+  const $panel = document.getElementById("panel")!;
+
+  const STATUS_COLOR: Record<string, string> = {
+    pending: "var(--color-muted)",
+    running: "var(--color-warn)",
+    done: "var(--color-ok)",
+    failed: "var(--color-danger)",
+  };
+
+  function fail(message: string) {
+    $loading.classList.add("hidden");
+    $error.textContent = message;
+    $error.classList.remove("hidden");
+  }
+
+  if (!id) fail("no workflow id in the URL");
+  else init(id);
+
+  let polling = false;
+
+  async function init(runId: string) {
+    try {
+      await render(runId);
+      $loading.classList.add("hidden");
+      $panel.classList.remove("hidden");
+      document.getElementById("btn-retry")!.addEventListener("click", async () => {
+        const res = await workflows.retry(runId);
+        location.href = `/workflows/detail?id=${res.id}`;
+      });
+      poll(runId);
+    } catch (err) {
+      fail(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function poll(runId: string) {
+    if (polling) return;
+    polling = true;
+    const interval = setInterval(async () => {
+      const { run } = await workflows.get(runId);
+      await render(runId);
+      if (run.status !== "running") clearInterval(interval);
+    }, 1500);
+  }
+
+  async function render(runId: string) {
+    const { run, steps } = await workflows.get(runId);
+    document.getElementById("wf-name")!.textContent = run.name;
+    document.getElementById("wf-status")!.textContent = run.status;
+    (document.getElementById("wf-status-dot") as HTMLElement).style.background =
+      STATUS_COLOR[run.status] ?? "var(--color-muted)";
+    renderSteps(run, steps);
+  }
+
+  function renderSteps(run: WorkflowRun, steps: WorkflowStep[]) {
+    document.getElementById("steps")!.innerHTML = steps
+      .map(
+        (s) => `
+      <div class="code-wrapper">
+        <div class="code-header">
+          <span class="status-dot" style="background:${STATUS_COLOR[s.status] ?? "var(--color-muted)"};"></span>
+          <span class="filename">${s.step_index + 1}. ${escapeHtml(s.name)}</span>
+          <span class="node-tag">${s.status}</span>
+        </div>
+        <div class="p-3 mono text-xs" style="color: var(--color-code-fg);">
+          <div class="tok-str">$ ${escapeHtml(s.run)}</div>
+          ${s.stdout ? `<pre style="white-space:pre-wrap; margin-top:0.5rem;">${escapeHtml(s.stdout)}</pre>` : ""}
+          ${s.exit_code !== null ? `<div class="mt-1" style="color: var(--color-code-muted);">exit ${s.exit_code}</div>` : ""}
+        </div>
+      </div>`,
+      )
+      .join("");
+    void run;
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  }
+</script>

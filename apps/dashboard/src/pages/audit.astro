@@ -1,0 +1,97 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Audit">
+  <div class="mb-5">
+    <h1 class="text-xl font-semibold">Audit ledger</h1>
+    <p class="eyebrow mt-1">exec_start / exec_event / exec_complete, per sandbox — replayed in order</p>
+  </div>
+
+  <div class="card mb-5 flex flex-wrap items-end gap-3">
+    <label class="flex flex-1 flex-col gap-1 text-sm" style="min-width: 16rem;">
+      Sandbox
+      <select id="sandbox-select" class="btn"><option value="">loading…</option></select>
+    </label>
+    <label class="flex flex-col gap-1 text-sm">
+      Filter
+      <input id="filter" class="btn" style="cursor: text;" placeholder="exec.started" />
+    </label>
+  </div>
+
+  <div id="state-empty" class="card hidden">Pick a sandbox above to replay its ledger.</div>
+  <div id="state-error" class="card mono text-sm hidden" style="border-color: var(--color-danger); color: var(--color-danger);"></div>
+
+  <div id="ledger" class="code-wrapper hidden">
+    <div class="code-header"><span class="filename" id="ledger-title">ledger</span></div>
+    <div id="ledger-body" class="mono flex flex-col gap-1 p-3 text-xs" style="max-height: 60vh; overflow-y: auto; color: var(--color-code-fg); background: var(--color-code-bg);"></div>
+  </div>
+</Base>
+
+<script>
+  import { sandboxes } from "../lib/api";
+
+  const $select = document.getElementById("sandbox-select") as HTMLSelectElement;
+  const $filter = document.getElementById("filter") as HTMLInputElement;
+  const $empty = document.getElementById("state-empty")!;
+  const $error = document.getElementById("state-error")!;
+  const $ledger = document.getElementById("ledger")!;
+  const $body = document.getElementById("ledger-body")!;
+
+  let allEvents: { ts: number; event: string; payload?: unknown; error?: string }[] = [];
+
+  async function loadSandboxes() {
+    try {
+      const { sandboxes: list } = await sandboxes.list();
+      $select.innerHTML =
+        `<option value="">select a sandbox…</option>` +
+        list
+          .sort((a, b) => b.startedAt - a.startedAt)
+          .map((s) => `<option value="${s.sandboxId}">${s.name} (${s.sandboxId.slice(0, 10)})</option>`)
+          .join("");
+    } catch (err) {
+      $select.innerHTML = `<option value="">unavailable</option>`;
+      $error.textContent = err instanceof Error ? err.message : String(err);
+      $error.classList.remove("hidden");
+    }
+  }
+
+  $select.addEventListener("change", async () => {
+    const id = $select.value;
+    if (!id) {
+      $ledger.classList.add("hidden");
+      $empty.classList.remove("hidden");
+      return;
+    }
+    $empty.classList.add("hidden");
+    const { events } = await sandboxes.events(id);
+    allEvents = events;
+    document.getElementById("ledger-title")!.textContent = `${id} · ${events.length} events`;
+    render();
+    $ledger.classList.remove("hidden");
+  });
+
+  $filter.addEventListener("input", render);
+
+  function render() {
+    const q = $filter.value.trim().toLowerCase();
+    const rows = allEvents.filter((e) => !q || e.event.toLowerCase().includes(q));
+    $body.innerHTML = rows
+      .map(
+        (e) => `
+      <div>
+        <span class="tok-cmt">${new Date(e.ts).toLocaleTimeString()}</span>
+        <span class="tok-kw">${e.event}</span>
+        ${e.error ? `<span style="color: var(--color-danger);"> ${escapeHtml(e.error)}</span>` : ""}
+        ${e.payload ? `<span class="tok-dim" style="color: var(--color-code-muted);"> ${escapeHtml(JSON.stringify(e.payload)).slice(0, 200)}</span>` : ""}
+      </div>`,
+      )
+      .join("");
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  }
+
+  loadSandboxes();
+</script>

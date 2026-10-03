@@ -1,0 +1,147 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Session">
+  <div class="mb-4">
+    <a href="/sessions" class="eyebrow">← sessions</a>
+  </div>
+
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">loading…</div>
+  <div id="state-error" class="card mono text-sm hidden" style="border-color: var(--color-danger); color: var(--color-danger);"></div>
+
+  <div id="panel" class="hidden">
+    <div class="mb-4 flex items-start justify-between">
+      <div>
+        <h1 id="agent-name" class="mono text-xl font-semibold"></h1>
+        <div class="mt-1 flex items-center gap-2">
+          <span id="agent-status-dot" class="status-dot"></span>
+          <span id="agent-state" class="id-pill"></span>
+          <span id="agent-id" class="mono text-xs" style="color: var(--color-muted);"></span>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button id="btn-pause" class="btn">Pause</button>
+        <button id="btn-resume" class="btn">Resume</button>
+        <button id="btn-stop" class="btn btn-danger">Stop</button>
+      </div>
+    </div>
+
+    <div class="code-wrapper mb-4">
+      <div class="code-header"><span class="filename">transcript</span><span class="node-tag" id="live-badge">live</span></div>
+      <div id="transcript" class="mono flex flex-col gap-3 p-4 text-sm" style="max-height: 55vh; overflow-y: auto; color: var(--color-code-fg); background: var(--color-code-bg);"></div>
+    </div>
+
+    <form id="send-form" class="flex gap-2">
+      <input name="message" class="btn flex-1" style="cursor: text; justify-content: flex-start;" placeholder="Prompt or steer this agent…" />
+      <select name="mode" class="btn">
+        <option value="prompt">Prompt</option>
+        <option value="steer">Steer</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Send</button>
+    </form>
+  </div>
+</Base>
+
+<script>
+  import { agents, type AgentView, type TranscriptMessage } from "../../lib/api";
+  import { watchRun } from "../../lib/sse";
+
+  const id = new URLSearchParams(location.search).get("id");
+  const $loading = document.getElementById("state-loading")!;
+  const $error = document.getElementById("state-error")!;
+  const $panel = document.getElementById("panel")!;
+  const $transcript = document.getElementById("transcript")!;
+
+  function fail(message: string) {
+    $loading.classList.add("hidden");
+    $error.textContent = message;
+    $error.classList.remove("hidden");
+  }
+
+  if (!id) fail("no session id in the URL");
+  else init(id);
+
+  const STATE_COLOR: Record<string, string> = {
+    running: "var(--color-ok)",
+    provisioning: "var(--color-warn)",
+    paused: "var(--color-muted)",
+    done: "var(--color-muted)",
+    failed: "var(--color-danger)",
+  };
+
+  async function init(agentId: string) {
+    try {
+      const agent = await agents.get(agentId);
+      $loading.classList.add("hidden");
+      $panel.classList.remove("hidden");
+      render(agent);
+      await renderTranscript(agentId);
+      wireForm(agentId);
+
+      let stop: (() => void) | undefined;
+      if (agent.runId) {
+        stop = watchRun(agent.runId, (ev) => {
+          if (ev.data.agentId !== agentId) return;
+          if (["turn.ended", "tool.ended", "agent.state_changed", "agent.ended"].includes(ev.event)) {
+            void renderTranscript(agentId);
+            void agents.get(agentId).then(render);
+          }
+        });
+      }
+      window.addEventListener("beforeunload", () => stop?.());
+    } catch (err) {
+      fail(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function render(agent: AgentView) {
+    document.getElementById("agent-name")!.textContent = agent.specName;
+    document.getElementById("agent-id")!.textContent = agent.agentId;
+    document.getElementById("agent-state")!.textContent = agent.state;
+    (document.getElementById("agent-status-dot") as HTMLElement).style.background =
+      STATE_COLOR[agent.state] ?? "var(--color-muted)";
+  }
+
+  async function renderTranscript(agentId: string) {
+    const { turns } = await agents.transcript(agentId);
+    $transcript.innerHTML = turns.flatMap((t) => t.messages.map(messageHtml)).join("");
+    $transcript.scrollTop = $transcript.scrollHeight;
+  }
+
+  function messageHtml(m: TranscriptMessage): string {
+    if (m.role === "user") {
+      return `<div><span class="tok-kw">you ›</span> ${escapeHtml(m.text)}</div>`;
+    }
+    if (m.role === "tool") {
+      const err = m.isError ? ' style="color: var(--color-danger);"' : "";
+      return `<div${err}><span class="tok-fn">${escapeHtml(m.toolName ?? "tool")}</span> → ${escapeHtml(m.text.slice(0, 400))}</div>`;
+    }
+    const calls = (m.toolCalls ?? []).map((c) => `<span class="tok-fn">${escapeHtml(c.name)}()</span>`).join(" ");
+    return `<div><span class="tok-str">agent ›</span> ${escapeHtml(m.text)}${calls ? ` <span class="tok-cmt">${calls}</span>` : ""}</div>`;
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  }
+
+  function wireForm(agentId: string) {
+    document.getElementById("btn-pause")!.addEventListener("click", () => agents.pause(agentId));
+    document.getElementById("btn-resume")!.addEventListener("click", () => agents.resume(agentId));
+    document.getElementById("btn-stop")!.addEventListener("click", async () => {
+      if (confirm("Stop this agent?")) await agents.stop(agentId);
+    });
+
+    document.getElementById("send-form")!.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const data = new FormData(form);
+      const message = String(data.get("message") ?? "").trim();
+      if (!message) return;
+      const mode = String(data.get("mode"));
+      if (mode === "steer") await agents.steer(agentId, message);
+      else await agents.prompt(agentId, message);
+      form.reset();
+    });
+  }
+</script>

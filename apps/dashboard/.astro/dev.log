@@ -1,0 +1,38 @@
+{"message":"connected.","label":"vite","level":"info"}
+{"message":"Generated 1ms","label":"types","level":"info"}
+{"message":"connected.","label":"vite","level":"info"}
+{"message":" astro  v7.2.2 ready in 12785 ms\n┃ Local    http://localhost:4321/\n┃ Network  use --host to expose","label":"SKIP_FORMAT","level":"info"}
+{"message":"watching for file changes...","label":null,"level":"info"}
+{"message":"[200] / 94ms","label":null,"level":"info"}
+{"message":"[200] / 50ms","label":null,"level":"info"}
+{"message":"[200] /sandboxes/detail 14ms","label":null,"level":"info"}
+{"message":"[200] / 554ms","label":null,"level":"info"}
+{"message":"[200] /sandboxes/detail 35ms","label":null,"level":"info"}
+{"message":"src/scripts/metricsChart.ts","label":"watch","level":"info"}
+{"message":"[200] /sandboxes/detail 36ms","label":null,"level":"info"}
+{"message":"ws proxy error:\nError: read ECONNRESET\n    at TCP.onStreamRead (node:internal/stream_base_commons:216:20)","label":"vite","level":"error"}
+{"message":"ws proxy error:\nError: read ECONNRESET\n    at TCP.onStreamRead (node:internal/stream_base_commons:216:20)","label":"vite","level":"error"}
+{"message":"[200] /sandboxes/detail 520ms","label":null,"level":"info"}
+{"message":"src/pages/sandboxes/detail.astro","label":"watch","level":"info"}
+{"message":"[200] /sandboxes/detail 45ms","label":null,"level":"info"}
+{"message":"[200] /sandboxes/detail 6ms","label":null,"level":"info"}
+{"message":"[Unhandled rejection] Error: prompt() is not supported.\n > HTMLButtonElement.<anonymous> ../../../../../../src/pages/sandboxes/detail.astro?astro=&type=script&index=0&lang.ts=:70:16\n","label":"vite","level":"error"}
+{"message":"[200] /settings 135ms","label":null,"level":"info"}
+{"message":"[200] /settings 11ms","label":null,"level":"info"}
+{"message":"[200] /sandboxes/detail 31ms","label":null,"level":"info"}
+{"message":"src/pages/sandboxes/detail.astro","label":"watch","level":"info"}
+{"message":"[200] /sandboxes/detail 76ms","label":null,"level":"info"}
+{"message":"[200] /sandboxes/detail 4ms","label":null,"level":"info"}
+{"message":"[Unhandled rejection] ApiError: fork() is not supported on this sandbox\n > request src/lib/api.ts:35:21\n    33 |    const text = await res.text();\n    34 |    const data = text ? JSON.parse(text) : undefined;\n    35 |    if (!res.ok) throw new ApiError(res.status, data?.error ?? `${method} ${path} → ${res.status}`);\n       |                       ^\n    36 |    return data as T;\n    37 |  }\n > HTMLButtonElement.<anonymous> ../../../../../../src/pages/sandboxes/detail.astro?astro=&type=script&index=0&lang.ts=:80:17\n","label":"vite","level":"error"}
+{"message":"ws proxy error:\nError: read ECONNRESET\n    at TCP.onStreamRead (node:internal/stream_base_commons:216:20)","label":"vite","level":"error"}
+{"message":"ws proxy error:\nError: read ECONNRESET\n    at TCP.onStreamRead (node:internal/stream_base_commons:216:20)","label":"vite","level":"error"}
+{"message":"[200] /sandboxes/new 59ms","label":null,"level":"info"}
+{"message":"[200] /sandboxes/detail 5ms","label":null,"level":"info"}
+{"message":"[Unhandled rejection] ApiError: Failed to create or start container: 500 Server Error for http+docker://localhost/v1.55/containers/aeccfb768afe9129793bd620722c670e9f7c5babc1ccdaf9f15dbc90f56a732a/start: Internal Server Error (\"ports are not available: exposing port TCP 0.0.0.0:50791 -> 127.0.0.1:0: listen tcp4 0.0.0.0:50791: bind: An attempt was made to access a socket in a way forbidden by its access permissions.\") (DOCKER::SANDBOX_START_FAILED)\n > request src/lib/api.ts:35:21\n    33 |    const text = await res.text();\n    34 |    const data = text ? JSON.parse(text) : undefined;\n    35 |    if (!res.ok) throw new ApiError(res.status, data?.error ?? `${method} ${path} → ${res.status}`);\n       |                       ^\n    36 |    return data as T;\n    37 |  }\n > HTMLButtonElement.<anonymous> ../../../../../../src/pages/sandboxes/detail.astro?astro=&type=script&index=0&lang.ts=:80:17\n","label":"vite","level":"error"}
+{"message":"[200] /sandboxes/detail 6ms","label":null,"level":"info"}
+{"message":"[200] /swarms 34ms","label":null,"level":"info"}
+{"message":"[200] /swarms/detail 162ms","label":null,"level":"info"}
+{"message":"[200] /workflows 32ms","label":null,"level":"info"}
+{"message":"[200] /workflows/detail 41ms","label":null,"level":"info"}
+{"message":"[200] / 427ms","label":null,"level":"info"}
+{"message":"[200] /sessions 84ms","label":null,"level":"info"}

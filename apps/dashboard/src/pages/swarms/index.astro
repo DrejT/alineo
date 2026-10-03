@@ -1,0 +1,155 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Swarms">
+  <div class="mb-5">
+    <h1 class="text-xl font-semibold">Swarms</h1>
+    <p class="eyebrow mt-1">describe what you want in plain language</p>
+  </div>
+
+  <div class="code-wrapper mb-6">
+    <div class="code-header"><span class="filename">new-swarm.txt</span><span class="node-tag" id="plan-status"></span></div>
+    <div class="p-4">
+      <textarea
+        id="prompt"
+        rows="3"
+        class="mono w-full"
+        style="background: transparent; border: none; outline: none; color: var(--color-code-fg); resize: vertical;"
+        placeholder="e.g. spin up four workers to fix the failing tests in the auth module and one reviewer to check their work"></textarea>
+      <div class="mt-2 flex items-center gap-2">
+        <button id="btn-plan" class="btn btn-primary">Plan swarm</button>
+        <span id="plan-error" class="mono text-xs hidden" style="color: var(--color-danger);"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="preview" class="card mb-8 hidden">
+    <div class="mb-3 flex items-center justify-between">
+      <span class="eyebrow">plan preview — edit tasks before confirming</span>
+      <div class="flex items-center gap-3 text-xs" style="color: var(--color-muted);">
+        <span>spawnDepth <span id="plan-depth" class="mono"></span></span>
+        <span>maxAgents <span id="plan-max" class="mono"></span></span>
+      </div>
+    </div>
+    <div id="plan-warnings" class="mono mb-3 flex flex-col gap-1 text-xs hidden" style="color: var(--color-danger);"></div>
+    <div id="plan-nodes" class="mb-4 flex flex-col gap-2"></div>
+    <button id="btn-confirm" class="btn btn-primary">Confirm &amp; create swarm</button>
+  </div>
+
+  <h2 class="mb-3 text-sm font-medium" style="color: var(--color-muted);">Existing runs</h2>
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">loading…</div>
+  <div id="state-empty" class="card hidden">No swarms yet — create one above.</div>
+  <div id="list" class="hidden" style="border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden;"></div>
+</Base>
+
+<script>
+  import { swarms, runs, type SwarmPlan } from "../../lib/api";
+
+  let currentPlan: SwarmPlan | null = null;
+
+  const $prompt = document.getElementById("prompt") as HTMLTextAreaElement;
+  const $planStatus = document.getElementById("plan-status")!;
+  const $planError = document.getElementById("plan-error")!;
+  const $preview = document.getElementById("preview")!;
+  const $planNodes = document.getElementById("plan-nodes")!;
+  const $planWarnings = document.getElementById("plan-warnings")!;
+
+  document.getElementById("btn-plan")!.addEventListener("click", async () => {
+    const prompt = $prompt.value.trim();
+    if (!prompt) return;
+    $planStatus.textContent = "planning…";
+    $planError.classList.add("hidden");
+    try {
+      currentPlan = await swarms.plan(prompt);
+      renderPlan(currentPlan);
+      $planStatus.textContent = currentPlan.violatesLimits.length || currentPlan.ambiguous ? "needs review" : "ready";
+    } catch (err) {
+      $planStatus.textContent = "";
+      $planError.textContent = err instanceof Error ? err.message : String(err);
+      $planError.classList.remove("hidden");
+    }
+  });
+
+  function renderPlan(plan: SwarmPlan) {
+    $preview.classList.remove("hidden");
+    document.getElementById("plan-depth")!.textContent = String(plan.spawnDepth);
+    document.getElementById("plan-max")!.textContent = String(plan.maxAgents);
+
+    if (plan.ambiguous || plan.violatesLimits.length > 0) {
+      $planWarnings.classList.remove("hidden");
+      $planWarnings.innerHTML = [
+        ...(plan.ambiguous ? ["Plan is ambiguous — no single clear root agent."] : []),
+        ...plan.violatesLimits,
+      ]
+        .map((w) => `<span>⚠ ${w}</span>`)
+        .join("");
+    } else {
+      $planWarnings.classList.add("hidden");
+    }
+
+    $planNodes.innerHTML = "";
+    plan.nodes.forEach((node, i) => {
+      const indent = node.parentId ? 1.5 : 0;
+      const row = document.createElement("div");
+      row.style.cssText = `margin-left:${indent}rem; border:1px solid var(--color-border); border-radius:8px; padding:0.6rem 0.75rem;`;
+      row.innerHTML = `
+        <div class="mono text-xs" style="color: var(--color-muted);">${node.id}${node.parentId ? ` ← ${node.parentId}` : " (root)"}</div>
+        <div class="mt-1 flex items-center gap-2">
+          <input data-field="role" value="${node.role.replace(/"/g, "&quot;")}" class="btn" style="cursor:text; font-size:0.8rem; padding:0.2rem 0.5rem;" />
+        </div>
+        <textarea data-field="task" rows="2" class="btn mt-2 w-full" style="cursor:text; font-size:0.8rem;">${node.task}</textarea>`;
+      row.querySelector<HTMLInputElement>('[data-field="role"]')!.addEventListener("input", (e) => {
+        plan.nodes[i]!.role = (e.target as HTMLInputElement).value;
+      });
+      row.querySelector<HTMLTextAreaElement>('[data-field="task"]')!.addEventListener("input", (e) => {
+        plan.nodes[i]!.task = (e.target as HTMLTextAreaElement).value;
+      });
+      $planNodes.appendChild(row);
+    });
+  }
+
+  document.getElementById("btn-confirm")!.addEventListener("click", async () => {
+    if (!currentPlan) return;
+    const btn = document.getElementById("btn-confirm") as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = "Creating…";
+    try {
+      const res = await swarms.create(currentPlan);
+      location.href = `/swarms/detail?id=${res.runId}`;
+    } catch (err) {
+      $planError.textContent = err instanceof Error ? err.message : String(err);
+      $planError.classList.remove("hidden");
+      btn.disabled = false;
+      btn.textContent = "Confirm & create swarm";
+    }
+  });
+
+  async function loadRuns() {
+    const $loading = document.getElementById("state-loading")!;
+    const $empty = document.getElementById("state-empty")!;
+    const $list = document.getElementById("list")!;
+    try {
+      const { runs: runList } = await runs.list();
+      $loading.classList.add("hidden");
+      if (runList.length === 0) {
+        $empty.classList.remove("hidden");
+        return;
+      }
+      $list.innerHTML = runList
+        .map(
+          (r) => `
+        <a href="/swarms/detail?id=${r.runId}" style="display:flex;align-items:center;gap:1rem;padding:0.75rem 1rem;border-bottom:1px solid var(--color-border);">
+          <span class="mono text-sm" style="flex:1;">${r.runId}</span>
+          <span class="id-pill">root ${r.rootAgentId ?? "—"}</span>
+        </a>`,
+        )
+        .join("");
+      $list.classList.remove("hidden");
+    } catch {
+      $loading.textContent = "Couldn't reach alineod.";
+    }
+  }
+
+  loadRuns();
+</script>

@@ -1,0 +1,115 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Swarm">
+  <div class="mb-4">
+    <a href="/swarms" class="eyebrow">← swarms</a>
+  </div>
+
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">loading…</div>
+  <div id="state-error" class="card mono text-sm hidden" style="border-color: var(--color-danger); color: var(--color-danger);"></div>
+
+  <div id="panel" class="hidden grid gap-6" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);">
+    <div>
+      <h1 id="run-id" class="mono mb-3 text-lg font-semibold"></h1>
+      <div id="tree" class="flex flex-col gap-2"></div>
+    </div>
+
+    <div class="code-wrapper" style="align-self: start;">
+      <div class="code-header"><span class="filename">events</span><span class="node-tag" id="live-badge">live</span></div>
+      <div id="events" class="mono flex flex-col gap-1 p-3 text-xs" style="max-height: 70vh; overflow-y: auto; color: var(--color-code-fg); background: var(--color-code-bg);"></div>
+    </div>
+  </div>
+</Base>
+
+<style>
+  @media (max-width: 900px) {
+    #panel {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+
+<script>
+  import { runs, agents, type AgentView } from "../../lib/api";
+  import { watchRun, type SwarmEvent } from "../../lib/sse";
+
+  const runId = new URLSearchParams(location.search).get("id");
+  const $loading = document.getElementById("state-loading")!;
+  const $error = document.getElementById("state-error")!;
+  const $panel = document.getElementById("panel")!;
+  const $tree = document.getElementById("tree")!;
+  const $events = document.getElementById("events")!;
+
+  function fail(message: string) {
+    $loading.classList.add("hidden");
+    $error.textContent = message;
+    $error.classList.remove("hidden");
+  }
+
+  if (!runId) fail("no run id in the URL");
+  else init(runId);
+
+  const STATE_COLOR: Record<string, string> = {
+    running: "var(--color-ok)",
+    provisioning: "var(--color-warn)",
+    spawning: "var(--color-warn)",
+    paused: "var(--color-muted)",
+    done: "var(--color-muted)",
+    failed: "var(--color-danger)",
+    aborted: "var(--color-danger)",
+  };
+
+  async function init(id: string) {
+    try {
+      const tree = await runs.get(id);
+      $loading.classList.add("hidden");
+      $panel.classList.remove("hidden");
+      document.getElementById("run-id")!.textContent = id;
+      renderTree(tree.agents);
+
+      watchRun(id, (ev) => {
+        appendEvent(ev);
+        if (["agent.spawned", "agent.provisioned", "agent.state_changed", "agent.ended"].includes(ev.event)) {
+          void runs.get(id).then((t) => renderTree(t.agents));
+        }
+      });
+    } catch (err) {
+      fail(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function renderTree(all: AgentView[]) {
+    $tree.innerHTML = "";
+    for (const a of all) {
+      const row = document.createElement("div");
+      row.style.cssText = `margin-left:${a.depth * 1.25}rem; border:1px solid var(--color-border); border-radius:8px; padding:0.6rem 0.75rem; display:flex; align-items:center; gap:0.6rem;`;
+      row.innerHTML = `
+        <span class="status-dot" style="background:${STATE_COLOR[a.state] ?? "var(--color-muted)"};"></span>
+        <a href="/sessions/detail?id=${a.agentId}" class="mono text-sm" style="flex:1; min-width:0;">${a.specName}</a>
+        <span class="id-pill">${a.state}</span>`;
+      if (a.state === "running") {
+        const steerBtn = document.createElement("button");
+        steerBtn.className = "btn";
+        steerBtn.style.cssText = "padding:0.2rem 0.5rem; font-size:0.72rem;";
+        steerBtn.textContent = "Steer";
+        steerBtn.addEventListener("click", async () => {
+          const msg = prompt(`Steer ${a.specName}`);
+          if (msg) await agents.steer(a.agentId, msg);
+        });
+        row.appendChild(steerBtn);
+      }
+      $tree.appendChild(row);
+    }
+  }
+
+  function appendEvent(ev: SwarmEvent) {
+    const line = document.createElement("div");
+    const agentId = typeof ev.data.agentId === "string" ? ev.data.agentId.slice(0, 10) : "run";
+    line.innerHTML = `<span class="tok-cmt">${agentId}</span> <span class="tok-kw">${ev.event}</span>`;
+    $events.appendChild(line);
+    $events.scrollTop = $events.scrollHeight;
+    while ($events.children.length > 300) $events.removeChild($events.firstChild!);
+  }
+</script>
