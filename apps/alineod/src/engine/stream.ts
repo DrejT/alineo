@@ -11,8 +11,8 @@
  * turn to `catchUpTurn`, which polls Pi's state until it's really done. The same happens when
  * the timeout fires during a pause (its clock runs on this host, not in the frozen sandbox).
  */
-import type { Alineo } from "alineo";
-import { get } from "./registry";
+import { Alineo } from "alineo";
+import { get, register, sdkAdapter } from "./registry";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
 import { resolveTurnFailure } from "./supervision";
@@ -181,6 +181,35 @@ export async function probeTurn(agentId: string): Promise<TurnProbe> {
 const MAX_UNREACHABLE_PROBES = 3;
 
 /**
+ * The bridge stopped answering probes, but alineod itself is still up — restart it in place
+ * (durability-roadmap M2.1) instead of letting catch-up declare the turn permanently failed.
+ * Mirrors rehydrate.ts's resume fallback and pause.ts's post-unpause bridge check, for the one
+ * case neither covers: a live daemon whose bridge died mid-turn without the container, or
+ * alineod itself, going away.
+ */
+async function tryRestartBridge(agentId: string): Promise<boolean> {
+  const row = getAgentRow(agentId);
+  const agent = get(agentId);
+  if (!row || !agent) return false;
+  try {
+    const restarted = await Alineo.resume(agent.sandboxId, {
+      adapter: sdkAdapter,
+      spec: JSON.parse(row.spec_json),
+      runId: row.run_id,
+    });
+    register(agentId, restarted);
+    log.info("bridge stopped answering — restarted it", { agentId });
+    return true;
+  } catch (err) {
+    log.warn("bridge restart failed — giving up on this turn", {
+      agentId,
+      error: errorMessage(err),
+    });
+    return false;
+  }
+}
+
+/**
  * Follow a turn alineod isn't reading the stream of, by polling Pi's state until it's done,
  * then settle the handle the same way `driveTurn()` would have. Used when:
  *
@@ -220,8 +249,16 @@ export async function catchUpTurn(
       if (probe === "idle") break;
       if (probe === "unreachable") {
         if (++unreachable >= MAX_UNREACHABLE_PROBES) {
-          giveUpReason = "catch-up: the agent's bridge stopped answering";
-          break;
+          // alineod itself is still up — the bridge died, not the daemon. Restart it in place
+          // (M2.1) rather than declaring the turn permanently failed; the next probe sees the
+          // fresh process.
+          if (await tryRestartBridge(agentId)) {
+            emit(runId, agentId, "agent.turn_interrupted", {});
+            unreachable = 0;
+          } else {
+            giveUpReason = "catch-up: the agent's bridge stopped answering";
+            break;
+          }
         }
       } else {
         unreachable = 0;

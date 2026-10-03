@@ -15,6 +15,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getAgentRow, getHandle } from "../src/state/projection";
+import { isCatchingUp } from "../src/engine/stream";
 import { call, deferred, events, spec, startRun, until, wipeState } from "./helpers";
 import { fakeSdk } from "./fakes";
 import {
@@ -158,5 +159,53 @@ describe("fault: kill-9-write-burst — a real process death during a write-heav
     expect(row.max).toBeGreaterThanOrEqual(state.lastAcked);
     expect(row.n).toBe(row.max);
     db.close();
+  }, 10_000);
+});
+
+describe("fault: kill-bridge — the bridge dies mid-turn, alineod does not (M2.1)", () => {
+  test("alineod restarts it in place and reports the turn interrupted, not failed", async () => {
+    const gate = deferred();
+    fakeSdk.nextTurn = { gate: gate.promise, detach: true };
+    const { runId, rootAgentId, root: agent } = await startRun({ prompt: "do the work" });
+    await until(() => getAgentRow(rootAgentId)?.state === "running", "root mid-turn");
+
+    // The bridge dies: the stream goes quiet (the SDK's own inactivity timeout fires, exactly
+    // as it would for an idle-but-alive bridge) — but unlike an idle one, it never answers a
+    // state probe again, because the process behind it is actually gone.
+    agent.hangState = true;
+    gate.resolve();
+
+    await until(() => isCatchingUp(rootAgentId), "stream timeout hands the turn to catch-up");
+
+    // Catch-up exhausts MAX_UNREACHABLE_PROBES probing the dead bridge and restarts it in
+    // place — the fix this scenario exists to check.
+    await until(
+      () => fakeSdk.calls.resume.includes(agent.sandboxId),
+      "catch-up restarts the dead bridge",
+    );
+    expect(
+      events(runId).find((e) => e.event === "agent.turn_interrupted" && e.agentId === rootAgentId),
+    ).toBeDefined();
+    expect(
+      events(runId).find((e) => e.event === "agent.turn_failed" && e.agentId === rootAgentId),
+    ).toBeUndefined();
+
+    // The restarted bridge is a fresh process: it answers probes again (hangState already
+    // cleared by the fake's resume()) and reports the turn done, same idiom
+    // rehydrate.test.ts's paused-agent resume tests use to stand in for "the new process
+    // answers."
+    agent.streaming = false;
+    agent.lastText = "whatever survived";
+
+    await until(() => getHandle(rootAgentId)?.state === "settled", "settles after restart");
+    expect(getAgentRow(rootAgentId)).toMatchObject({ state: "done", outcome: "success" });
+    assertProjectionMatchesLedgerReplay();
+    assertNoOrphanedPendingHandles();
+
+    // Proof this is a live connection, not a dead one: a fresh prompt actually reaches it.
+    agent.turn = { text: "back online" };
+    const res = await call("POST", `/agents/${rootAgentId}/prompt`, { text: "still there?" });
+    expect(res.status).toBe(202);
+    await until(() => agent.prompts.includes("still there?"), "new prompt reaches the restarted bridge");
   }, 10_000);
 });
