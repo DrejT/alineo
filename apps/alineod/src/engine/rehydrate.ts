@@ -30,9 +30,9 @@ import { sdkAdapter, register, get } from "./registry";
 import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
 import { provisionRoot } from "./runs";
-import { provisionChild } from "./spawn";
+import { provisionChild, injectInputs } from "./spawn";
 import { deliverPending } from "./notify";
-import { parseStoredWait } from "./waitfor";
+import { parseStoredWait, evaluateWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
 import { errorMessage } from "../util";
@@ -76,6 +76,45 @@ export async function rehydrate(): Promise<void> {
   for (const id of agentsWithPendingInbox()) void deliverPending(id);
 }
 
+/**
+ * durability-roadmap M3, 3.4: both `Alineo.reattach()` and `Alineo.resume()` can now return a
+ * *different* sandboxId than the one requested — 3.3 gave both the same restore-from-checkpoint
+ * fallback for when the original container is gone entirely, not just unreachable. Either
+ * success path needs the same two follow-ups, so this is called from both of `reattachOne()`'s
+ * try blocks rather than duplicated (duplicating it once already produced the real bug this
+ * comment is describing — found live on `my-vps`, 2026-10-04: the `reattach()` path restored
+ * successfully but the then-only-on-resume() check never ran for it, leaving its persisted
+ * `sandbox_id` pointing at the deleted container forever).
+ */
+async function onContainerRestored(
+  a: AgentRow,
+  agent: Alineo,
+  verb: "reattached" | "resumed",
+): Promise<void> {
+  if (agent.sandboxId === a.sandbox_id) {
+    log.info(`${verb} — bridge preserved`, { agentId: a.agent_id, sandboxId: a.sandbox_id });
+    return;
+  }
+  // The persisted row must learn about the new sandboxId -- otherwise it keeps pointing at a
+  // deleted sandbox, and every future boot repeats the same restore from the same stale
+  // checkpoint instead of building on the one that's now actually running.
+  emit(a.run_id, a.agent_id, "agent.provisioned", { sandboxId: agent.sandboxId });
+  log.info(`${verb} — container was gone, restored onto a new one`, {
+    agentId: a.agent_id,
+    oldSandboxId: a.sandbox_id,
+    newSandboxId: agent.sandboxId,
+  });
+  // The restored container came from the shared setup snapshot, which predates this agent's
+  // own waitFor inputs (/inputs/*.txt, /inputs.json) -- those live under `/`, not `/root`, so
+  // the turn checkpoint never captured them either. Re-derive the same dependency selection the
+  // original wait already settled on (evaluateWait is pure over the dependencies' own
+  // already-settled handles) and re-write them, same as a brand-new child's first provision
+  // does.
+  const wait = parseStoredWait(a.wait_for);
+  const waited = wait ? evaluateWait(wait) : null;
+  if (wait && waited) await injectInputs(agent, wait, waited);
+}
+
 async function reattachOne(a: AgentRow): Promise<void> {
   const spec = JSON.parse(a.spec_json);
   const opts = { adapter: sdkAdapter, spec, runId: a.run_id };
@@ -89,7 +128,13 @@ async function reattachOne(a: AgentRow): Promise<void> {
   try {
     const agent = await reattachWithRetry(a.sandbox_id!, opts);
     register(a.agent_id, agent);
-    log.info("reattached — bridge preserved", { agentId: a.agent_id, sandboxId: a.sandbox_id });
+    // durability-roadmap M3, 3.4 (bug found live on my-vps, 2026-10-04: a real container
+    // deletion restored successfully through THIS branch, not just the resume() branch below
+    // -- 3.3 added the same restore-from-checkpoint fallback to Alineo.reattach() too, and the
+    // first version of this fix only checked for it after resume(), leaving reattach's own
+    // restored agents with a stale persisted sandbox_id forever). Same check, same fix, both
+    // branches -- see onContainerRestored's own comment.
+    await onContainerRestored(a, agent, "reattached");
     if (wasRunning) {
       emit(a.run_id, a.agent_id, "agent.turn_interrupted", {});
       void catchUpTurn(a.run_id, a.agent_id);
@@ -105,7 +150,7 @@ async function reattachOne(a: AgentRow): Promise<void> {
   try {
     const agent = await Alineo.resume(a.sandbox_id!, opts);
     register(a.agent_id, agent);
-    log.info("resumed — bridge restarted", { agentId: a.agent_id, sandboxId: a.sandbox_id });
+    await onContainerRestored(a, agent, "resumed");
     // The turn that was running died with the old bridge process, and nothing is following it:
     // catch-up sees the new (idle) bridge, records whatever text survived, and settles the handle.
     if (wasRunning) {
@@ -166,6 +211,12 @@ async function reattachWithRetry(
     return await Alineo.reattach(sandboxId, reattachOpts);
   } catch (err) {
     if (isSandboxGone(err)) throw err;
+    // Previously silent -- found live on my-vps, 2026-10-04: a transient failure here (the
+    // first attempt of a restore-from-checkpoint, 3.3, failing partway through after already
+    // provisioning a fresh container) retried invisibly, with no log line distinguishing it
+    // from a normal first-try success. Log it so a future occurrence is visible instead of
+    // only inferable from two separate fresh sandboxIds appearing in the ledger.
+    log.warn("reattach failed, retrying once", { sandboxId, error: errorMessage(err) });
     await Bun.sleep(REATTACH_RETRY_DELAY_MS);
     return await Alineo.reattach(sandboxId, reattachOpts);
   }

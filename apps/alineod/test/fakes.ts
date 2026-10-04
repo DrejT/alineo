@@ -282,6 +282,16 @@ export const fakeSdk = {
   resumeFails: new Set<string>(),
   /** Resume fails the way a transient outage does (OpenSandbox unreachable), not "not found". */
   resumeUnavailable: new Set<string>(),
+  /** durability-roadmap M3, 3.4: simulates resumeAgent()'s real restore-from-checkpoint
+   *  fallback (packages/agent, 3.3) — the container was gone entirely, so resume() provisioned
+   *  a *different* sandbox instead of reconnecting to the requested one. Maps the requested
+   *  (now-gone) sandboxId to the FakeAgent standing in for the fresh one. */
+  resumeOntoNewSandbox: new Map<string, FakeAgent>(),
+  /** Same idea, for Alineo.reattach() — found live on my-vps, 2026-10-04: reattachAgent() got
+   *  the identical restore fallback in 3.3, and the real bug this caught (reattachOne()'s
+   *  sandboxId-change check only ran after resume(), never after reattach()) could only be
+   *  reproduced with this. */
+  reattachOntoNewSandbox: new Map<string, FakeAgent>(),
   calls: {
     start: 0,
     reattach: [] as string[],
@@ -297,6 +307,8 @@ export const fakeSdk = {
     this.reattachFailsOnce.clear();
     this.resumeFails.clear();
     this.resumeUnavailable.clear();
+    this.resumeOntoNewSandbox.clear();
+    this.reattachOntoNewSandbox.clear();
     this.calls = { start: 0, reattach: [], reattachOpts: [], resume: [] };
     this.spawnCheck = sdkSpawnCheck;
   },
@@ -313,6 +325,8 @@ export const FakeAlineo = {
   async reattach(sandboxId: string, opts?: Record<string, unknown>): Promise<FakeAgent> {
     fakeSdk.calls.reattach.push(sandboxId);
     fakeSdk.calls.reattachOpts.push(opts);
+    const restored = fakeSdk.reattachOntoNewSandbox.get(sandboxId);
+    if (restored) return restored;
     const agent = fakeSdk.sandboxes.get(sandboxId);
     // The real reattach probes the bridge, which a frozen container can't answer.
     const probeFails = agent?.paused && !opts?.skipReadyCheck;
@@ -327,6 +341,8 @@ export const FakeAlineo = {
 
   async resume(sandboxId: string): Promise<FakeAgent> {
     fakeSdk.calls.resume.push(sandboxId);
+    const restored = fakeSdk.resumeOntoNewSandbox.get(sandboxId);
+    if (restored) return restored;
     const agent = fakeSdk.sandboxes.get(sandboxId);
     if (fakeSdk.resumeUnavailable.has(sandboxId)) {
       throw new Error("Unable to connect. Is the computer able to access the url?");
