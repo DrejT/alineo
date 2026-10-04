@@ -26,4 +26,16 @@ process.env.ALINEOD_ADMISSION_CONCURRENCY = "2";
 process.env.ALINEOD_ADMISSION_TIMEOUT_MS = "300";
 
 const { FakeAlineo } = await import("./fakes");
-mock.module("alineo", () => ({ Alineo: FakeAlineo }));
+// durability-roadmap M3, 3.2: stream.ts imports `checkpointsPath`/`takeCheckpoint` from
+// "alineo" too, not just `Alineo` — real, generic utility functions (they take a
+// SandboxHandle-shaped object, not an `Alineo` instance), so this mock re-exports the real
+// ones rather than faking them. `takeCheckpoint` runs for real against `FakeAgent.sandbox`'s
+// own exec/readFileBytes/emit fakes (see fakes.ts).
+const real = await import("../../../packages/agent/dist/index.mjs");
+mock.module("alineo", () => ({
+  Alineo: FakeAlineo,
+  checkpointsPath: real.checkpointsPath,
+  takeCheckpoint: real.takeCheckpoint,
+  CHECKPOINT_ROOT: real.CHECKPOINT_ROOT,
+  DEFAULT_CHECKPOINT_EXCLUDES: real.DEFAULT_CHECKPOINT_EXCLUDES,
+}));

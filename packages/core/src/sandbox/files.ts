@@ -7,8 +7,12 @@ export async function writeFile(sb: SandboxInternal, path: string, content: stri
   await ec.uploadFile(path, content);
 }
 
-/** Read a file from the sandbox as a UTF-8 string. */
-export async function readFile(sb: SandboxInternal, path: string): Promise<string> {
+/**
+ * Read a file from the sandbox as raw bytes — no `TextDecoder`, so binary content (a gzip
+ * tarball, an image) round-trips intact. `readFile()` below is this plus a UTF-8 decode; a
+ * caller that needs the decode uses that instead, not this one re-encoded.
+ */
+export async function readFileBytes(sb: SandboxInternal, path: string): Promise<Uint8Array> {
   const ec = await sb.getExecClient();
   const stream = await ec.downloadFile(path);
   const reader = stream.getReader();
@@ -25,7 +29,12 @@ export async function readFile(sb: SandboxInternal, path: string): Promise<strin
     merged.set(chunk, offset);
     offset += chunk.length;
   }
-  return new TextDecoder().decode(merged);
+  return merged;
+}
+
+/** Read a file from the sandbox as a UTF-8 string. */
+export async function readFile(sb: SandboxInternal, path: string): Promise<string> {
+  return new TextDecoder().decode(await readFileBytes(sb, path));
 }
 
 /** Delete a file from the sandbox. */

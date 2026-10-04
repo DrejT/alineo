@@ -246,3 +246,52 @@ describe("fault: bridge-disconnect — the connection closes without [DONE] (M2.
     assertNoOrphanedPendingHandles();
   }, 10_000);
 });
+
+describe("fault: checkpoint — a turn that genuinely finishes is checkpointed (M3 3.2)", () => {
+  test('agent.checkpointed follows agent.ended{outcome:"success"}, never before it', async () => {
+    const { runId, rootAgentId } = await startRun({
+      spec: spec("root", { checkpoint: true }),
+      prompt: "do the work",
+    });
+    await until(() => getHandle(rootAgentId)?.state === "settled", "turn settles");
+
+    const ended = events(runId).find((e) => e.event === "agent.ended" && e.agentId === rootAgentId);
+    expect(ended).toMatchObject({ outcome: "success" });
+
+    // maybeCheckpoint() is fire-and-forget (not awaited before driveTurn returns) — poll for it.
+    const checkpointed = await until(
+      () =>
+        events(runId).find((e) => e.event === "agent.checkpointed" && e.agentId === rootAgentId),
+      "checkpoint recorded",
+    );
+    expect(checkpointed).toMatchObject({ turn: 1 });
+    expect(typeof checkpointed.snapshotRef).toBe("string");
+    expect(checkpointed.seq).toBeGreaterThan(ended!.seq);
+  });
+
+  test("opt-in — no checkpoint event when AgentSpec.checkpoint is unset", async () => {
+    const { runId, rootAgentId } = await startRun({ prompt: "do the work" });
+    await until(() => getHandle(rootAgentId)?.state === "settled", "turn settles");
+    // Give any (incorrectly fired) async checkpoint a moment to show up before asserting absence.
+    await Bun.sleep(50);
+    expect(
+      events(runId).find((e) => e.event === "agent.checkpointed" && e.agentId === rootAgentId),
+    ).toBeUndefined();
+  });
+
+  test("a failed turn is not checkpointed", async () => {
+    fakeSdk.nextTurn = { error: "upstream refused the request" };
+    const { runId, rootAgentId } = await startRun({
+      spec: spec("root", { checkpoint: true }),
+      prompt: "do the work",
+    });
+    await until(() => getHandle(rootAgentId)?.state === "settled", "turn settles");
+    expect(
+      events(runId).find((e) => e.event === "agent.ended" && e.agentId === rootAgentId),
+    ).toMatchObject({ outcome: "failed" });
+    await Bun.sleep(50);
+    expect(
+      events(runId).find((e) => e.event === "agent.checkpointed" && e.agentId === rootAgentId),
+    ).toBeUndefined();
+  });
+});
