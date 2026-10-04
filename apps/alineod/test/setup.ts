@@ -31,6 +31,12 @@ const { FakeAlineo } = await import("./fakes");
 // SandboxHandle-shaped object, not an `Alineo` instance), so this mock re-exports the real
 // ones rather than faking them. `takeCheckpoint` runs for real against `FakeAgent.sandbox`'s
 // own exec/readFileBytes/emit fakes (see fakes.ts).
+// durability-roadmap M3, 3.3: rehydrate.ts also imports isSandboxGone from "alineo" now.
+// bun's mock.module() doesn't enforce named-export presence the way a real dynamic import()
+// does (confirmed: omitting a name here does NOT fail at import time the way the earlier
+// checkpointsPath/takeCheckpoint omission did against the *real* module) -- but a test that
+// then calls the missing name would still crash with "X is not a function", so every real
+// export stream.ts/rehydrate.ts/factory.ts actually use gets re-exported here regardless.
 const real = await import("../../../packages/agent/dist/index.mjs");
 mock.module("alineo", () => ({
   Alineo: FakeAlineo,
@@ -38,4 +44,7 @@ mock.module("alineo", () => ({
   takeCheckpoint: real.takeCheckpoint,
   CHECKPOINT_ROOT: real.CHECKPOINT_ROOT,
   DEFAULT_CHECKPOINT_EXCLUDES: real.DEFAULT_CHECKPOINT_EXCLUDES,
+  isSandboxGone: real.isSandboxGone,
+  findLatestCheckpoint: real.findLatestCheckpoint,
+  restoreCheckpoint: real.restoreCheckpoint,
 }));
