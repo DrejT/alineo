@@ -135,6 +135,11 @@ export class SQLiteAdapter implements IStorageAdapter {
   }
 
   async connect(): Promise<void> {
+    // Superseded by MIGRATION_SQL's composite alineo_events_name_sandbox_ts index -- drop them
+    // on an existing database too, not just skip creating them on a fresh one, since a stale
+    // single-column index still costs a write on every append for no read anything uses anymore.
+    this.db.run("DROP INDEX IF EXISTS alineo_events_sandbox_id;");
+    this.db.run("DROP INDEX IF EXISTS alineo_events_name;");
     this.db.run(MIGRATION_SQL);
     // Rename any pre-namespacing rows. Runs after the table exists and before any read —
     // `getSandboxDetails` aggregates on `event = 'sandbox.created'`, so an unmigrated row
@@ -176,7 +181,7 @@ export class SQLiteAdapter implements IStorageAdapter {
         `SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
          FROM alineo_events
          WHERE name = ? AND sandbox_id = ?
-         ORDER BY ts ASC`,
+         ORDER BY ts ASC, id ASC`,
       )
       .all(name, sandboxId);
     return rows.map(rowToEntry);
@@ -188,7 +193,7 @@ export class SQLiteAdapter implements IStorageAdapter {
         `SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
          FROM alineo_events
          WHERE name = ? AND sandbox_id = ? AND event = 'sandbox.checkpoint_created'
-         ORDER BY ts DESC
+         ORDER BY ts DESC, id DESC
          LIMIT 1`,
       )
       .get(name, sandboxId);
@@ -226,7 +231,7 @@ export class SQLiteAdapter implements IStorageAdapter {
         `SELECT sandbox_id, name, step_idx, branch, event, payload, error, ts
          FROM alineo_events
          WHERE name = ? AND sandbox_id = ? AND event = 'sandbox.checkpoint_created'
-         ORDER BY ts ASC`,
+         ORDER BY ts ASC, id ASC`,
       )
       .all(name, sandboxId);
     return rows.map((r) => {

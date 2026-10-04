@@ -11,8 +11,11 @@ CREATE TABLE IF NOT EXISTS alineo_events (
   ts          BIGINT      NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS alineo_events_sandbox_id ON alineo_events(sandbox_id);
-CREATE INDEX IF NOT EXISTS alineo_events_name ON alineo_events(name);
+-- Replaces the two single-column indexes below (dropped for an existing database in
+-- adapter.ts's connect()) -- see packages/adapters/sqlite/src/migrations.ts's matching
+-- comment for why 'ts' (not 'id') stays the primary sort key, with 'id' only as a tie-breaker.
+CREATE INDEX IF NOT EXISTS alineo_events_name_sandbox_ts
+  ON alineo_events(name, sandbox_id, ts, id);
 
 CREATE TABLE IF NOT EXISTS alineo_environments (
   name        TEXT    PRIMARY KEY,
