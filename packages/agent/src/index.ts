@@ -37,3 +37,10 @@ export { textOnly } from "./types";
 export type { AgentSnapshotRecord } from "./snapshots";
 export { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "./snapshots";
 export { PromptTimeoutError, BridgeDisconnectedError, AgentSpecValidationError } from "./errors";
+export type { CheckpointRecord } from "./checkpoint";
+export {
+  takeCheckpoint,
+  checkpointsPath,
+  DEFAULT_CHECKPOINT_EXCLUDES,
+  CHECKPOINT_ROOT,
+} from "./checkpoint";

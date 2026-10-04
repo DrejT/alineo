@@ -42,6 +42,12 @@ export class SandboxHandle extends SandboxCore {
     return files.readFile(this, path);
   }
 
+  /** Read a file from the sandbox as raw bytes — for binary content `readFile`'s UTF-8
+   * decode would corrupt (a gzip tarball, an image). */
+  async readFileBytes(path: string): Promise<Uint8Array> {
+    return files.readFileBytes(this, path);
+  }
+
   /** Delete a file from the sandbox. */
   async deleteFile(path: string): Promise<void> {
     return files.deleteFile(this, path);

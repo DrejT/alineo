@@ -250,6 +250,16 @@ export interface AgentSpec {
    * unbounded cost loop. Resets to zero on any turn that succeeds. Default 3.
    */
   maxConsecutiveFailures?: number;
+  /**
+   * durability-roadmap M3, 3.2: opt-in turn-level checkpointing — after every turn that ends
+   * in `done`, a tarball of the workspace + session file is captured and durably stored, so
+   * `Alineo.resume()` can restore from it if the container is later gone entirely (3.3).
+   * Unset (the default) matches every spec written before this field existed: no checkpoint is
+   * taken, no extra per-turn cost, behavior unchanged. A turn can have real side effects and a
+   * checkpoint is extra I/O on every turn, so this is never assumed — a deployment that wants
+   * it opts in explicitly, same reasoning as `onFailure`.
+   */
+  checkpoint?: boolean;
 }
 
 /**
@@ -367,6 +377,7 @@ export const AgentSpecSchema = z
     onFailure: z.enum(["ask", "retry", "fail"]).optional(),
     maxRetries: nonNegativeIntSpecField("maxRetries"),
     maxConsecutiveFailures: nonNegativeIntSpecField("maxConsecutiveFailures"),
+    checkpoint: z.boolean().optional(),
   })
   // Unknown keys pass through untouched rather than being stripped or rejected — matches the
   // old hand-rolled validator's behavior (it only ever checked a few fields and cast the rest

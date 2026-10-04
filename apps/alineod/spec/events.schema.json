@@ -3,6 +3,29 @@
     {
       "type": "object",
       "properties": {
+        "turn": {
+          "type": "number"
+        },
+        "snapshotRef": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.checkpointed"
+          ]
+        }
+      },
+      "required": [
+        "turn",
+        "snapshotRef",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
         "runId": {
           "type": "string"
         },

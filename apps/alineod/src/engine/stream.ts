@@ -11,7 +11,7 @@
  * turn to `catchUpTurn`, which polls Pi's state until it's really done. The same happens when
  * the timeout fires during a pause (its clock runs on this host, not in the frozen sandbox).
  */
-import { Alineo } from "alineo";
+import { Alineo, takeCheckpoint, checkpointsPath, type AgentSpec } from "alineo";
 import { get, register, sdkAdapter } from "./registry";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
@@ -22,12 +22,50 @@ import { resetFailureCounters } from "../state/db";
 import {
   CATCH_UP_POLL_MS,
   PROMPT_INACTIVITY_TIMEOUT_MS,
+  SDK_LEDGER_PATH,
   STATE_PROBE_TIMEOUT_MS,
   TURN_MAX_MS,
 } from "../../config";
 import { getLogger } from "@alineo-labs/logger";
 
 const log = getLogger("alineod");
+
+// durability-roadmap M3, 3.2.
+const CHECKPOINTS_DIR = checkpointsPath(SDK_LEDGER_PATH);
+/** Turn ordinal per agent, this process's lifetime only — see `checkpoint.ts`'s
+ * `CheckpointRecord.turn` doc comment for why that's fine. Resets on restart, which rehydrate's
+ * own checkpoint read (3.3/3.4) never relies on — it reads the latest by ledger order, not by
+ * comparing this number across a restart. */
+const checkpointTurn = new Map<string, number>();
+
+/**
+ * Best-effort, after a turn that **genuinely, cleanly finished** — never on a turn alineod gave
+ * up waiting on (even one recorded as a "success" because usable partial text existed; that
+ * text existing doesn't mean Pi's session file finished flushing, and checkpointing it risks
+ * exactly the torn-session read the roadmap's risk section warns about). Opt-in via
+ * `AgentSpec.checkpoint`; a failure here is logged and never turns an already-settled
+ * successful turn into a failure — checkpointing is additive safety, not part of the turn's
+ * own outcome.
+ */
+async function maybeCheckpoint(runId: string, agentId: string): Promise<void> {
+  const row = getAgentRow(agentId);
+  const agent = get(agentId);
+  if (!row || !agent) return;
+  const spec = JSON.parse(row.spec_json) as AgentSpec;
+  if (!spec.checkpoint) return;
+  const turn = (checkpointTurn.get(agentId) ?? 0) + 1;
+  try {
+    const { snapshotRef } = await takeCheckpoint(agent.sandbox, CHECKPOINTS_DIR, { turn });
+    checkpointTurn.set(agentId, turn);
+    emit(runId, agentId, "agent.checkpointed", { turn, snapshotRef });
+  } catch (err) {
+    log.warn("checkpoint failed — the turn's own outcome is unaffected", {
+      agentId,
+      turn,
+      error: errorMessage(err),
+    });
+  }
+}
 
 /** Agents whose turn alineod is following by reading its stream. */
 const driving = new Set<string>();
@@ -126,6 +164,7 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     resetFailureCounters(agentId);
     emit(runId, agentId, "handle.settled", { outcome: "success", resultRef });
     emit(runId, agentId, "agent.ended", { outcome: "success", endedAt: Date.now() });
+    void maybeCheckpoint(runId, agentId);
   } catch (err) {
     if (isStreamTimeout(err)) {
       log.warn("no stream activity — following the turn by polling instead", {
@@ -323,6 +362,10 @@ export async function catchUpTurn(
         endedAt: Date.now(),
         ...(error ? { error } : {}),
       });
+      // Only on the clean break (probe found Pi genuinely idle) — never when catch-up gave up
+      // (giveUpReason set): a "success" salvaged from leftover partial text is not the same as
+      // Pi actually finishing, and checkpointing then risks a torn session file mid-write.
+      if (!giveUpReason) void maybeCheckpoint(runId, agentId);
     }
   } finally {
     catchingUp.delete(agentId);

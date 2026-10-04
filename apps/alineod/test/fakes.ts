@@ -132,12 +132,28 @@ export class FakeAgent {
     writeFile: async (path: string, content: string): Promise<void> => {
       this.files.set(path, content);
     },
+    // durability-roadmap M3, 3.2: enough for the *real* takeCheckpoint() (packages/agent/src/
+    // checkpoint.ts) to run end to end against this fake — no real container, so `exec` just
+    // records the tar command succeeded and `readFileBytes` returns a fixed, non-empty stand-in
+    // for tarball bytes (the harness scenario asserts the event/file-write mechanism, not that
+    // the bytes are a real gzip stream).
+    exec: async (_cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
+      return { stdout: "", stderr: "", exitCode: 0 };
+    },
+    readFileBytes: async (_path: string): Promise<Uint8Array> => {
+      return new TextEncoder().encode("fake-checkpoint-tarball-bytes");
+    },
+    emit: async (_event: string, _stepIndex: number, _payload?: unknown): Promise<void> => {},
+    // Set for real in the constructor below, once `this.sandboxId` itself is assigned — this
+    // object literal is a class field initializer, which runs before the constructor body.
+    sandboxId: "",
   };
 
   constructor(opts: { name: string; runId: string; sandboxId?: string }) {
     this.name = opts.name;
     this.runId = opts.runId;
     this.sandboxId = opts.sandboxId ?? `sb-${++sandboxCounter}`;
+    this.sandbox.sandboxId = this.sandboxId;
     if (fakeSdk.nextTurn) {
       this.turn = fakeSdk.nextTurn;
       fakeSdk.nextTurn = undefined;

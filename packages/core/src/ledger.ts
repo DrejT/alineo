@@ -119,6 +119,17 @@ export enum LedgerEvent {
    * deliberately not a `PermissionDecision`, because nobody answered it.
    */
   PermissionResolved = "permission.resolved",
+  /**
+   * durability-roadmap M3, 3.2: emitted by the agent SDK after a turn-level checkpoint
+   * (workspace + session-file tarball, NOT `sb.checkpoint()`'s OpenSandbox snapshot — see
+   * `CheckpointCreated` above and `packages/agent/src/checkpoint.ts`'s doc comment for why the
+   * two are deliberately separate mechanisms) is captured and durably stored. Payload is
+   * `{ turn, snapshotRef }` — written only once the tarball is confirmed stored, since a
+   * snapshot without this event pointing at it is unreachable garbage. Shares the same
+   * `IStorageAdapter`-backed ledger `PermissionRequested`/`PermissionResolved` already use, so
+   * a standalone SDK caller and alineod both read it back the same way (`adapter.readAll`).
+   */
+  AgentCheckpointed = "agent.checkpointed",
 }
 
 /** A single event record written to the storage adapter during a session. */
