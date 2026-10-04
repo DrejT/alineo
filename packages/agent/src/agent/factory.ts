@@ -12,6 +12,8 @@ import {
   parseShellExports,
 } from "../adapters/pi";
 import { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "../snapshots";
+import { isSandboxGone } from "../sandbox-gone";
+import { findLatestCheckpoint, restoreCheckpoint } from "../restore";
 import {
   assertValidSpawnDepth,
   assertValidMaxAgents,
@@ -290,6 +292,51 @@ export async function loadAgent(
 }
 
 /**
+ * durability-roadmap M3, 3.3: `resumeAgent()`/`reattachAgent()`'s fallback when the sandbox
+ * itself is gone (`isSandboxGone`), not merely unreachable — provisions a fresh container from
+ * the cached setup snapshot (`loadAgent()`'s own fast path, the same mechanism a first
+ * `Alineo.start()` cache hit already uses) and, if this agent was ever checkpointed, restores
+ * the latest one into it before returning — continuing the conversation instead of starting
+ * blank. If it was never checkpointed, returns the fresh (blank) agent rather than failing —
+ * losing the conversation is still better than losing the agent entirely.
+ *
+ * Known gap, not this chunk's scope: `loadAgent()` throws if the spec has `approval: "hold"`
+ * credential bindings and no `onEgressRequest` is given, which neither `resumeAgent()` nor
+ * `reattachAgent()` accepts today — restoring such a spec from a fully-gone container isn't
+ * handled yet.
+ */
+async function restoreFromCheckpoint(
+  originalSandboxId: string,
+  spec: AgentSpec,
+  opts: { adapter: IStorageAdapter; config?: AlineoAgentConfig },
+  runId: string,
+  log: Logger,
+): Promise<AgentConstructorArgs> {
+  log.warn("sandbox is gone — provisioning a fresh one and restoring from checkpoint", {
+    originalSandboxId,
+  });
+  const fresh = await loadAgent(spec, { adapter: opts.adapter, config: opts.config, runId });
+  const latest = await findLatestCheckpoint(opts.adapter, spec.name, originalSandboxId);
+  if (!latest) {
+    log.warn("no checkpoint found for this agent — continuing with a blank session", {
+      originalSandboxId,
+    });
+    return fresh;
+  }
+  log.info("restoring checkpoint", { turn: latest.turn, sandboxId: fresh.sandbox.sandboxId });
+  // Kill the bridge loadAgent() just started against the snapshot's blank session — it's about
+  // to be replaced by the restored one.
+  await fresh.sandbox.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; sleep 0.1; true", {
+    strict: false,
+  });
+  await restoreCheckpoint(fresh.sandbox, latest.snapshotRef);
+  await fresh.adapter.configure(fresh.sandbox, spec, fresh.env, { resume: true });
+  await fresh.adapter.startBridge(fresh.sandbox);
+  await fresh.adapter.waitReady();
+  return fresh;
+}
+
+/**
  * Reconnect to a previously-created agent whose host process has exited. See
  * `Alineo.resume()` for the public-facing docs.
  */
@@ -355,21 +402,27 @@ export async function resumeAgent(
 
   log.info("reconnecting", { sandboxId });
   const t1 = Date.now();
-  const sb = await client.connect(sandboxId, spec.name, {
-    runId,
-    // client.connect()'s `fork` dependency is only wired up when `resources` is passed
-    // (see its own comment) -- omit this and a resumed/reattached agent's .spawn() throws
-    // "fork() is not supported on this sandbox". Reuse the spec's own sizing so a resumed
-    // agent can keep spawning children exactly as it could before the restart.
-    resources: spec.resources ?? config.defaults.resources,
-    // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment for
-    // why this matters (episodicRecall() enforces teamId strictly). Unlike `sandbox()`/
-    // `restoreSnapshot()`, `connect()` can't discover a running sandbox's *original*
-    // resourceId/teamId from the ledger on its own — but resume() already has `spec` in hand
-    // here, so it can still supply the right values for any later `.fork()` off this handle.
-    resourceId: spec.resourceId ?? spec.name,
-    teamId: spec.teamId,
-  });
+  let sb: SandboxHandle;
+  try {
+    sb = await client.connect(sandboxId, spec.name, {
+      runId,
+      // client.connect()'s `fork` dependency is only wired up when `resources` is passed
+      // (see its own comment) -- omit this and a resumed/reattached agent's .spawn() throws
+      // "fork() is not supported on this sandbox". Reuse the spec's own sizing so a resumed
+      // agent can keep spawning children exactly as it could before the restart.
+      resources: spec.resources ?? config.defaults.resources,
+      // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment for
+      // why this matters (episodicRecall() enforces teamId strictly). Unlike `sandbox()`/
+      // `restoreSnapshot()`, `connect()` can't discover a running sandbox's *original*
+      // resourceId/teamId from the ledger on its own — but resume() already has `spec` in hand
+      // here, so it can still supply the right values for any later `.fork()` off this handle.
+      resourceId: spec.resourceId ?? spec.name,
+      teamId: spec.teamId,
+    });
+  } catch (err) {
+    if (isSandboxGone(err)) return restoreFromCheckpoint(sandboxId, spec, opts, runId, log);
+    throw err;
+  }
   log.info("connected", { elapsed: elapsed(t1) });
 
   // Kill any stale bridge process before starting a fresh one.
@@ -507,19 +560,27 @@ export async function reattachAgent(
 
   log.info("reattaching", { sandboxId });
   const t1 = Date.now();
-  const sb = await client.connect(sandboxId, spec.name, {
-    runId,
-    resourceId: spec.resourceId ?? spec.name,
-    teamId: spec.teamId,
-    // Same reason as resumeAgent() — client.connect() only wires up the `fork` dependency
-    // when `resources` is passed, so a reattached agent needs this too if it's going to
-    // keep spawning children.
-    resources: spec.resources ?? config.defaults.resources,
-    // A caller that skips the ready probe may be reconnecting to a PAUSED sandbox (its bridge
-    // can't answer until resumed). The endpoint lookup below works on a paused sandbox too
-    // (verified against OpenSandbox); the handle comes back marked paused until resume().
-    allowPaused: opts.skipReadyCheck === true,
-  });
+  let sb: SandboxHandle;
+  try {
+    sb = await client.connect(sandboxId, spec.name, {
+      runId,
+      resourceId: spec.resourceId ?? spec.name,
+      teamId: spec.teamId,
+      // Same reason as resumeAgent() — client.connect() only wires up the `fork` dependency
+      // when `resources` is passed, so a reattached agent needs this too if it's going to
+      // keep spawning children.
+      resources: spec.resources ?? config.defaults.resources,
+      // A caller that skips the ready probe may be reconnecting to a PAUSED sandbox (its bridge
+      // can't answer until resumed). The endpoint lookup below works on a paused sandbox too
+      // (verified against OpenSandbox); the handle comes back marked paused until resume().
+      allowPaused: opts.skipReadyCheck === true,
+    });
+  } catch (err) {
+    // Same fallback as resumeAgent() — a standalone caller of Alineo.reattach() gets
+    // restore-from-checkpoint too, not just alineod's own reattach→resume ladder.
+    if (isSandboxGone(err)) return restoreFromCheckpoint(sandboxId, spec, opts, runId, log);
+    throw err;
+  }
   log.info("connected", { elapsed: elapsed(t1) });
 
   // No pkill, no configure(), no startBridge() — the bridge (and everything it's holding in

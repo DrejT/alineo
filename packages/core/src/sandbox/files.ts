@@ -7,6 +7,24 @@ export async function writeFile(sb: SandboxInternal, path: string, content: stri
   await ec.uploadFile(path, content);
 }
 
+/** Write raw bytes into the sandbox — for binary content (a gzip tarball, an image) that
+ * `writeFile`'s string-typed signature would push a caller toward corrupting via a lossy
+ * decode/re-encode round trip before it ever reaches this function. */
+export async function writeFileBytes(
+  sb: SandboxInternal,
+  path: string,
+  bytes: Uint8Array,
+): Promise<void> {
+  const ec = await sb.getExecClient();
+  // Re-copied into a fresh, plain ArrayBuffer-backed Uint8Array -- TS's stricter
+  // ArrayBuffer-vs-ArrayBufferLike typing (newer lib defs) rejects a caller's Uint8Array
+  // whose backing buffer type parameter isn't narrowed to exactly ArrayBuffer (e.g. a Buffer,
+  // which types its buffer as ArrayBufferLike to also allow SharedArrayBuffer). The copy is
+  // cheap next to the upload itself and keeps this function's own parameter type the plain,
+  // unparameterized `Uint8Array` every caller already has in hand.
+  await ec.uploadFile(path, new Uint8Array(bytes));
+}
+
 /**
  * Read a file from the sandbox as raw bytes — no `TextDecoder`, so binary content (a gzip
  * tarball, an image) round-trips intact. `readFile()` below is this plus a UTF-8 decode; a

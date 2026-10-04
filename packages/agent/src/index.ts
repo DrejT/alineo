@@ -44,3 +44,6 @@ export {
   DEFAULT_CHECKPOINT_EXCLUDES,
   CHECKPOINT_ROOT,
 } from "./checkpoint";
+export { isSandboxGone } from "./sandbox-gone";
+export type { LatestCheckpoint } from "./restore";
+export { findLatestCheckpoint, restoreCheckpoint } from "./restore";

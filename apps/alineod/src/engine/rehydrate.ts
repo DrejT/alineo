@@ -18,7 +18,7 @@
  *      it was unconditionally marked "lost"). Only possible if the parent came back in pass
  *      1 (or is itself a retried root); anything else really is unrecoverable.
  */
-import { Alineo } from "alineo";
+import { Alineo, isSandboxGone } from "alineo";
 import {
   rebuild,
   liveAgents,
@@ -171,16 +171,10 @@ async function reattachWithRetry(
   }
 }
 
-/**
- * OpenSandbox says the sandbox does not exist, as opposed to any other failure (OpenSandbox down,
- * a bridge that won't start) that may clear on a later boot. Its code is `<RUNTIME>::SANDBOX_NOT_FOUND`
- * (`DOCKER::` today), carried on the error's `code` and in its message.
- */
-function isSandboxGone(err: unknown): boolean {
-  const code = (err as { code?: unknown } | null)?.code;
-  if (typeof code === "string" && code.endsWith("SANDBOX_NOT_FOUND")) return true;
-  return errorMessage(err).includes("SANDBOX_NOT_FOUND");
-}
+// durability-roadmap M3, 3.3/3.4: promoted to packages/agent/src/sandbox-gone.ts, which also
+// resumeAgent()/reattachAgent() need (same question, same answer) — and extended there to also
+// recognize an Exited-after-reboot container (a 200 OK with state Terminated/Failed, not a
+// 404), which this file's own private copy never covered. See that file's doc comment.
 
 /**
  * A paused agent's container is frozen, so its bridge can't answer the usual ready probe — and

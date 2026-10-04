@@ -37,6 +37,12 @@ export class SandboxHandle extends SandboxCore {
     return files.writeFile(this, path, content);
   }
 
+  /** Write raw bytes into the sandbox — for binary content `writeFile`'s string-typed
+   * signature isn't safe for (a gzip tarball, an image). */
+  async writeFileBytes(path: string, bytes: Uint8Array): Promise<void> {
+    return files.writeFileBytes(this, path, bytes);
+  }
+
   /** Read a file from the sandbox as a UTF-8 string. */
   async readFile(path: string): Promise<string> {
     return files.readFile(this, path);
