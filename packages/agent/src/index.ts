@@ -42,5 +42,6 @@ export {
   takeCheckpoint,
   checkpointsPath,
   DEFAULT_CHECKPOINT_EXCLUDES,
+  DEFAULT_CHECKPOINT_RETENTION,
   CHECKPOINT_ROOT,
 } from "./checkpoint";

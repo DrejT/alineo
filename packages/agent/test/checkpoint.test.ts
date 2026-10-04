@@ -1,11 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CommandError, LedgerEvent, type SandboxHandle } from "@alineo-labs/core";
 import {
   CHECKPOINT_ROOT,
   DEFAULT_CHECKPOINT_EXCLUDES,
+  DEFAULT_CHECKPOINT_RETENTION,
   checkpointsPath,
   takeCheckpoint,
 } from "../src/checkpoint";
@@ -99,5 +100,48 @@ describe("takeCheckpoint", () => {
     }
     expect(threw).toBe(true);
     expect(emitted).toHaveLength(0);
+  });
+});
+
+describe("checkpoint retention (M3, 3.5)", () => {
+  it("keeps only the newest DEFAULT_CHECKPOINT_RETENTION files for a sandbox", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const { sb } = fakeSandbox();
+    for (let turn = 1; turn <= DEFAULT_CHECKPOINT_RETENTION + 2; turn++) {
+      await takeCheckpoint(sb, dir, { turn });
+    }
+    const remaining = readdirSync(join(dir, sb.sandboxId));
+    expect(remaining).toHaveLength(DEFAULT_CHECKPOINT_RETENTION);
+  });
+
+  it("respects a caller-supplied retain count instead of the default", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const { sb } = fakeSandbox();
+    for (let turn = 1; turn <= 5; turn++) {
+      await takeCheckpoint(sb, dir, { turn, retain: 1 });
+    }
+    const remaining = readdirSync(join(dir, sb.sandboxId));
+    expect(remaining).toHaveLength(1);
+  });
+
+  it("never prunes below the count while under the limit", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const { sb } = fakeSandbox();
+    await takeCheckpoint(sb, dir, { turn: 1 });
+    await takeCheckpoint(sb, dir, { turn: 2 });
+    const remaining = readdirSync(join(dir, sb.sandboxId));
+    expect(remaining).toHaveLength(2);
+  });
+
+  it("keeps each sandbox's own checkpoints independent of another's retention", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const a = fakeSandbox({ sandboxId: "sb-a" }).sb;
+    const b = fakeSandbox({ sandboxId: "sb-b" }).sb;
+    for (let turn = 1; turn <= DEFAULT_CHECKPOINT_RETENTION + 2; turn++) {
+      await takeCheckpoint(a, dir, { turn });
+    }
+    await takeCheckpoint(b, dir, { turn: 1 });
+    expect(readdirSync(join(dir, "sb-a"))).toHaveLength(DEFAULT_CHECKPOINT_RETENTION);
+    expect(readdirSync(join(dir, "sb-b"))).toHaveLength(1);
   });
 });

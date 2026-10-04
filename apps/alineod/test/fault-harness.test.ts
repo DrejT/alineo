@@ -294,4 +294,33 @@ describe("fault: checkpoint — a turn that genuinely finishes is checkpointed (
       events(runId).find((e) => e.event === "agent.checkpointed" && e.agentId === rootAgentId),
     ).toBeUndefined();
   });
+
+  test("disk use stays bounded across many turns (M3 3.5 retention)", async () => {
+    const { checkpointsPath } = await import("alineo");
+    const { SDK_LEDGER_PATH } = await import("../config");
+    const { readdirSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    const { runId, rootAgentId, root } = await startRun({
+      spec: spec("root", { checkpoint: true }),
+      prompt: "turn 1",
+    });
+
+    const turns = 6; // > DEFAULT_CHECKPOINT_RETENTION (3), so pruning must actually run
+    for (let i = 1; i < turns; i++) {
+      await until(() => getHandle(rootAgentId)?.state === "settled", `turn ${i} settles`);
+      const res = await call("POST", `/agents/${rootAgentId}/prompt`, { text: `turn ${i + 1}` });
+      expect(res.status).toBe(202);
+    }
+    await until(() => getHandle(rootAgentId)?.state === "settled", "final turn settles");
+    await until(
+      () =>
+        events(runId).filter((e) => e.event === "agent.checkpointed" && e.agentId === rootAgentId)
+          .length === turns,
+      "every turn checkpointed",
+    );
+
+    const dir = join(checkpointsPath(SDK_LEDGER_PATH), root.sandboxId);
+    expect(readdirSync(dir).length).toBeLessThanOrEqual(3);
+  }, 10_000);
 });
