@@ -1,7 +1,5 @@
 ---
 "alineo-cli": patch
-"@alineo-labs/agent-browser": patch
-"@alineo-labs/cli-shared": patch
 ---
 
 Bump Pi (`@earendil-works/pi-coding-agent`) from `^0.85.1` to `^1.0.1`, and bump the `execd` image
