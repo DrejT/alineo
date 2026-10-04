@@ -6,6 +6,9 @@ export type {
   ListSandboxOptions,
   EnvironmentRecord,
   CheckpointInfo,
+  EngineLedgerEntry,
+  EngineLedgerRow,
+  IEngineLedger,
 } from "./ledger";
 
 export { LogLevel, ConsoleLogger, noopLogger } from "./logger";

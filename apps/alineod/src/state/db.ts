@@ -5,14 +5,24 @@
  * from it by projection.ts and fully rebuildable. `seq` doubles as the SSE `Last-Event-ID`
  * marker.
  *
- * Deliberately NOT `@alineo-labs/sqlite`'s `IStorageAdapter`: that schema is shaped around the
- * per-sandbox substrate ledger. This is the swarm-shape ledger — a different model. Same call
- * made by apps/telemetry for the same reason.
+ * `ledger`'s reads/writes (durability-roadmap.md M3, 3.1b) go through `@alineo-labs/sqlite`'s
+ * `SQLiteEngineLedger`, bound onto this exact table and its existing `run_id`/`agent_id`
+ * columns (not renamed, not migrated onto a new schema) — the physical table is unchanged, but
+ * the query/index logic is now the same shared, tested code the sandbox SDK's own ledger uses,
+ * instead of an independently hand-rolled copy that can silently drift from it. Still
+ * deliberately NOT `IStorageAdapter` (the sandbox SDK's full 14-method surface): this ledger's
+ * partition shape (`run_id`/`agent_id`) and its other five tables (`agents`, `handles`,
+ * idempotency, supervision counters, notify/inbox) have no sandbox-SDK equivalent and stay
+ * exactly as hand-rolled `bun:sqlite` as before — see `plans/03-10-2026/
+ * m3-survive-container-loss.md` for why those specifically stay out of scope here. `apps/
+ * telemetry/db.ts` makes the same "not IStorageAdapter" call, for the same original reason,
+ * and hasn't adopted `SQLiteEngineLedger` (out of scope for this chunk).
  */
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { getLogger } from "@alineo-labs/logger";
+import { SQLiteEngineLedger } from "@alineo-labs/sqlite";
 import { DB_PATH } from "../../config";
 import { migrateEventNames } from "./migrate-event-names";
 import { migrateAgentSpecs } from "./migrate-agent-specs";
@@ -200,10 +210,39 @@ export interface LedgerRow {
   payload: string | null;
 }
 
-const insertLedger = db.query<
-  { seq: number },
-  [string, string | null, number, string, string | null]
->(`INSERT INTO ledger (run_id, agent_id, ts, event, payload) VALUES (?, ?, ?, ?, ?) RETURNING seq`);
+// Bound onto the `ledger` table above, not a renamed/new one — see this file's header comment.
+const engineLedger = new SQLiteEngineLedger(db, {
+  table: "ledger",
+  scopeColumn: "run_id",
+  subScopeColumn: "agent_id",
+});
+
+/**
+ * `payload` stays the raw stored string here, never parsed by `SQLiteEngineLedger` itself —
+ * every existing reader of `LedgerRow` in this codebase (`projection.ts`'s `apply()`, the
+ * migration scripts, the transcript route) parses it, with its own error handling, at the
+ * point of use. Parsing eagerly here would turn one historically-malformed row into a hard
+ * failure for every other row read alongside it — exactly what
+ * `apps/alineod/test/transcript.test.ts`'s "skips a damaged row" guards against. Using the
+ * `*RawSync` methods (not the plain `*Sync` ones, which do parse) is what keeps this working.
+ */
+function toLedgerRow(row: {
+  seq: number;
+  scope: string;
+  subScope: string | null;
+  ts: number;
+  event: string;
+  payload: string | null;
+}): LedgerRow {
+  return {
+    seq: row.seq,
+    run_id: row.scope,
+    agent_id: row.subScope,
+    ts: row.ts,
+    event: row.event,
+    payload: row.payload,
+  };
+}
 
 /** Append one event and return its `seq`. Callers should also run projection.apply() on the row. */
 export function appendRow(
@@ -213,45 +252,33 @@ export function appendRow(
   payload: unknown,
 ): LedgerRow {
   const ts = Date.now();
-  const payloadJson = payload === undefined ? null : JSON.stringify(payload);
-  const { seq } = insertLedger.get(runId, agentId, ts, event, payloadJson)!;
-  return { seq, run_id: runId, agent_id: agentId, ts, event, payload: payloadJson };
+  const { seq } = engineLedger.appendSync({ scope: runId, subScope: agentId, ts, event, payload });
+  return {
+    seq,
+    run_id: runId,
+    agent_id: agentId,
+    ts,
+    event,
+    payload: payload === undefined ? null : JSON.stringify(payload),
+  };
 }
-
-const selectSince = db.query<LedgerRow, [string, number]>(
-  `SELECT seq, run_id, agent_id, ts, event, payload FROM ledger
-   WHERE run_id = ? AND seq > ? ORDER BY seq ASC`,
-);
 
 export function readLedgerSince(runId: string, afterSeq: number): LedgerRow[] {
-  return selectSince.all(runId, afterSeq);
+  return engineLedger.readByScopeRawSync(runId, { afterSeq }).map(toLedgerRow);
 }
-
-const selectRunLedger = db.query<LedgerRow, [string]>(
-  `SELECT seq, run_id, agent_id, ts, event, payload FROM ledger WHERE run_id = ? ORDER BY seq ASC`,
-);
 
 export function readRunLedger(runId: string): LedgerRow[] {
-  return selectRunLedger.all(runId);
+  return engineLedger.readByScopeRawSync(runId).map(toLedgerRow);
 }
-
-const selectAgentEvents = db.query<LedgerRow, [string, string]>(
-  `SELECT seq, run_id, agent_id, ts, event, payload FROM ledger
-   WHERE agent_id = ? AND event = ? ORDER BY seq ASC`,
-);
 
 /** One agent's rows of a single event type, oldest first (e.g. every `agent_end` it emitted). */
 export function readAgentEvents(agentId: string, event: string): LedgerRow[] {
-  return selectAgentEvents.all(agentId, event);
+  return engineLedger.readBySubScopeRawSync(agentId, event).map(toLedgerRow);
 }
 
 /** Replay the entire ledger, oldest first — used once at boot to rebuild the projections. */
-const selectAllLedger = db.query<LedgerRow, []>(
-  `SELECT seq, run_id, agent_id, ts, event, payload FROM ledger ORDER BY seq ASC`,
-);
-
 export function readAllLedger(): LedgerRow[] {
-  return selectAllLedger.all();
+  return engineLedger.readAllRawSync().map(toLedgerRow);
 }
 
 // ── spawn idempotency (D-f) ──────────────────────────────────────────────────
