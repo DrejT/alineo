@@ -100,6 +100,68 @@ describe("agents with a sandbox", () => {
     });
   });
 
+  test("resume onto a fresh sandbox (container gone entirely) updates the persisted sandboxId", async () => {
+    // durability-roadmap M3, 3.3/3.4: simulates resumeAgent()'s real restore-from-checkpoint
+    // fallback having already run (that logic lives in packages/agent, not in this fake) and
+    // returned a FakeAgent standing in for the *different*, freshly-provisioned container.
+    const runId = newRunId();
+    const oldSandbox = container(runId);
+    const id = seed({ runId, sandbox: oldSandbox });
+    fakeSdk.reattachFails.add(oldSandbox.sandboxId);
+    const newSandbox = container(runId);
+    fakeSdk.resumeOntoNewSandbox.set(oldSandbox.sandboxId, newSandbox);
+
+    await rehydrate();
+
+    expect(get(id)).toBe(newSandbox as never);
+    expect(getAgentRow(id)?.sandbox_id).toBe(newSandbox.sandboxId);
+    // The *latest* agent.provisioned, not the one seed() already wrote for the original
+    // (now-gone) sandbox at creation time.
+    expect(
+      events(runId).findLast((e) => e.event === "agent.provisioned" && e.agentId === id),
+    ).toMatchObject({ sandboxId: newSandbox.sandboxId });
+  });
+
+  test("resume onto a fresh sandbox re-materializes waitFor inputs the checkpoint never captured", async () => {
+    const runId = newRunId();
+    const dep = seed({ runId, ended: "success" });
+    const oldSandbox = container(runId);
+    seed({ runId, sandbox: oldSandbox, waitFor: [dep] });
+    fakeSdk.reattachFails.add(oldSandbox.sandboxId);
+    const newSandbox = container(runId);
+    fakeSdk.resumeOntoNewSandbox.set(oldSandbox.sandboxId, newSandbox);
+
+    await rehydrate();
+
+    expect(newSandbox.files.get(`/inputs/${dep}.txt`)).toBeDefined();
+    expect(newSandbox.files.get("/inputs.json")).toBeDefined();
+    // The old (now-gone) container's own files are untouched — proof this wrote into the new
+    // one, not a stale reference to the old.
+    expect(oldSandbox.files.get("/inputs.json")).toBeUndefined();
+  });
+
+  test("resume onto the same sandbox (ordinary bridge restart) does not re-run input injection", async () => {
+    const runId = newRunId();
+    const dep = seed({ runId, ended: "success" });
+    const sandbox = container(runId);
+    const id = seed({ runId, sandbox, waitFor: [dep] });
+    fakeSdk.reattachFails.add(sandbox.sandboxId);
+    // No resumeOntoNewSandbox entry -- resume() returns the SAME sandbox, same as a plain
+    // bridge-only restart.
+
+    await rehydrate();
+
+    expect(get(id)).toBe(sandbox as never);
+    // Only seed()'s own original agent.provisioned (from creation time) -- rehydrate's resume
+    // path never adds a second one when the sandboxId didn't actually change.
+    expect(
+      events(runId).filter((e) => e.event === "agent.provisioned" && e.agentId === id),
+    ).toHaveLength(1);
+    // injectInputs() was never called against this path -- the container was never lost, so
+    // whatever it already had on disk is untouched by rehydrate itself.
+    expect(sandbox.files.get("/inputs.json")).toBeUndefined();
+  });
+
   test("a turn that was in flight is caught up and its result recorded exactly once", async () => {
     const runId = newRunId();
     const sandbox = container(runId);

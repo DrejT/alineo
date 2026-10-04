@@ -30,9 +30,9 @@ import { sdkAdapter, register, get } from "./registry";
 import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
 import { provisionRoot } from "./runs";
-import { provisionChild } from "./spawn";
+import { provisionChild, injectInputs } from "./spawn";
 import { deliverPending } from "./notify";
-import { parseStoredWait } from "./waitfor";
+import { parseStoredWait, evaluateWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
 import { errorMessage } from "../util";
@@ -105,7 +105,31 @@ async function reattachOne(a: AgentRow): Promise<void> {
   try {
     const agent = await Alineo.resume(a.sandbox_id!, opts);
     register(a.agent_id, agent);
-    log.info("resumed — bridge restarted", { agentId: a.agent_id, sandboxId: a.sandbox_id });
+    // durability-roadmap M3, 3.4: resume() (3.3) can now return a *different* sandboxId than
+    // the one requested, when the original container was gone entirely and resume() had to
+    // provision a fresh one from the setup snapshot + restore the latest checkpoint into it.
+    // The persisted row must learn about that -- otherwise it keeps pointing at a deleted
+    // sandbox, and every future boot repeats the same restore from the same stale checkpoint
+    // instead of building on the one that's now actually running.
+    if (agent.sandboxId !== a.sandbox_id) {
+      emit(a.run_id, a.agent_id, "agent.provisioned", { sandboxId: agent.sandboxId });
+      log.info("resumed — container was gone, restored onto a new one", {
+        agentId: a.agent_id,
+        oldSandboxId: a.sandbox_id,
+        newSandboxId: agent.sandboxId,
+      });
+      // The restored container came from the shared setup snapshot, which predates this
+      // agent's own waitFor inputs (/inputs/*.txt, /inputs.json) -- those live under `/`, not
+      // `/root`, so the turn checkpoint never captured them either. Re-derive the same
+      // dependency selection the original wait already settled on (evaluateWait is pure over
+      // the dependencies' own handles, which haven't changed since) and re-write them, same as
+      // a brand-new child's first provision does.
+      const wait = parseStoredWait(a.wait_for);
+      const waited = wait ? evaluateWait(wait) : null;
+      if (wait && waited) await injectInputs(agent, wait, waited);
+    } else {
+      log.info("resumed — bridge restarted", { agentId: a.agent_id, sandboxId: a.sandbox_id });
+    }
     // The turn that was running died with the old bridge process, and nothing is following it:
     // catch-up sees the new (idle) bridge, records whatever text survived, and settles the handle.
     if (wasRunning) {

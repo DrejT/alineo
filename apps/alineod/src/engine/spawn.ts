@@ -292,8 +292,13 @@ async function forkFromParent(
 /**
  * Write each resolved dependency's result into the child's sandbox as a file, plus an
  * `/inputs.json` manifest the child's harness can read (research/daemon.md §8).
+ *
+ * Exported for `rehydrate.ts`'s restore ladder (durability-roadmap M3, 3.4) — these paths live
+ * under `/`, not `/root`, so `takeCheckpoint()`'s tarball (scoped to `CHECKPOINT_ROOT`) never
+ * captures them. A container restored from a checkpoint onto a *different* sandbox needs them
+ * re-written from scratch, same as a brand-new child does here.
  */
-async function injectInputs(
+export async function injectInputs(
   child: Alineo,
   wait: NormalizedWait,
   waited: WaitOutcome,
