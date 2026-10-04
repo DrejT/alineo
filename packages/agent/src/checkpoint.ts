@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { LedgerEvent, type SandboxHandle } from "@alineo-labs/core";
 
@@ -45,6 +45,14 @@ const DEFAULT_CHECKPOINT_EXCLUDE_GLOBS = ["__pycache__", ".pytest_cache"];
  */
 export const CHECKPOINT_ROOT = "root";
 
+/**
+ * durability-roadmap M3, 3.5: restore (3.3) only ever reads the *latest* checkpoint — an older
+ * one is slack for debugging/manual rollback, not a live requirement. 3 was decided without
+ * real usage data to justify more (measured sizes are sub-30MB, typically far less once the
+ * exclusion list applies), and is cheap to revisit if real retention pressure ever shows up.
+ */
+export const DEFAULT_CHECKPOINT_RETENTION = 3;
+
 export interface CheckpointRecord {
   /** Monotonic within this `Alineo` instance's lifetime — an ordinal for humans reading
    * `alineo logs`, not the mechanism restore uses to find the latest one (that's ledger
@@ -63,6 +71,27 @@ export function checkpointsPath(adapterPath: string): string {
 }
 
 /**
+ * Keep only the newest `retain` checkpoint files in `dir`, deleting the rest — called after
+ * every successful `takeCheckpoint()` so disk use stays bounded across a long-running agent
+ * instead of growing forever. Sorted by file mtime (set at write time, monotonic regardless of
+ * process restarts), not by the `turn` number embedded in the filename — `turn` resets to 0
+ * across a resume/reattach (see `CheckpointRecord.turn`'s doc comment), so two checkpoints
+ * from different process lifetimes can share the same `turn` without actually being the same
+ * age. Best-effort: a failure here (e.g. a concurrent delete) is logged by the caller, not
+ * thrown — pruning old checkpoints is cleanup, never allowed to fail the checkpoint that just
+ * succeeded.
+ */
+async function pruneOldCheckpoints(dir: string, retain: number): Promise<void> {
+  const names = await readdir(dir);
+  if (names.length <= retain) return;
+  const withTimes = await Promise.all(
+    names.map(async (name) => ({ name, mtimeMs: (await stat(join(dir, name))).mtimeMs })),
+  );
+  withTimes.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  await Promise.all(withTimes.slice(retain).map((f) => rm(join(dir, f.name), { force: true })));
+}
+
+/**
  * Tar `CHECKPOINT_ROOT` (minus the default excludes) inside the sandbox, pull the bytes out
  * byte-safe (`sb.readFileBytes()`, never `readFile()`'s UTF-8 path — a gzip tarball is not
  * valid UTF-8), write them to `checkpointsDir`, and record `AgentCheckpointed` on the sandbox's
@@ -73,11 +102,15 @@ export function checkpointsPath(adapterPath: string): string {
  * write) — the caller decides whether a failed checkpoint should interrupt the turn it was
  * taken after (3.2's own call site treats it as best-effort and logs rather than throws
  * further, since a checkpoint failing is not the same failure as the turn itself failing).
+ * Retention (3.5) runs only after a successful write+event, pruning this sandbox's own
+ * directory down to `opts.retain` (default `DEFAULT_CHECKPOINT_RETENTION`). A pruning failure
+ * is swallowed, not thrown — the checkpoint this call was actually for already succeeded, and
+ * a cleanup failure must never retroactively turn that into an error.
  */
 export async function takeCheckpoint(
   sb: SandboxHandle,
   checkpointsDir: string,
-  opts: { turn: number; excludeGlobs?: string[] },
+  opts: { turn: number; excludeGlobs?: string[]; retain?: number },
 ): Promise<CheckpointRecord> {
   const tmpTarPath = `/tmp/alineo-checkpoint-${crypto.randomUUID()}.tar.gz`;
   const excludeArgs = [
@@ -96,6 +129,11 @@ export async function takeCheckpoint(
     const snapshotRef = join(dir, `${opts.turn}-${createdAt}.tar.gz`);
     await writeFile(snapshotRef, bytes);
     await sb.emit(LedgerEvent.AgentCheckpointed, -1, { turn: opts.turn, snapshotRef });
+    try {
+      await pruneOldCheckpoints(dir, opts.retain ?? DEFAULT_CHECKPOINT_RETENTION);
+    } catch {
+      /* best-effort cleanup only -- the checkpoint itself already succeeded */
+    }
     return { turn: opts.turn, snapshotRef, createdAt };
   } finally {
     // Best-effort — the temp file is inside an ephemeral container anyway, and a failure here
