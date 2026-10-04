@@ -165,6 +165,50 @@ export interface EnvironmentRecord {
 }
 
 /**
+ * One entry in a generic, two-level-partition append-only ledger — the shared primitive
+ * durability-roadmap.md's M3 (3.1b) introduces so a second consumer (alineod's swarm ledger,
+ * `apps/alineod/src/state/db.ts`) can depend on the same package the sandbox SDK's own ledger
+ * already does, instead of each hand-rolling `bun:sqlite`. Deliberately narrower than
+ * `IStorageAdapter`/`LedgerEntry` above: no derived-aggregation methods (`listSandboxDetails`
+ * and friends stay specific to the sandbox SDK's own shape), and ordering is always by `seq`
+ * (true write order) — never by `ts`, which stays a per-consumer concern. `scope` and `subScope`
+ * are deliberately generic names: the sandbox SDK's shape is `(name, sandboxId)`; alineod's is
+ * `(runId, agentId)`. Only the access patterns alineod's existing `ledger` table actually uses
+ * are supported (filter by `scope` alone, filter by `subScope` alone plus an event filter, or a
+ * full unfiltered replay) — not the sandbox SDK's combined `(scope, subScope)` filter, which
+ * stays on `IStorageAdapter.readAll()` as it is today.
+ */
+export interface EngineLedgerEntry {
+  /** Primary partition key — e.g. a run id. Required on every entry. */
+  scope: string;
+  /** Secondary partition key — e.g. an agent id. Omitted/null for a scope-level event. */
+  subScope?: string | null;
+  ts: number;
+  event: string;
+  payload?: unknown;
+}
+
+/** A stored `EngineLedgerEntry`, with the monotonic sequence number assigned on append. */
+export interface EngineLedgerRow extends EngineLedgerEntry {
+  seq: number;
+}
+
+export interface IEngineLedger {
+  /** Run migrations / open connections. Must be called before first use. */
+  connect?(): Promise<void>;
+  /** Release connections and resources. Call on graceful shutdown. */
+  close?(): Promise<void>;
+  /** Append one entry and return it with its assigned `seq`. */
+  append(entry: EngineLedgerEntry): Promise<EngineLedgerRow>;
+  /** Every entry for one `scope`, in `seq` order, optionally only those after a given `seq`. */
+  readByScope(scope: string, opts?: { afterSeq?: number }): Promise<EngineLedgerRow[]>;
+  /** Every entry for one `subScope`, in `seq` order, optionally filtered to one `event` type. */
+  readBySubScope(subScope: string, event?: string): Promise<EngineLedgerRow[]>;
+  /** Every entry across every scope, in `seq` order — for a full replay at boot. */
+  readAll(): Promise<EngineLedgerRow[]>;
+}
+
+/**
  * Persistence interface for session event storage.
  *
  * Implement this interface to plug in any storage backend. alineo ships two
