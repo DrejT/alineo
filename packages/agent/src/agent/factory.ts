@@ -324,16 +324,25 @@ async function restoreFromCheckpoint(
     return fresh;
   }
   log.info("restoring checkpoint", { turn: latest.turn, sandboxId: fresh.sandbox.sandboxId });
-  // Kill the bridge loadAgent() just started against the snapshot's blank session — it's about
-  // to be replaced by the restored one.
-  await fresh.sandbox.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; sleep 0.1; true", {
-    strict: false,
-  });
-  await restoreCheckpoint(fresh.sandbox, latest.snapshotRef);
-  await fresh.adapter.configure(fresh.sandbox, spec, fresh.env, { resume: true });
-  await fresh.adapter.startBridge(fresh.sandbox);
-  await fresh.adapter.waitReady();
-  return fresh;
+  try {
+    // Kill the bridge loadAgent() just started against the snapshot's blank session — it's
+    // about to be replaced by the restored one.
+    await fresh.sandbox.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; sleep 0.1; true", {
+      strict: false,
+    });
+    await restoreCheckpoint(fresh.sandbox, latest.snapshotRef);
+    await fresh.adapter.configure(fresh.sandbox, spec, fresh.env, { resume: true });
+    await fresh.adapter.startBridge(fresh.sandbox);
+    await fresh.adapter.waitReady();
+    return fresh;
+  } catch (err) {
+    // Found live on my-vps, 2026-10-04: without this, a failure here (loadAgent() already
+    // succeeded, so `fresh.sandbox` is a real, running container) left that container running
+    // forever, orphaned — the caller's own retry (rehydrate.ts's reattachWithRetry) calls back
+    // in here and provisions yet *another* fresh one rather than reusing or closing this one.
+    await fresh.sandbox.close().catch(cleanupFailed(log, { sandboxId: fresh.sandbox.sandboxId }));
+    throw err;
+  }
 }
 
 /**

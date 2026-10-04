@@ -100,6 +100,29 @@ describe("agents with a sandbox", () => {
     });
   });
 
+  test("reattach onto a fresh sandbox (container gone entirely) updates the persisted sandboxId", async () => {
+    // Regression test for a real bug found live on my-vps, 2026-10-04: Alineo.reattach() got
+    // the same restore-from-checkpoint fallback as Alineo.resume() in 3.3, but the first
+    // version of 3.4's fix only checked for a changed sandboxId after the resume() branch --
+    // a container that restored successfully through reattachWithRetry (THIS branch) kept its
+    // stale sandbox_id forever, and every later boot re-restored from the same old checkpoint
+    // into yet another fresh, orphaned container.
+    const runId = newRunId();
+    const oldSandbox = container(runId);
+    const id = seed({ runId, sandbox: oldSandbox });
+    const newSandbox = container(runId);
+    fakeSdk.reattachOntoNewSandbox.set(oldSandbox.sandboxId, newSandbox);
+
+    await rehydrate();
+
+    expect(get(id)).toBe(newSandbox as never);
+    expect(fakeSdk.calls.resume).toEqual([]); // reattach succeeded; resume() never needed
+    expect(getAgentRow(id)?.sandbox_id).toBe(newSandbox.sandboxId);
+    expect(
+      events(runId).findLast((e) => e.event === "agent.provisioned" && e.agentId === id),
+    ).toMatchObject({ sandboxId: newSandbox.sandboxId });
+  });
+
   test("resume onto a fresh sandbox (container gone entirely) updates the persisted sandboxId", async () => {
     // durability-roadmap M3, 3.3/3.4: simulates resumeAgent()'s real restore-from-checkpoint
     // fallback having already run (that logic lives in packages/agent, not in this fake) and
