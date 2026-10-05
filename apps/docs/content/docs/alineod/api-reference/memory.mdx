@@ -1,0 +1,127 @@
+---
+title: Memory
+description: The Memory class, helper functions, errors, provider interfaces, and the in-memory, SQLite and Postgres backends.
+---
+
+This is the library API behind [Memory model](/docs/alineod/concepts/memory-model) — not an HTTP route.
+
+## `new Memory(options)`
+
+| Option          | Type                      | Description                                                         |
+| --------------- | ------------------------- | ------------------------------------------------------------------- |
+| `workingMemory` | `IWorkingMemoryProvider`  | **Required.**                                                       |
+| `semantic`      | `ISemanticMemoryProvider` | Optional. Enables `remember` / `recall`.                            |
+| `autoCompact`   | `AutoCompactOptions`      | `maxFacts`, `maxAgeMs`, `summarize`, `checkEvery` (default 1).      |
+
+| Member                               | Returns                            | Notes                                                  |
+| ------------------------------------ | ---------------------------------- | ------------------------------------------------------ |
+| `workingMemory.get(ref, key)`        | `Promise<unknown>`                 | `undefined` when missing                               |
+| `workingMemory.set(ref, key, value)` | `Promise<void>`                    |                                                        |
+| `workingMemory.list(ref)`            | `Promise<Record<string, unknown>>` |                                                        |
+| `workingMemory.delete(ref, key)`     | `Promise<void>`                    |                                                        |
+| `hasSemanticMemory`                  | `boolean`                          |                                                        |
+| `remember(ref, fact)`                | `Promise<void>`                    | Throws `MemoryCapabilityError` without semantic memory |
+| `recall(ref, query, { topK? })`      | `Promise<MemoryFact[]>`            | Same                                                   |
+| `compactSemanticMemory(ref, opts?)`  | `Promise<CompactionResult>`        | Needs a prunable provider                              |
+| `fork(parentRef, childResourceId)`   | `Promise<ForkMemoryResult>`        | `{ ref, workingKeysCopied, semanticFactsCopied }`      |
+
+```ts
+interface ResourceRef { resourceId: string; teamId?: string }
+
+interface MemoryFact {
+  content: string;
+  sourceRef?: { sandboxId: string; entryIndex: number };
+  verified?: boolean; // computed on recall, ignored on input
+}
+
+type RememberedFact = MemoryFact & { id: string; rememberedAt: number };
+interface CompactionResult { removed: number; remaining: number; summarized: number }
+```
+
+## Functions
+
+| Function                                                                    | Purpose                                      |
+| --------------------------------------------------------------------------- | -------------------------------------------- |
+| `episodicRecall(adapter, ref, { limit?, branch?, resolveSessions? })`       | Ledger entries for a resource                |
+| `episodicTree(adapter, ref, { resolveSessions? })`                          | Fork tree of `EpisodicBranch`                |
+| `buildContextSnippet(memory, ref, { query?, topK?, maxWorkingMemoryKeys? })` | Prompt text                                  |
+| `createMemoryTools(memory, ref)`                                            | `MemoryTool[]`                               |
+| `compactSemanticMemory(provider, ref, opts?)`                               | Standalone compaction                        |
+| `createMemoryLifecycleHooks(memory, ref, opts?)`                            | `SandboxHooks`                               |
+| `withTeamAccessControl(provider, checker)` / `withTeamAccessControlSemantic` | Team gate                                    |
+| `scopeKey(ref)`                                                             | Escaped storage key                          |
+| `isPrunable(p)` / `isBulkRememberable(p)`                                   | Capability checks                            |
+
+## Errors
+
+| Class                     | Thrown when                                                       |
+| ------------------------- | ----------------------------------------------------------------- |
+| `MemoryCapabilityError`   | A method needs a provider that wasn't configured                  |
+| `MemoryAccessDeniedError` | A `TeamAccessChecker` rejects a `teamId`                          |
+
+## Provider interfaces
+
+```ts
+interface IWorkingMemoryProvider {
+  get(ref: ResourceRef, key: string): Promise<unknown | undefined>;
+  set(ref: ResourceRef, key: string, value: unknown): Promise<void>;
+  list(ref: ResourceRef): Promise<Record<string, unknown>>;
+  delete(ref: ResourceRef, key: string): Promise<void>;
+}
+
+interface ISemanticMemoryProvider {
+  remember(ref: ResourceRef, fact: MemoryFact): Promise<void>;
+  recall(ref: ResourceRef, query: string, opts?: { topK?: number }): Promise<MemoryFact[]>;
+}
+
+// Optional — unlocks compaction and semantic forking
+interface IPrunableSemanticMemoryProvider extends ISemanticMemoryProvider {
+  listAll(ref: ResourceRef): Promise<RememberedFact[]>;
+  forget(ref: ResourceRef, ids: string[]): Promise<number>;
+}
+
+interface EmbeddingProvider {
+  id: string;
+  embed(texts: string[], opts?: { type?: "query" | "passage" }): Promise<number[][]>;
+}
+```
+
+`IBulkSemanticMemoryProvider` adds `rememberMany(ref, facts)` so a fork embeds in one call. `opts.type` is `"passage"`
+when storing and `"query"` when searching; asymmetric embedding models rank better when it matches.
+
+## Backends
+
+| Package                        | Best for                  | Durable                  | Vector recall                             |
+| ------------------------------ | ------------------------- | ------------------------ | ----------------------------------------- |
+| `@alineo-labs/memory`          | Tests, demos              | No — process-local       | In-JS cosine scan                         |
+| `@alineo-labs/sqlite-memory`   | Local dev, single process | Yes — one file, WAL mode | `sqlite-vec` `vec0` index, in-JS fallback |
+| `@alineo-labs/postgres-memory` | Shared, multi-process     | Yes                      | `pgvector` HNSW, in-JS fallback           |
+
+All three support pruning and bulk remember. Check `provider.hasVectorIndex` to see which recall path is active — the
+fallback is slower, never a different schema.
+
+```ts
+// SQLite — bun:sqlite; migrates and enables WAL on construction
+new SQLiteWorkingMemoryProvider("./alineo-memory.db");
+new SQLiteSemanticMemoryProvider("./alineo-memory.db", embeddings);
+
+// Postgres — migrations run lazily on first query
+new PostgresWorkingMemoryProvider(connectionString);
+new PostgresSemanticMemoryProvider(connectionString, embeddings);
+```
+
+SQLite isolates each resource inside the `vec0` partition key during the KNN search itself. Postgres isolates
+`teamId`-scoped rows with row-level security (`FORCE ROW LEVEL SECURITY`) and uses `pgvector` when
+`CREATE EXTENSION vector` is allowed.
+
+<Callout type="warn">
+  The Postgres backend is type-checked and reviewed but has not been run against a live server in this repo's
+  tests, including the HNSW path. SQLite is tested against a real file.
+</Callout>
+
+To bring your own backend, implement the interfaces above, key storage with `scopeKey(ref)`, and reuse
+`factFromRow` and `cosineSimilarity`.
+
+## See also
+
+A full run across separate sandboxes: [persistent agent memory cookbook](/docs/cookbooks/persistent-agent-memory).

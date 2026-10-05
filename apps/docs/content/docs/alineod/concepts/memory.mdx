@@ -16,6 +16,8 @@ flowchart TB
   R["restart"] -->|"reattach / resume<br/>same store again"| P
 ```
 
+The library underneath — the three kinds of memory, helpers and backends — is covered in [Memory model](/docs/alineod/concepts/memory-model).
+
 ## What is stored, and under what key
 
 Memory is keyed by a **resource ref**: the spec's `resourceId` (default: its `name`) plus the optional `teamId`.

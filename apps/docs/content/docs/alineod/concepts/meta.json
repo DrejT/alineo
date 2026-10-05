@@ -7,7 +7,9 @@
     "steering-and-pausing",
     "supervision",
     "crash-recovery",
+    "durability-contract",
     "memory",
-    "durability-contract"
+    "memory-model",
+    "memory-in-practice"
   ]
 }

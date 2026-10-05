@@ -105,7 +105,7 @@ machine reboot — the agent is restored onto a fresh one and continues from its
 ## Memory outlives the sandbox
 
 Every agent gets working and semantic memory keyed by its identity, not its container. It survives the sandbox
-being deleted, and a spawned child starts with a copy of its parent's — [agent memory](/docs/alineod/concepts/memory).
+being deleted, and a spawned child starts with a copy of its parent's — [agent memory](/docs/alineod/concepts/memory), and the [memory model](/docs/alineod/concepts/memory-model) underneath it.
 
 ## Drive it from chat
 
@@ -134,5 +134,10 @@ an SDK of its own.
     href="/docs/alineod/api-reference/http-api"
     title="API reference"
     description="Every HTTP route, and every event on the run stream."
+  />
+  <Card
+    href="/docs/alineod/concepts/memory"
+    title="Memory"
+    description="Durable working, semantic and episodic memory, forked into every child."
   />
 </Cards>
