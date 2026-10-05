@@ -68,7 +68,16 @@ const updateRunSandbox = db.query<unknown, [string, string]>(
 );
 const updateStep = db.query<
   unknown,
-  [string, number | null, number | null, string | null, string | null, number | null, string, number]
+  [
+    string,
+    number | null,
+    number | null,
+    string | null,
+    string | null,
+    number | null,
+    string,
+    number,
+  ]
 >(
   `UPDATE workflow_steps SET status = ?, exit_code = ?, started_at = COALESCE(started_at, ?),
      stdout = ?, stderr = ?, ended_at = ?

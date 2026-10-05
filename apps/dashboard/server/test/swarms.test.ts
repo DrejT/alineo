@@ -69,7 +69,10 @@ describe("POST /swarms", () => {
     expect(spawn.body).toMatchObject({ parentAgentId: "a_root", prompt: "fix auth" });
 
     const root = fakeAlineod.calls.find((c) => c.method === "POST" && c.path === "/runs");
-    expect(root?.body).toMatchObject({ prompt: "split the work", budget: { spawnDepth: 2, maxAgents: 2 } });
+    expect(root?.body).toMatchObject({
+      prompt: "split the work",
+      budget: { spawnDepth: 2, maxAgents: 2 },
+    });
   });
 
   test("retries the child spawn while alineod says the parent is not live yet", async () => {

@@ -81,7 +81,10 @@ describe("credentials", () => {
 
     const list = await call("GET", `/sandboxes/${id}/credentials`);
     expect(list.body.bindings).toEqual([
-      { name: "github", binding: { host: "api.github.com", injection: { type: "header", name: "Authorization" } } },
+      {
+        name: "github",
+        binding: { host: "api.github.com", injection: { type: "header", name: "Authorization" } },
+      },
     ]);
 
     const removed = await call("DELETE", `/sandboxes/${id}/credentials/github`);

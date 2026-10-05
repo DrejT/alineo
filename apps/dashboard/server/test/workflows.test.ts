@@ -37,9 +37,17 @@ describe("POST /workflows", () => {
 
 describe("GET /workflows", () => {
   test("lists runs newest first", async () => {
-    const a = await call("POST", "/workflows", { name: "a", steps: [{ name: "s", run: "echo a" }] });
-    const b = await call("POST", "/workflows", { name: "b", steps: [{ name: "s", run: "echo b" }] });
-    await until(async () => (await call("GET", `/workflows/${b.body.id}`)).body.run.status !== "running");
+    const a = await call("POST", "/workflows", {
+      name: "a",
+      steps: [{ name: "s", run: "echo a" }],
+    });
+    const b = await call("POST", "/workflows", {
+      name: "b",
+      steps: [{ name: "s", run: "echo b" }],
+    });
+    await until(
+      async () => (await call("GET", `/workflows/${b.body.id}`)).body.run.status !== "running",
+    );
 
     const list = await call("GET", "/workflows");
     const ids = list.body.runs.map((r: { id: string }) => r.id);
@@ -53,7 +61,9 @@ describe("POST /workflows/:id/retry", () => {
       name: "flaky",
       steps: [{ name: "s", run: "echo hi" }],
     });
-    await until(async () => (await call("GET", `/workflows/${first.body.id}`)).body.run.status !== "running");
+    await until(
+      async () => (await call("GET", `/workflows/${first.body.id}`)).body.run.status !== "running",
+    );
 
     const retry = await call("POST", `/workflows/${first.body.id}/retry`);
     expect(retry.status).toBe(202);

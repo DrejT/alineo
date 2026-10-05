@@ -8,7 +8,12 @@ import { connectLedger } from "./ledger";
 installLoggerFromEnv({ defaultLevel: "info" });
 const log = getLogger("dashboard");
 
-assertAuthConfig(config);
+try {
+  assertAuthConfig(config);
+} catch (err) {
+  log.error("refusing to start", { reason: err instanceof Error ? err.message : String(err) });
+  process.exit(1);
+}
 await connectLedger();
 
 createApp().listen({ port: config.port, hostname: config.host });

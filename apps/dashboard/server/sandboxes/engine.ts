@@ -44,7 +44,12 @@ export async function listSandboxes(opts?: {
 }): Promise<SandboxDetails[]> {
   return ledger.listAllSandboxDetails({
     ...opts,
-    status: opts?.status === "running" ? SandboxStatus.Running : opts?.status === "completed" ? SandboxStatus.Completed : undefined,
+    status:
+      opts?.status === "running"
+        ? SandboxStatus.Running
+        : opts?.status === "completed"
+          ? SandboxStatus.Completed
+          : undefined,
   });
 }
 
@@ -97,7 +102,11 @@ export interface CredentialBindingBody {
   pathPrefix?: string;
   injection:
     | { type: "header"; name: string }
-    | { type: "substitution"; placeholder: string; in: Array<"path" | "query" | "header" | "body"> };
+    | {
+        type: "substitution";
+        placeholder: string;
+        in: Array<"path" | "query" | "header" | "body">;
+      };
 }
 
 export async function setCredential(

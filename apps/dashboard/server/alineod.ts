@@ -19,7 +19,8 @@ export async function alineodJson<T>(method: string, path: string, body?: unknow
   }
   const text = await res.text();
   const data = text ? JSON.parse(text) : undefined;
-  if (!res.ok) throw new HttpError(res.status, data?.error ?? `alineod ${method} ${path} → ${res.status}`);
+  if (!res.ok)
+    throw new HttpError(res.status, data?.error ?? `alineod ${method} ${path} → ${res.status}`);
   return data as T;
 }
 
@@ -33,7 +34,12 @@ export async function alineodReachable(): Promise<boolean> {
 }
 
 const FORWARDED_REQUEST_HEADERS = ["content-type", "accept", "last-event-id"];
-const DROPPED_RESPONSE_HEADERS = new Set(["connection", "transfer-encoding", "content-length", "content-encoding"]);
+const DROPPED_RESPONSE_HEADERS = new Set([
+  "connection",
+  "transfer-encoding",
+  "content-length",
+  "content-encoding",
+]);
 
 /**
  * Forwards a browser request to alineod unchanged and streams the answer back. The body is not

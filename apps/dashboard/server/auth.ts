@@ -24,7 +24,9 @@ export function assertAuthConfig(cfg: { token: string; allowNoAuth: boolean; hos
     );
   }
   if (!isLoopback(cfg.host)) {
-    throw new Error(`DASHBOARD_ALLOW_NO_AUTH=1 is only allowed on a loopback host, not ${cfg.host}.`);
+    throw new Error(
+      `DASHBOARD_ALLOW_NO_AUTH=1 is only allowed on a loopback host, not ${cfg.host}.`,
+    );
   }
 }
 
@@ -72,7 +74,8 @@ function authorized(request: Request): boolean {
 
 export const dashboardAuth = new Elysia()
   .onRequest(({ request, set }) => {
-    for (const [k, v] of Object.entries(corsHeaders(request.headers.get("origin")))) set.headers[k] = v;
+    for (const [k, v] of Object.entries(corsHeaders(request.headers.get("origin"))))
+      set.headers[k] = v;
     if (request.method === "OPTIONS") return new Response(null, { status: 204 });
     if (new URL(request.url).pathname === "/health") return;
     if (!authorized(request)) {

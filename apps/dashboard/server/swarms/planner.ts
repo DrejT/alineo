@@ -64,7 +64,12 @@ export async function planSwarm(prompt: string, limits = DEFAULT_LIMITS): Promis
   const model = googleProvider.languageModel(config.swarm.plannerModel);
   let raw: RawPlan;
   try {
-    const result = await generateObject({ model, schema: PlanSchema, system: SYSTEM_PROMPT, prompt });
+    const result = await generateObject({
+      model,
+      schema: PlanSchema,
+      system: SYSTEM_PROMPT,
+      prompt,
+    });
     raw = result.object;
   } catch (err) {
     throw new HttpError(
@@ -121,13 +126,17 @@ export function validatePlan(raw: RawPlan, limits = DEFAULT_LIMITS): SwarmPlan {
   }
 
   if (raw.spawnDepth > limits.maxSpawnDepth) {
-    problems.push(`spawnDepth ${raw.spawnDepth} exceeds the project ceiling of ${limits.maxSpawnDepth}`);
+    problems.push(
+      `spawnDepth ${raw.spawnDepth} exceeds the project ceiling of ${limits.maxSpawnDepth}`,
+    );
   }
   if (maxDepth > raw.spawnDepth) {
     problems.push(`plan needs depth ${maxDepth} but spawnDepth is only ${raw.spawnDepth}`);
   }
   if (raw.nodes.length > limits.maxAgentsCeiling) {
-    problems.push(`${raw.nodes.length} nodes exceeds the project ceiling of ${limits.maxAgentsCeiling}`);
+    problems.push(
+      `${raw.nodes.length} nodes exceeds the project ceiling of ${limits.maxAgentsCeiling}`,
+    );
   }
   if (raw.nodes.length > raw.maxAgents) {
     problems.push(`${raw.nodes.length} nodes exceeds the plan's own maxAgents (${raw.maxAgents})`);

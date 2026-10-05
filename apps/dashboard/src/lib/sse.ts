@@ -23,7 +23,10 @@ export function watchRun(runId: string, onEvent: (ev: SwarmEvent) => void): () =
       try {
         const res = await fetch(`${BASE}/runs/${runId}/events`, {
           signal: controller.signal,
-          headers: { ...authHeaders(), ...(lastEventId ? { "Last-Event-ID": String(lastEventId) } : {}) },
+          headers: {
+            ...authHeaders(),
+            ...(lastEventId ? { "Last-Event-ID": String(lastEventId) } : {}),
+          },
         });
         if (!res.body) return;
         const reader = res.body.getReader();

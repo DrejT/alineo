@@ -47,7 +47,7 @@
     "test:integration": "bun run --cwd tests/integration test",
     "check:vocabulary": "bun scripts/check-vocabulary.ts",
     "check:dead-code": "fallow dead-code",
-    "lint": "oxlint packages examples cookbooks && oxlint -c .oxlintrc.console.json apps/alineod apps/sandbox/server",
+    "lint": "oxlint packages examples cookbooks && oxlint -c .oxlintrc.console.json apps/alineod apps/sandbox/server apps/dashboard/server",
     "lint:fix": "oxlint --fix packages examples cookbooks",
     "format": "oxfmt packages examples cookbooks apps \"!**/CHANGELOG.md\" \"!apps/alineod/spec/**\"",
     "format:check": "oxfmt --check packages examples cookbooks apps \"!**/CHANGELOG.md\" \"!apps/alineod/spec/**\"",

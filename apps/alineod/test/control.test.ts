@@ -215,7 +215,9 @@ describe("PATCH /agents/:id/permissions/:requestId", () => {
   });
 
   test("409 when the agent is not live", async () => {
-    const res = await call("PATCH", "/agents/a_missing/permissions/req-1", { decision: { kind: "once" } });
+    const res = await call("PATCH", "/agents/a_missing/permissions/req-1", {
+      decision: { kind: "once" },
+    });
     expect(res.status).toBe(409);
   });
 });

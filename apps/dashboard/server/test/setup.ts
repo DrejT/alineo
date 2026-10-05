@@ -22,7 +22,12 @@ mock.module("ai", () => ({ generateObject: fakeGenerateObject }));
 // The real provider's languageModel() needs GEMINI_API_KEY. Tests never call a real model
 // (generateObject is faked above), so this only has to exist and be callable.
 mock.module("@alineo-labs/model-providers", () => ({
-  googleProvider: { id: "google", label: "Google (Gemini)", envVar: "GEMINI_API_KEY", languageModel: () => ({}) },
+  googleProvider: {
+    id: "google",
+    label: "Google (Gemini)",
+    envVar: "GEMINI_API_KEY",
+    languageModel: () => ({}),
+  },
   MODEL_PROVIDERS: [
     { id: "google", label: "Google (Gemini)", envVar: "GEMINI_API_KEY" },
     { id: "groq", label: "Groq", envVar: "GROQ_API_KEY" },

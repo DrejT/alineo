@@ -44,7 +44,9 @@ export function mountTerminal(container: HTMLElement, sandboxId: string): Termin
         term.write("\r\n\x1b[90m[connection closed]\x1b[0m\r\n");
       });
     })
-    .catch((err) => term.write(`\r\n\x1b[31m[${err instanceof Error ? err.message : String(err)}]\x1b[0m\r\n`));
+    .catch((err) =>
+      term.write(`\r\n\x1b[31m[${err instanceof Error ? err.message : String(err)}]\x1b[0m\r\n`),
+    );
 
   term.onData((data) => {
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input", data }));

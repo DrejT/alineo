@@ -53,7 +53,12 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown, retried = false): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  retried = false,
+): Promise<T> {
   const headers: Record<string, string> = { ...authHeaders() };
   if (body !== undefined) headers["content-type"] = "application/json";
   const res = await fetch(`${BASE}${path}`, {
@@ -88,7 +93,10 @@ export interface CreateSandboxInput {
   resources: { cpu: string; memory: string; gpu?: string };
   env?: Record<string, string>;
   timeout?: number;
-  networkPolicy?: { defaultAction?: "allow" | "deny"; egress: { action: "allow" | "deny"; target: string }[] };
+  networkPolicy?: {
+    defaultAction?: "allow" | "deny";
+    egress: { action: "allow" | "deny"; target: string }[];
+  };
   credentialProxy?: boolean;
 }
 
@@ -117,12 +125,23 @@ export const sandboxes = {
     binding: { host: string; pathPrefix?: string; injection: unknown },
   ) => request<void>("POST", `/sandboxes/${id}/credentials`, { name, value, binding }),
   listCredentials: (id: string) =>
-    request<{ bindings: { name: string; binding: unknown }[] }>("GET", `/sandboxes/${id}/credentials`),
+    request<{ bindings: { name: string; binding: unknown }[] }>(
+      "GET",
+      `/sandboxes/${id}/credentials`,
+    ),
   removeCredential: (id: string, name: string) =>
     request<void>("DELETE", `/sandboxes/${id}/credentials/${name}`),
   events: (id: string) =>
     request<{
-      events: { ts: number; name: string; sandboxId: string; stepIndex: number; event: string; payload?: unknown; error?: string }[];
+      events: {
+        ts: number;
+        name: string;
+        sandboxId: string;
+        stepIndex: number;
+        event: string;
+        payload?: unknown;
+        error?: string;
+      }[];
     }>("GET", `/sandboxes/${id}/events`),
   getEgress: (id: string) => request<unknown>("GET", `/sandboxes/${id}/egress`),
   patchEgress: (id: string, rules: { action: "allow" | "deny"; target: string }[]) =>
@@ -136,7 +155,9 @@ export const sandboxes = {
 export async function openSocket(path: string): Promise<WebSocket> {
   const { ticket } = await request<{ ticket: string }>("POST", "/auth/ticket");
   const base = BASE.startsWith("http") ? BASE : `${location.protocol}//${location.host}${BASE}`;
-  return new WebSocket(`${base.replace(/^http/, "ws")}${path}?ticket=${encodeURIComponent(ticket)}`);
+  return new WebSocket(
+    `${base.replace(/^http/, "ws")}${path}?ticket=${encodeURIComponent(ticket)}`,
+  );
 }
 
 // ── runs / agents (sessions + swarms) ───────────────────────────────────────
@@ -157,16 +178,21 @@ export interface AgentView {
 }
 
 export const runs = {
-  list: () => request<{ runs: { runId: string; rootAgentId: string | null; asOf: number }[] }>(
-    "GET",
-    "/runs",
-  ),
+  list: () =>
+    request<{ runs: { runId: string; rootAgentId: string | null; asOf: number }[] }>(
+      "GET",
+      "/runs",
+    ),
   get: (runId: string) =>
     request<{ runId: string; rootAgentId: string | null; agents: AgentView[]; asOf: number }>(
       "GET",
       `/runs/${runId}`,
     ),
-  create: (spec: Record<string, unknown>, prompt?: string, budget?: { spawnDepth?: number; maxAgents?: number }) =>
+  create: (
+    spec: Record<string, unknown>,
+    prompt?: string,
+    budget?: { spawnDepth?: number; maxAgents?: number },
+  ) =>
     request<{ runId: string; rootAgentId: string; state: string }>("POST", "/runs", {
       spec,
       prompt,
@@ -190,13 +216,15 @@ interface TranscriptTurn {
 }
 
 export const agents = {
-  get: (agentId: string) => request<AgentView & { sessionStats?: unknown }>("GET", `/agents/${agentId}`),
+  get: (agentId: string) =>
+    request<AgentView & { sessionStats?: unknown }>("GET", `/agents/${agentId}`),
   transcript: (agentId: string, full = false) =>
     request<{ agentId: string; turns: TranscriptTurn[] }>(
       "GET",
       `/agents/${agentId}/transcript${full ? "?full=1" : ""}`,
     ),
-  prompt: (agentId: string, text: string) => request<void>("POST", `/agents/${agentId}/prompt`, { text }),
+  prompt: (agentId: string, text: string) =>
+    request<void>("POST", `/agents/${agentId}/prompt`, { text }),
   steer: (agentId: string, message: string) =>
     request<void>("POST", `/agents/${agentId}/steer`, { message }),
   pause: (agentId: string) => request<void>("POST", `/agents/${agentId}/pause`, {}),
@@ -259,7 +287,8 @@ export interface WorkflowStep {
 
 export const workflows = {
   list: () => request<{ runs: WorkflowRun[] }>("GET", "/workflows"),
-  get: (id: string) => request<{ run: WorkflowRun; steps: WorkflowStep[] }>("GET", `/workflows/${id}`),
+  get: (id: string) =>
+    request<{ run: WorkflowRun; steps: WorkflowStep[] }>("GET", `/workflows/${id}`),
   create: (name: string, steps: { name: string; run: string }[]) =>
     request<{ id: string }>("POST", "/workflows", { name, steps }),
   retry: (id: string) => request<{ id: string }>("POST", `/workflows/${id}/retry`),

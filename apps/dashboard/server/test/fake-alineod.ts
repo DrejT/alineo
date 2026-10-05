@@ -39,7 +39,12 @@ export function startFakeAlineod(): string {
       const url = new URL(req.url);
       const text = req.method === "GET" || req.method === "HEAD" ? "" : await req.text();
       const body = text ? JSON.parse(text) : undefined;
-      fakeAlineod.calls.push({ method: req.method, path: url.pathname + url.search, body, headers: req.headers });
+      fakeAlineod.calls.push({
+        method: req.method,
+        path: url.pathname + url.search,
+        body,
+        headers: req.headers,
+      });
 
       if (url.pathname === "/health") return json({ ok: true });
       if (fakeAlineod.down) return json({ error: "alineod is down" }, 503);
@@ -58,7 +63,10 @@ export function startFakeAlineod(): string {
       }
       const agent = url.pathname.match(/^\/agents\/([^/]+)$/);
       if (req.method === "GET" && agent) {
-        return json({ agentId: agent[1], state: fakeAlineod.agentState.get(agent[1]!) ?? "running" });
+        return json({
+          agentId: agent[1],
+          state: fakeAlineod.agentState.get(agent[1]!) ?? "running",
+        });
       }
       if (req.method === "PATCH" && url.pathname.includes("/permissions/")) {
         return new Response(null, { status: 204 });

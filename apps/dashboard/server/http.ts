@@ -19,12 +19,15 @@ export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+export const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 export function parseBody<T>(schema: ZodType<T>, value: unknown): T {
   const r = schema.safeParse(value);
   if (!r.success) {
-    const issues = r.error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message));
+    const issues = r.error.issues.map((i) =>
+      i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message,
+    );
     throw new HttpError(400, `invalid request body: ${issues.join("; ")}`);
   }
   return r.data;

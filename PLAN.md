@@ -1,6 +1,6 @@
 # platform-conversion: turning alineo into a dashboard-controlled platform
 
-> Branch: `platform-conversion`. Status date: 2026-10-02.
+> Branch: `platform-conversion`. Status date: 2026-10-02, architecture revised 2026-10-06 (§2).
 
 ## 1. What exists today (capability inventory)
 
@@ -37,62 +37,35 @@ the checklist every dashboard feature below maps back to.
 Full detail (file:line citations) is in the four research transcripts this plan was built from;
 not reproduced here to keep this file a working document rather than a dump.
 
-## 2. Architecture decision: extend `apps/alineod`, do not build a parallel server
+## 2. Architecture decision: the dashboard has its own server, alineod stays small
 
-`apps/alineod` ("the swarm control daemon") already implements the hard, stateful part of what
-a dashboard needs: a durable swarm-tree projection, a replayable `Last-Event-ID`-aware SSE bus,
-idempotent subtree control (pause/resume/stop/steer), crash-only rehydration, and a
-Zod-derived OpenAPI spec. It has its own single-writer SQLite db with a process lease — running
-a second server against the same storage would violate that "one writer" design, and
-re-implementing the projection/SSE/subtree machinery elsewhere would be exactly the "reimplement
-sandbox logic" the brief warns against.
+> Revised 2026-10-06. The first version of this plan added every dashboard route to
+> `apps/alineod`. It was moved out: see `plans/06-10-2026/dashboard-server-migration.md` (local,
+> gitignored) for the reasoning. This section is the current decision.
 
-**Decision**: add new route modules to `apps/alineod` (`src/routes/*.ts`, following the existing
-pattern — thin routes, logic in `src/engine/*.ts`, projections in `src/state/*.ts`), plus a new
-`apps/dashboard` app that talks to alineod's HTTP+SSE API (and to OpenSandbox's own metrics
-where alineod doesn't carry telemetry — see §4).
+`apps/dashboard/server/` is a separate Elysia + Bun server. It depends on alineo (the SDK
+packages, and alineod's public HTTP API). It never opens alineod's database and never imports
+alineod's engine, so alineod keeps its single-writer SQLite design and its process lease.
 
-What's genuinely new in alineod (not duplicating anything — these are real gaps from §1):
+**In the dashboard server:**
 
-1. **`src/routes/sandboxes.ts` + `src/engine/sandboxes.ts`** — a *second*, independent subsystem
-   (not the Pi-agent one) wrapping `@alineo-labs/sandbox` directly for raw sandbox primitives
-   alineod never exposed: create (with required resources/egress/credentials), list/get (via the
-   existing SDK ledger adapter's `listAllSandboxDetails`/`getSandboxDetails` — no new table
-   needed), exec (interactive, over a WebSocket — same shape as `apps/sandbox`'s
-   `terminal.ts`/`server/ws/terminal.ts`, which we port rather than reinvent), checkpoint/list
-   checkpoints, fork, resume, close, credentials CRUD, egress CRUD, live metrics (WS, mirroring
-   `apps/sandbox/server/ws/metrics.ts`'s `sb.watchMetrics()` pattern since alineod's SSE schema
-   has no metrics event). A small in-memory live-handle registry (`sandbox-registry.ts`) mirrors
-   the existing `engine/registry.ts` pattern for agents.
-2. **`GET /runs`** — list-all-runs (alineod only ever supported get-by-id).
-3. **`PATCH /agents/:id/permissions/:requestId`** — resolves a pending tool-use permission
-   request (`Alineo.resolvePermission`), which alineod forwards as an event today but never lets
-   a client answer.
-4. **`src/routes/swarms.ts` + `src/engine/swarm-planner.ts`** — natural-language swarm planning
-   (§5): turns a prompt into a structured plan via a model-providers call, previewed, then
-   realized through the *existing* `createRun`/`spawnAgent` engine functions — no new
-   provisioning path, just a planning step in front of the one that exists.
-5. **`src/routes/workflows.ts` + `src/engine/workflow-runs.ts`** — `@alineo-labs/workflow` has no
-   run registry at all (confirmed: `WorkflowResult` is just `{stdout, vars}`, nothing persisted).
-   This is new bookkeeping: a `workflow_runs`/`workflow_steps` table recording each step's
-   status as a `WorkflowBuilder` run progresses (via its existing step callbacks), with retry
-   re-invoking a failed step's `fn`. This is the one area where "wrap, don't reimplement" has a
-   real seam — see §8 for the honesty caveat on how far this goes.
-6. **`src/routes/settings.ts`** — mostly read-only (storage adapter choice and model
-   provider/concurrency are code/env-level, not reconfigurable at runtime — see §1). Exposes
-   what's actually inspectable (`ADMISSION_CONCURRENCY`, DB paths, `@alineo-labs/model-providers`
-   catalog) and a small persisted table for the one thing genuinely dashboard-owned: egress
-   approval allow-rules.
-7. **Auth/CORS middleware**, env-gated (`ALINEOD_DASHBOARD_TOKEN`) — alineod has zero auth today
-   by design (trusted localhost caller); a browser-facing surface needs at least a bearer check
-   and permissive-but-explicit CORS for the dashboard's origin.
+1. **Raw sandboxes** (`sandboxes/`, `routes/sandboxes.ts`) — wraps `@alineo-labs/sandbox`
+   directly: create, list/get, exec (interactive, over a WebSocket), checkpoint, fork, close,
+   credentials, egress, live metrics. It writes to its own ledger (`DASHBOARD_LEDGER_PATH`), so
+   the list shows sandboxes created from the dashboard.
+2. **Workflow runs** (`workflows/`) — `@alineo-labs/workflow` has no run registry, so this adds
+   `workflow_runs` / `workflow_steps` tables in the server's own database.
+3. **Swarm planning and realization** (`swarms/`) — plans with `@alineo-labs/model-providers`,
+   then realizes through alineod's `POST /runs` and `POST /runs/:id/agents`.
+4. **Settings** (`routes/settings.ts`) — read-only effective configuration.
+5. **Auth** (`auth.ts`) — bearer token, single-use WebSocket tickets, CORS allowlist. The server
+   refuses to start without `DASHBOARD_TOKEN` (loopback-only opt-out).
+6. **Passthrough** (`routes/alineod.ts`) — `/runs*` and `/agents/*` are forwarded to alineod
+   unparsed and unbuffered, SSE included.
 
-New vocabulary needed (checked by `bun run check:vocabulary`): add `checkpoint` and `metric` to
-`SUBJECTS` in `packages/schema/src/vocabulary.ts` (both already read as nouns — `checkpoint` is
-currently verb-only, `metric` is new) so `GET /sandboxes/:id/checkpoints` and
-`GET .../metrics` pass the HTTP route check. No new verbs needed — every new action route reuses
-an existing verb (`checkpoint`, `fork`, `start`, `stop`) or needs none (PATCH with no trailing
-segment for permission resolution, by design — see route table in §6).
+**In alineod** (the two additions that need its own state): `GET /runs` and
+`PATCH /agents/:agentId/permissions/:requestId`. alineod gets no auth, no CORS and no
+dashboard-only subsystem.
 
 ## 3. New app: `apps/dashboard`
 
@@ -143,40 +116,44 @@ through the *existing* `createRun` for the root + `spawnAgent` per child, in top
 respecting `parent`/`waitFor` — i.e. this is a thin orchestration loop over endpoints that
 already exist, not a new provisioning path.
 
-## 6. New route table (additive to the existing one)
+## 6. New route table
 
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/runs` | list all runs |
-| POST | `/sandboxes` | create; body: resources (required), egress mode, credentials |
-| GET | `/sandboxes` | list (via SDK ledger adapter) |
-| GET | `/sandboxes/:id` | detail |
-| DELETE | `/sandboxes/:id` | close |
-| POST | `/sandboxes/:id/checkpoint` | create checkpoint |
-| GET | `/sandboxes/:id/checkpoints` | list |
-| POST | `/sandboxes/:id/fork` | fork into new independent sandbox |
-| POST | `/sandboxes/:id/credentials` | set/patch binding |
-| DELETE | `/sandboxes/:id/credentials/:name` | remove |
-| GET/PATCH/DELETE | `/sandboxes/:id/egress` | policy read/patch/delete |
-| WS | `/sandboxes/:id/exec` | interactive terminal (ported from apps/sandbox) |
-| WS | `/sandboxes/:id/metrics` | live telemetry (ported from apps/sandbox) |
-| PATCH | `/agents/:id/permissions/:requestId` | resolve a pending tool-use permission |
-| POST | `/swarms/plan` | NL prompt → structured plan (not yet created) |
-| POST | `/swarms` | realize a confirmed plan |
-| GET | `/workflows` / `/workflows/:id` | run registry (new bookkeeping) |
-| POST | `/workflows/:id/retry` | retry a failed step |
-| GET | `/settings` | effective config (mostly read-only, see §1) |
-| PUT | `/settings/egress-rules` | the one genuinely dashboard-owned setting |
+Owner is the process that serves the route. `/runs*` and `/agents/*` reach alineod through the
+dashboard server's passthrough.
+
+| Method | Path | Owner | Notes |
+|---|---|---|---|
+| GET | `/runs` | alineod | list all runs |
+| POST | `/sandboxes` | dashboard server | create; body: resources (required), egress mode, credentials |
+| GET | `/sandboxes` | dashboard server | list (via SDK ledger adapter) |
+| GET | `/sandboxes/:id` | dashboard server | detail |
+| DELETE | `/sandboxes/:id` | dashboard server | close |
+| POST | `/sandboxes/:id/checkpoint` | dashboard server | create checkpoint |
+| GET | `/sandboxes/:id/checkpoints` | dashboard server | list |
+| POST | `/sandboxes/:id/fork` | dashboard server | fork into new independent sandbox |
+| POST | `/sandboxes/:id/credentials` | dashboard server | set/patch binding |
+| DELETE | `/sandboxes/:id/credentials/:name` | dashboard server | remove |
+| GET/PATCH/DELETE | `/sandboxes/:id/egress` | dashboard server | policy read/patch/delete |
+| WS | `/sandboxes/:id/exec` | dashboard server | interactive terminal (ported from apps/sandbox) |
+| WS | `/sandboxes/:id/metrics` | dashboard server | live telemetry (ported from apps/sandbox) |
+| PATCH | `/agents/:id/permissions/:requestId` | alineod | resolve a pending tool-use permission |
+| POST | `/swarms/plan` | dashboard server | NL prompt → structured plan (not yet created) |
+| POST | `/swarms` | dashboard server | realize a confirmed plan |
+| GET | `/workflows` / `/workflows/:id` | dashboard server | run registry (new bookkeeping) |
+| POST | `/workflows/:id/retry` | dashboard server | retry a failed step |
+| GET | `/settings` | dashboard server | effective config (mostly read-only, see §1) |
 
 ## 7. One dev command
 
-`scripts/dev-platform.ts`: `Bun.spawn`s `apps/alineod` (`bun --watch server.ts`) and
-`apps/dashboard` (`astro dev`) together, prefixed/colored output, single Ctrl-C tears both down.
+`scripts/dev-platform.ts`: `Bun.spawn`s `apps/alineod` (`bun --watch server.ts`), the dashboard
+server (`bun --watch server/index.ts`, with `DASHBOARD_ALLOW_NO_AUTH=1` for loopback development)
+and `apps/dashboard` (`astro dev`) together, prefixed/colored output, single Ctrl-C tears all
+three down.
 Wired as `bun run dev:platform` at the repo root. Does **not** start OpenSandbox itself (Docker)
 — that's `alineo init`, a separate one-time step, documented in the dashboard's own empty state
 when no server is reachable.
 
-## 8. Build order
+## 8. Build order (original — superseded by §2 for where each step lives)
 
 1. Vocabulary additions (`checkpoint`, `metric` as SUBJECTS) + `bun run check:vocabulary` green.
 2. alineod: auth/CORS middleware, `GET /runs`, permission-resolve route (smallest, lowest-risk

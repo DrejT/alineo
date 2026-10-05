@@ -9,7 +9,9 @@ describe("bearer token", () => {
   });
 
   test("401 with a wrong token", async () => {
-    expect((await call("GET", "/settings", undefined, { authorization: "Bearer nope" })).status).toBe(401);
+    expect(
+      (await call("GET", "/settings", undefined, { authorization: "Bearer nope" })).status,
+    ).toBe(401);
   });
 
   test("200 with the right token", async () => {
@@ -30,7 +32,9 @@ describe("bearer token", () => {
 describe("WebSocket tickets", () => {
   const upgrade = (query: string) =>
     app.handle(
-      new Request(`http://dashboard.test/sandboxes/sb-1/exec${query}`, { headers: { upgrade: "websocket" } }),
+      new Request(`http://dashboard.test/sandboxes/sb-1/exec${query}`, {
+        headers: { upgrade: "websocket" },
+      }),
     );
 
   test("an upgrade without a ticket is 401", async () => {
@@ -63,7 +67,10 @@ describe("WebSocket tickets", () => {
 describe("CORS", () => {
   test("reflects an allowed origin and answers preflight without a token", async () => {
     const res = await app.handle(
-      new Request("http://dashboard.test/settings", { method: "OPTIONS", headers: { origin: "http://localhost:4321" } }),
+      new Request("http://dashboard.test/settings", {
+        method: "OPTIONS",
+        headers: { origin: "http://localhost:4321" },
+      }),
     );
     expect(res.status).toBe(204);
     expect(res.headers.get("access-control-allow-origin")).toBe("http://localhost:4321");
@@ -79,15 +86,23 @@ describe("CORS", () => {
 
 describe("assertAuthConfig", () => {
   test("passes with a token", () => {
-    expect(() => assertAuthConfig({ token: "t", allowNoAuth: false, host: "0.0.0.0" })).not.toThrow();
+    expect(() =>
+      assertAuthConfig({ token: "t", allowNoAuth: false, host: "0.0.0.0" }),
+    ).not.toThrow();
   });
 
   test("refuses to start with no token", () => {
-    expect(() => assertAuthConfig({ token: "", allowNoAuth: false, host: "127.0.0.1" })).toThrow(/DASHBOARD_TOKEN/);
+    expect(() => assertAuthConfig({ token: "", allowNoAuth: false, host: "127.0.0.1" })).toThrow(
+      /DASHBOARD_TOKEN/,
+    );
   });
 
   test("allows no token only as an explicit loopback opt-in", () => {
-    expect(() => assertAuthConfig({ token: "", allowNoAuth: true, host: "127.0.0.1" })).not.toThrow();
-    expect(() => assertAuthConfig({ token: "", allowNoAuth: true, host: "0.0.0.0" })).toThrow(/loopback/);
+    expect(() =>
+      assertAuthConfig({ token: "", allowNoAuth: true, host: "127.0.0.1" }),
+    ).not.toThrow();
+    expect(() => assertAuthConfig({ token: "", allowNoAuth: true, host: "0.0.0.0" })).toThrow(
+      /loopback/,
+    );
   });
 });

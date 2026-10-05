@@ -116,7 +116,13 @@ describe("ExecClient exec streams", () => {
 
   it("watchMetrics() still buffers a JSON line split across two chunks (single-\\n framing)", async () => {
     const encoder = new TextEncoder();
-    const sample = { cpu_count: 2, cpu_used_pct: 1, mem_total_mib: 1, mem_used_mib: 1, timestamp: 1 };
+    const sample = {
+      cpu_count: 2,
+      cpu_used_pct: 1,
+      mem_total_mib: 1,
+      mem_used_mib: 1,
+      timestamp: 1,
+    };
     const whole = `${JSON.stringify(sample)}\n`;
     const split = Math.floor(whole.length / 2);
     const stream = new ReadableStream<Uint8Array>({

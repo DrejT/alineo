@@ -48,7 +48,11 @@ export async function createSwarm(raw: RawPlan): Promise<RealizeResult> {
     prompt: root.task,
     budget: { spawnDepth: plan.spawnDepth, maxAgents: plan.maxAgents },
   };
-  const { runId, rootAgentId } = await alineodJson<{ runId: string; rootAgentId: string }>("POST", "/runs", body);
+  const { runId, rootAgentId } = await alineodJson<{ runId: string; rootAgentId: string }>(
+    "POST",
+    "/runs",
+    body,
+  );
 
   const agentIds: Record<string, string> = { [root.id]: rootAgentId };
   void realizeRest(runId, plan, agentIds).catch((err) => {
@@ -72,10 +76,14 @@ async function realizeRest(
   // plan check rules this out) — bail rather than spin.
   while (done.size < plan.nodes.length) {
     const next = remaining.find(
-      (n) => !done.has(n.id) && done.has(n.parentId!) && (n.waitFor ?? []).every((d) => done.has(d)),
+      (n) =>
+        !done.has(n.id) && done.has(n.parentId!) && (n.waitFor ?? []).every((d) => done.has(d)),
     );
     if (!next) {
-      log.error("swarm plan stalled: unresolvable dependency", { runId, remaining: remaining.length });
+      log.error("swarm plan stalled: unresolvable dependency", {
+        runId,
+        remaining: remaining.length,
+      });
       return;
     }
 
@@ -98,7 +106,11 @@ async function spawnWhenParentLive(runId: string, body: SpawnAgentBody): Promise
   const deadline = Date.now() + config.swarm.parentTimeoutMs;
   while (Date.now() < deadline) {
     try {
-      const { agentId } = await alineodJson<{ agentId: string }>("POST", `/runs/${runId}/agents`, body);
+      const { agentId } = await alineodJson<{ agentId: string }>(
+        "POST",
+        `/runs/${runId}/agents`,
+        body,
+      );
       return agentId;
     } catch (err) {
       if (!(err instanceof HttpError) || err.status !== 409) throw err;

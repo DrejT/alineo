@@ -28,7 +28,10 @@ describe("passthrough to alineod", () => {
   test("PATCH …/permissions/:id is forwarded", async () => {
     const res = await call("PATCH", "/agents/a_1/permissions/r1", { decision: { kind: "once" } });
     expect(res.status).toBe(204);
-    expect(fakeAlineod.calls.at(-1)).toMatchObject({ method: "PATCH", path: "/agents/a_1/permissions/r1" });
+    expect(fakeAlineod.calls.at(-1)).toMatchObject({
+      method: "PATCH",
+      path: "/agents/a_1/permissions/r1",
+    });
   });
 
   test("an upstream error keeps its status", async () => {
@@ -50,7 +53,9 @@ describe("passthrough to alineod", () => {
     const text = await res.text();
     expect(text).toContain("id: 3");
     expect(text).not.toContain("id: 1");
-    expect(fakeAlineod.calls.find((c) => c.path.endsWith("/events"))?.headers.get("last-event-id")).toBe("2");
+    expect(
+      fakeAlineod.calls.find((c) => c.path.endsWith("/events"))?.headers.get("last-event-id"),
+    ).toBe("2");
   });
 });
 
