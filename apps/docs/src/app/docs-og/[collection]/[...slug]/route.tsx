@@ -5,7 +5,6 @@ import {
   cliSource,
   agentSource,
   alineodSource,
-  examplesSource,
   cookbooksSource,
   playgroundSource,
 } from "@/lib/source";
@@ -17,7 +16,6 @@ const SOURCES = {
   cli: cliSource,
   agent: agentSource,
   alineod: alineodSource,
-  examples: examplesSource,
   cookbooks: cookbooksSource,
   playground: playgroundSource,
 } as const;

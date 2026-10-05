@@ -455,10 +455,42 @@ file to `entry` or `dynamicallyLoaded`, or add a scoped `ignoreExports` or `over
 `.fallowrc.json`, and say why in the PR. A published package is covered by `publicPackages`, so
 fallow does not flag its unused API. Check those by hand before you remove them.
 
-## Docs are unversioned — there is no version cut to owe
+## Docs: one tree per product, laid out by concept
 
-`apps/docs/content/docs/` is one tree per product (`core`, `agent`, `alineo`, `alineod`,
-`workflow`, `cookbooks`, `examples`, `playground`). **Edit the page in place.**
+`apps/docs/content/docs/` has one collection per product — `alineod`, `agent`, `cli`, `core`, `workflow` — plus
+`cookbooks` and `playground`. `/` and the header "Docs" link land on `/docs/alineod`. Every product uses the same
+four beats, so a reader who learned one can find their way in the next:
+
+```
+index.mdx        what it is, in one sentence, with running code in the first screen — then one claim per
+                 section, each proved by the smallest snippet that shows it, ending with where it sits
+                 relative to the other products. Not a card grid.
+quickstart.mdx   get it working
+concepts/        the ideas, named as ideas
+api-reference/   the exhaustive surface
+```
+
+Pages for operating a product that are none of those — `alineod/deployment`, `alineod/mcp`, `core/storage`,
+`core/observability` — sit at the product's top level. **There is no `getting-started/` or `guides/` folder**, and no
+`index.mdx` that only restates the sidebar. A new page goes in `concepts/` if it explains an idea, `api-reference/`
+if it lists a surface, and the top level only if it is how to run or operate the thing.
+
+Two rules every page follows:
+
+- **Snippets come from the code, not from another page.** Check every name and signature against `packages/*/src`.
+  The docs went stale exactly this way once: a restructure branch written against `Alineo.load`, `cli:` and
+  **alineo fork** sat open while those names were renamed under it.
+- **No claim ahead of the durability roadmap.** A page may say what a test or a live run has proved, and no more —
+  "resumable to the last completed turn" is proved; "durable" (surviving disk loss) is not.
+
+`bun run check:docs-links` (`scripts/check-docs-links.ts`, a CI step) fails on a `/docs/...` link that isn't a live
+page — including one that only works through a redirect — on a `_redirects` target that isn't live or is itself
+redirected, and on a redirect rule that would hide a live page. Routes come from the content tree, so it needs no
+build. Anchors (`#section`) aren't checked; when you split or rename a page, grep for links into its headings.
+
+### Docs are unversioned — there is no version cut to owe
+
+Edit the page in place.
 
 It was not always so. `core` and `alineo` were versioned into `vX.Y/` folders, with an "epoch"
 tracking `@alineo-labs/sandbox`'s published `major.minor`, a `cut-doc-version.ts` script in the
@@ -467,7 +499,9 @@ release flow, and a CI job failing any PR where the epoch had moved past the lat
 
 What survives is `apps/docs/public/_redirects`, which keeps the already-indexed versioned URLs
 (`/docs/core/0.3`, `/docs/core/v0.1`, …) resolving to the live unversioned page. Add a rule
-there when a page moves — see the `commands/fork` → `commands/spawn` entries from the CLI verb
-rename for the shape, including the case where a URL is deliberately *not* redirected because
-it still names a live page.
+there in the same commit that moves a page, pointing at the page's final home in one hop — and
+when a page moves again, re-point the older rules at it rather than chaining. See the
+`commands/fork` → `commands/spawn` entries from the CLI verb rename for the shape, including the
+case where a URL is deliberately *not* sent to a different command because it still names a
+live page.
 

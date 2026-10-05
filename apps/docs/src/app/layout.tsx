@@ -67,7 +67,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             themeSwitch={{ enabled: false }}
             links={[
               { text: "Docs", url: "/docs/alineod", active: "nested-url" },
-              { text: "Examples", url: "/docs/examples", active: "nested-url" },
               { text: "Cookbook", url: "/cookbook", active: "nested-url" },
               { text: "Playground", url: "/docs/playground", active: "nested-url" },
               { text: "Blog", url: "/blog", active: "nested-url" },

@@ -129,6 +129,24 @@
 /docs/workflow/building/capturing-values         /docs/workflow/concepts/capturing-values     301
 /docs/workflow/building                          /docs/workflow/concepts/sandbox-builder      301
 /docs/workflow/api-reference                     /docs/workflow/api-reference/builder         301
+#
+# examples
+/docs/examples/hello-world                       /docs/core/quickstart                        301
+/docs/examples/exec-code                         /docs/core/concepts/exec                     301
+/docs/examples/file-ops                          /docs/core/concepts/file-ops                 301
+/docs/examples/read-file                         /docs/core/concepts/file-ops                 301
+/docs/examples/capture                           /docs/core/concepts/refs-and-state           301
+/docs/examples/run-bash-script                   /docs/core/concepts/exec                     301
+/docs/examples/interactive-exec                  /docs/core/concepts/exec                     301
+/docs/examples/ports                             /docs/core/api-reference/sandbox             301
+/docs/examples/control-flow                      /docs/workflow/concepts/control-flow         301
+/docs/examples/cancellation                      /docs/core/concepts/timeouts                 301
+/docs/examples/error-handling                    /docs/core/concepts/error-handling           301
+/docs/examples/environments                      /docs/core/concepts/environments             301
+/docs/examples/snapshot-replay                   /docs/core/concepts/snapshots                301
+/docs/examples/sandbox-fork                      /docs/core/concepts/forking                  301
+/docs/examples                                   /docs/core                                   301
+/docs/examples/*                                 /docs/core                                   301
 
 # Static export can't perform a real server redirect for "/" — Next instead bakes
 # it as an error-boundary shell that a client script replaces via router.replace()

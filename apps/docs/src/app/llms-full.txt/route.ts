@@ -4,7 +4,6 @@ import {
   agentSource,
   alineodSource,
   cliSource,
-  examplesSource,
   cookbooksSource,
   playgroundSource,
 } from "@/lib/source";
@@ -19,7 +18,6 @@ export async function GET() {
     ...agentSource.getPages(),
     ...alineodSource.getPages(),
     ...cliSource.getPages(),
-    ...examplesSource.getPages(),
     ...cookbooksSource.getPages(),
     ...playgroundSource.getPages(),
   ];

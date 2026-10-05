@@ -5,7 +5,7 @@ import {
   cliSource,
   agentSource,
   alineodSource,
-  examplesSource,
+  cookbooksSource,
   playgroundSource,
 } from "@/lib/source";
 
@@ -17,7 +17,7 @@ const allPages = [
   ...cliSource.getPages(),
   ...agentSource.getPages(),
   ...alineodSource.getPages(),
-  ...examplesSource.getPages(),
+  ...cookbooksSource.getPages(),
   ...playgroundSource.getPages(),
 ];
 

@@ -4,7 +4,6 @@ import {
   agentSource,
   alineodSource,
   cliSource,
-  examplesSource,
   cookbooksSource,
   playgroundSource,
 } from "@/lib/source";
@@ -20,7 +19,6 @@ export const docCollections = {
   agent: agentSource,
   alineod: alineodSource,
   cli: cliSource,
-  examples: examplesSource,
   cookbooks: cookbooksSource,
   playground: playgroundSource,
 } as const;
