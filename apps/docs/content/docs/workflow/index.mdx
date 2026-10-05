@@ -1,22 +1,93 @@
 ---
-title: Workflow Builder
-description: "@alineo-labs/workflow — a lazy declarative layer on top of the Core SDK for orchestrating multi-sandbox pipelines."
+title: Workflow SDK
+description: "@alineo-labs/workflow adds a lazy, declarative layer over the Core SDK — describe a pipeline, then run it with one await, with sandbox lifecycles managed for you."
 ---
+
+`@alineo-labs/workflow` lets you describe what should happen in a sandbox, then run all of it with a single `await`
+at the end:
+
+```ts
+import { workflow } from "@alineo-labs/workflow";
+
+await workflow(client)
+  .sandbox({ image: "node:22", resources: { cpu: "500m", memory: "512Mi" } }, (sb) => {
+    sb.exec("npm ci");
+    sb.retry(3, (sb) => sb.exec("npm test"), { backoff: "exponential" });
+  })
+  .pipe(process.stdout);
+```
+
+`client` is an ordinary [Core SDK](/docs/core) `Sandbox` client. The callback runs synchronously and only queues
+operations; nothing reaches a container until `.pipe()` or `.result()` is awaited. Then the sandbox is created, the
+queue is flushed in order, and the sandbox is closed — no `try/finally`. [Quickstart →](/docs/workflow/quickstart)
+
+## Control flow without awaits
+
+```ts
+sb.exec("test -f /tmp/cache.tar.gz", { strict: false });
+sb.when(
+  (ctx) => ctx.exitCode === 0,
+  (sb) => sb.exec("tar -xzf /tmp/cache.tar.gz"),
+  (sb) => sb.exec("npm ci"),
+);
+sb.forEach(["lint", "test", "build"], (sb, task) => sb.exec(`npm run ${task}`));
+```
+
+`retry`, `when` and `forEach` take a callback that queues more operations, so a pipeline with branches and loops is
+still one synchronous description — [control flow](/docs/workflow/concepts/control-flow).
+
+## Many containers, one call
+
+```ts
+await workflow(client)
+  .parallel(
+    [
+      { image: "node:20", resources: { cpu: "500m", memory: "512Mi" } },
+      { image: "node:22", resources: { cpu: "500m", memory: "512Mi" } },
+    ],
+    (sb) => sb.exec("npm test"),
+  )
+  .pipe(process.stdout);
+```
+
+`.parallel()` runs the same operations in several containers at once; `.sequence()` runs different ones in order,
+each step able to use what the last one produced — [parallel and sequence](/docs/workflow/concepts/parallel-sequence).
+
+## Values come back as files
+
+Queued operations don't return anything, so a value leaves the sandbox the way a shell script would hand one over:
+write it to a file, then `readFile(path, as)`. After the workflow resolves it is in `vars[as]` —
+[capturing values](/docs/workflow/concepts/capturing-values).
+
+## When to use it
+
+|                | Core SDK (`@alineo-labs/sandbox`)       | Workflow SDK (`@alineo-labs/workflow`) |
+| -------------- | --------------------------------------- | -------------------------------------- |
+| Style          | Imperative — hold objects, call methods | Declarative — describe ops, flush once |
+| Await          | Per operation                           | Once at the end                        |
+| Lifecycle      | Manual `try/finally sb.close()`         | Managed automatically                  |
+| Many sandboxes | Several variables                       | `.parallel()`, `.sequence()`           |
+| Streaming      | `ExecHandle.pipe()`                     | `.pipe(writable)` on the workflow      |
+| Values         | `await sb.exec(...)`                    | `readFile(path, as)` → `vars`          |
+
+Reach for the Core SDK directly when you need each exec's result mid-flow, or are fitting sandbox work into
+imperative code you already have. Everything here runs on the same `SandboxHandle` underneath, and writes the same
+[ledger](/docs/core/storage).
 
 <Cards>
   <Card
-    href="/docs/workflow/getting-started"
-    title="Getting Started"
-    description="What the workflow builder is and when to use it over the Core SDK."
+    href="/docs/workflow/quickstart"
+    title="Quickstart"
+    description="Install, configure, and run a multi-step pipeline in one await."
   />
   <Card
-    href="/docs/workflow/building"
-    title="Building"
-    description="SandboxBuilder ops, control flow, parallel execution, and capturing values."
+    href="/docs/workflow/concepts/sandbox-builder"
+    title="SandboxBuilder"
+    description="Every operation you can queue inside a sandbox callback."
   />
   <Card
-    href="/docs/workflow/api-reference"
-    title="API Reference"
-    description="Complete reference for workflow(), WorkflowBuilder, and SandboxBuilder."
+    href="/docs/workflow/api-reference/builder"
+    title="API reference"
+    description="workflow(), WorkflowBuilder and SandboxBuilder."
   />
 </Cards>

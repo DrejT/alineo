@@ -40,7 +40,7 @@ const FAQS: Faq[] = [
         <code>@alineo-labs/postgres</code>) is for production, multi-process deployments that need a
         shared ledger across instances. Both implement the same <code>IStorageAdapter</code>{" "}
         interface, so switching later is a one-line change — see{" "}
-        <a href="/docs/core/adapters">Storage Adapters</a>.
+        <a href="/docs/core/storage">Storage</a>.
       </>
     ),
     text: "SQLite (@alineo-labs/sqlite) is the right default for local development and single-process deployments — zero config, WAL mode, nothing to run. Postgres (@alineo-labs/postgres) is for production, multi-process deployments that need a shared ledger across instances. Both implement the same IStorageAdapter interface, so switching later is a one-line change.",

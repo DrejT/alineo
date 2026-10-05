@@ -36,7 +36,7 @@ export const docsTabs: LayoutTab[] = [
   },
   {
     url: "/docs/workflow",
-    title: "Workflow Builder",
+    title: "Workflow SDK",
     description: "@alineo-labs/workflow",
     icon: <Workflow className="size-4" />,
   },

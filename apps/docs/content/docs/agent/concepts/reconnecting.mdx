@@ -62,7 +62,7 @@ It is different from the two other snapshots in the stack:
 | -------- | ------------------------------------------ | ------------------------------------------- | -------------------------------------------------------------------- |
 | Holds    | Pi and the spec's packages and setup steps | One agent's conversation and home directory | A whole container                                                    |
 | Taken    | Once per spec, by `Alineo.start()`         | After every completed turn, opt-in          | When you call it                                                     |
-| Restores | A fresh, empty agent                       | That agent, to its last completed turn      | A [sandbox session](/docs/core/building/snapshots), with exec replay |
+| Restores | A fresh, empty agent                       | That agent, to its last completed turn      | A [sandbox session](/docs/core/concepts/snapshots), with exec replay |
 
 Set `"checkpoint": true` on the spec to opt in. [alineod](/docs/alineod) then takes one after every turn that ends
 cleanly, records `agent.checkpointed`, and keeps the newest three per sandbox.

@@ -104,7 +104,7 @@ await client.restoreSnapshot(
 
 Creates a fresh sandbox from a snapshot ID **without** exec replay — unlike `resume()`, the new sandbox starts with a clean exec history; nothing from the ledger is replayed. Use this when you want to restore a checkpointed environment and run new commands from scratch, rather than continue exactly where the checkpoint left off.
 
-This is also what `sb.fork()` uses under the hood — see [Forking sandboxes](/docs/core/patterns/fork) for the relationship between `checkpoint()`, `fork()`, `resume()`, and `restoreSnapshot()`.
+This is also what `sb.fork()` uses under the hood — see [Forking sandboxes](/docs/core/concepts/forking) for the relationship between `checkpoint()`, `fork()`, `resume()`, and `restoreSnapshot()`.
 
 ```ts
 const snapshotId = await sb.checkpoint();

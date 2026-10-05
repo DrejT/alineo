@@ -1,4 +1,0 @@
-{
-  "title": "Storage Adapters",
-  "pages": ["sqlite", "postgres", "custom"]
-}

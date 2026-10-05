@@ -40,7 +40,7 @@ const handler = createMcpHandler(() => {
         "Fetch the full Markdown of one alineo documentation page. Accepts a canonical " +
         "URL, a `/docs/...` path, or a `collection/slug` pair (from search_docs results).",
       inputSchema: z.object({
-        path: z.string().min(1).describe("e.g. /docs/core/getting-started or core/getting-started"),
+        path: z.string().min(1).describe("e.g. /docs/core/quickstart or core/quickstart"),
       }),
     },
     async ({ path }) => {

@@ -1,0 +1,119 @@
+---
+title: Storage
+description: The ledger behind every sandbox — choosing SQLite or Postgres, what gets written, and the schema both create.
+---
+
+Every sandbox created, every command run and every chunk it emitted is appended to a ledger as it happens. That is
+what makes a run resumable: [`client.resume()`](/docs/core/concepts/snapshots) rebuilds its replay cache from it,
+and an auditor gets the whole history rather than a summary of it.
+
+The ledger lives behind one interface, `IStorageAdapter`, with two implementations:
+
+| Adapter           | Package                 | Use it for                                                                 |
+| ----------------- | ----------------------- | -------------------------------------------------------------------------- |
+| `SQLiteAdapter`   | `@alineo-labs/sqlite`   | Local development, single-process apps, scripts, tests. Nothing to run.    |
+| `PostgresAdapter` | `@alineo-labs/postgres` | Several processes sharing one ledger, hosts with no persistent local disk. |
+
+Switching between them is a one-line change. Anything else — [write your own](/docs/core/custom-adapter).
+
+## SQLite
+
+```bash
+bun add @alineo-labs/sqlite
+```
+
+```ts
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+
+const client = new Sandbox({
+  baseUrl: "http://localhost:8080",
+  adapter: new SQLiteAdapter("./ledger.db"),
+});
+```
+
+`new SQLiteAdapter(path)` creates the file if it doesn't exist. Pass `":memory:"` for an in-memory ledger — a
+clean one per test run, gone on close. WAL mode is switched on the first time the adapter is used, so readers
+never block writers and concurrent sandboxes in one process are safe.
+
+## Postgres
+
+```bash
+bun add @alineo-labs/postgres
+```
+
+```ts
+import { PostgresAdapter } from "@alineo-labs/postgres";
+
+const client = new Sandbox({
+  baseUrl: process.env.OPEN_SANDBOX_URL!,
+  apiKey: process.env.OPEN_SANDBOX_API_KEY,
+  adapter: new PostgresAdapter(process.env.DATABASE_URL!),
+});
+```
+
+`new PostgresAdapter(connectionString)` takes a URL of the form `postgres://user:password@host:5432/database`.
+The `postgres` driver underneath also reads `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD` and `PGDATABASE`, so the
+connection can come from the environment instead. Keep credentials there, never in code.
+
+## No connect, no close
+
+You never call `connect()` or `close()` on an adapter. It initialises on first use — running its
+`CREATE TABLE IF NOT EXISTS` migrations, so constructing one fresh on every startup is safe — and closes itself
+from a `beforeExit` hook when the event loop drains. A long-running server never drains, so its pool stays open
+for the life of the process; that is expected, not a leak.
+
+(`Sandbox` has a `connect()` of its own — [`client.connect()`](/docs/core/api-reference/sandbox#connect), for
+attaching to an already-running sandbox by ID. It is unrelated to the adapter.)
+
+## What gets written
+
+| Event                        | When                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `sandbox.created`            | The container was created and reached `Running`.                                  |
+| `exec.started`               | `sb.exec()` or `sb.execCode()` was called.                                        |
+| `exec.output`                | A stdout or stderr chunk arrived from execd.                                      |
+| `exec.completed`             | The command finished; the payload has `{ seq, exitCode }`.                        |
+| `sandbox.checkpoint_created` | `sb.checkpoint()` completed; the payload has `{ snapshotId }`.                    |
+| `sandbox.paused`             | `sb.pause()` froze the container.                                                 |
+| `sandbox.resumed`            | `sb.resume()` thawed it.                                                          |
+| `egress.rule_added`          | A [network policy](/docs/core/concepts/network-policy) rule was added at runtime. |
+| `egress.rule_removed`        | A network policy rule was removed.                                                |
+| `credential.bound`           | A [credential](/docs/core/concepts/credentials) was bound to the sandbox.         |
+| `credential.revoked`         | A credential binding was revoked.                                                 |
+| `sandbox.closed`             | `sb.close()` was called.                                                          |
+
+Execs replayed from cache in a resumed sandbox return their stored output and write nothing new. The
+[Agent SDK](/docs/agent) appends its own events — permission requests, turn checkpoints — to the same ledger.
+
+## Schema
+
+Both adapters create the same two tables. SQLite:
+
+```sql
+CREATE TABLE IF NOT EXISTS alineo_events (
+  id          INTEGER  PRIMARY KEY,
+  sandbox_id  TEXT     NOT NULL,
+  name        TEXT     NOT NULL,
+  step_idx    INTEGER  NOT NULL,
+  branch      INTEGER,
+  event       TEXT     NOT NULL,
+  payload     TEXT,
+  error       TEXT,
+  ts          INTEGER  NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS alineo_events_name_sandbox_ts
+  ON alineo_events(name, sandbox_id, ts, id);
+
+CREATE TABLE IF NOT EXISTS alineo_environments (
+  name        TEXT    PRIMARY KEY,
+  snapshot_id TEXT    NOT NULL,
+  image       TEXT    NOT NULL,
+  built_at    INTEGER NOT NULL
+);
+```
+
+Postgres is the same shape with `BIGSERIAL` ids, `BIGINT` timestamps and a `JSONB` payload. Every hot read filters
+on `(name, sandbox_id)` and orders by `ts`, which the one composite index covers end to end; an existing database's
+older single-column indexes are dropped on connect.
