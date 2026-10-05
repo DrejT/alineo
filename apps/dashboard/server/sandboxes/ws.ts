@@ -1,16 +1,13 @@
 /**
  * Per-connection state for the sandbox WebSocket routes (interactive terminal + live metrics).
- * Kept out of `routes/sandboxes.ts` on purpose: that file is globbed by
- * `scripts/check-vocabulary.ts`'s HTTP-route-segment check via a source-text pattern match on
- * `.get(`/`.post(`/etc, which can't tell an Elysia route registration from an ordinary
- * `Map.get()`/`Map.delete()` call — keeping Map bookkeeping here instead of there is what keeps
- * that check meaningful rather than needing an ever-growing allowlist.
+ * Kept out of `routes/sandboxes.ts` so the route file only
+ * declares routes.
  */
 import type { InteractiveExecHandle } from "@alineo-labs/core";
-import { resolveLive } from "./sandbox-registry";
+import { resolveLive } from "./registry";
 import { getLogger } from "@alineo-labs/logger";
 
-const log = getLogger("alineod");
+const log = getLogger("dashboard");
 
 const execHandles = new Map<string, InteractiveExecHandle>();
 const metricsStops = new Map<string, () => void>();

@@ -6,7 +6,7 @@ import Base from "../layouts/Base.astro";
   <div class="mb-5 flex items-center justify-between">
     <div>
       <h1 class="text-xl font-semibold">Sandboxes</h1>
-      <p class="eyebrow mt-1">every sandbox this alineod instance knows about</p>
+      <p class="eyebrow mt-1">sandboxes created from this dashboard</p>
     </div>
     <a href="/sandboxes/new" class="btn btn-primary">+ New sandbox</a>
   </div>
@@ -60,7 +60,7 @@ import Base from "../layouts/Base.astro";
       $list.classList.remove("hidden");
     } catch (err) {
       $loading.classList.add("hidden");
-      $error.textContent = `Couldn't reach alineod: ${err instanceof Error ? err.message : String(err)}`;
+      $error.textContent = `Couldn't reach the dashboard server: ${err instanceof Error ? err.message : String(err)}`;
       $error.classList.remove("hidden");
     }
   }

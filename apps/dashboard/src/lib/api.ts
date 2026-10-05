@@ -1,13 +1,46 @@
 /**
- * Typed client for alineod's HTTP API. Dev: Vite proxies `/api/*` to alineod (astro.config.mjs),
- * so requests are same-origin and no CORS/token dance is needed locally. A production deploy
- * sets `PUBLIC_ALINEOD_URL` to alineod's real origin and a bearer token via `setAuthToken()`.
+ * Typed client for the dashboard server's HTTP API (`server/`). That server owns sandboxes,
+ * workflows, swarms and settings, and forwards runs and agents to alineod. Dev: Vite proxies
+ * `/api/*` to it (astro.config.mjs), so requests are same-origin. A production deploy sets
+ * `PUBLIC_DASHBOARD_URL` to the server's origin.
+ *
+ * Every request carries the bearer token. On a 401 the client asks for the token once, keeps it
+ * for the browser session, and retries. A WebSocket cannot send headers, so it opens with a
+ * single-use ticket from `POST /auth/ticket` (see `openSocket`).
  */
-const BASE = import.meta.env.PUBLIC_ALINEOD_URL ?? "/api";
+export const BASE = import.meta.env.PUBLIC_DASHBOARD_URL ?? "/api";
 
-let authToken: string | null = null;
+const TOKEN_KEY = "dashboard-token";
+
+function storedToken(): string | null {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+let authToken: string | null = storedToken();
 export function setAuthToken(token: string | null): void {
   authToken = token;
+  try {
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // storage unavailable — the token then lasts for this page load only
+  }
+}
+
+/** Headers every call to the server needs. SSE uses this too. */
+export function authHeaders(): Record<string, string> {
+  return authToken ? { Authorization: `Bearer ${authToken}` } : {};
+}
+
+function askForToken(): boolean {
+  const token = typeof window === "undefined" ? null : window.prompt("Dashboard token");
+  if (!token) return false;
+  setAuthToken(token.trim());
+  return true;
 }
 
 export class ApiError extends Error {
@@ -20,15 +53,15 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = {};
-  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+async function request<T>(method: string, path: string, body?: unknown, retried = false): Promise<T> {
+  const headers: Record<string, string> = { ...authHeaders() };
   if (body !== undefined) headers["content-type"] = "application/json";
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 401 && !retried && askForToken()) return request<T>(method, path, body, true);
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   const data = text ? JSON.parse(text) : undefined;
@@ -98,11 +131,12 @@ export const sandboxes = {
     request<void>("DELETE", `/sandboxes/${id}/egress`, { targets }),
 };
 
-export function wsUrl(path: string): string {
-  const base = BASE.startsWith("http")
-    ? BASE
-    : `${location.protocol}//${location.host}${BASE}`;
-  return base.replace(/^http/, "ws") + path;
+/** Opens a WebSocket on the dashboard server. Gets a single-use ticket first, because a browser
+ *  WebSocket cannot send an `Authorization` header. */
+export async function openSocket(path: string): Promise<WebSocket> {
+  const { ticket } = await request<{ ticket: string }>("POST", "/auth/ticket");
+  const base = BASE.startsWith("http") ? BASE : `${location.protocol}//${location.host}${BASE}`;
+  return new WebSocket(`${base.replace(/^http/, "ws")}${path}?ticket=${encodeURIComponent(ticket)}`);
 }
 
 // ── runs / agents (sessions + swarms) ───────────────────────────────────────

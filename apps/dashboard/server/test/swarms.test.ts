@@ -1,10 +1,11 @@
-/** POST /swarms/plan (planning), POST /swarms (realization via the existing runs/agents engine). */
+/** POST /swarms/plan (planning), POST /swarms (realization over alineod's HTTP API). */
 import { afterEach, describe, expect, test } from "bun:test";
 import { call, until } from "./helpers";
-import { fakeSdk, fakeModel } from "./fakes";
+import { fakeModel } from "./fakes";
+import { fakeAlineod } from "./fake-alineod";
 
 afterEach(() => {
-  fakeSdk.reset();
+  fakeAlineod.reset();
   fakeModel.nextPlan = undefined;
   fakeModel.nextError = undefined;
 });
@@ -57,17 +58,45 @@ describe("POST /swarms", () => {
   test("creates the root run and spawns children in dependency order", async () => {
     const res = await call("POST", "/swarms", validPlan());
     expect(res.status).toBe(202);
-    expect(res.body.agentIds.coordinator).toMatch(/^a_/);
+    expect(res.body.runId).toBe("run_1");
+    expect(res.body.agentIds.coordinator).toBe("a_root");
 
-    // worker-1 is only assigned once realizeRest's background loop reaches it — poll the run.
-    const tree = await until(async () => {
-      const t = await call("GET", `/runs/${res.body.runId}`);
-      return t.body.agents.length === 2 ? t.body : null;
-    });
-    expect(tree.agents.map((a: { specName: string }) => a.specName).sort()).toEqual([
-      "coordinator",
-      "worker-1",
-    ]);
+    // The child is spawned by the background loop — poll alineod's recorded calls.
+    const spawn = await until(
+      () => fakeAlineod.calls.find((c) => c.method === "POST" && c.path === "/runs/run_1/agents"),
+      "child spawn",
+    );
+    expect(spawn.body).toMatchObject({ parentAgentId: "a_root", prompt: "fix auth" });
+
+    const root = fakeAlineod.calls.find((c) => c.method === "POST" && c.path === "/runs");
+    expect(root?.body).toMatchObject({ prompt: "split the work", budget: { spawnDepth: 2, maxAgents: 2 } });
+  });
+
+  test("retries the child spawn while alineod says the parent is not live yet", async () => {
+    fakeAlineod.notLive.add("a_root");
+    await call("POST", "/swarms", validPlan());
+    await until(
+      () => fakeAlineod.calls.filter((c) => c.path === "/runs/run_1/agents").length >= 2,
+      "a retried spawn",
+    );
+    fakeAlineod.notLive.delete("a_root");
+    await until(() => fakeAlineod.nextAgent >= 1, "the child to spawn once the parent is live");
+  });
+
+  test("gives up on a child whose parent failed", async () => {
+    fakeAlineod.notLive.add("a_root");
+    fakeAlineod.agentState.set("a_root", "failed");
+    await call("POST", "/swarms", validPlan());
+    await until(() => fakeAlineod.calls.some((c) => c.path === "/agents/a_root"), "parent check");
+    const spawns = fakeAlineod.calls.filter((c) => c.path === "/runs/run_1/agents").length;
+    await Bun.sleep(100);
+    expect(fakeAlineod.calls.filter((c) => c.path === "/runs/run_1/agents").length).toBe(spawns);
+  });
+
+  test("502 when alineod is unreachable for the root run", async () => {
+    fakeAlineod.down = true;
+    const res = await call("POST", "/swarms", validPlan());
+    expect(res.status).toBe(503);
   });
 
   test("422 for a plan that doesn't validate", async () => {

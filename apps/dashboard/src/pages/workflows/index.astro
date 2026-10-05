@@ -85,7 +85,7 @@ import Base from "../../layouts/Base.astro";
       $list.innerHTML = runs.map(row).join("");
       $list.classList.remove("hidden");
     } catch {
-      $loading.textContent = "Couldn't reach alineod.";
+      $loading.textContent = "Couldn't reach the dashboard server.";
     }
   }
 

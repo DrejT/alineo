@@ -1,13 +1,12 @@
 /**
  * Remembers the resource spec a sandbox was created with — needed to reconnect it with fork
- * support after an alineod restart. `SandboxDetails` (the SDK ledger's own view) doesn't carry
+ * support after a restart of this server. `SandboxDetails` (the SDK ledger's own view) doesn't carry
  * resources at all, and `Sandbox.connect()` only wires up `.fork()` when `resources` is passed
  * explicitly (it does no ledger lookup of its own — see its doc comment), so without this a
- * sandbox created in an earlier alineod process lifetime would silently lose fork support the
- * moment the process restarts. Own table, non-ledger bookkeeping — same posture as
- * `workflow_runs`/`supervision_counters`.
+ * sandbox created in an earlier process lifetime would silently lose fork support the
+ * moment the process restarts. Own table, non-ledger bookkeeping.
  */
-import { db } from "./db";
+import { db } from "../db";
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS sandbox_resources (

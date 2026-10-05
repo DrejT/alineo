@@ -1,25 +1,14 @@
 /**
- * Raw-sandbox operations: create/list/get/checkpoint/fork/close/credentials/egress. The Pi-agent
- * subsystem (`spawn.ts`, `stream.ts`, ...) is a separate concern built on top of these same
- * sandboxes — this module is the one alineod never had before (§1 of PLAN.md's gap list).
+ * Raw-sandbox operations: create/list/get/checkpoint/fork/close/credentials/egress. These wrap
+ * `@alineo-labs/sandbox` directly. Pi agents are alineod's concern and never go through here.
  */
 import { SandboxStatus, type SandboxOptions, type NetworkRule } from "@alineo-labs/sandbox";
 import type { SandboxDetails } from "@alineo-labs/core";
-import { client, register, resolveLive, forget, findSandboxDetails } from "./sandbox-registry";
-import { sdkAdapter } from "./registry";
-import { HttpError } from "./errors";
-import { errorMessage } from "../util";
-import { rememberResources, recallResources } from "../state/sandbox-resources";
-
-export interface CreateSandboxBody {
-  name?: string;
-  image?: string;
-  resources: { cpu: string; memory: string; gpu?: string };
-  env?: Record<string, string>;
-  timeout?: number;
-  networkPolicy?: { defaultAction?: "allow" | "deny"; egress: NetworkRule[] };
-  credentialProxy?: boolean;
-}
+import { client, register, resolveLive, forget, findSandboxDetails } from "./registry";
+import { ledger } from "../ledger";
+import { HttpError, errorMessage } from "../http";
+import { rememberResources, recallResources } from "./resources";
+import type { CreateSandboxBody } from "./schema";
 
 const DEFAULT_IMAGE = "node:22";
 
@@ -44,7 +33,7 @@ export async function createSandbox(body: CreateSandboxBody): Promise<SandboxDet
   }
   register(sb);
   rememberResources(sb.sandboxId, body.resources);
-  const details = await sdkAdapter.getSandboxDetails(sb.name, sb.sandboxId);
+  const details = await ledger.getSandboxDetails(sb.name, sb.sandboxId);
   if (!details) throw new HttpError(500, "sandbox created but missing from the ledger");
   return details;
 }
@@ -53,7 +42,7 @@ export async function listSandboxes(opts?: {
   status?: "running" | "completed";
   limit?: number;
 }): Promise<SandboxDetails[]> {
-  return sdkAdapter.listAllSandboxDetails({
+  return ledger.listAllSandboxDetails({
     ...opts,
     status: opts?.status === "running" ? SandboxStatus.Running : opts?.status === "completed" ? SandboxStatus.Completed : undefined,
   });
@@ -66,13 +55,12 @@ export async function getSandbox(sandboxId: string): Promise<SandboxDetails> {
 }
 
 /** The raw substrate ledger for one sandbox (`sandbox.created`, `exec.started`/`.output`/
- *  `.completed`, `sandbox.checkpoint_created`, ...) — the audit trail's per-sandbox view. alineod
- *  never exposed this over HTTP before; `sb.exec()`'s own replay-on-resume is what consumes it
- *  internally, but an operator reading what happened had no route to ask for it either. */
+ *  `.completed`, `sandbox.checkpoint_created`, ...) — the audit trail's per-sandbox view.
+ *  `sb.exec()`'s own replay-on-resume consumes it internally. This lets an operator read it too. */
 export async function getSandboxLedger(sandboxId: string) {
   const details = await findSandboxDetails(sandboxId);
   if (!details) throw new HttpError(404, `no sandbox ${sandboxId}`);
-  return sdkAdapter.readAll(details.name, sandboxId);
+  return ledger.readAll(details.name, sandboxId);
 }
 
 export async function closeSandbox(sandboxId: string): Promise<void> {

@@ -1,8 +1,8 @@
 /** Ported from apps/sandbox/src/scripts/terminal.ts — same xterm+WS bridge, pointed at
- *  alineod's `/sandboxes/:id/exec` WS instead of the playground's own server. */
+ *  the dashboard server's `/sandboxes/:id/exec` WS instead of the playground's own server. */
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { wsUrl } from "../lib/api";
+import { openSocket } from "../lib/api";
 
 export interface TerminalHandle {
   fit(): void;
@@ -20,27 +20,34 @@ export function mountTerminal(container: HTMLElement, sandboxId: string): Termin
   term.loadAddon(fitAddon);
   term.open(container);
 
-  const ws = new WebSocket(wsUrl(`/sandboxes/${sandboxId}/exec`));
+  let ws: WebSocket | null = null;
+  let disposed = false;
 
   const sendResize = () => {
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
     }
   };
 
-  ws.addEventListener("open", () => {
-    fitAddon.fit();
-    sendResize();
-  });
-  ws.addEventListener("message", (ev) => {
-    if (typeof ev.data === "string") term.write(ev.data);
-  });
-  ws.addEventListener("close", () => {
-    term.write("\r\n\x1b[90m[connection closed]\x1b[0m\r\n");
-  });
+  openSocket(`/sandboxes/${sandboxId}/exec`)
+    .then((socket) => {
+      if (disposed) return socket.close();
+      ws = socket;
+      socket.addEventListener("open", () => {
+        fitAddon.fit();
+        sendResize();
+      });
+      socket.addEventListener("message", (ev) => {
+        if (typeof ev.data === "string") term.write(ev.data);
+      });
+      socket.addEventListener("close", () => {
+        term.write("\r\n\x1b[90m[connection closed]\x1b[0m\r\n");
+      });
+    })
+    .catch((err) => term.write(`\r\n\x1b[31m[${err instanceof Error ? err.message : String(err)}]\x1b[0m\r\n`));
 
   term.onData((data) => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input", data }));
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input", data }));
   });
 
   return {
@@ -49,7 +56,8 @@ export function mountTerminal(container: HTMLElement, sandboxId: string): Termin
       sendResize();
     },
     dispose() {
-      ws.close();
+      disposed = true;
+      ws?.close();
       term.dispose();
     },
   };

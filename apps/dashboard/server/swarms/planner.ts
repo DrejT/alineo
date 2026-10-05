@@ -1,14 +1,14 @@
 /**
- * Natural-language swarm planning: turns a prompt into a structured, editable plan (§5 of
- * PLAN.md). Planning is pure/offline — it never touches OpenSandbox or the ledger. Realizing a
- * confirmed plan (`swarms.ts`) is what actually spawns anything, through the existing
- * `createRun`/`spawnAgent` engine functions.
+ * Natural-language swarm planning: turns a prompt into a structured, editable plan.
+ * Planning never touches OpenSandbox or alineod. Realizing a confirmed plan (`realize.ts`) is what
+ * actually spawns anything, through alineod's `POST /runs` and `POST /runs/:id/agents`.
  */
 import { generateObject } from "ai";
 import { z } from "zod";
 import { googleProvider } from "@alineo-labs/model-providers";
 import { loadProjectConfig } from "@alineo-labs/config-shared";
-import { HttpError } from "./errors";
+import { HttpError } from "../http";
+import { config } from "../config";
 
 const PlanNode = z.object({
   id: z.string().min(1).describe("short stable identifier used to express parent/child edges"),
@@ -45,10 +45,6 @@ count — never pad either budget. If the request is too vague to plan concretel
 or an unbounded/"as many as needed" count), still produce your best single-node guess, since \
 ambiguity is flagged separately by the caller, not by you.`;
 
-function modelId(): string {
-  return process.env.ALINEOD_SWARM_PLANNER_MODEL ?? "gemini-flash-latest";
-}
-
 /** Server-side limits a plan is checked against, independent of whatever the model proposed —
  *  mirrors the enforcement `packages/agent/src/agent/validation.ts` applies at spawn time, so a
  *  plan that would later be refused by the SDK is caught here instead, with a legible reason. */
@@ -58,14 +54,14 @@ export interface PlanLimits {
 }
 
 const DEFAULT_LIMITS: PlanLimits = {
-  maxSpawnDepth: Number(process.env.ALINEOD_SWARM_MAX_DEPTH ?? 4),
-  maxAgentsCeiling: Number(process.env.ALINEOD_SWARM_MAX_AGENTS ?? 12),
+  maxSpawnDepth: config.swarm.maxDepth,
+  maxAgentsCeiling: config.swarm.maxAgents,
 };
 
 export async function planSwarm(prompt: string, limits = DEFAULT_LIMITS): Promise<SwarmPlan> {
   if (!prompt.trim()) throw new HttpError(400, "prompt is required");
 
-  const model = googleProvider.languageModel(modelId());
+  const model = googleProvider.languageModel(config.swarm.plannerModel);
   let raw: RawPlan;
   try {
     const result = await generateObject({ model, schema: PlanSchema, system: SYSTEM_PROMPT, prompt });

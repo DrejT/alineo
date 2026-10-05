@@ -13,9 +13,8 @@ import Base from "../layouts/Base.astro";
   <div id="content" class="hidden flex flex-col gap-4"></div>
 
   <p class="mt-6 text-xs" style="color: var(--color-muted); max-width: 40rem;">
-    Storage adapter choice, model provider, and concurrency limits are code/env-level in this
-    codebase — there's no existing runtime-configurable switch to build a settings form on top
-    of, so this page surfaces what's actually in effect rather than pretending otherwise.
+    Storage, model provider and alineod's address are env-level — there is no runtime switch to
+    build a settings form on, so this page shows what is actually in effect.
   </p>
 </Base>
 
@@ -31,7 +30,8 @@ import Base from "../layouts/Base.astro";
       $loading.classList.add("hidden");
       $content.classList.remove("hidden");
 
-      const storage = s.storage as { adapter: string; dbPath: string; sdkLedgerPath: string };
+      const storage = s.storage as { adapter: string; dbPath: string; ledgerPath: string };
+      const alineod = s.alineod as { url: string; reachable: boolean };
       const providers = s.modelProviders as { id: string; label: string; envVar: string; configured: boolean }[];
       const resources = s.defaultResources as { cpu: string; memory: string };
 
@@ -41,15 +41,15 @@ import Base from "../layouts/Base.astro";
           <dl class="mono mt-2 text-sm">
             <div>adapter: ${storage.adapter}</div>
             <div>db: ${storage.dbPath}</div>
-            <div>sdk ledger: ${storage.sdkLedgerPath}</div>
+            <div>sandbox ledger: ${storage.ledgerPath}</div>
           </dl>
         </div>
         <div class="card">
-          <span class="eyebrow">concurrency &amp; defaults</span>
+          <span class="eyebrow">alineod &amp; defaults</span>
           <dl class="mono mt-2 text-sm">
-            <div>admission concurrency: ${s.admissionConcurrency}</div>
+            <div>alineod: ${alineod.url} (${alineod.reachable ? "reachable" : "not reachable"})</div>
             <div>default resources: ${resources.cpu} / ${resources.memory}</div>
-            <div>dashboard auth: ${s.dashboardAuthEnabled ? "enabled" : "disabled (no ALINEOD_DASHBOARD_TOKEN set)"}</div>
+            <div>dashboard auth: ${s.authEnabled ? "token required" : "disabled (loopback only)"}</div>
           </dl>
         </div>
         <div class="card">

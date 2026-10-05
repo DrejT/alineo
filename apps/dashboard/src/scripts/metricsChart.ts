@@ -1,6 +1,6 @@
 /** Ported from apps/sandbox/src/scripts/metricsChart.ts, with colors read from the design
  *  tokens (--color-accent / --color-ok) instead of hardcoded hex. */
-import { wsUrl } from "../lib/api";
+import { openSocket } from "../lib/api";
 
 export interface MetricsHandle {
   resize(): void;
@@ -48,8 +48,9 @@ export function mountMetricsChart(
     drawSeries(memSamples, cssVar("--color-ok") || "#22c55e");
   }
 
-  const ws = new WebSocket(wsUrl(`/sandboxes/${sandboxId}/metrics`));
-  ws.addEventListener("message", (ev) => {
+  let ws: WebSocket | null = null;
+  let disposed = false;
+  const onMessage = (ev: MessageEvent) => {
     if (typeof ev.data !== "string") return;
     // Real execd payload shape (see packages/opensandbox/src/types.ts's Metrics doc comment) —
     // cpu_used_pct is 0-100, mem_used_mib is MiB.
@@ -64,7 +65,22 @@ export function mountMetricsChart(
     if (memSamples.length > 120) memSamples.shift();
     readout.textContent = `cpu ${m.cpu_used_pct.toFixed(1)}% (accent)  ·  memory ${m.mem_used_mib.toFixed(0)} / ${m.mem_total_mib.toFixed(0)} MiB (ok)`;
     draw();
-  });
+  };
+  openSocket(`/sandboxes/${sandboxId}/metrics`)
+    .then((socket) => {
+      if (disposed) return socket.close();
+      ws = socket;
+      socket.addEventListener("message", onMessage);
+    })
+    .catch(() => {
+      readout.textContent = "metrics unavailable";
+    });
 
-  return { resize, dispose: () => ws.close() };
+  return {
+    resize,
+    dispose: () => {
+      disposed = true;
+      ws?.close();
+    },
+  };
 }

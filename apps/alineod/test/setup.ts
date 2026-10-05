@@ -25,8 +25,7 @@ process.env.ALINEOD_REATTACH_RETRY_DELAY_MS = "10";
 process.env.ALINEOD_ADMISSION_CONCURRENCY = "2";
 process.env.ALINEOD_ADMISSION_TIMEOUT_MS = "300";
 
-const { FakeAlineo, FakeSandboxClientClass, fakeGenerateObject } = await import("./fakes");
-const { SandboxStatus } = await import("@alineo-labs/core");
+const { FakeAlineo } = await import("./fakes");
 // durability-roadmap M3, 3.2: stream.ts imports `checkpointsPath`/`takeCheckpoint` from
 // "alineo" too, not just `Alineo` — real, generic utility functions (they take a
 // SandboxHandle-shaped object, not an `Alineo` instance), so this mock re-exports the real
@@ -49,20 +48,3 @@ mock.module("alineo", () => ({
   findLatestCheckpoint: real.findLatestCheckpoint,
   restoreCheckpoint: real.restoreCheckpoint,
 }));
-mock.module("@alineo-labs/sandbox", () => ({ Sandbox: FakeSandboxClientClass, SandboxStatus }));
-mock.module("ai", () => ({ generateObject: fakeGenerateObject }));
-// The real provider's languageModel() requires GEMINI_API_KEY; tests never call the real model
-// (generateObject is faked above), so this just needs to exist and be callable.
-mock.module("@alineo-labs/model-providers", () => ({
-  googleProvider: { id: "google", label: "Google (Gemini)", envVar: "GEMINI_API_KEY", languageModel: () => ({}) },
-  MODEL_PROVIDERS: [
-    { id: "google", label: "Google (Gemini)", envVar: "GEMINI_API_KEY" },
-    { id: "groq", label: "Groq", envVar: "GROQ_API_KEY" },
-  ],
-}));
-
-// The sandboxes/workflows subsystem's `sdkAdapter` is the real `SQLiteAdapter` (only the
-// `alineo`/`@alineo-labs/sandbox` SDK classes are faked, not storage) — it needs its migrations
-// run once before any test touches it, same as `server.ts` does for the real process.
-const { sdkAdapter } = await import("../src/engine/registry");
-await sdkAdapter.connect?.();

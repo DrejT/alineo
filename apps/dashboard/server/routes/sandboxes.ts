@@ -12,10 +12,10 @@ import {
   EgressPatchBody,
   EgressDeleteBody,
   ListSandboxesQuery,
-} from "../sandboxes-schema";
-import { parseBody } from "./http";
-import * as engine from "../engine/sandboxes";
-import * as ws from "../engine/sandbox-ws";
+} from "../sandboxes/schema";
+import { parseBody } from "../http";
+import * as engine from "../sandboxes/engine";
+import * as ws from "../sandboxes/ws";
 
 export const sandboxesRoutes = new Elysia({ prefix: "/sandboxes" })
   .post("/", async ({ body, set }) => {

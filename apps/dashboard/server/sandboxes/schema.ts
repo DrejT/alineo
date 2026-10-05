@@ -1,6 +1,5 @@
-/** Wire contract for the raw-sandbox routes (`routes/sandboxes.ts`) — local to alineod rather
- *  than `@alineo-labs/schema`, since these shapes mirror `@alineo-labs/sandbox`'s own option
- *  types one-to-one and aren't part of the cross-surface vocabulary the schema package tracks. */
+/** Wire contract for the raw-sandbox routes (`routes/sandboxes.ts`). These shapes mirror
+ *  `@alineo-labs/sandbox`'s own option types one-to-one. */
 import { z } from "zod";
 
 const NetworkRule = z.object({

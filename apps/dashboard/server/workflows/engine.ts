@@ -1,20 +1,19 @@
 /**
  * Workflow run registry on top of `@alineo-labs/workflow`, which has none of its own (confirmed:
- * `WorkflowResult` is just `{stdout, vars}` — see PLAN.md §8 for the scope this was built to).
+ * `WorkflowResult` is just `{stdout, vars}`).
  *
  * Each step is one `sb.exec()` queued in order inside a single `.sandbox()` stage; status is
  * tracked via `SandboxOptions.hooks`, which fire in queued order for a plain sequential `fn` —
  * no change to the workflow package itself, just observing what it already reports.
  *
- * Honesty flag (PLAN.md §9): "retry" re-runs the whole workflow in a fresh sandbox, not just the
+ * Caveat: "retry" re-runs the whole workflow in a fresh sandbox, not just the
  * failed step onward — `@alineo-labs/workflow`'s lazy, all-at-once-flushed queue has no primitive
  * for resuming a partially-flushed stage, and this doesn't invent one.
  */
 import { workflow } from "@alineo-labs/workflow";
-import { client } from "./sandbox-registry";
-import { defaultResources } from "./swarm-planner";
-import { HttpError } from "./errors";
-import { errorMessage } from "../util";
+import { client } from "../sandboxes/registry";
+import { defaultResources } from "../swarms/planner";
+import { HttpError, errorMessage } from "../http";
 import {
   createWorkflowRun,
   setWorkflowSandbox,
@@ -26,7 +25,7 @@ import {
   listWorkflowRuns,
   type WorkflowRunRow,
   type WorkflowStepRow,
-} from "../state/workflows";
+} from "./store";
 
 export interface WorkflowStepInput {
   name: string;

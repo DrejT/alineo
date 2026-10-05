@@ -12,7 +12,7 @@ export default defineConfig({
     server: {
       proxy: {
         "/api": {
-          target: process.env.ALINEOD_URL ?? "http://127.0.0.1:4600",
+          target: process.env.DASHBOARD_URL ?? "http://127.0.0.1:4700",
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ""),
           ws: true,

@@ -1,5 +1,6 @@
-/** Subscribes to `GET /runs/:runId/events` — alineod's single SSE stream for a whole swarm. */
-const BASE = import.meta.env.PUBLIC_ALINEOD_URL ?? "/api";
+/** Subscribes to `GET /runs/:runId/events` — alineod's single SSE stream for a whole swarm,
+ *  passed through the dashboard server. */
+import { BASE, authHeaders } from "./api";
 
 export interface SwarmEvent {
   seq?: number;
@@ -22,7 +23,7 @@ export function watchRun(runId: string, onEvent: (ev: SwarmEvent) => void): () =
       try {
         const res = await fetch(`${BASE}/runs/${runId}/events`, {
           signal: controller.signal,
-          headers: lastEventId ? { "Last-Event-ID": String(lastEventId) } : {},
+          headers: { ...authHeaders(), ...(lastEventId ? { "Last-Event-ID": String(lastEventId) } : {}) },
         });
         if (!res.body) return;
         const reader = res.body.getReader();

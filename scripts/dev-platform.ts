@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /**
- * One command for local platform development: alineod (HTTP+SSE API) and the dashboard
- * (Astro dev server) together, prefixed/colored output, one Ctrl-C tears both down.
+ * One command for local platform development: alineod (swarm daemon), the dashboard server
+ * (sandboxes, workflows, swarms, auth — forwards runs/agents to alineod) and the dashboard UI
+ * (Astro dev server) together, prefixed/colored output, one Ctrl-C tears all three down.
  *
  * Does NOT start OpenSandbox itself — that's `alineo init` (Docker), a separate one-time step.
  * The dashboard's empty states explain how to run it when alineod can't be reached.
@@ -36,10 +37,19 @@ interface Proc {
   color: string;
   cwd: string;
   cmd: string[];
+  env?: Record<string, string>;
 }
 
 const PROCS: Proc[] = [
   { name: "alineod", color: "36", cwd: join(root, "apps/alineod"), cmd: ["bun", "--watch", "server.ts"] },
+  {
+    name: "server",
+    color: "33",
+    cwd: join(root, "apps/dashboard"),
+    cmd: ["bun", "--watch", "server/index.ts"],
+    // Local development only: loopback bind, no token. The server refuses this on any other host.
+    env: { DASHBOARD_ALLOW_NO_AUTH: "1" },
+  },
   { name: "dashboard", color: "35", cwd: join(root, "apps/dashboard"), cmd: ["bunx", "astro", "dev", "--port", "4321"] },
 ];
 
@@ -71,7 +81,7 @@ for (const p of PROCS) {
     cwd: p.cwd,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...rootEnv, ...process.env },
+    env: { ...rootEnv, ...p.env, ...process.env },
   });
   children.push(child);
   void pump(child.stdout as ReadableStream<Uint8Array>, label);
@@ -87,7 +97,7 @@ function shutdown(): void {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-console.log("alineod → http://localhost:4600   dashboard → http://localhost:4321");
+console.log("alineod → :4600   server → :4700   dashboard → http://localhost:4321");
 console.log("(OpenSandbox itself is not started here — run `alineo init` first if it isn't up)");
 
 await Promise.all(children.map((c) => c.exited));

@@ -1,8 +1,8 @@
-/** Workflow run registry routes — see engine/workflow-runs.ts for what "retry" actually does. */
+/** Workflow run registry routes — see workflows/engine.ts for what "retry" actually does. */
 import { Elysia } from "elysia";
 import { z } from "zod";
-import { startWorkflow, retryWorkflow, getWorkflow, listWorkflows } from "../engine/workflow-runs";
-import { parseBody } from "./http";
+import { startWorkflow, retryWorkflow, getWorkflow, listWorkflows } from "../workflows/engine";
+import { parseBody } from "../http";
 
 const CreateWorkflowBody = z.object({
   name: z.string().min(1),

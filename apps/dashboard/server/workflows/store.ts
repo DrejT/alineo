@@ -1,10 +1,9 @@
 /**
  * Workflow run registry — bookkeeping `@alineo-labs/workflow` itself doesn't have (confirmed:
- * `WorkflowResult` is just `{stdout, vars}`, nothing persisted). Own tables, direct SQL, same
- * non-ledger-replayed posture as `supervision_counters`/`spawn_idempotency` in `db.ts`: this
- * isn't swarm history, so `rebuild()` never touches it.
+ * `WorkflowResult` is just `{stdout, vars}`, nothing persisted). Own tables in the dashboard
+ * server's own database, direct SQL.
  */
-import { db } from "./db";
+import { db } from "../db";
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS workflow_runs (

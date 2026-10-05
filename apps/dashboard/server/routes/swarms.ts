@@ -1,9 +1,9 @@
-/** Natural-language swarm creation: plan, then realize. See PLAN.md §5. */
+/** Natural-language swarm creation: plan, then realize through alineod. */
 import { Elysia } from "elysia";
 import { z } from "zod";
-import { planSwarm } from "../engine/swarm-planner";
-import { createSwarm } from "../engine/swarms";
-import { parseBody } from "./http";
+import { planSwarm } from "../swarms/planner";
+import { createSwarm } from "../swarms/realize";
+import { parseBody } from "../http";
 
 const PlanBody = z.object({ prompt: z.string().min(1) });
 
@@ -27,9 +27,9 @@ export const swarmsRoutes = new Elysia({ prefix: "/swarms" })
     return planSwarm(prompt);
   })
 
-  .post("/", ({ body, set }) => {
+  .post("/", async ({ body, set }) => {
     const plan = parseBody(CreateSwarmBody, body);
-    const result = createSwarm(plan);
+    const result = await createSwarm(plan);
     set.status = 202;
     return result;
   });
