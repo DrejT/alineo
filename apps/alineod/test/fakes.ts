@@ -59,6 +59,7 @@ export class FakeAgent {
 
   readonly prompts: string[] = [];
   readonly steered: string[] = [];
+  readonly permissionDecisions: Array<{ requestId: string; decision: unknown }> = [];
   readonly files = new Map<string, string>();
   readonly spawns: Array<{ specPath: string; opts: SpawnOpts; child: FakeAgent }> = [];
 
@@ -198,6 +199,10 @@ export class FakeAgent {
   async steer(message: string): Promise<void> {
     if (this.steerError) throw this.steerError;
     this.steered.push(message);
+  }
+
+  async resolvePermission(requestId: string, decision: unknown): Promise<void> {
+    this.permissionDecisions.push({ requestId, decision });
   }
 
   async abort(): Promise<void> {

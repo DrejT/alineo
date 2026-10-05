@@ -193,3 +193,29 @@ describe("POST /agents/:id/stop", () => {
     expect((await call("POST", "/agents/a_missing/stop")).status).toBe(404);
   });
 });
+
+describe("PATCH /agents/:id/permissions/:requestId", () => {
+  test("hands the decision to the live agent", async () => {
+    const { rootAgentId, root } = await startRun();
+    const res = await call("PATCH", `/agents/${rootAgentId}/permissions/req-1`, {
+      decision: { kind: "reject", feedback: "not that file" },
+    });
+    expect(res.status).toBe(204);
+    expect(root.permissionDecisions).toEqual([
+      { requestId: "req-1", decision: { kind: "reject", feedback: "not that file" } },
+    ]);
+  });
+
+  test("400 for a decision that is not once, always or reject", async () => {
+    const { rootAgentId } = await startRun();
+    const res = await call("PATCH", `/agents/${rootAgentId}/permissions/req-1`, {
+      decision: { kind: "maybe" },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("409 when the agent is not live", async () => {
+    const res = await call("PATCH", "/agents/a_missing/permissions/req-1", { decision: { kind: "once" } });
+    expect(res.status).toBe(409);
+  });
+});
