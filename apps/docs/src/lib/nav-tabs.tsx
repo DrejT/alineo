@@ -23,7 +23,7 @@ export const docsTabs: LayoutTab[] = [
     icon: <Bot className="size-4" />,
   },
   {
-    url: "/docs/alineo",
+    url: "/docs/cli",
     title: "alineo CLI",
     description: "alineo-cli",
     icon: <Terminal className="size-4" />,

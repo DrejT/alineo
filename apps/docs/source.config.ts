@@ -6,7 +6,7 @@ import { z } from "zod";
 const docs = { postprocess: { includeProcessedMarkdown: true } };
 
 export const coreDocs = defineDocs({ dir: "content/docs/core", docs });
-export const alineoDocs = defineDocs({ dir: "content/docs/alineo", docs });
+export const cliDocs = defineDocs({ dir: "content/docs/cli", docs });
 export const workflowDocs = defineDocs({ dir: "content/docs/workflow", docs });
 export const agentDocs = defineDocs({ dir: "content/docs/agent", docs });
 export const alineodDocs = defineDocs({ dir: "content/docs/alineod", docs });

@@ -41,7 +41,7 @@ bunx alineo-cli add https://example.com/specs/code-reviewer.json
 
 ```
 Agent spec saved: agents/code-reviewer.json
-Load it with: Alineo.start("agents/code-reviewer.json") from alineo
+Load it with: Alineo.start(await Bun.file("agents/code-reviewer.json").json(), { adapter }) from alineo
 ```
 
 `alineo add` fetches the spec, validates it (`name` and `harness: "pi"` are required), resolves any `registryDependencies` first (fetched recursively, depth-first), and writes it to `<agentsDir>/<name>.json` — `agentsDir` defaults to `./agents`. It does **not** create a sandbox, run setup, or checkpoint anything — that happens later, the first time you `Alineo.start()` the spec.
@@ -65,14 +65,14 @@ code-reviewer         pi        A Node.js sandbox pre-loaded with TypeScript too
 
 ### Run the agent
 
-`Alineo.start()` (from `alineo`) does the actual sandbox work: on first load it spins up a `node:22` sandbox, installs the Pi CLI and any `setup` steps, then checkpoints it. Subsequent loads restore from that snapshot, skipping the install.
+`Alineo.start()` (from `alineo`) does the actual sandbox work: on first load it spins up a `node:22` sandbox, installs the Pi CLI and any `setup` steps, then snapshots it. Subsequent starts restore from that setup snapshot, skipping the install.
 
 ```ts
 import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const adapter = new SQLiteAdapter("./.alineo/ledger.db");
-const agent = await Alineo.start("agents/code-reviewer.json", { adapter });
+const agent = await Alineo.start(await Bun.file("agents/code-reviewer.json").json(), { adapter });
 
 for await (const chunk of textOnly(agent.prompt("Review this repo for obvious bugs."))) {
   process.stdout.write(chunk);
@@ -103,7 +103,7 @@ This deletes `agents/code-reviewer.json`. It's purely a local file operation —
 
 ## Next steps
 
-- [Commands reference](/docs/alineo/commands) — all flags for each command
-- [Registry format](/docs/alineo/registry) — publish your own agent spec
-- [Running an agent spec](/docs/alineo/using-sandboxes) — full details on `Alineo.start()`
+- [Commands reference](/docs/cli/commands) — all flags for each command
+- [Registry format](/docs/cli/registry) — publish your own agent spec
+- [Running an agent spec](/docs/cli/using-sandboxes) — full details on `Alineo.start()`
 - [alineo overview](/docs/agent) — the full Alineo API (prompting, streaming, sessions, snapshotting)

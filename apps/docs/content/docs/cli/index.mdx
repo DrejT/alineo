@@ -1,0 +1,58 @@
+---
+title: alineo CLI
+description: Start a local OpenSandbox server, manage agent spec files, and start, prompt, steer, spawn and stop agent sessions straight from the shell.
+---
+
+`alineo-cli` is the Agent SDK with a shell in front of it. It does the setup you'd otherwise write by hand, and it
+drives agent sessions without a TypeScript file.
+
+```bash
+bunx alineo-cli init                                        # OpenSandbox in Docker + alineo.config.json
+alineo add https://example.com/specs/code-reviewer.json     # save a spec to ./agents
+alineo start agents/code-reviewer.json                      # a live agent session
+alineo prompt <sandbox-id> "run the tests"
+```
+
+Nothing here is a separate implementation — `alineo start` is `Alineo.start()`, `alineo spawn` is
+`agent.spawn()`. Anything you start from the shell can be picked up later from the SDK, and the other way round.
+
+## What it's for
+
+- **Setup once.** `alineo init` starts OpenSandbox in Docker and writes the config the SDK reads, so nothing
+  downstream needs a URL passed to it — [init](/docs/cli/commands/init).
+- **Keep specs as files.** `alineo add` fetches an `AgentSpec` from any URL and saves it locally; `list` and
+  `remove` manage the set — [the registry format](/docs/cli/registry).
+- **Drive a session from the shell.** `start`, `prompt`, `steer`, `spawn`, `agents`, `logs`, `stop` — the full
+  lifecycle of a live agent without writing a script.
+
+## Sessions outlive the command
+
+`alineo start` leaves a container running and prints its sandbox ID. The process exiting doesn't end the agent —
+`alineo agents` lists what's alive (cross-checked against the live control plane, not just the ledger), and
+`alineo prompt <id>` picks any of them back up.
+
+## Agents can drive it too
+
+Inside a running session, an agent can call `alineo spawn` on itself: it forks its own live sandbox into a child
+agent that starts with its checkout and installed packages. The bundled [Pi extension](/docs/cli/commands#pi-extension)
+teaches the agent the commands, so recursive spawning needs no prompt engineering. `spawnDepth` on the spec bounds
+how deep it can go.
+
+## Where this sits
+
+The CLI drives the [Agent SDK](/docs/agent) directly, one agent at a time, against OpenSandbox. For a tree of agents
+with budgets, gathering and one event stream — over HTTP, from any language — run [alineod](/docs/alineod).
+
+<Cards>
+  <Card
+    href="/docs/cli/quickstart"
+    title="Quickstart"
+    description="Start a server, fetch an agent spec, and start your first session."
+  />
+  <Card href="/docs/cli/commands" title="Commands" description="Every command and flag." />
+  <Card
+    href="/docs/cli/registry"
+    title="Registry format"
+    description="Publish specs others can fetch with one command."
+  />
+</Cards>

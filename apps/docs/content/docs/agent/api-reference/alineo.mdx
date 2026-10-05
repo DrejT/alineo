@@ -113,7 +113,7 @@ static async reattach(
 
 Reconnect to an existing sandbox **without restarting its bridge**. Where `resume()` kills and restarts the bridge process — dropping any turn in progress — `reattach()` only looks up the sandbox's proxy URL and checks that the bridge answers. The returned `Alineo` is fully functional: `.prompt()`, `.bash()`, and `.steer()` continue the same Pi process and conversation.
 
-Use it when your own process restarted but the sandbox didn't — a control plane coming back up after a crash (this is how [alineod recovers a swarm](/docs/alineod/concepts/crash-recovery)), or a CLI steering an agent that is busy mid-turn ([`alineo steer`](/docs/alineo/commands/steer)).
+Use it when your own process restarted but the sandbox didn't — a control plane coming back up after a crash (this is how [alineod recovers a swarm](/docs/alineod/concepts/crash-recovery)), or a CLI steering an agent that is busy mid-turn ([`alineo steer`](/docs/cli/commands/steer)).
 
 It **fails fast (within 5 s) if the bridge doesn't answer** — a container can be running while the bridge inside it has died. Fall back to `resume()` in that case. `spec`/`specPath` resolve the same way as for `resume()`, and a container that is gone is restored the same way too. `skipReadyCheck` reconnects to a paused sandbox, whose frozen bridge can't answer the probe.
 

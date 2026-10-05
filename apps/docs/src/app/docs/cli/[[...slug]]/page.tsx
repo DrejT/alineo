@@ -1,5 +1,5 @@
 import { DocsPage, DocsBody } from "fumadocs-ui/layouts/docs/page";
-import { alineoSource } from "@/lib/source";
+import { cliSource } from "@/lib/source";
 import { notFound } from "next/navigation";
 import { mdxComponents } from "@/lib/mdx-components";
 import type { Metadata } from "next";
@@ -8,25 +8,21 @@ import { DocPageHeader } from "@/components/doc-page-header";
 import { DocStructuredData } from "@/components/doc-structured-data";
 import { githubSourceUrl, pageMarkdownUrl } from "@/lib/doc-markdown";
 
-const OVERVIEW_SLUGS = new Set(["", "getting-started", "commands", "registry"]);
-
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
-  const page = alineoSource.getPage(slug);
+  const page = cliSource.getPage(slug);
   if (!page) notFound();
 
   const MDX = page.data.body;
-  const slugStr = (slug ?? []).join("/");
-  const isOverview = OVERVIEW_SLUGS.has(slugStr);
 
   return (
-    <DocsPage toc={isOverview ? [] : page.data.toc} full={isOverview}>
-      <DocStructuredData page={page} tree={alineoSource.pageTree} collection="alineo" />
+    <DocsPage toc={page.data.toc}>
+      <DocStructuredData page={page} tree={cliSource.pageTree} collection="cli" />
       <DocPageHeader
         title={page.data.title}
         description={page.data.description}
-        markdownUrl={pageMarkdownUrl("alineo", page.slugs)}
-        githubUrl={githubSourceUrl("alineo", page.path)}
+        markdownUrl={pageMarkdownUrl("cli", page.slugs)}
+        githubUrl={githubSourceUrl("cli", page.path)}
       />
       <DocsBody>
         <MDX components={mdxComponents} />
@@ -41,17 +37,17 @@ export async function generateMetadata({
   params: Promise<{ slug?: string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const page = alineoSource.getPage(slug);
+  const page = cliSource.getPage(slug);
   if (!page) return createMetadata({ title: "Not Found" });
 
-  const ogImage = [`/docs-og/alineo`, ...(slug ?? []), "image"].join("/");
+  const ogImage = [`/docs-og/cli`, ...(slug ?? []), "image"].join("/");
 
   return createMetadata({
     title: page.data.title,
     description: page.data.description,
     alternates: {
       canonical: page.url,
-      types: { "text/markdown": pageMarkdownUrl("alineo", page.slugs) },
+      types: { "text/markdown": pageMarkdownUrl("cli", page.slugs) },
     },
     openGraph: { images: [ogImage] },
     twitter: { images: [ogImage] },
@@ -59,7 +55,7 @@ export async function generateMetadata({
 }
 
 export async function generateStaticParams() {
-  return alineoSource.getPages().map((page) => ({
+  return cliSource.getPages().map((page) => ({
     slug: page.slugs,
   }));
 }

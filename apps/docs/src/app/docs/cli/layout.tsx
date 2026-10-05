@@ -1,11 +1,11 @@
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
-import { alineoSource } from "@/lib/source";
+import { cliSource } from "@/lib/source";
 import { docsTabs } from "@/lib/nav-tabs";
 
-export default function AlineoLayout({ children }: { children: React.ReactNode }) {
+export default function CliLayout({ children }: { children: React.ReactNode }) {
   return (
     <DocsLayout
-      tree={alineoSource.pageTree}
+      tree={cliSource.pageTree}
       nav={{ enabled: true, title: null }}
       themeSwitch={{ enabled: false }}
       searchToggle={{ enabled: false }}

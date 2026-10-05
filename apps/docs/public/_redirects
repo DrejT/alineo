@@ -17,25 +17,24 @@
 /docs/core/0.3           /docs/core                301
 /docs/core/0.3/*          /docs/core/:splat         301
 
-/docs/alineo/v0.1         /docs/alineo               301
-/docs/alineo/v0.1/*        /docs/alineo/:splat        301
-/docs/alineo/0.1          /docs/alineo               301
-/docs/alineo/0.1/*         /docs/alineo/:splat        301
-/docs/alineo/0.2          /docs/alineo               301
-/docs/alineo/0.2/*         /docs/alineo/:splat        301
-/docs/alineo/0.3          /docs/alineo               301
-/docs/alineo/0.3/*         /docs/alineo/:splat        301
+/docs/alineo/v0.1         /docs/cli                  301
+/docs/alineo/v0.1/*        /docs/cli/:splat           301
+/docs/alineo/0.1          /docs/cli                  301
+/docs/alineo/0.1/*         /docs/cli/:splat           301
+/docs/alineo/0.2          /docs/cli                  301
+/docs/alineo/0.2/*         /docs/cli/:splat           301
+/docs/alineo/0.3          /docs/cli                  301
+/docs/alineo/0.3/*         /docs/cli/:splat           301
 
 # CLI verb rename: `alineo fork` became `alineo spawn` and `alineo kill` became
 # `alineo stop`, so their doc pages moved with them.
 #
-# There is deliberately NO rule for /docs/alineo/commands/spawn. That URL is still a
-# live page — it just documents a different command now (the old `fork`). Redirecting
-# it to /start would send readers of the *new* spawn away from the page they asked
-# for. Anyone landing there from an old link gets a page about a command that still
-# exists under that name, which is the least-wrong outcome available.
-/docs/alineo/commands/fork   /docs/alineo/commands/spawn   301
-/docs/alineo/commands/kill   /docs/alineo/commands/stop    301
+# There is deliberately NO rule sending /docs/alineo/commands/spawn to /start. That page
+# still exists — it just documents a different command now (the old `fork`) — so it only
+# follows the CLI's move to /docs/cli, below. Redirecting it to /start would send readers
+# of the *new* spawn away from the page they asked for.
+/docs/alineo/commands/fork   /docs/cli/commands/spawn      301
+/docs/alineo/commands/kill   /docs/cli/commands/stop       301
 
 # Concept-shaped restructure: each product is laid out as overview → quickstart → concepts/ →
 # api-reference/, plus top-level pages for operating it, instead of getting-started/ guides/
@@ -67,6 +66,28 @@
 /docs/agent/getting-started                     /docs/agent/quickstart                       301
 /docs/agent/api-reference/agent                 /docs/agent/api-reference/alineo             301
 /docs/agent/api-reference                       /docs/agent/api-reference/alineo             301
+#
+# alineo
+/docs/alineo/getting-started/quickstart         /docs/cli/quickstart                         301
+/docs/alineo/getting-started                    /docs/cli                                    301
+/docs/alineo/commands/add                       /docs/cli/commands/add                       301
+/docs/alineo/commands/agents                    /docs/cli/commands/agents                    301
+/docs/alineo/commands                           /docs/cli/commands                           301
+/docs/alineo/commands/init                      /docs/cli/commands/init                      301
+/docs/alineo/commands/list                      /docs/cli/commands/list                      301
+/docs/alineo/commands/logs                      /docs/cli/commands/logs                      301
+/docs/alineo/commands/prompt                    /docs/cli/commands/prompt                    301
+/docs/alineo/commands/remove                    /docs/cli/commands/remove                    301
+/docs/alineo/commands/spawn                     /docs/cli/commands/spawn                     301
+/docs/alineo/commands/start                     /docs/cli/commands/start                     301
+/docs/alineo/commands/steer                     /docs/cli/commands/steer                     301
+/docs/alineo/commands/stop                      /docs/cli/commands/stop                      301
+/docs/alineo/commands/telemetry                 /docs/cli/commands/telemetry                 301
+/docs/alineo/registry                           /docs/cli/registry                           301
+/docs/alineo/registry/schema                    /docs/cli/registry/schema                    301
+/docs/alineo/using-sandboxes                    /docs/cli/using-sandboxes                    301
+/docs/alineo                                    /docs/cli                                    301
+/docs/alineo/*                                  /docs/cli/:splat                             301
 
 # Static export can't perform a real server redirect for "/" — Next instead bakes
 # it as an error-boundary shell that a client script replaces via router.replace()

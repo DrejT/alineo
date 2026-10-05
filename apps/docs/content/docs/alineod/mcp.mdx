@@ -100,7 +100,7 @@ Every `run_*`, `agent_*` and `result_*` tool needs alineod reachable at `ALINEOD
 - **Ask the client to call `init`.** It starts OpenSandbox and alineod in Docker, pulling images if
   needed, and writes `alineo.config.json` in the current directory if missing. It forwards any model provider
   key found in `alineo-mcp`'s own environment into the alineod container, which is why the key belongs in the
-  `env` block above. This is the same setup as [`alineo init`](/docs/alineo/commands/init).
+  `env` block above. This is the same setup as [`alineo init`](/docs/cli/commands/init).
 - **Or run alineod yourself**, as described in the [Quickstart](/docs/alineod/quickstart) and
   [Deployment](/docs/alineod/deployment), and point `ALINEOD_URL` at it.
 

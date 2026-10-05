@@ -7,7 +7,7 @@ An alineo "registry item" is just a URL that returns an `AgentSpec` JSON object 
 
 <Cards>
   <Card
-    href="/docs/alineo/registry/schema"
+    href="/docs/cli/registry/schema"
     title="AgentSpec schema"
     description="All fields, types, and constraints for a valid agent spec."
   />
@@ -27,7 +27,7 @@ Anyone can then fetch it into their own project with:
 bunx alineo-cli add https://raw.githubusercontent.com/your-org/your-repo/main/agents/node-toolchain.json
 ```
 
-This only saves the spec locally — it doesn't run anything. See [Running an agent spec](/docs/alineo/using-sandboxes) for how to actually load and run it with `Alineo.start()`.
+This only saves the spec locally — it doesn't run anything. See [Running an agent spec](/docs/cli/using-sandboxes) for how to actually load and run it with `Alineo.start()`.
 
 ## Minimal example
 
