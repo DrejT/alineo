@@ -41,6 +41,9 @@ jobs:
       - name: Vocabulary check
         run: bun run check:vocabulary
 
+      - name: Docs link check
+        run: bun run check:docs-links
+
       - name: Dead code (fallow)
         run: bun run check:dead-code
 
