@@ -12,7 +12,7 @@ import { ledger } from "../ledger";
 
 let fakeSandboxCounter = 0;
 
-export class FakeSandboxHandle {
+class FakeSandboxHandle {
   readonly sandboxId: string;
   readonly name: string;
   readonly runId: string;

@@ -3,7 +3,7 @@
  * ever talks to alineod over HTTP, so a fake server tests the real pass-through and the real
  * swarm realization with no mocking of the client code.
  */
-export interface RecordedCall {
+interface RecordedCall {
   method: string;
   path: string;
   body: unknown;

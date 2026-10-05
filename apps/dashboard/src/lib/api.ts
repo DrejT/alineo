@@ -21,7 +21,7 @@ function storedToken(): string | null {
 }
 
 let authToken: string | null = storedToken();
-export function setAuthToken(token: string | null): void {
+function setAuthToken(token: string | null): void {
   authToken = token;
   try {
     if (token) sessionStorage.setItem(TOKEN_KEY, token);
@@ -43,7 +43,7 @@ function askForToken(): boolean {
   return true;
 }
 
-export class ApiError extends Error {
+class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
@@ -183,7 +183,7 @@ export interface TranscriptMessage {
   isError?: boolean;
 }
 
-export interface TranscriptTurn {
+interface TranscriptTurn {
   seq: number;
   ts: number;
   messages: TranscriptMessage[];
@@ -270,5 +270,3 @@ export const workflows = {
 export const settings = {
   get: () => request<Record<string, unknown>>("GET", "/settings"),
 };
-
-export { request };

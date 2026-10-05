@@ -27,7 +27,7 @@ const PlanSchema = z.object({
   maxAgents: z.number().int().positive().describe("total agent budget for the whole swarm"),
 });
 
-export type PlanNode = z.infer<typeof PlanNode>;
+type PlanNode = z.infer<typeof PlanNode>;
 export type RawPlan = z.infer<typeof PlanSchema>;
 
 export interface SwarmPlan extends RawPlan {
@@ -48,7 +48,7 @@ ambiguity is flagged separately by the caller, not by you.`;
 /** Server-side limits a plan is checked against, independent of whatever the model proposed —
  *  mirrors the enforcement `packages/agent/src/agent/validation.ts` applies at spawn time, so a
  *  plan that would later be refused by the SDK is caught here instead, with a legible reason. */
-export interface PlanLimits {
+interface PlanLimits {
   maxSpawnDepth: number;
   maxAgentsCeiling: number;
 }

@@ -27,10 +27,6 @@ export function register(sb: SandboxHandle): void {
   live.set(sb.sandboxId, sb);
 }
 
-export function peek(sandboxId: string): SandboxHandle | undefined {
-  return live.get(sandboxId);
-}
-
 export function forget(sandboxId: string): void {
   live.delete(sandboxId);
 }

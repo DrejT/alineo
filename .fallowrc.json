@@ -42,7 +42,7 @@
   ],
   "overrides": [
     {
-      "files": ["apps/alineod/test/**"],
+      "files": ["apps/alineod/test/**", "apps/dashboard/server/test/**"],
       "rules": { "unused-class-members": "off" }
     },
     {

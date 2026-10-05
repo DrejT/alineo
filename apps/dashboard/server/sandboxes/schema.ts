@@ -49,7 +49,6 @@ export const SetCredentialBody = z.object({
     injection: CredentialInjection,
   }),
 });
-export type SetCredentialBody = z.infer<typeof SetCredentialBody>;
 
 export const EgressPatchBody = z.object({ rules: z.array(NetworkRule) });
 export const EgressDeleteBody = z.object({ targets: z.array(z.string().min(1)) });

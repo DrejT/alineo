@@ -50,9 +50,7 @@
         "@xterm/xterm": "^5.5.0",
         "ai": "^7.0.77",
         "astro": "^7.2.2",
-        "dompurify": "^3.4.11",
         "elysia": "^1.4.9",
-        "marked": "^18.0.5",
         "zod": "^4.4.3",
       },
       "devDependencies": {
