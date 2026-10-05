@@ -1,0 +1,13 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "snapshots",
+    "workspace-setup",
+    "streaming",
+    "steering",
+    "permissions",
+    "sessions",
+    "reconnecting",
+    "reliability"
+  ]
+}

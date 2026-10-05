@@ -12,7 +12,7 @@ root is `0`), and its `spawnIndex` among its siblings.
 IDs are short and prefixed: runs are `r_…`, agents are `a_…`. An agent's `sandboxId` is the OpenSandbox container
 it runs in, filled in once the container exists.
 
-A child is created with the SDK's [`agent.spawn()`](/docs/agent/api-reference/agent#agentspawn): the parent's
+A child is created with the SDK's [`agent.spawn()`](/docs/agent/api-reference/alineo#agentspawn): the parent's
 **live sandbox is forked**, so the child starts with everything already on the parent's disk — a checked-out
 repo, installed packages, files the parent wrote — rather than a fresh install.
 

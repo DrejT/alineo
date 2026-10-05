@@ -26,7 +26,7 @@ already closed their sandbox, and a `lost` agent is retried again on a later boo
 ### Reconnect every agent that has a sandbox
 
 Each one goes down the [restore ladder](#the-restore-ladder) until a rung holds. Most stop at the first:
-[`Alineo.reattach()`](/docs/agent/api-reference/agent#alineoreattach) binds to the harness bridge already running
+[`Alineo.reattach()`](/docs/agent/api-reference/alineo#alineoreattach) binds to the harness bridge already running
 in the container **without restarting it**, so an in-flight turn is not interrupted.
 
 An agent that was mid-turn at crash time is recorded as `agent.turn_interrupted`, because the process reading its

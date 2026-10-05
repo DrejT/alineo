@@ -67,7 +67,7 @@ On subsequent loads, none of these lines appear — the workspace is already in 
 
 ## Cache invalidation
 
-Any change to a step's `name`, `run`, or `cwd` is included in the [setup hash](/docs/agent/getting-started/snapshotting) and automatically invalidates the snapshot. The next `Alineo.start()` will run all steps again from scratch and create a new checkpoint.
+Any change to a step's `name`, `run`, or `cwd` is included in the [setup hash](/docs/agent/concepts/snapshots) and automatically invalidates the snapshot. The next `Alineo.start()` will run all steps again from scratch and create a new checkpoint.
 
 ## Self-contained steps
 

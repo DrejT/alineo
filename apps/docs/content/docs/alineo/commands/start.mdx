@@ -18,14 +18,14 @@ bunx alineo-cli start <spec> [--prompt <msg>] [--rebuild] [--depth <n>] [--max <
 | Flag             | Description                                                                                                                         |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `--prompt <msg>` | Send one prompt immediately after the sandbox is ready, and print the reply before exiting.                                         |
-| `--rebuild`      | Force a full reinstall instead of restoring from the cached snapshot. See [Snapshotting](/docs/agent/getting-started/snapshotting). |
+| `--rebuild`      | Force a full reinstall instead of restoring from the cached snapshot. See [Snapshotting](/docs/agent/concepts/snapshots). |
 | `--depth <n>`    | Override the spec's own `spawnDepth` field.                                                                                         |
 | `--max <n>`      | Override the spec's own `maxAgents` field.                                                                                          |
 | `--json`         | Print `{ name, sandboxId, reply }` as JSON instead of the default text output.                                                      |
 
 ## What it does
 
-1. Reads `alineo.config.json` and calls [`Alineo.start(spec, { adapter, rebuild, spawnDepth, maxAgents })`](/docs/agent/api-reference/agent#agentload) — see that page for the full snapshot/install behavior. This always starts from the spec's own snapshot (or builds one on first use); it never inspects the calling process's own sandbox state.
+1. Reads `alineo.config.json` and calls [`Alineo.start(spec, { adapter, rebuild, spawnDepth, maxAgents })`](/docs/agent/api-reference/alineo#alineostart) — see that page for the full snapshot/install behavior. This always starts from the spec's own snapshot (or builds one on first use); it never inspects the calling process's own sandbox state.
 2. If `--prompt` is given, sends that message and waits for the full reply before printing anything and exiting.
 3. Without `--prompt`, prints the sandbox name and ID and exits immediately — the sandbox keeps running.
 

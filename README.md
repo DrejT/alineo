@@ -8,7 +8,7 @@
 **A control plane for swarms of sandboxed agents.**
 
 [Docs](https://docs.alineo.tech/docs/agent) ·
-[Quickstart](https://docs.alineo.tech/docs/agent/getting-started/quickstart) ·
+[Quickstart](https://docs.alineo.tech/docs/agent/quickstart) ·
 [Cookbooks](https://docs.alineo.tech/docs/cookbooks) ·
 [Discord](https://discord.com/invite/XGkPu3YBH4)
 
@@ -58,7 +58,7 @@ try {
 ```
 
 Agents run [Pi](https://pi.ai) inside [OpenSandbox](https://opensandbox.ai) containers.
-[Full quickstart →](https://docs.alineo.tech/docs/agent/getting-started/quickstart)
+[Full quickstart →](https://docs.alineo.tech/docs/agent/quickstart)
 
 ## What you get
 
@@ -68,7 +68,7 @@ Agents run [Pi](https://pi.ai) inside [OpenSandbox](https://opensandbox.ai) cont
   redirect or freeze an agent mid-turn, no restart.
 - **[Survive a crash](https://docs.alineo.tech/docs/alineod)** — alineod replays its ledger and
   reattaches to in-flight turns, so the daemon can die without losing the swarm.
-- **[Gate what agents can do](https://docs.alineo.tech/docs/agent/getting-started/permissions)** —
+- **[Gate what agents can do](https://docs.alineo.tech/docs/agent/concepts/permissions)** —
   hold risky tool calls and network egress for human approval.
 - **[Audit everything](https://docs.alineo.tech/docs/core)** — every exec and tool call lands in a
   durable SQLite or Postgres ledger.

@@ -1,0 +1,59 @@
+---
+title: Errors
+description: The three errors the Agent SDK throws on its own — a stalled turn, a dead bridge, and an invalid spec.
+---
+
+```ts
+import { PromptTimeoutError, BridgeDisconnectedError, AgentSpecValidationError } from "alineo";
+```
+
+All three extend the Core SDK's `WorkflowError`, so one `catch` for that covers them along with every
+[sandbox error](/docs/core/api-reference/errors).
+
+## PromptTimeoutError
+
+Thrown from an `agent.prompt()` or `agent.bash()` stream that goes quiet — no event at all from Pi — for longer
+than the inactivity window: **180 s** by default, or `inactivityTimeoutMs` on the `prompt()` call. The bridge's own
+keep-alive pings don't count; they only prove the connection is open, not that Pi is making progress.
+
+| Property    | Type     | Description                          |
+| ----------- | -------- | ------------------------------------ |
+| `timeoutMs` | `number` | The window that elapsed.             |
+| `bridgeUrl` | `string` | The bridge the stream was read from. |
+
+A long-thinking model that streams nothing while it reasons can trip this. Raise `inactivityTimeoutMs` for those
+rather than retrying.
+
+## BridgeDisconnectedError
+
+Thrown when a stream's connection closes before the bridge sent its end-of-turn marker. That means the bridge
+process inside the container died mid-turn — a crash, an OOM kill — not that Pi finished. Without this error the
+turn would look like a clean, empty success.
+
+| Property    | Type     | Description                          |
+| ----------- | -------- | ------------------------------------ |
+| `bridgeUrl` | `string` | The bridge whose connection dropped. |
+
+The container is usually still up. [`Alineo.resume()`](/docs/agent/api-reference/alineo#alineoresume) restarts the
+bridge and continues the session; the turn that was running is gone.
+
+## AgentSpecValidationError
+
+Thrown by `Alineo.start()` and `validateAgentSpec()` when a spec fails validation. It reports every failing field
+at once, not just the first.
+
+| Property  | Type                        | Description                                             |
+| --------- | --------------------------- | ------------------------------------------------------- |
+| `message` | `string`                    | A readable, multi-line summary — print it as-is.        |
+| `issues`  | `{ path, message, code }[]` | One entry per failing field, for handling them in code. |
+
+```ts
+try {
+  await Alineo.start(spec, { adapter });
+} catch (err) {
+  if (err instanceof AgentSpecValidationError) {
+    for (const issue of err.issues) console.error(issue.path.join("."), issue.message);
+  }
+  throw err;
+}
+```

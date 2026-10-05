@@ -1,17 +1,120 @@
 ---
-title: Alineo SDK
-description: Run AI coding agents (Pi) in isolated sandbox containers with a simple TypeScript API.
+title: Agent SDK
+description: The alineo package runs Pi coding agents inside sandbox containers — start an agent from a spec, prompt it, steer it mid-turn, spawn children from it, and pick it back up after your process dies or its container is gone.
 ---
+
+`alineo` runs an AI coding agent inside a sandbox container. An agent is a spec and a prompt:
+
+```ts
+import { Alineo, textOnly } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+
+const agent = await Alineo.start(
+  {
+    name: "hello",
+    harness: "pi",
+    provider: "nvidia",
+    model: "nvidia/nemotron-3-super-120b-a12b",
+    env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
+  },
+  { adapter: new SQLiteAdapter("./.alineo/ledger.db") },
+);
+
+for await (const chunk of textOnly(agent.prompt("Write and run a Python hello world."))) {
+  process.stdout.write(chunk);
+}
+```
+
+The agent installs packages, clones repositories and runs what it writes — inside the container, never on your
+machine. [Quickstart →](/docs/agent/quickstart)
+
+## It starts in seconds
+
+The first `start()` installs the [Pi](https://pi.ai) CLI into a `node:22` sandbox and snapshots it. Every start
+after that restores the snapshot instead: **~3 seconds rather than ~90**. The cache key is the spec's harness
+version, packages and setup steps, so it invalidates itself when it should —
+[setup snapshots](/docs/agent/concepts/snapshots).
+
+## Your process is not the agent
+
+The agent lives in the container, not in your Node process. Kill the process, come back tomorrow, pick the same
+agent back up:
+
+```ts
+const agent = await Alineo.reattach(sandboxId, { adapter });
+```
+
+The bridge inside the container is never restarted, so a turn that was running when your process died is still
+running. If the container itself is gone — deleted, or left `Exited` by a reboot — `reattach()` restores the agent
+onto a fresh one from its last [turn checkpoint](/docs/agent/concepts/reconnecting#turn-checkpoints) instead of
+failing — [reconnecting and restoring](/docs/agent/concepts/reconnecting).
+
+## Steer it mid-turn
+
+```ts
+await agent.steer("Focus only on the auth path — drop the unrelated findings.");
+```
+
+The message lands after the current tool call finishes and before the next model call. The agent does not restart
+and does not lose its context. `followUp()` queues the next turn instead, and `abort()` stops this one now —
+[steering](/docs/agent/concepts/steering).
+
+## Gate what it can do
+
+Every tool call the agent wants to make can be held for a decision — yours, or a policy's:
+
+```ts
+agent.prompt(task, {
+  onPermission: (req) =>
+    req.tool === "bash" && req.target.startsWith("rm ")
+      ? { kind: "reject", feedback: "Deleting files is out of scope." }
+      : { kind: "once" },
+});
+```
+
+`reject` hands the feedback back to the model as the reason. Leave `onPermission` off and the requests surface on
+the stream instead, for a human to resolve with `agent.resolvePermission()` —
+[the permission gate](/docs/agent/concepts/permissions).
+
+## Spawn a child from a live agent
+
+```ts
+const reviewer = await agent.spawn("./agents/reviewer.json");
+```
+
+`spawn()` forks the parent's **live** sandbox, so the checkout, the installed packages and the files the parent
+wrote are already on the child's disk. Clone a repository once and review it three ways at the same time.
+
+For more than a couple of children — budgets, `waitFor` gathering, one event stream for the whole tree, recovery
+when the host dies — that's [alineod](/docs/alineod), which drives this SDK in-process and exposes it over HTTP.
+
+## Everything is on the record
+
+The `adapter` on `start()` isn't bookkeeping you can skip. Every exec, tool call and state transition is appended
+to a SQLite or Postgres ledger before anything derived from it is updated, and that is what makes the rest work:
+`reattach()` finds the agent again, a restore finds its latest checkpoint, and an auditor gets the whole session
+rather than a summary of it.
+
+## Where this sits
+
+The Agent SDK runs one agent on top of the [Core SDK](/docs/core)'s sandboxes — `agent.sandbox` is a live
+`SandboxHandle` for anything Pi doesn't cover. [alineod](/docs/alineod) runs trees of these agents, and the
+[alineo CLI](/docs/alineo) drives them from a shell.
 
 <Cards>
   <Card
-    href="/docs/agent/getting-started"
-    title="Getting Started"
-    description="Load an agent spec, send prompts, and stream responses in minutes."
+    href="/docs/agent/quickstart"
+    title="Quickstart"
+    description="Write a spec, start the agent, and stream its first response."
   />
   <Card
-    href="/docs/agent/api-reference"
-    title="API Reference"
-    description="Complete reference for Alineo, AgentSpec, AgentStream, and all Pi RPC commands."
+    href="/docs/agent/api-reference/agent-spec"
+    title="The agent spec"
+    description="Every field, and how env references are resolved."
+  />
+  <Card
+    href="/docs/agent/api-reference/alineo"
+    title="API reference"
+    description="Every method on Alineo, and every Pi RPC passthrough."
   />
 </Cards>

@@ -47,7 +47,7 @@ curl localhost:4600/health
 
 ### Create a run
 
-A run starts with one root agent. The body's `spec` is an ordinary [agent spec](/docs/agent/api-reference/agent);
+A run starts with one root agent. The body's `spec` is an ordinary [agent spec](/docs/agent/api-reference/alineo);
 `${VAR}` references in its `env` are resolved from **alineod's own** environment, so secrets never travel in the
 request.
 

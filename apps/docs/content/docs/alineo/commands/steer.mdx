@@ -22,8 +22,8 @@ bunx alineo-cli steer <sandbox-id> <message> [--spec <path>]
 
 ## What it does
 
-Connects to the target with [`Alineo.reattach()`](/docs/agent/api-reference/agent#alineoreattach) and calls
-[`agent.steer(message)`](/docs/agent/api-reference/agent#agentsteer).
+Connects to the target with [`Alineo.reattach()`](/docs/agent/api-reference/alineo#alineoreattach) and calls
+[`agent.steer(message)`](/docs/agent/api-reference/alineo#agentsteer).
 
 `reattach()` binds to the bridge already running in the target sandbox **without restarting it** — unlike
 [`alineo prompt`](/docs/alineo/commands/prompt), which uses `Alineo.resume()` and would abort a turn in progress.

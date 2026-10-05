@@ -35,7 +35,7 @@ await agent.close();
 - **Subsequent loads**: restore from that checkpoint, skipping the install entirely — much faster. The snapshot is keyed on a hash of `harness`, `harnessVersion`, `packages`, and `setup`, so changing any of those forces a fresh install on the next load.
 - Pass `{ rebuild: true }` to force a full reinstall regardless of the cache: `Alineo.start(specPath, { adapter, rebuild: true })`.
 
-See [Snapshotting](/docs/agent/getting-started/snapshotting) for the full details.
+See [Snapshotting](/docs/agent/concepts/snapshots) for the full details.
 
 ## Accessing the underlying sandbox
 

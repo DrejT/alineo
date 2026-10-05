@@ -1,5 +1,5 @@
 ---
-title: Quick start
+title: Quickstart
 description: Load an agent spec, send a prompt, and stream the response in minutes.
 ---
 
@@ -79,7 +79,7 @@ try {
 bun run.ts
 ```
 
-`Alineo.start()` reports timing for each phase. It is silent by default — set `ALINEO_LOG_LEVEL=info` to see it (`ALINEO_LOG_LEVEL=info bun run.ts`); the `alineo` CLI turns it on for you. The first run installs the Pi CLI and checkpoints the sandbox — on the order of a minute. Subsequent runs restore from that snapshot in a few seconds:
+`Alineo.start()` reports timing for each phase. It is silent by default — set `ALINEO_LOG_LEVEL=info` to see it (`ALINEO_LOG_LEVEL=info bun run.ts`); the `alineo` CLI turns it on for you. The first run installs the Pi CLI and snapshots the sandbox — on the order of a minute. Subsequent runs restore from that snapshot in a few seconds:
 
 ```
 # First run
@@ -103,7 +103,7 @@ bun run.ts
 
 Lines go to **stderr** — this pretty form on a terminal, JSON lines when piped (`ALINEO_LOG_FORMAT=pretty|json` to choose). Every line carries the agent's `name`, so output from several agents loading at once stays attributable.
 
-See [Snapshotting](/docs/agent/getting-started/snapshotting) for details.
+See [Setup snapshots](/docs/agent/concepts/snapshots) for details.
 
 </Step>
 <Step>
@@ -146,7 +146,8 @@ await agent.setEnv({ EXTRA_CONTEXT: "project-alpha" });
 
 ## Next steps
 
-- [Snapshotting](/docs/agent/getting-started/snapshotting) — how fast restores work and how to control the cache
-- [Workspace setup](/docs/agent/getting-started/workspace-setup) — bake files and dependencies into the snapshot
-- [Streaming & tool events](/docs/agent/getting-started/streaming) — observe Pi's tool calls in real time
-- [Alineo API reference](/docs/agent/api-reference) — full reference for all methods and types
+- [Setup snapshots](/docs/agent/concepts/snapshots) — how fast starts work and how to control the cache
+- [Workspace setup](/docs/agent/concepts/workspace-setup) — bake files and dependencies into the snapshot
+- [Streaming & tool events](/docs/agent/concepts/streaming) — observe Pi's tool calls in real time
+- [Reconnecting and restoring](/docs/agent/concepts/reconnecting) — pick an agent back up, even after its container is gone
+- [API reference](/docs/agent/api-reference/alineo) — every method and type

@@ -45,6 +45,13 @@ A child is a fork of its parent's **live** sandbox. The checkout, the installed 
 wrote are already on its disk, so you clone a repository once and review it three ways at the same time —
 [how runs and spawn trees work](/docs/alineod/concepts/how-it-works).
 
+![A lead agent clones expressjs/cors, spawns three reviewer agents from its live sandbox, pauses one and steers another mid-review, then an editor waits for all three and merges their findings.](/docs-assets/swarm-demo.gif)
+
+<sub>
+  A sped-up replay of a real run — the [swarm code review](/docs/cookbooks/swarm-code-review)
+  cookbook.
+</sub>
+
 ## Gather without polling
 
 Give a child a `waitFor` list and alineod holds it until those agents settle. Then it forks the child and writes

@@ -1,12 +1,14 @@
 ---
-title: Snapshotting
-description: How Alineo.start() caches the Pi install so subsequent loads take seconds instead of minutes.
+title: Setup snapshots
+description: How Alineo.start() caches the Pi install and your setup steps, so every start after the first takes seconds instead of minutes.
 ---
 
-On the first call to `Alineo.start()`, the SDK installs the Pi CLI inside a `node:22` sandbox, runs any [workspace setup steps](/docs/agent/getting-started/workspace-setup), then checkpoints the container. On every subsequent call it restores from that snapshot — skipping the install entirely.
+On the first call to `Alineo.start()`, the SDK installs the Pi CLI inside a `node:22` sandbox, runs any [workspace setup steps](/docs/agent/concepts/workspace-setup), then snapshots the container — the **setup snapshot**. On every subsequent call it restores from that snapshot — skipping the install entirely.
+
+A setup snapshot holds an installed environment, not a conversation: every agent restored from it starts empty. Bringing one particular agent back to its last turn is a [turn checkpoint](/docs/agent/concepts/reconnecting#turn-checkpoints)'s job.
 
 ```
-Load 1 (cold):   sandbox → Pi install → setup steps → checkpoint → bridge   ~90s
+Load 1 (cold):   sandbox → Pi install → setup steps → snapshot → bridge     ~90s
 Load 2+ (warm):  snapshot restore → bridge                                   ~3s
 ```
 

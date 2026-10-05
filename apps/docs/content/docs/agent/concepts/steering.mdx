@@ -1,0 +1,68 @@
+---
+title: Steering
+description: Redirect a turn while it runs, queue the next one, or cut it off — without restarting the agent or losing its context.
+---
+
+A turn can run for minutes. You don't have to wait for it to finish to change its course:
+
+```ts
+const stream = textOnly(agent.prompt("Audit this repository for security issues."));
+setTimeout(() => agent.steer("Focus only on the auth path — drop the unrelated findings."), 5_000);
+for await (const chunk of stream) process.stdout.write(chunk);
+```
+
+The agent does not restart and does not lose its context. The same `prompt()` stream keeps going, now heading
+somewhere else.
+
+## Three ways in
+
+| Method                | When it lands                                                      | The current turn              |
+| --------------------- | ------------------------------------------------------------------ | ----------------------------- |
+| `agent.steer(msg)`    | After the running tool call finishes, before Pi's next model call. | Continues, redirected.        |
+| `agent.followUp(msg)` | After the current turn ends, as a new turn in the same session.    | Finishes as it would have.    |
+| `agent.abort()`       | Immediately.                                                       | Ends with what it had so far. |
+
+`steer()` never interrupts a tool call that is already running — a long build or test run completes first, and
+the message is read before the model decides what to do next. Use `abort()` when you need the agent to stop now.
+
+`abort()` also rejects any [permission requests](/docs/agent/concepts/permissions) still waiting on an answer;
+`steer()` leaves them open.
+
+## When several are queued
+
+When `agent.followUp()` or `agent.steer()` are called while a prompt is in flight, Pi queues the message and processes it after the current turn. Two methods control how that queue is consumed.
+
+### Steering mode
+
+`agent.setSteeringMode()` controls how Pi applies queued steering messages:
+
+- `"all"` (default) — Pi applies every queued steer at once when it processes the queue
+- `"one-at-a-time"` — Pi applies steers one per turn, giving you finer control over the conversation
+
+```ts
+await agent.setSteeringMode("one-at-a-time");
+
+const stream = agent.prompt("Write a very long document.");
+setTimeout(() => agent.steer("Focus on section 3."), 1000);
+setTimeout(() => agent.steer("Now add an executive summary."), 2000);
+
+for await (const ev of stream) {
+  if (ev.type === "text") process.stdout.write(ev.text);
+  if (ev.type === "queue_update") {
+    console.log(`\n[${ev.steering.length} steers pending]`);
+  }
+}
+```
+
+### Follow-up mode
+
+`agent.setFollowUpMode()` mirrors `setSteeringMode()` but for follow-up messages queued with `agent.followUp()`:
+
+```ts
+await agent.setFollowUpMode("one-at-a-time");
+```
+
+## Steering a swarm
+
+Every agent in an [alineod](/docs/alineod) swarm can be steered the same way over HTTP, one agent at a time or a
+parent together with the work it delegated — [steering and pausing](/docs/alineod/concepts/steering-and-pausing).

@@ -23,7 +23,7 @@ bunx alineo-cli prompt <sandbox-id> <message> [--spec <path>] [--json]
 
 ## What it does
 
-Calls [`Alineo.resume(sandboxId, { adapter, specPath })`](/docs/agent/api-reference/agent#agentresume), sends `message`, and prints the full reply once Pi finishes responding. `Alineo.resume()` restarts the sandbox's bridge process — Pi and the workspace are untouched, but any interactive stream a _different_ process had open against that sandbox will be interrupted.
+Calls [`Alineo.resume(sandboxId, { adapter, specPath })`](/docs/agent/api-reference/alineo#alineoresume), sends `message`, and prints the full reply once Pi finishes responding. `Alineo.resume()` restarts the sandbox's bridge process — Pi and the workspace are untouched, but any interactive stream a _different_ process had open against that sandbox will be interrupted.
 
 ## Example
 
