@@ -1,47 +1,131 @@
 ---
 title: alineod
-description: A swarm control daemon — start, fork, steer, pause, and collect results from trees of sandboxed agents over HTTP + SSE.
+description: A swarm control daemon — start, spawn, steer, pause and gather trees of sandboxed coding agents over HTTP + SSE, and keep them running through a crash.
 ---
 
-alineod is a long-running daemon that exposes an HTTP + Server-Sent Events API for orchestrating **swarms** of
-agents. Every agent in a swarm is an `alineo` agent running in its own OpenSandbox container; alineod drives them
-in-process through the [Agent SDK](/docs/agent) and keeps a crash-tolerant, append-only record of the whole
-swarm — see the [durability contract](/docs/alineod/guides/durability-contract) for exactly what that does
-and doesn't survive.
+alineod runs a **swarm** of coding agents, each in its own sandbox container, and gives you one HTTP API to drive
+the whole tree. A run starts with one agent:
+
+```bash
+curl -s localhost:4600/runs -H 'content-type: application/json' -d '{
+  "spec": {
+    "name": "lead",
+    "harness": "pi",
+    "provider": "nvidia",
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "env": { "NVIDIA_API_KEY": "${NVIDIA_API_KEY}" },
+    "resources": { "cpu": "1000m", "memory": "2Gi" },
+    "spawnDepth": 2,
+    "maxAgents": 10
+  },
+  "prompt": "Clone github.com/expressjs/cors and install its dependencies."
+}'
+# { "runId": "r_3f9a1c20", "rootAgentId": "a_7b2e44d1", "state": "provisioning" }
+```
+
+Every agent runs and installs whatever it writes inside its container, never on your machine. `${NVIDIA_API_KEY}`
+is resolved from alineod's own environment, so the secret never travels in the request.
+[Quickstart →](/docs/alineod/quickstart)
 
 ```
-client ── HTTP + SSE ──▶ alineod ── in-process ──▶ alineo SDK ──▶ OpenSandbox + Pi
+client ── HTTP + SSE ──▶ alineod ── in-process ──▶ Agent SDK ──▶ OpenSandbox + Pi
 ```
 
-It is a separate package from the SDK on purpose: the SDK is the library for driving **one** agent; alineod is
-the control plane for a **tree** of them — and because its interface is a wire protocol (an OpenAPI document plus
-an event schema), any language can drive a swarm without an SDK of its own.
+## Children start where the parent is
 
-## What it does
+```bash
+curl -s localhost:4600/runs/r_3f9a1c20/agents -H 'content-type: application/json' -d '{
+  "parentAgentId": "a_7b2e44d1",
+  "spec": { "name": "reviewer-security", "...": "..." },
+  "prompt": "Review lib/index.js for security issues."
+}'
+```
 
-- **Runs and spawn trees** — create a run with a root agent, then fork children from any live agent's sandbox.
-- **Fan-out / gather** — a child can `waitFor` other agents; their results are written into its sandbox before it starts.
-- **Budgets** — `spawnDepth` and `maxAgents` limits, enforced per lineage, refused with a `budget.denied` event.
-- **Live control** — `steer` a running turn, `pause`/`resume` an agent's container, `stop` an agent or delete a whole run.
-- **One event stream per run** — lifecycle events plus every agent's forwarded harness events, resumable with `Last-Event-ID`.
-- **Drive it from any MCP client** — `npx alineo-mcp` exposes these controls as tools for Claude Code, Claude Desktop, and Cursor. See [MCP server](/docs/alineod/getting-started/mcp).
-- **Durable agent memory** — every agent gets working and semantic memory that outlives its sandbox, and a spawned child starts with a copy of its parent's. See [Agent memory](/docs/alineod/guides/memory).
-- **Crash-only recovery** — agents run in containers, not as child processes; restart alineod and it reconnects to the swarm without interrupting in-flight turns.
+A child is a fork of its parent's **live** sandbox. The checkout, the installed packages and every file the parent
+wrote are already on its disk, so you clone a repository once and review it three ways at the same time —
+[how runs and spawn trees work](/docs/alineod/concepts/how-it-works).
+
+## Gather without polling
+
+Give a child a `waitFor` list and alineod holds it until those agents settle. Then it forks the child and writes
+each result into its sandbox as `/inputs/<agentId>.txt`, with an `/inputs.json` manifest. The child's prompt reads
+files. Your code doesn't wait on anything — [fan-out and gather](/docs/alineod/concepts/fan-out-gather).
+
+## One stream for the whole tree
+
+```bash
+curl -N localhost:4600/runs/r_3f9a1c20/events -H 'Last-Event-ID: 128'
+```
+
+Every agent in the run, present and future, reports on one Server-Sent Events stream: alineod's own lifecycle
+events and each agent's tool calls and turns. Reconnect with the last `id` you saw, and every persisted event since
+is replayed before live ones resume — [events](/docs/alineod/api-reference/events).
+
+## Steer, pause or stop — one agent or a subtree
+
+```bash
+curl -s -X POST localhost:4600/agents/a_7b2e44d1/steer -H 'content-type: application/json' \
+  -d '{"message": "Security review is the priority now; drop performance.", "scope": "subtree"}'
+```
+
+A steer lands after the current tool call and before the next model call, so the agent keeps its context. With
+`"scope": "subtree"` the parent gets your message plus a table of its children, and re-plans each child's work
+itself. `pause` freezes containers, a whole subtree at once if you ask —
+[steering and pausing](/docs/alineod/concepts/steering-and-pausing).
+
+## Budgets are enforced, not suggested
+
+`spawnDepth` and `maxAgents` on the root spec bound the whole lineage. A spawn past either limit is refused with
+a `budget.denied` event. An agent that decides to fork forty children gets as many as you allowed, and no more.
+
+## A failed turn can wait for you
+
+By default a failed turn ends the agent `failed`. Set `"onFailure": "ask"` and it is held in `blocked` instead,
+with its sandbox and its session intact, until you retry it with corrective text or stop it. A circuit breaker
+holds any agent after three failed turns in a row, so a retry policy can't become a cost loop —
+[supervision](/docs/alineod/concepts/supervision).
+
+## Restart it whenever you like
+
+alineod is crash-only. `kill -9` it and start it again: agents run in containers, not as child processes, so an
+in-flight turn keeps going while the daemon is down, and alineod reattaches to it on boot.
+
+With `"checkpoint": true` on a spec, alineod also captures the agent's home directory — its session and the files
+it wrote there — after every completed turn. If the container itself is gone — deleted, or left `Exited` by a
+machine reboot — the agent is restored onto a fresh one and continues from its last completed turn. What survives what, exactly, is on one page:
+[the durability contract](/docs/alineod/concepts/durability-contract).
+
+## Memory outlives the sandbox
+
+Every agent gets working and semantic memory keyed by its identity, not its container. It survives the sandbox
+being deleted, and a spawned child starts with a copy of its parent's — [agent memory](/docs/alineod/concepts/memory).
+
+## Drive it from chat
+
+`npx alineo-mcp` exposes runs, spawns, steering and results as MCP tools, so Claude Code, Claude Desktop or Cursor
+can run a swarm for you — [MCP server](/docs/alineod/mcp).
+
+## Where this sits
+
+alineod drives the [Agent SDK](/docs/agent) in-process: the SDK is the library for **one** agent, alineod is the
+control plane for a **tree** of them. If you only need one agent, start with the SDK. Because alineod's interface
+is a wire protocol — an OpenAPI document at `/openapi` plus an event schema — any language can drive a swarm without
+an SDK of its own.
 
 <Cards>
   <Card
-    href="/docs/alineod/getting-started"
-    title="Getting Started"
-    description="Run the daemon, start a run, and fan work out across child agents."
+    href="/docs/alineod/quickstart"
+    title="Quickstart"
+    description="Start the daemon, fan work out to three workers, and gather their results."
   />
   <Card
-    href="/docs/alineod/guides"
-    title="Guides"
-    description="How runs, budgets, fan-out/gather, steering, pausing, memory, and crash recovery work."
+    href="/docs/alineod/concepts/how-it-works"
+    title="How it works"
+    description="Runs, spawn trees, agent states, budgets and the ledger behind them."
   />
   <Card
-    href="/docs/alineod/api-reference"
-    title="API Reference"
-    description="Every HTTP route and every event on the run stream."
+    href="/docs/alineod/api-reference/http-api"
+    title="API reference"
+    description="Every HTTP route, and every event on the run stream."
   />
 </Cards>

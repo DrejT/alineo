@@ -26,10 +26,11 @@ repo, installed packages, files the parent wrote — rather than a fresh install
 | `spawning`     | Held by `waitFor` — not forked until its dependencies settle.                                                                   |
 | `running`      | A turn is in progress (or the agent is live and idle between prompts).                                                          |
 | `paused`       | The agent's container is frozen.                                                                                                |
+| `blocked`      | A turn failed and the spec's [`onFailure`](/docs/alineod/concepts/supervision) policy is holding the agent for a decision.      |
 | `done`         | The turn finished successfully.                                                                                                 |
 | `failed`       | The turn or the provisioning failed, the model API refused the request that ended the turn, or a spawn was refused by a budget. |
 | `aborted`      | Stopped by `POST /agents/:id/stop` or `DELETE /runs/:id`.                                                                       |
-| `lost`         | alineod restarted and could not reconnect to (or retry) this agent.                                                             |
+| `lost`         | alineod restarted and could not reconnect to, restore, or retry this agent.                                                     |
 
 An ended agent also carries an `outcome` — `success`, `failed`, `aborted`, `lost`, or `budget-exceeded`.
 
@@ -41,7 +42,7 @@ fail the turn.
 
 A finished turn does not close the agent's sandbox. An agent in `done` (or `failed`, if its turn failed but its
 sandbox came up) can still be prompted again or used as a spawn parent — including after alineod itself restarts;
-see [Crash recovery](/docs/alineod/guides/crash-recovery).
+see [Crash recovery](/docs/alineod/concepts/crash-recovery).
 
 ## Asynchronous requests
 
@@ -103,7 +104,7 @@ sandbox.
 - Unlike the derived tables below, it is **not** rebuilt from the ledger. It is the only copy, so it is backed up
   with the databases.
 
-See [Agent memory](/docs/alineod/guides/memory) for the routes, configuration and semantic recall.
+See [Agent memory](/docs/alineod/concepts/memory) for the routes, configuration and semantic recall.
 
 ## The ledger
 
@@ -115,5 +116,5 @@ event stream**.
 - **`handles`** — one row per agent, derived from the ledger.
 
 The derived tables are rebuilt from the ledger every time alineod starts, which is what makes
-[crash recovery](/docs/alineod/guides/crash-recovery) possible. Deleting a run releases its sandboxes but keeps its
+[crash recovery](/docs/alineod/concepts/crash-recovery) possible. Deleting a run releases its sandboxes but keeps its
 ledger rows.

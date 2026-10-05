@@ -32,7 +32,7 @@ bun run start     # or: bun run dev (watch mode)
 [alineod] listening url=http://localhost:4600 openapi=/openapi
 ```
 
-alineod logs to stderr — this readable form on a terminal, JSON lines otherwise. See [Logging](/docs/alineod/getting-started/deployment#logging).
+alineod logs to stderr — this readable form on a terminal, JSON lines otherwise. See [Logging](/docs/alineod/deployment#logging).
 
 Run it from a directory with an `alineo.config.json` (written by `alineo init`), or rely on the SDK defaults
 (`http://127.0.0.1:8080`, server proxy on). Check it's up:
@@ -195,6 +195,6 @@ python3 apps/alineod/scripts/demo-swarm.py http://localhost:4600
   pause/resume/stop, steering a subtree through its parent, quorum waits and `notifyOn`.
 - [Swarm Code Review](/docs/cookbooks/swarm-code-review) — a full recipe: reviewers forked from one checkout, steered
   mid-review, and merged by a `waitFor` editor.
-- [Fan-out and gather](/docs/alineod/guides/fan-out-gather) — `waitFor`, input injection, and idempotent spawns.
-- [Steering and pausing](/docs/alineod/guides/steering-and-pausing) — redirect or freeze agents mid-run.
-- [Crash recovery](/docs/alineod/guides/crash-recovery) — what happens when alineod restarts under a live swarm.
+- [Fan-out and gather](/docs/alineod/concepts/fan-out-gather) — `waitFor`, input injection, and idempotent spawns.
+- [Steering and pausing](/docs/alineod/concepts/steering-and-pausing) — redirect or freeze agents mid-run.
+- [Crash recovery](/docs/alineod/concepts/crash-recovery) — what happens when alineod restarts under a live swarm.

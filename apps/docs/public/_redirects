@@ -37,8 +37,27 @@
 /docs/alineo/commands/fork   /docs/alineo/commands/spawn   301
 /docs/alineo/commands/kill   /docs/alineo/commands/stop    301
 
+# Concept-shaped restructure: each product is laid out as overview → quickstart → concepts/ →
+# api-reference/, plus top-level pages for operating it, instead of getting-started/ guides/
+# building/ patterns/ folders that described where the files sat. One rule per old page URL,
+# each pointing at its final home in one hop.
+#
+# alineod
+/docs/alineod/getting-started/quickstart   /docs/alineod/quickstart                     301
+/docs/alineod/getting-started/mcp          /docs/alineod/mcp                            301
+/docs/alineod/getting-started/deployment   /docs/alineod/deployment                     301
+/docs/alineod/getting-started              /docs/alineod/quickstart                     301
+/docs/alineod/guides/how-it-works          /docs/alineod/concepts/how-it-works          301
+/docs/alineod/guides/fan-out-gather        /docs/alineod/concepts/fan-out-gather        301
+/docs/alineod/guides/coordination          /docs/alineod/concepts/coordination          301
+/docs/alineod/guides/steering-and-pausing  /docs/alineod/concepts/steering-and-pausing  301
+/docs/alineod/guides/crash-recovery        /docs/alineod/concepts/crash-recovery        301
+/docs/alineod/guides/durability-contract   /docs/alineod/concepts/durability-contract   301
+/docs/alineod/guides                       /docs/alineod/concepts/how-it-works          301
+/docs/alineod/api-reference                /docs/alineod/api-reference/http-api         301
+
 # Static export can't perform a real server redirect for "/" — Next instead bakes
 # it as an error-boundary shell that a client script replaces via router.replace()
 # after hydration, which a no-JS client or crawler would see as the actual response.
 # An edge-level 301 here sidesteps that.
-/                      /docs/core                301
+/                      /docs/alineod             301

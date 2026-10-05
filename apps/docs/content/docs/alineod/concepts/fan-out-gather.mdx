@@ -70,7 +70,7 @@ how to treat missing work in its prompt.
 </Callout>
 
 A plain `waitFor` list waits for **every** dependency to finish. To start on the first one, on a quorum, or after
-a deadline, see [Coordination](/docs/alineod/guides/coordination#waitfor-modes).
+a deadline, see [Coordination](/docs/alineod/concepts/coordination#waitfor-modes).
 
 ## Collect the final result
 
@@ -101,4 +101,4 @@ Keys are scoped to the run.
 
 Spawning requires a budget. Every worker consumes budget from its parent's lineage. Give the root a `spawnDepth` of at least `1` for a flat
 fan-out, and at least `2` if workers will fan out further themselves. See
-[Budgets](/docs/alineod/guides/how-it-works#budgets).
+[Budgets](/docs/alineod/concepts/how-it-works#budgets).

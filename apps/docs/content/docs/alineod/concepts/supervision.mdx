@@ -1,0 +1,69 @@
+---
+title: Supervision
+description: Decide what happens when a turn fails — end the agent, hold it for you, or retry it — and stop a failing agent from becoming a cost loop.
+---
+
+A turn can fail without the agent being finished: the model API refuses a request, a tool errors out, alineod
+restarts underneath it. By default alineod ends the agent `failed`. `onFailure` on the agent's spec chooses
+something else:
+
+```json
+{
+  "name": "migrator",
+  "harness": "pi",
+  "onFailure": "retry",
+  "maxRetries": 2,
+  "maxConsecutiveFailures": 3
+}
+```
+
+## Three policies
+
+| `onFailure`        | On a failed turn                                                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `"fail"` (default) | The agent ends `failed`, with the error. Every spec written before this field existed behaves this way.                             |
+| `"ask"`            | The agent is held in `blocked` until someone decides. Its sandbox and its session stay exactly as they were.                        |
+| `"retry"`          | The same prompt is sent again, up to `maxRetries` times. When the retries run out, the agent is held in `blocked`, as with `"ask"`. |
+
+`"retry"` needs an explicit `maxRetries` — there is no default. Without one, or with nothing to re-send, the agent
+is held instead, so a misconfigured policy waits for you rather than doing nothing or looping.
+
+Supervision is opt-in because a turn can have real side effects. A turn that sent an email or ran `git push` before
+it failed may do it again on a retry — see [the durability contract](/docs/alineod/concepts/durability-contract).
+
+## Resolving a blocked agent
+
+A `blocked` agent is live: alineod still holds its sandbox and its connection. Two ways out:
+
+```bash
+# retry, optionally with corrective text
+curl -s -X POST localhost:4600/agents/a_c01d9e3a/prompt \
+  -H 'content-type: application/json' -d '{"text": "The API key was rotated — use the new one in $API_KEY and try again."}'
+
+# give up
+curl -s -X POST localhost:4600/agents/a_c01d9e3a/stop
+```
+
+From an MCP client, `agent_prompt` and `agent_stop` do the same.
+
+The agent's **parent** is told automatically: a notice that its child needs a decision is delivered to the parent's
+inbox, the same way a [`notifyOn`](/docs/alineod/concepts/coordination#notifyon) notification is. A coordinator
+agent can therefore retry or stop its own failing workers without you.
+
+## The circuit breaker
+
+Independently of `onFailure`, an agent that fails `maxConsecutiveFailures` turns in a row (default `3`) is held in
+`blocked`. It doesn't matter how the failures happened — automatic retries, or an operator re-prompting a blocked
+agent again and again. A declared retry budget, or a patient operator, can't become an unbounded cost loop. The
+count resets on any turn that succeeds.
+
+## What the run stream shows
+
+| Event                      | When                                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `agent.turn_failed`        | Every failed turn, with `error` and `consecutiveFailures` — before the policy decides anything. |
+| `agent.state_changed`      | `to: "blocked"`, with `reason`: `ask`, `retries-exhausted`, or `circuit-tripped`.               |
+| `agent.supervision_needed` | The agent is waiting on a decision. Same `reason`, plus the `error`.                            |
+
+`agent.supervision_needed` is the source of truth for "something is waiting on you", whether or not the parent was
+live to receive its notice — [events](/docs/alineod/api-reference/events).

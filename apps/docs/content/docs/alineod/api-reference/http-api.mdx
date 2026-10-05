@@ -27,7 +27,7 @@ Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors ar
 | `POST`   | `/agents/:agentId/notify-on`     | Tell this agent when others finish.                                                                                                                    |
 | `GET`    | `/agents/:agentId/inbox`         | This agent's pending and delivered notifications.                                                                                                      |
 | `POST`   | `/agents/:agentId/inbox/deliver` | Deliver pending notifications now.                                                                                                                     |
-| `GET`    | `/agents/:agentId/memory`        | Working memory — see [Agent memory](/docs/alineod/guides/memory), which also covers `PUT`/`DELETE .../memory/:key`, `.../facts` and `.../compactions`. |
+| `GET`    | `/agents/:agentId/memory`        | Working memory — see [Agent memory](/docs/alineod/concepts/memory), which also covers `PUT`/`DELETE .../memory/:key`, `.../facts` and `.../compactions`. |
 
 ## Runs
 
@@ -96,16 +96,16 @@ See [Events](/docs/alineod/api-reference/events).
 
 Spawn a child by forking a live parent's sandbox. Returns `202`.
 
-| Field               | Type               | Description                                                                                                                                                                                                                                                              |
-| ------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `parentAgentId`     | string             | A live agent in this run. Required.                                                                                                                                                                                                                                      |
-| `spec`              | object             | The child's agent spec. Required.                                                                                                                                                                                                                                        |
-| `prompt`            | string             | Turn to run once the child is ready.                                                                                                                                                                                                                                     |
-| `waitFor`           | string[] \| object | Agents in this run whose results must settle before the child is forked. Their results are written to `/inputs/`. The object form adds `mode`, `k`, `onDepFailure`, `deadlineSec` and `onDeadline`; see [Coordination](/docs/alineod/guides/coordination#waitfor-modes). |
-| `notifyOn`          | string[]           | Agents to tell this child about when they finish, without blocking it. See [Coordination](/docs/alineod/guides/coordination#notifyon).                                                                                                                                   |
-| `budget.spawnDepth` | integer            | Overrides the parent's remaining `spawnDepth`.                                                                                                                                                                                                                           |
-| `budget.maxAgents`  | integer            | Overrides the parent's remaining `maxAgents`.                                                                                                                                                                                                                            |
-| `idempotencyKey`    | string             | A retry with the same key returns the original child instead of creating another.                                                                                                                                                                                        |
+| Field               | Type               | Description                                                                                                                                                                                                                                                                |
+| ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parentAgentId`     | string             | A live agent in this run. Required.                                                                                                                                                                                                                                        |
+| `spec`              | object             | The child's agent spec. Required.                                                                                                                                                                                                                                          |
+| `prompt`            | string             | Turn to run once the child is ready.                                                                                                                                                                                                                                       |
+| `waitFor`           | string[] \| object | Agents in this run whose results must settle before the child is forked. Their results are written to `/inputs/`. The object form adds `mode`, `k`, `onDepFailure`, `deadlineSec` and `onDeadline`; see [Coordination](/docs/alineod/concepts/coordination#waitfor-modes). |
+| `notifyOn`          | string[]           | Agents to tell this child about when they finish, without blocking it. See [Coordination](/docs/alineod/concepts/coordination#notifyon).                                                                                                                                   |
+| `budget.spawnDepth` | integer            | Overrides the parent's remaining `spawnDepth`.                                                                                                                                                                                                                             |
+| `budget.maxAgents`  | integer            | Overrides the parent's remaining `maxAgents`.                                                                                                                                                                                                                              |
+| `idempotencyKey`    | string             | A retry with the same key returns the original child instead of creating another.                                                                                                                                                                                          |
 
 ```json
 // 202
@@ -121,7 +121,7 @@ Spawn a child by forking a live parent's sandbox. Returns `202`.
 | `409`  | The parent isn't live.                                                                       |
 
 A spawn refused by a budget still returns `202`; the child then ends with outcome `budget-exceeded` and a
-`budget.denied` event is emitted. See [Fan-out and gather](/docs/alineod/guides/fan-out-gather).
+`budget.denied` event is emitted. See [Fan-out and gather](/docs/alineod/concepts/fan-out-gather).
 
 ### GET /agents/:agentId
 
@@ -136,7 +136,7 @@ available. `sessionStats` is omitted while the agent is paused, or if the harnes
 ```
 
 Starts a new turn and returns `202` immediately; follow it on the event stream or via the result route. `409` if
-the agent isn't live.
+the agent isn't live. On a `blocked` agent this is the retry — see [Supervision](/docs/alineod/concepts/supervision).
 
 ### POST /agents/:agentId/steer
 
@@ -149,7 +149,7 @@ Returns `202` and emits `agent.steered`.
 
 With `"scope": "subtree"`, the agent gets one message: yours plus a list of its direct children, so it redirects
 them itself. Returns `200` with `{ deliveredAs: "steer" | "turn" | "queued", roster }`. See
-[Steering a subtree](/docs/alineod/guides/steering-and-pausing#steering-a-subtree).
+[Steering a subtree](/docs/alineod/concepts/steering-and-pausing#steering-a-subtree).
 
 | Status | When                                   |
 | ------ | -------------------------------------- |
@@ -157,7 +157,7 @@ them itself. Returns `200` with `{ deliveredAs: "steer" | "turn" | "queued", ros
 | `409`  | The agent isn't live.                  |
 | `502`  | The harness didn't accept the message. |
 
-See [Steering and pausing](/docs/alineod/guides/steering-and-pausing#steer).
+See [Steering and pausing](/docs/alineod/concepts/steering-and-pausing#steer).
 
 ### POST /agents/:agentId/pause
 
@@ -250,7 +250,7 @@ provider's `errorMessage`). A turn appears once it ends, so an agent mid-turn sh
 
 ## Coordination
 
-See [Coordination](/docs/alineod/guides/coordination) for how these fit together.
+See [Coordination](/docs/alineod/concepts/coordination) for how these fit together.
 
 ### GET /agents/:agentId/await
 

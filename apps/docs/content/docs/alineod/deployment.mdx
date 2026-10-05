@@ -5,25 +5,32 @@ description: Configure alineod, run it as a Docker container, and connect it to 
 
 alineod is a single Bun process with two SQLite files and a working directory. It holds no in-memory state that
 can't be rebuilt, so the process — or its container — can be restarted or recreated freely (see
-[Crash recovery](/docs/alineod/guides/crash-recovery)). Run **exactly one** instance per database: restarts are
+[Crash recovery](/docs/alineod/concepts/crash-recovery)). Run **exactly one** instance per database: restarts are
 safe, replicas are not (see [Scaling](#scaling)).
 
 ## Configuration
 
-| Variable                           | Default                        | Description                                                                                            |
-| ---------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `ALINEOD_PORT`                     | `4600`                         | HTTP + SSE listen port.                                                                                |
-| `ALINEOD_DB_PATH`                  | `./data/alineod.db`            | alineod's own state: the append-only swarm ledger and the `agents`/`handles` tables derived from it.   |
-| `ALINEOD_SDK_LEDGER_PATH`          | `./data/alineod-sdk-ledger.db` | The SDK's sandbox ledger (sandbox, exec, and checkpoint events), shared by every agent alineod drives. |
-| `ALINEOD_WORK_DIR`                 | `./data/alineod-work`          | Spec files handed to `spawn()`, and stored agent results.                                              |
-| `ALINEOD_PROMPT_INACTIVITY_MS`     | `180000`                       | If a turn's stream produces nothing for this long, alineod follows the turn by polling instead.        |
-| `ALINEOD_TURN_MAX_MS`              | `1800000`                      | How long a polled turn may keep running (paused time excluded) before it's ended with partial output.  |
-| `ALINEOD_CATCH_UP_POLL_MS`         | `2000`                         | Interval between state polls while following a turn.                                                   |
-| `ALINEOD_STATE_PROBE_TIMEOUT_MS`   | `5000`                         | Bound on one state poll, so an unresponsive agent can't stall alineod.                                 |
-| `ALINEOD_RESUME_BRIDGE_TIMEOUT_MS` | `10000`                        | After a resume, how long to wait for the agent's harness to answer before restarting it.               |
-| `ALINEOD_LEASE_TTL_MS`             | `15000`                        | How long the instance lease outlives its last heartbeat. See [Scaling](#scaling).                      |
+| Variable                            | Default                        | Description                                                                                                                                            |
+| ----------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ALINEOD_PORT`                      | `4600`                         | HTTP + SSE listen port.                                                                                                                                |
+| `ALINEOD_DB_PATH`                   | `./data/alineod.db`            | alineod's own state: the append-only swarm ledger and the `agents`/`handles` tables derived from it.                                                   |
+| `ALINEOD_SDK_LEDGER_PATH`           | `./data/alineod-sdk-ledger.db` | The SDK's sandbox ledger (sandbox, exec, and checkpoint events), shared by every agent alineod drives. Turn checkpoints are written next to it.        |
+| `ALINEOD_WORK_DIR`                  | `./data/alineod-work`          | Spec files handed to `spawn()`, and stored agent results.                                                                                              |
+| `ALINEOD_PROMPT_INACTIVITY_MS`      | `180000`                       | If a turn's stream produces nothing for this long, alineod follows the turn by polling instead.                                                        |
+| `ALINEOD_TURN_MAX_MS`               | `1800000`                      | How long a polled turn may keep running (paused time excluded) before it's ended with partial output.                                                  |
+| `ALINEOD_CATCH_UP_POLL_MS`          | `2000`                         | Interval between state polls while following a turn.                                                                                                   |
+| `ALINEOD_STATE_PROBE_TIMEOUT_MS`    | `5000`                         | Bound on one state poll, so an unresponsive agent can't stall alineod.                                                                                 |
+| `ALINEOD_RESUME_BRIDGE_TIMEOUT_MS`  | `10000`                        | After a resume, how long to wait for the agent's harness to answer before restarting it.                                                               |
+| `ALINEOD_SUBTREE_MEMBER_TIMEOUT_MS` | `30000`                        | Bound on one member's pause or resume inside a subtree operation, so one unresponsive sandbox can't stall the sweep (reported as `failed: timeout`).   |
+| `ALINEOD_ADMISSION_CONCURRENCY`     | host vCPUs − 1 (at least 1)    | How many sandboxes alineod creates or forks at once. Spawns beyond it wait for a slot. See [Admission](#admission).                                    |
+| `ALINEOD_ADMISSION_TIMEOUT_MS`      | `600000`                       | How long a spawn may wait for a slot before it fails with `agent.admission_timeout`.                                                                   |
+| `ALINEOD_REATTACH_RETRY_DELAY_MS`   | `1000`                         | On boot, how long to wait before retrying a failed reattach once — see [the restore ladder](/docs/alineod/concepts/crash-recovery#the-restore-ladder). |
+| `ALINEOD_LEASE_TTL_MS`              | `15000`                        | How long the instance lease outlives its last heartbeat. See [Scaling](#scaling).                                                                      |
 
-Agent memory has its own `ALINEOD_MEMORY_*` variables, covered in [Agent memory](/docs/alineod/guides/memory#configuration).
+Every variable is declared in `apps/alineod/config.ts`, and a bad value is rejected at startup rather than silently
+becoming `NaN`.
+
+Agent memory has its own `ALINEOD_MEMORY_*` variables, covered in [Agent memory](/docs/alineod/concepts/memory#configuration).
 The memory database is a third SQLite file, and `scripts/backup.ts` includes it.
 
 OpenSandbox connection settings come from `alineo.config.json` in the working directory, exactly as for the SDK
@@ -90,7 +97,9 @@ The entrypoint writes `/data/alineo.config.json` from these variables before sta
 | `ALINEO_USE_SERVER_PROXY` | Route sandbox traffic through the OpenSandbox server (`true`). |
 | `ALINEO_API_KEY`          | OpenSandbox API key, if the server requires one.               |
 
-All state lives under `/data` — keep it on a volume.
+All state lives under `/data` — both ledgers, the work directory, and the `checkpoints/` directory of turn
+checkpoints next to the SDK ledger. Keep it on a volume: it is what a restart, a lost container, or a reboot is
+recovered from.
 
 ## Networking
 
@@ -116,6 +125,16 @@ nothing in alineod depends on the runtime.
   [OpenSandbox#1831](https://github.com/opensandbox-group/OpenSandbox/issues/1831)). Even then,
   `/tmp` is a tmpfs under gVisor and isn't carried into forks.
 </Callout>
+
+## Admission
+
+Creating or forking a sandbox is the slow, heavy part of a spawn — a cold provision can take a minute or more. alineod
+runs at most `ALINEOD_ADMISSION_CONCURRENCY` of them at once, and holds the rest in a queue, so a coordinator that
+fans out to twenty workers on a small box gets them one after another instead of starving the machine.
+
+A spawn that has to wait records `agent.admission_queued`, then `agent.admission_granted` when it gets its slot.
+One that waits longer than `ALINEOD_ADMISSION_TIMEOUT_MS` fails loudly with `agent.admission_timeout` rather than
+hanging. The uncontended case records nothing.
 
 ## Scaling
 
