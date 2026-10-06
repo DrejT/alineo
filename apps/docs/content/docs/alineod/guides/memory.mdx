@@ -84,13 +84,15 @@ have ended, or that alineod hasn't reconnected yet.
 
 | Method   | Path                           | Description                                                                |
 | -------- | ------------------------------ | -------------------------------------------------------------------------- |
-| `GET`    | `/agents/:agentId/memory`      | Working memory, the resource ref it lives under, and whether facts are on. |
+| `GET`    | `/agents/:agentId/memory`      | One page of working memory (`?limit=`, default 100, max 1000; `?after=` a key), the resource ref, and whether facts are on. A `nextAfter` in the reply means more keys follow. |
 | `GET`    | `/agents/:agentId/memory/:key` | One value. `404` if the key isn't set.                                     |
 | `PUT`    | `/agents/:agentId/memory/:key` | Set a value. Body `{ "value": <any JSON> }`.                               |
 | `DELETE` | `/agents/:agentId/memory/:key` | Remove a key. Idempotent, always `204`.                                    |
 | `POST`   | `/agents/:agentId/facts`       | Remember a fact. Body `{ "content", "sourceRef"? }`. `201`.                |
-| `GET`    | `/agents/:agentId/facts`       | `?query=` recalls by meaning (`?topK=`, default 5, max 100). Without it, lists every fact newest-first (`?limit=`, default 100, max 1000). |
+| `GET`    | `/agents/:agentId/facts`       | `?query=` recalls by meaning (`?topK=`, default 5, max 100). Without it, lists the newest facts first (`?limit=`, default 100, max 1000) from an index, so cost follows the page size, not how many facts are stored. |
 | `POST`   | `/agents/:agentId/compactions` | Prune now. Body `{ "maxFacts"?, "maxAgeMs"? }`; age first, then the cap.   |
+
+Large working memories are read key by key (`GET .../memory/:key`) or paged; one response never carries every entry.
 
 `sourceRef` (`{ sandboxId, entryIndex }`) ties a fact to the ledger entry it came from. A fact with one is
 `verified`; that flag is computed, never taken from the request.
@@ -101,6 +103,7 @@ have ended, or that alineod hasn't reconnected yet.
 | `404`  | No such agent (or, for `GET .../memory/:key`, no such key).                         |
 | `501`  | Memory is disabled, or no embeddings endpoint is configured (for the facts routes). |
 | `502`  | The embeddings provider failed or timed out. Nothing was stored.                    |
+| `500`  | A local failure — typically SQLite (disk full, a locked or corrupt file). Never reported as `502`, so an operator is pointed at the right place. |
 
 ## Backups
 

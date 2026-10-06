@@ -26,6 +26,24 @@ type Row = {
 const VEC_TABLE = "alineo_semantic_vec";
 
 /**
+ * Load the `sqlite-vec` extension into `db`. `false` (not a throw) when it can't load — an
+ * unsupported platform, or a host that blocks native extensions — because the provider has a
+ * correct JS fallback for that case.
+ *
+ * Exported so anything else that has to open this provider's database (a backup tool, say: a
+ * `vec0` virtual table can't be read, or `VACUUM`ed, without its module) loads the extension the
+ * same way the provider does, rather than carrying a second copy of how.
+ */
+export function loadSqliteVec(db: Database): boolean {
+  try {
+    db.loadExtension(sqliteVec.getLoadablePath());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Persisted `ISemanticMemoryProvider` (+ pruning) backed by `bun:sqlite`.
  *
  * Ranks `recall()` with a real native vector index — the `sqlite-vec` extension's `vec0`
@@ -63,12 +81,7 @@ export class SQLiteSemanticMemoryProvider
     this.db.exec(SEMANTIC_MEMORY_MIGRATION_SQL);
     this.db.exec("PRAGMA journal_mode = WAL;");
 
-    try {
-      this.db.loadExtension(sqliteVec.getLoadablePath());
-      this.vecAvailable = true;
-    } catch {
-      this.vecAvailable = false;
-    }
+    this.vecAvailable = loadSqliteVec(this.db);
   }
 
   /** Whether `recall()` is using the native `sqlite-vec` index (true) or the in-JS cosine
@@ -221,6 +234,20 @@ export class SQLiteSemanticMemoryProvider
     const rows = this.db
       .prepare<Row, [string]>("SELECT * FROM alineo_semantic_memory WHERE scope = ?")
       .all(scopeKey(ref));
+    return rows.map(factFromRow);
+  }
+
+  /**
+   * The `limit` most recently remembered facts, newest first — a bounded read for callers that
+   * page through a resource's facts, so a large store isn't deserialized just to show ten.
+   * `listAll()` is the unbounded form (and what compaction and `Memory.fork()` need).
+   */
+  async listRecent(ref: ResourceRef, limit: number): Promise<RememberedFact[]> {
+    const rows = this.db
+      .prepare<Row, [string, number]>(
+        "SELECT * FROM alineo_semantic_memory WHERE scope = ? ORDER BY remembered_at DESC, rowid_key DESC LIMIT ?",
+      )
+      .all(scopeKey(ref), Math.max(0, Math.floor(limit)));
     return rows.map(factFromRow);
   }
 

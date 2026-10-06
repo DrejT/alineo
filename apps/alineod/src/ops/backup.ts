@@ -9,7 +9,7 @@
 import { Database } from "bun:sqlite";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
-import * as sqliteVec from "sqlite-vec";
+import { loadSqliteVec } from "@alineo-labs/sqlite-memory";
 
 export interface BackupSources {
   /** alineod's own ledger (ALINEOD_DB_PATH). */
@@ -46,36 +46,35 @@ export function backupDirName(at: Date = new Date()): string {
 }
 
 /**
- * Open a database for backup or verification. Semantic memory keeps its vectors in a `vec0`
- * virtual table, and SQLite refuses to read — or `VACUUM INTO` — a database whose virtual-table
- * module isn't loaded ("no such module: vec0"). Loading `sqlite-vec` is best-effort: a database
- * without such a table never needs it, and one that does is reported by SQLite itself if the
- * extension can't load on this platform.
+ * Open a database for backup or verification.
+ *
+ * `vec` is for the memory database only: semantic memory keeps its vectors in a `vec0` virtual
+ * table, and SQLite refuses to read — or `VACUUM INTO` — a file whose virtual-table module isn't
+ * loaded ("no such module: vec0"). It is loaded through `@alineo-labs/sqlite-memory`'s own
+ * `loadSqliteVec`, the exact path the provider takes, and never for the two ledgers, which have
+ * no such table. If the extension can't load here, SQLite reports it on the first statement that
+ * needs it, which is the right place for that error.
  */
-function openDb(path: string): Database {
+function openDb(path: string, vec: boolean): Database {
   const db = new Database(path, { readonly: true });
-  try {
-    sqliteVec.load(db);
-  } catch {
-    /* not needed unless the file has a vec0 table — SQLite says so then */
-  }
+  if (vec) loadSqliteVec(db);
   return db;
 }
 
-function snapshotDb(source: string, target: string): BackedUpDb {
-  const src = openDb(source);
+function snapshotDb(source: string, target: string, vec: boolean): BackedUpDb {
+  const src = openDb(source, vec);
   try {
     src.exec("PRAGMA busy_timeout = 5000;");
     src.query("VACUUM INTO ?").run(target);
   } finally {
     src.close();
   }
-  return verifyDb(target);
+  return verifyDb(target, { vec });
 }
 
 /** Open a backup read-only and check it: `integrity_check`, plus a row count per table. */
-export function verifyDb(file: string): BackedUpDb {
-  const db = openDb(file);
+export function verifyDb(file: string, opts: { vec?: boolean } = {}): BackedUpDb {
+  const db = openDb(file, opts.vec ?? false);
   try {
     const integrity =
       db.query<{ integrity_check: string }, []>("PRAGMA integrity_check").get()?.integrity_check ??
@@ -99,14 +98,37 @@ export function verifyDb(file: string): BackedUpDb {
 
 /** Write one backup directory under `destRoot`. Throws if a copy fails its integrity check. */
 export function backup(sources: BackupSources, destRoot: string, at = new Date()): BackupResult {
+  // Each copy is written under its source's file name, so two sources sharing one would collide in
+  // the backup directory — `VACUUM INTO` throws on the second, or (if the file isn't there yet)
+  // one silently stands in for the other. Refuse up front, before anything is written, naming
+  // both; a half-made backup directory is worse than none.
+  const labelled = [
+    ["ALINEOD_DB_PATH", sources.dbPath],
+    ["ALINEOD_SDK_LEDGER_PATH", sources.sdkLedgerPath],
+    ["ALINEOD_MEMORY_DB_PATH", sources.memoryDbPath],
+  ] as const;
+  const seen = new Map<string, string>();
+  for (const [label, path] of labelled) {
+    if (!path) continue;
+    // Case-insensitive: Windows and macOS volumes treat `A.db` and `a.db` as one file.
+    const key = basename(path).toLowerCase();
+    const other = seen.get(key);
+    if (other) {
+      throw new Error(
+        `cannot back up: ${other} and ${label} share the file name "${basename(path)}", ` +
+          `so their copies would overwrite each other. Give them different file names.`,
+      );
+    }
+    seen.set(key, label);
+  }
+
   const dir = join(destRoot, backupDirName(at));
   mkdirSync(dir, { recursive: true });
 
   const databases: BackedUpDb[] = [];
-  // Same basename as the source, so two sources must not collide in one backup directory.
-  for (const path of [sources.dbPath, sources.sdkLedgerPath, sources.memoryDbPath]) {
+  for (const [label, path] of labelled) {
     if (!path || !existsSync(path)) continue;
-    const copy = snapshotDb(path, join(dir, basename(path)));
+    const copy = snapshotDb(path, join(dir, basename(path)), label === "ALINEOD_MEMORY_DB_PATH");
     if (copy.integrity !== "ok") {
       throw new Error(`backup of ${path} failed its integrity check: ${copy.integrity}`);
     }

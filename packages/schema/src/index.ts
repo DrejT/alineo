@@ -24,6 +24,7 @@ export type {
 } from "./permissions";
 
 export { AgentSpecSchema } from "./agent-spec";
+export { resourceRefOf } from "./resource-ref";
 export type { AgentSpec, CredentialEnvBinding, SetupStep } from "./agent-spec";
 
 export {

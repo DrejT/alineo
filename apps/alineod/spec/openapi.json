@@ -1972,11 +1972,32 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
+            },
+            "description": "Entries per page, in sorted key order."
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Return keys after this one — the previous page's `nextAfter`."
           }
         ],
         "responses": {
           "200": {
-            "description": "Working memory",
+            "description": "One page of working memory",
             "content": {
               "application/json": {
                 "schema": {
@@ -2007,7 +2028,12 @@
                     },
                     "working": {
                       "type": "object",
-                      "additionalProperties": {}
+                      "additionalProperties": {},
+                      "description": "One page of entries, in sorted key order. See `nextAfter`."
+                    },
+                    "nextAfter": {
+                      "description": "Present when more keys follow: pass it as `?after=` to read the next page.",
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -2020,6 +2046,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad limit"
           },
           "404": {
             "description": "No such agent"
@@ -2073,6 +2102,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Key is empty or longer than 256 characters"
           },
           "404": {
             "description": "No such agent, or no such key"
@@ -2177,6 +2209,9 @@
         "responses": {
           "204": {
             "description": "Removed, or never there"
+          },
+          "400": {
+            "description": "Key is empty or longer than 256 characters"
           },
           "404": {
             "description": "No such agent"

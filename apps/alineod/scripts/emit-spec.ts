@@ -293,12 +293,29 @@ const openapi = {
         summary: "The agent's working memory, and the scope it lives under",
         description:
           "Keyed by the agent spec's resourceId (default: its name) and teamId, read from the persisted spec — so it works after the agent ended, and across an alineod restart. A spawned child starts with a copy of its parent's memory.",
-        parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 1000, default: 100 },
+            description: "Entries per page, in sorted key order.",
+          },
+          {
+            name: "after",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Return keys after this one — the previous page's `nextAfter`.",
+          },
+        ],
         responses: {
           "200": {
-            description: "Working memory",
+            description: "One page of working memory",
             content: { "application/json": { schema: json(MemoryView) } },
           },
+          "400": { description: "Bad limit" },
           "404": { description: "No such agent" },
           "501": { description: "Memory is disabled on this alineod" },
         },
@@ -316,6 +333,7 @@ const openapi = {
             description: "The value",
             content: { "application/json": { schema: json(MemoryValueResponse) } },
           },
+          "400": { description: "Key is empty or longer than 256 characters" },
           "404": { description: "No such agent, or no such key" },
           "501": { description: "Memory is disabled on this alineod" },
         },
@@ -348,6 +366,7 @@ const openapi = {
         ],
         responses: {
           "204": { description: "Removed, or never there" },
+          "400": { description: "Key is empty or longer than 256 characters" },
           "404": { description: "No such agent" },
           "501": { description: "Memory is disabled on this alineod" },
         },

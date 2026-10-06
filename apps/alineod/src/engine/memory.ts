@@ -21,12 +21,9 @@
  * Disabled (`ALINEOD_MEMORY_ENABLED=false`) means `getMemoryStore()` is `undefined`, agents are started
  * with no `.memory` exactly as before this layer existed, and the memory routes answer 501.
  */
-import type {
-  EmbeddingProvider,
-  IPrunableSemanticMemoryProvider,
-  ResourceRef,
-} from "@alineo-labs/memory";
+import type { EmbeddingProvider, ResourceRef } from "@alineo-labs/memory";
 import { Memory } from "@alineo-labs/memory";
+import { resourceRefOf } from "@alineo-labs/schema";
 import {
   SQLiteSemanticMemoryProvider,
   SQLiteWorkingMemoryProvider,
@@ -45,6 +42,19 @@ import {
 } from "../../config";
 
 const log = getLogger("alineod");
+
+/**
+ * The embeddings provider failed: unreachable, timed out, an HTTP error, or an answer that can't
+ * be trusted. A distinct type so the routes can tell "the upstream is down" (502) from a local
+ * failure such as a SQLite error (500) — relabelling the second as the first sends an operator
+ * chasing an outage that isn't there.
+ */
+export class EmbeddingsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EmbeddingsError";
+  }
+}
 
 export interface EmbeddingsConfig {
   url: string;
@@ -100,7 +110,7 @@ export function createEmbeddingProvider(config: EmbeddingsConfig): EmbeddingProv
             ? err.message
             : String(err);
         clearTimeout(timer);
-        throw new Error(`embeddings request failed: ${reason}`);
+        throw new EmbeddingsError(`embeddings request failed: ${reason}`);
       }
       // The timer stays armed through the body read: a server that sends headers and then stalls
       // would otherwise hang the caller exactly as a server that never answers would.
@@ -114,27 +124,52 @@ export function createEmbeddingProvider(config: EmbeddingsConfig): EmbeddingProv
         clearTimeout(timer);
       }
       if (timedOut)
-        throw new Error(`embeddings request failed: timed out after ${config.timeoutMs}ms`);
+        throw new EmbeddingsError(
+          `embeddings request failed: timed out after ${config.timeoutMs}ms`,
+        );
       if (!res.ok) {
-        throw new Error(
+        throw new EmbeddingsError(
           `embeddings request failed: HTTP ${res.status}${detail ? ` ${detail}` : ""}`,
         );
       }
       const data = json?.data;
       if (!Array.isArray(data) || data.length !== texts.length) {
-        throw new Error(
+        throw new EmbeddingsError(
           `embeddings response malformed: expected ${texts.length} vectors, got ${
             Array.isArray(data) ? data.length : "none"
           }`,
         );
       }
-      const ordered = data.every((d) => typeof d.index === "number")
-        ? [...data].sort((a, b) => (a.index as number) - (b.index as number))
-        : data;
+      // `index` pairs each vector with its input. Either no entry carries one (positional), or
+      // every entry does and together they are exactly 0..n-1: a duplicate, a gap or an
+      // out-of-range value means the server's pairing can't be trusted, and sorting by it anyway
+      // would store a vector against the wrong text with nothing to flag it.
+      let ordered: typeof data = data;
+      if (data.some((d) => d.index !== undefined)) {
+        const slots: typeof data = new Array(data.length);
+        for (const d of data) {
+          const at = d.index;
+          if (
+            typeof at !== "number" ||
+            !Number.isInteger(at) ||
+            at < 0 ||
+            at >= data.length ||
+            slots[at] !== undefined
+          ) {
+            throw new EmbeddingsError(
+              "embeddings response malformed: indices are not a permutation of the inputs",
+            );
+          }
+          slots[at] = d;
+        }
+        ordered = slots;
+      }
       return ordered.map((d, i) => {
         const v = d.embedding;
         if (!Array.isArray(v) || v.length === 0 || !v.every((n) => Number.isFinite(n))) {
-          throw new Error(`embeddings response malformed: vector ${i} is not an array of numbers`);
+          throw new EmbeddingsError(
+            `embeddings response malformed: vector ${i} is not an array of numbers`,
+          );
         }
         return v as number[];
       });
@@ -154,12 +189,12 @@ export interface BuildMemoryOptions {
 
 /**
  * The `Memory` facade plus the semantic provider behind it. `Memory` keeps its provider private
- * and has no "list every fact" method, so the facts route holds the provider too — the same
- * `listAll` capability `Memory.fork()` and compaction use internally.
+ * and has no way to list facts, so the facts route holds the provider too, for the bounded
+ * `listRecent()` read.
  */
 export interface MemoryStore {
   memory: Memory;
-  semantic?: IPrunableSemanticMemoryProvider;
+  semantic?: SQLiteSemanticMemoryProvider;
 }
 
 /** Assemble a `Memory` over one SQLite file. Exported for tests; `initMemory()` is the daemon's way in. */
@@ -193,8 +228,8 @@ let initialised = false;
  */
 export function initMemory(): MemoryStore | undefined {
   if (initialised) return current;
-  initialised = true;
   if (!MEMORY_ENABLED) {
+    initialised = true;
     log.info("memory disabled (ALINEOD_MEMORY_ENABLED=false)");
     return undefined;
   }
@@ -220,6 +255,10 @@ export function initMemory(): MemoryStore | undefined {
     maxFacts: MEMORY_MAX_FACTS,
     maxAgeMs: MEMORY_MAX_AGE_MS,
   });
+  // Latched only once there is a store to keep. Latching earlier would turn a bad config (or an
+  // unopenable database) into a silent "memory disabled" for every call after the first throw,
+  // when every call should keep reporting the real problem.
+  initialised = true;
   log.info("memory ready", {
     path: MEMORY_DB_PATH,
     semantic: current.memory.hasSemanticMemory,
@@ -258,27 +297,28 @@ export function removeWorking(store: MemoryStore, ref: ResourceRef, key: string)
 }
 
 /**
- * The scope an agent's memory lives under, derived the way `Alineo.resourceRef` derives it:
- * `resourceId ?? name`, plus the optional `teamId`. Read from the persisted spec rather than the
+ * The scope an agent's memory lives under — `Alineo.resourceRef`'s rule, via the shared
+ * `resourceRefOf`. Read from the persisted spec rather than the
  * live `Alineo` handle so memory stays reachable after the agent ended, was lost, or alineod
  * restarted before it reconnected.
  */
 export function agentResourceRef(specJson: string, fallbackName: string): ResourceRef {
   let spec: { name?: unknown; resourceId?: unknown; teamId?: unknown } = {};
   try {
-    spec = JSON.parse(specJson) as typeof spec;
+    const parsed: unknown = JSON.parse(specJson);
+    if (parsed && typeof parsed === "object") spec = parsed as typeof spec;
   } catch {
     /* fall back to the row's own name below */
   }
-  const resourceId =
-    typeof spec.resourceId === "string" && spec.resourceId !== ""
-      ? spec.resourceId
-      : typeof spec.name === "string" && spec.name !== ""
-        ? spec.name
-        : fallbackName;
-  return typeof spec.teamId === "string" && spec.teamId !== ""
-    ? { resourceId, teamId: spec.teamId }
-    : { resourceId };
+  const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+  // The rule itself — `resourceId ?? name`, plus `teamId` — is the SDK's, imported rather than
+  // restated, so the two cannot drift. All that is done here is making the raw JSON safe to hand
+  // it: the row's own name stands in for a spec too damaged to carry one.
+  return resourceRefOf({
+    name: str(spec.name) ?? fallbackName,
+    resourceId: str(spec.resourceId),
+    teamId: str(spec.teamId),
+  });
 }
 
 /** Test seam: swap the shared store (or `undefined` to simulate disabled). @internal */

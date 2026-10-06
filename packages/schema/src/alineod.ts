@@ -335,27 +335,37 @@ export const MemoryView = z.object({
       "`name`) and `teamId`. Memory outlives the sandbox, so it stays readable after the agent ends.",
   ),
   semantic: z.boolean().describe("Whether semantic memory (facts) is configured on this alineod."),
-  working: z.record(z.string(), z.unknown()),
+  working: z
+    .record(z.string(), z.unknown())
+    .describe("One page of entries, in sorted key order. See `nextAfter`."),
+  nextAfter: z
+    .string()
+    .optional()
+    .describe("Present when more keys follow: pass it as `?after=` to read the next page."),
 });
 
 export const MemoryValueBody = z.object({
-  value: z
-    .unknown()
-    .refine((v) => v !== undefined, "value is required")
-    .refine((v) => {
-      try {
-        return JSON.stringify(v) !== undefined;
-      } catch {
-        return false;
-      }
-    }, "value must be JSON-serializable")
-    .refine((v) => {
-      try {
-        return new TextEncoder().encode(JSON.stringify(v)).byteLength <= MEMORY_VALUE_MAX_BYTES;
-      } catch {
-        return true; // un-serializable — the refinement above already rejects it
-      }
-    }, `value must be at most ${MEMORY_VALUE_MAX_BYTES} bytes as JSON`),
+  // One `superRefine`, so the (potentially 64 KiB) value is serialized once for both checks.
+  value: z.unknown().superRefine((v, ctx) => {
+    if (v === undefined) {
+      ctx.addIssue({ code: "custom", message: "value is required" });
+      return;
+    }
+    let json: string | undefined;
+    try {
+      json = JSON.stringify(v);
+    } catch {
+      json = undefined;
+    }
+    if (json === undefined) {
+      ctx.addIssue({ code: "custom", message: "value must be JSON-serializable" });
+    } else if (new TextEncoder().encode(json).byteLength > MEMORY_VALUE_MAX_BYTES) {
+      ctx.addIssue({
+        code: "custom",
+        message: `value must be at most ${MEMORY_VALUE_MAX_BYTES} bytes as JSON`,
+      });
+    }
+  }),
 });
 
 export const MemoryValueResponse = z.object({ key: z.string(), value: z.unknown() });

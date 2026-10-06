@@ -1,7 +1,7 @@
 /**
  * Memory routes — an agent's durable memory, over HTTP.
  *
- *   GET    /agents/:agentId/memory          working memory + the scope it lives under
+ *   GET    /agents/:agentId/memory          working memory (paged: ?limit=&after=) + its scope
  *   GET    /agents/:agentId/memory/:key     one working-memory value
  *   PUT    /agents/:agentId/memory/:key     set it   (body: { value })
  *   DELETE /agents/:agentId/memory/:key     remove it (idempotent)
@@ -23,6 +23,7 @@ import type { ResourceRef } from "@alineo-labs/memory";
 import { AddFactBody, CompactionBody, MEMORY_KEY_MAX_CHARS, MemoryValueBody } from "../schema";
 import { getAgentRow } from "../state/projection";
 import {
+  EmbeddingsError,
   agentResourceRef,
   getMemoryStore,
   readWorking,
@@ -37,6 +38,8 @@ const DEFAULT_TOP_K = 5;
 const MAX_TOP_K = 100;
 const DEFAULT_LIST_LIMIT = 100;
 const MAX_LIST_LIMIT = 1_000;
+const DEFAULT_KEY_LIMIT = 100;
+const MAX_KEY_LIMIT = 1_000;
 
 function scopeOf(agentId: string): { store: MemoryStore; ref: ResourceRef } {
   const row = getAgentRow(agentId);
@@ -57,14 +60,21 @@ function requireSemantic(store: MemoryStore): void {
   }
 }
 
-/** Run a semantic operation, turning an embeddings-provider failure into a 502. */
+/**
+ * Run an operation that calls the embeddings provider. Only a failure the provider itself
+ * reported becomes a 502 — anything else (a SQLite error, a bug) is rethrown untouched, so it
+ * surfaces as the 500 it is instead of sending an operator after an embeddings outage that
+ * isn't there.
+ */
 async function viaEmbeddings<T>(op: () => Promise<T>): Promise<T> {
   try {
     return await op();
   } catch (err) {
-    if (err instanceof HttpError) throw err;
+    if (err instanceof EmbeddingsError) {
+      throw new HttpError(502, `embeddings provider failed: ${errorMessage(err)}`);
+    }
     if (err instanceof MemoryCapabilityError) throw new HttpError(501, err.message);
-    throw new HttpError(502, `embeddings provider failed: ${errorMessage(err)}`);
+    throw err;
   }
 }
 
@@ -86,13 +96,25 @@ function intParam(raw: string | undefined, name: string, fallback: number, max: 
 }
 
 export const memoryRoutes = new Elysia()
-  .get("/agents/:agentId/memory", async ({ params }) => {
+  .get("/agents/:agentId/memory", async ({ params, query }) => {
     const { store, ref } = scopeOf(params.agentId);
+    const limit = intParam(query.limit, "limit", DEFAULT_KEY_LIMIT, MAX_KEY_LIMIT);
+    const after = typeof query.after === "string" && query.after !== "" ? query.after : undefined;
+
+    // Keyed pages in sorted key order. The provider has no ranged read, so this still loads the
+    // resource's entries — what it bounds is the response, which is the part that scales with
+    // 64 KiB values: a routine read no longer ships the whole map.
+    const all = await store.memory.workingMemory.list(ref);
+    const keys = Object.keys(all).sort();
+    const from = after === undefined ? 0 : keys.findIndex((k) => k > after);
+    const page = from === -1 ? [] : keys.slice(from, from + limit);
+    const more = from !== -1 && from + limit < keys.length;
     return {
       agentId: params.agentId,
       resourceRef: ref,
       semantic: store.memory.hasSemanticMemory,
-      working: await store.memory.workingMemory.list(ref),
+      working: Object.fromEntries(page.map((k) => [k, all[k]])),
+      ...(more ? { nextAfter: page[page.length - 1] } : {}),
     };
   })
 
@@ -137,14 +159,16 @@ export const memoryRoutes = new Elysia()
       return { agentId: params.agentId, query: q, facts };
     }
     const limit = intParam(query.limit, "limit", DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT);
-    const all = (await store.semantic?.listAll(ref)) ?? [];
-    all.sort((a, b) => b.rememberedAt - a.rememberedAt);
-    return { agentId: params.agentId, query: null, facts: all.slice(0, limit) };
+    // A bounded, indexed read — not every fact the resource ever remembered, sorted in JS.
+    const facts = (await store.semantic?.listRecent(ref, limit)) ?? [];
+    return { agentId: params.agentId, query: null, facts };
   })
 
   .post("/agents/:agentId/compactions", async ({ params, body }) => {
     const { store, ref } = scopeOf(params.agentId);
     requireSemantic(store);
     const opts = parseBody(CompactionBody, body ?? {});
-    return viaEmbeddings(() => store.memory.compactSemanticMemory(ref, opts));
+    // No `viaEmbeddings`: compaction without a `summarize` callback never calls the embeddings
+    // provider, so a failure here is local storage, and says so.
+    return store.memory.compactSemanticMemory(ref, opts);
   });

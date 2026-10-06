@@ -28,4 +28,8 @@ CREATE TABLE IF NOT EXISTS alineo_semantic_memory (
 );
 
 CREATE INDEX IF NOT EXISTS alineo_semantic_memory_scope ON alineo_semantic_memory(scope);
+-- Lets listRecent() walk one resource's facts newest-first and stop at its LIMIT, instead of
+-- sorting everything the resource ever remembered.
+CREATE INDEX IF NOT EXISTS alineo_semantic_memory_scope_time
+  ON alineo_semantic_memory(scope, remembered_at);
 `;

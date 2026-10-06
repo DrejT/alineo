@@ -1,3 +1,4 @@
+import { resourceRefOf } from "@alineo-labs/schema";
 import type { AgentSpec } from "../schema";
 
 /**
@@ -11,7 +12,7 @@ import type { AgentSpec } from "../schema";
  * agree on the exact same value — is independently unit-testable.
  */
 export function resolveChildResourceId(childSpec: Pick<AgentSpec, "name" | "resourceId">): string {
-  return childSpec.resourceId ?? childSpec.name;
+  return resourceRefOf(childSpec).resourceId;
 }
 
 export function assertValidSpawnDepth(value: number, context: string): void {

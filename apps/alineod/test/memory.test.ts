@@ -6,11 +6,18 @@
  * child), so what these tests prove is that alineod hands the SDK what it needs to do that.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EmbeddingProvider } from "@alineo-labs/memory";
 import {
+  InMemoryWorkingMemoryProvider,
+  Memory,
+  type EmbeddingProvider,
+  type ISemanticMemoryProvider,
+} from "@alineo-labs/memory";
+import { resourceRefOf } from "@alineo-labs/schema";
+import {
+  EmbeddingsError,
   agentResourceRef,
   buildMemory,
   createEmbeddingProvider,
@@ -152,6 +159,92 @@ describe("createEmbeddingProvider", () => {
     expect(await provider.embed(["first", "second"])).toEqual([[1], [2]]);
   });
 
+  test("refuses indices that are not exactly 0..n-1, rather than pairing the wrong vector", async () => {
+    const make = (data: unknown) =>
+      createEmbeddingProvider({
+        url: "http://e.test",
+        model: "m",
+        timeoutMs: 1000,
+        fetch: fakeFetch(() => Response.json({ data })).fn,
+      });
+    const bad: Array<[string, unknown]> = [
+      [
+        "duplicate",
+        [
+          { embedding: [1], index: 0 },
+          { embedding: [2], index: 0 },
+        ],
+      ],
+      [
+        "out of range",
+        [
+          { embedding: [1], index: 0 },
+          { embedding: [2], index: 5 },
+        ],
+      ],
+      [
+        "negative",
+        [
+          { embedding: [1], index: -1 },
+          { embedding: [2], index: 0 },
+        ],
+      ],
+      [
+        "fractional",
+        [
+          { embedding: [1], index: 0 },
+          { embedding: [2], index: 0.5 },
+        ],
+      ],
+      ["only some entries carry one", [{ embedding: [1], index: 0 }, { embedding: [2] }]],
+    ];
+    for (const [label, data] of bad) {
+      const err = await make(data)
+        .embed(["a", "b"])
+        .then(
+          () => null,
+          (e: Error) => e,
+        );
+      expect([label, err?.name, err?.message]).toEqual([
+        label,
+        "EmbeddingsError",
+        expect.stringMatching(/not a permutation/),
+      ]);
+    }
+  });
+
+  test("with no index at all, vectors are taken in order", async () => {
+    const { fn } = fakeFetch(() =>
+      Response.json({ data: [{ embedding: [1] }, { embedding: [2] }] }),
+    );
+    const provider = createEmbeddingProvider({
+      url: "http://e.test",
+      model: "m",
+      timeoutMs: 1000,
+      fetch: fn,
+    });
+    expect(await provider.embed(["a", "b"])).toEqual([[1], [2]]);
+  });
+
+  test("every failure it reports is an EmbeddingsError", async () => {
+    const down = createEmbeddingProvider({
+      url: "http://e.test",
+      model: "m",
+      timeoutMs: 1000,
+      fetch: (async () => {
+        throw new Error("ECONNREFUSED");
+      }) as unknown as typeof fetch,
+    });
+    await expect(down.embed(["a"])).rejects.toBeInstanceOf(EmbeddingsError);
+    const http500 = createEmbeddingProvider({
+      url: "http://e.test",
+      model: "m",
+      timeoutMs: 1000,
+      fetch: fakeFetch(() => new Response("no", { status: 500 })).fn,
+    });
+    await expect(http500.embed(["a"])).rejects.toBeInstanceOf(EmbeddingsError);
+  });
+
   test("refuses a response it can't trust instead of storing garbage", async () => {
     const make = (data: unknown) =>
       createEmbeddingProvider({
@@ -231,9 +324,6 @@ describe("agentResourceRef", () => {
       resourceId: "r",
     });
     expect(agentResourceRef(JSON.stringify({ name: "n" }), "row")).toEqual({ resourceId: "n" });
-    expect(agentResourceRef(JSON.stringify({ name: "n", resourceId: "" }), "row")).toEqual({
-      resourceId: "n",
-    });
   });
 
   test("carries teamId only when set", () => {
@@ -241,13 +331,31 @@ describe("agentResourceRef", () => {
       resourceId: "n",
       teamId: "t",
     });
-    expect(agentResourceRef(JSON.stringify({ name: "n", teamId: "" }), "row")).toEqual({
-      resourceId: "n",
-    });
+    expect(agentResourceRef(JSON.stringify({ name: "n" }), "row")).not.toHaveProperty("teamId");
+  });
+
+  test("agrees with the SDK's own rule for every shape of spec, because it IS that rule", () => {
+    // `resourceRefOf` is what `Alineo` itself resolves a spec's identity with (packages/agent),
+    // imported from @alineo-labs/schema. Comparing against it, case by case, is what fails if
+    // alineod ever grows a private reading of the rule again.
+    const specs = [
+      { name: "a" },
+      { name: "a", resourceId: "r" },
+      { name: "a", teamId: "t" },
+      { name: "a", resourceId: "r", teamId: "t" },
+      { name: "a", resourceId: "" },
+    ];
+    for (const spec of specs) {
+      expect(agentResourceRef(JSON.stringify(spec), "row")).toEqual(resourceRefOf(spec));
+    }
   });
 
   test("a corrupt spec still scopes by the row's name rather than throwing", () => {
     expect(agentResourceRef("{not json", "row")).toEqual({ resourceId: "row" });
+    expect(agentResourceRef("null", "row")).toEqual({ resourceId: "row" });
+    expect(agentResourceRef(JSON.stringify({ name: 5, resourceId: 7 }), "row")).toEqual({
+      resourceId: "row",
+    });
   });
 });
 
@@ -627,7 +735,7 @@ describe("semantic memory routes", () => {
     const flaky: EmbeddingProvider = {
       id: "flaky",
       async embed(texts) {
-        if (!healthy) throw new Error("upstream exploded");
+        if (!healthy) throw new EmbeddingsError("upstream exploded");
         return texts.map(() => [1, 0, 0]);
       },
     };
@@ -692,6 +800,133 @@ describe("semantic memory routes", () => {
   });
 });
 
+describe("failures that are not the embeddings provider's", () => {
+  /** A semantic store whose own storage fails — the SQLite-full / WAL-lock / corruption class. */
+  function brokenStorage(): MemoryStore {
+    const fail = () => {
+      throw new Error("SQLITE_FULL: database or disk is full");
+    };
+    const semantic: ISemanticMemoryProvider & Record<string, unknown> = {
+      remember: async () => fail(),
+      recall: async () => fail(),
+      listAll: async () => fail(),
+      forget: async () => fail(),
+    };
+    return {
+      memory: new Memory({ workingMemory: new InMemoryWorkingMemoryProvider(), semantic }),
+      semantic: { listRecent: async () => fail() } as never,
+    };
+  }
+
+  test("compaction reports a storage error as the 500 it is, not as an embeddings outage", async () => {
+    installMemoryForTests(brokenStorage());
+    const { id } = await newRoot("storage-compact");
+    const res = await call("POST", `/agents/${id}/compactions`, { maxFacts: 1 });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/SQLITE_FULL/);
+    expect(res.body.error).not.toMatch(/embeddings/);
+  });
+
+  test("so do remembering and listing", async () => {
+    installMemoryForTests(brokenStorage());
+    const { id } = await newRoot("storage-facts");
+    for (const [method, path, body] of [
+      ["POST", `/agents/${id}/facts`, { content: "x" }],
+      ["GET", `/agents/${id}/facts`],
+    ] as const) {
+      const res = await call(method, path, body);
+      expect([method, res.status]).toEqual([method, 500]);
+      expect(res.body.error).not.toMatch(/embeddings provider failed/);
+    }
+  });
+});
+
+describe("init", () => {
+  test("a half-configured embeddings endpoint keeps failing loudly — it never latches into 'disabled'", async () => {
+    // Config is read once at import, so this needs a process of its own with the bad env.
+    const dir = mkdtempSync(join(tmpdir(), "alineod-init-"));
+    const script = `
+      import { initMemory, getMemoryStore } from "./src/engine/memory";
+      const out = [];
+      for (let i = 0; i < 3; i++) {
+        try { out.push(initMemory() === undefined ? "disabled" : "ok"); }
+        catch (e) { out.push("throw"); }
+      }
+      try { out.push(getMemoryStore() === undefined ? "disabled" : "ok"); } catch { out.push("throw"); }
+      console.log(JSON.stringify(out));
+    `;
+    const proc = Bun.spawn(["bun", "-e", script], {
+      cwd: join(import.meta.dir, ".."),
+      env: {
+        ...process.env,
+        ALINEOD_MEMORY_ENABLED: "true",
+        ALINEOD_MEMORY_DB_PATH: join(dir, "m.db"),
+        ALINEOD_MEMORY_EMBEDDINGS_URL: "http://embed.test/v1/embeddings", // no model
+        ALINEOD_MEMORY_EMBEDDINGS_MODEL: "",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stdout = await new Response(proc.stdout).text();
+    await proc.exited;
+    const lastLine = stdout.trim().split("\n").pop()!;
+    expect(JSON.parse(lastLine)).toEqual(["throw", "throw", "throw", "throw"]);
+  });
+
+  test("a correct config initialises once and is then reused", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "alineod-init-"));
+    const proc = Bun.spawn(
+      [
+        "bun",
+        "-e",
+        `import { initMemory } from "./src/engine/memory"; const a = initMemory(); console.log(initMemory() === a && a !== undefined);`,
+      ],
+      {
+        cwd: join(import.meta.dir, ".."),
+        env: { ...process.env, ALINEOD_MEMORY_DB_PATH: join(dir, "m.db") },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    expect((await new Response(proc.stdout).text()).trim()).toBe("true");
+    await proc.exited;
+  });
+});
+
+describe("GET /memory paging", () => {
+  test("pages through working memory in key order, bounded by ?limit", async () => {
+    const { id } = await newRoot("paging");
+    for (const k of ["e", "b", "d", "a", "c"]) {
+      await call("PUT", `/agents/${id}/memory/${k}`, { value: k.toUpperCase() });
+    }
+
+    const first = (await call("GET", `/agents/${id}/memory?limit=2`)).body;
+    expect(first.working).toEqual({ a: "A", b: "B" });
+    expect(first.nextAfter).toBe("b");
+
+    const second = (await call("GET", `/agents/${id}/memory?limit=2&after=b`)).body;
+    expect(second.working).toEqual({ c: "C", d: "D" });
+    expect(second.nextAfter).toBe("d");
+
+    const last = (await call("GET", `/agents/${id}/memory?limit=2&after=d`)).body;
+    expect(last.working).toEqual({ e: "E" });
+    expect(last).not.toHaveProperty("nextAfter");
+
+    // Past the end, and an exactly-full final page, are both clean.
+    expect((await call("GET", `/agents/${id}/memory?after=zzz`)).body.working).toEqual({});
+    const exact = (await call("GET", `/agents/${id}/memory?limit=5`)).body;
+    expect(Object.keys(exact.working)).toEqual(["a", "b", "c", "d", "e"]);
+    expect(exact).not.toHaveProperty("nextAfter");
+  });
+
+  test("rejects a bad limit", async () => {
+    const { id } = await newRoot("paging-bad");
+    for (const q of ["limit=0", "limit=1001", "limit=x"]) {
+      expect([q, (await call("GET", `/agents/${id}/memory?${q}`)).status]).toEqual([q, 400]);
+    }
+  });
+});
+
 describe("backup", () => {
   test("captures working and semantic memory from a live store, and the copy is restorable", async () => {
     const { store, path } = semanticStore();
@@ -725,6 +960,28 @@ describe("backup", () => {
     expect(await restored.memory.workingMemory.get(ref, "plan")).toBe("pro");
     const hits = await restored.memory.recall(ref, "epsilon delta", { topK: 1 });
     expect(hits.map((f) => f.content)).toEqual(["delta epsilon zeta"]);
+  });
+
+  test("refuses two sources that share a file name, before writing anything", () => {
+    const dir = mkdtempSync(join(tmpdir(), "alineod-memory-backup-"));
+    const out = join(dir, "out");
+    const sources = (memory: string) => ({
+      dbPath: join(dir, "state", "alineod.db"),
+      sdkLedgerPath: join(dir, "sdk.db"),
+      memoryDbPath: memory,
+      workDir: join(dir, "w"),
+    });
+
+    // Same name in a different directory — the case a path-based check would miss.
+    expect(() => backup(sources(join(dir, "elsewhere", "alineod.db")), out)).toThrow(
+      /ALINEOD_DB_PATH and ALINEOD_MEMORY_DB_PATH share the file name "alineod.db"/,
+    );
+    // Case-insensitively, as on Windows and macOS volumes.
+    expect(() => backup(sources(join(dir, "elsewhere", "ALINEOD.DB")), out)).toThrow(
+      /share the file name/,
+    );
+    // And nothing was created for the failed attempts.
+    expect(existsSync(out)).toBe(false);
   });
 
   test("a deployment that never created a memory file just skips it", () => {

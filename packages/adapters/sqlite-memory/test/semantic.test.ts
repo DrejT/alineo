@@ -252,3 +252,39 @@ describe("SQLiteSemanticMemoryProvider", () => {
     });
   });
 });
+
+describe("SQLiteSemanticMemoryProvider.listRecent", () => {
+  it("returns the newest facts first and stops at the limit", async () => {
+    const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+    const ref = { resourceId: "user-1" };
+    for (const content of ["first", "second", "third", "fourth"]) {
+      await provider.remember(ref, { content });
+      await Bun.sleep(3); // distinct remembered_at
+    }
+    await provider.remember({ resourceId: "someone-else" }, { content: "not mine" });
+
+    expect((await provider.listRecent(ref, 2)).map((f) => f.content)).toEqual(["fourth", "third"]);
+    expect(await provider.listRecent(ref, 0)).toEqual([]);
+    expect((await provider.listRecent(ref, 100)).map((f) => f.content)).toEqual([
+      "fourth",
+      "third",
+      "second",
+      "first",
+    ]);
+    provider.close();
+  });
+
+  it("breaks a same-millisecond tie by insertion order, newest first", async () => {
+    const provider = new SQLiteSemanticMemoryProvider(":memory:", fakeEmbeddings());
+    const ref = { resourceId: "user-1" };
+    const realNow = Date.now;
+    Date.now = () => 1_000; // every fact lands in the same millisecond
+    try {
+      for (const content of ["a", "b", "c"]) await provider.remember(ref, { content });
+    } finally {
+      Date.now = realNow;
+    }
+    expect((await provider.listRecent(ref, 3)).map((f) => f.content)).toEqual(["c", "b", "a"]);
+    provider.close();
+  });
+});
