@@ -125,7 +125,7 @@ const qSteps = db.query<WorkflowStepRow, [string]>(
   `SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY step_index ASC`,
 );
 const qAllRuns = db.query<WorkflowRunRow, []>(
-  `SELECT * FROM workflow_runs ORDER BY created_at DESC`,
+  `SELECT * FROM workflow_runs ORDER BY created_at DESC, rowid DESC`,
 );
 
 export function getWorkflowRun(id: string): WorkflowRunRow | null {
