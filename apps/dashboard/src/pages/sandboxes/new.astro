@@ -1,0 +1,99 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="New sandbox">
+  <div class="mb-5">
+    <a href="/" class="eyebrow">← sandboxes</a>
+    <h1 class="mt-1 text-xl font-semibold">New sandbox</h1>
+  </div>
+
+  <form id="form" class="card flex flex-col gap-4" style="max-width: 32rem;">
+    <label class="flex flex-col gap-1 text-sm">
+      Name <span style="color: var(--color-muted);">(optional)</span>
+      <input name="name" class="btn" style="cursor:text; justify-content:flex-start;" placeholder="my-sandbox" />
+    </label>
+
+    <label class="flex flex-col gap-1 text-sm">
+      Image
+      <input name="image" class="btn" style="cursor:text; justify-content:flex-start;" value="node:22" />
+    </label>
+
+    <div class="flex gap-3">
+      <label class="flex flex-1 flex-col gap-1 text-sm">
+        CPU <span style="color:var(--color-danger);">*</span>
+        <input name="cpu" required class="btn" style="cursor:text; justify-content:flex-start;" value="500m" />
+      </label>
+      <label class="flex flex-1 flex-col gap-1 text-sm">
+        Memory <span style="color:var(--color-danger);">*</span>
+        <input name="memory" required class="btn" style="cursor:text; justify-content:flex-start;" value="512Mi" />
+      </label>
+    </div>
+
+    <label class="flex flex-col gap-1 text-sm">
+      Egress mode
+      <select name="egress" class="btn" style="justify-content:flex-start;">
+        <option value="none">No restriction (default)</option>
+        <option value="deny">Deny by default</option>
+        <option value="allow">Allow by default</option>
+      </select>
+    </label>
+
+    <label class="flex flex-col gap-1 text-sm">
+      Injected credentials <span style="color: var(--color-muted);">(optional — one per line, <code class="mono">name=host=header-name</code>)</span>
+      <textarea name="credentials" rows="3" class="btn" style="cursor:text; justify-content:flex-start; font-family: var(--font-mono); font-size: 0.8rem;" placeholder="github=api.github.com=Authorization"></textarea>
+    </label>
+
+    <div id="form-error" class="mono text-sm hidden" style="color: var(--color-danger);"></div>
+
+    <button type="submit" class="btn btn-primary self-start">Create sandbox</button>
+  </form>
+</Base>
+
+<script>
+  import { sandboxes, type CreateSandboxInput } from "../../lib/api";
+
+  const form = document.getElementById("form") as HTMLFormElement;
+  const errorBox = document.getElementById("form-error")!;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorBox.classList.add("hidden");
+    const data = new FormData(form);
+    const name = String(data.get("name") ?? "").trim() || undefined;
+    const image = String(data.get("image") ?? "").trim() || undefined;
+    const cpu = String(data.get("cpu") ?? "").trim();
+    const memory = String(data.get("memory") ?? "").trim();
+    const egress = String(data.get("egress") ?? "none");
+    const credLines = String(data.get("credentials") ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const body: CreateSandboxInput = { name, image, resources: { cpu, memory } };
+    if (egress !== "none") {
+      body.networkPolicy = { defaultAction: egress as "allow" | "deny", egress: [] };
+    }
+    if (credLines.length > 0) {
+      // Credentials need a real value, which this form never collects (never put a secret in a
+      // plain form field that round-trips through browser history/autofill) — so a credential
+      // line here only pre-declares the binding; the value is set after creation from the
+      // sandbox detail page's Credentials tab.
+      body.credentialProxy = true;
+      if (!body.networkPolicy) body.networkPolicy = { defaultAction: "allow", egress: [] };
+    }
+
+    const submitBtn = form.querySelector("button[type=submit]") as HTMLButtonElement;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating…";
+    try {
+      const sb = await sandboxes.create(body);
+      location.href = `/sandboxes/detail?id=${sb.sandboxId}`;
+    } catch (err) {
+      errorBox.textContent = err instanceof Error ? err.message : String(err);
+      errorBox.classList.remove("hidden");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Create sandbox";
+    }
+  });
+</script>

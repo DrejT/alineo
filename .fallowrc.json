@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
     "apps/alineod/scripts/*.ts",
+    "apps/dashboard/server/index.ts",
     "apps/alineod/test/fault/write-burst-worker.ts",
     "examples/pi-agent/test-*.ts",
     "packages/*/pi-extension/*.ts",
@@ -34,13 +35,14 @@
     { "file": "apps/sandbox/server/routes/*.ts", "exports": ["*"] },
     { "file": "apps/sandbox/server/ws/*.ts", "exports": ["*"] },
     { "file": "apps/sandbox/server/registry.ts", "exports": ["*"] },
+    { "file": "apps/dashboard/server/routes/*.ts", "exports": ["*"] },
     { "file": "packages/core/src/sandbox/credentials.ts", "exports": ["*"] },
     { "file": "packages/core/src/sandbox/egress.ts", "exports": ["*"] },
     { "file": "apps/docs/src/app/**/route.{ts,tsx}", "exports": ["generateStaticParams"] }
   ],
   "overrides": [
     {
-      "files": ["apps/alineod/test/**"],
+      "files": ["apps/alineod/test/**", "apps/dashboard/server/test/**"],
       "rules": { "unused-class-members": "off" }
     },
     {

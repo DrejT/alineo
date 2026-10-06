@@ -38,6 +38,10 @@ jobs:
         run: bun run typecheck
         working-directory: apps/alineod
 
+      - name: Typecheck dashboard
+        run: bun run typecheck
+        working-directory: apps/dashboard
+
       - name: Vocabulary check
         run: bun run check:vocabulary
 
@@ -91,6 +95,10 @@ jobs:
       - name: Test alineod
         run: bun run test
         working-directory: apps/alineod
+
+      - name: Test dashboard server
+        run: bun run test
+        working-directory: apps/dashboard
 
   build:
     name: Build

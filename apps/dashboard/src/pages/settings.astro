@@ -1,0 +1,77 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Settings">
+  <div class="mb-5">
+    <h1 class="text-xl font-semibold">Settings</h1>
+    <p class="eyebrow mt-1">effective configuration — mostly read-only (see note below)</p>
+  </div>
+
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">loading…</div>
+  <div id="state-error" class="card mono text-sm hidden" style="border-color: var(--color-danger); color: var(--color-danger);"></div>
+  <div id="content" class="hidden flex flex-col gap-4"></div>
+
+  <p class="mt-6 text-xs" style="color: var(--color-muted); max-width: 40rem;">
+    Storage, model provider and alineod's address are env-level — there is no runtime switch to
+    build a settings form on, so this page shows what is actually in effect.
+  </p>
+</Base>
+
+<script>
+  import { settings } from "../lib/api";
+
+  async function load() {
+    const $loading = document.getElementById("state-loading")!;
+    const $error = document.getElementById("state-error")!;
+    const $content = document.getElementById("content")!;
+    try {
+      const s = await settings.get() as Record<string, unknown>;
+      $loading.classList.add("hidden");
+      $content.classList.remove("hidden");
+
+      const storage = s.storage as { adapter: string; dbPath: string; ledgerPath: string };
+      const alineod = s.alineod as { url: string; reachable: boolean };
+      const providers = s.modelProviders as { id: string; label: string; envVar: string; configured: boolean }[];
+      const resources = s.defaultResources as { cpu: string; memory: string };
+
+      $content.innerHTML = `
+        <div class="card">
+          <span class="eyebrow">storage</span>
+          <dl class="mono mt-2 text-sm">
+            <div>adapter: ${storage.adapter}</div>
+            <div>db: ${storage.dbPath}</div>
+            <div>sandbox ledger: ${storage.ledgerPath}</div>
+          </dl>
+        </div>
+        <div class="card">
+          <span class="eyebrow">alineod &amp; defaults</span>
+          <dl class="mono mt-2 text-sm">
+            <div>alineod: ${alineod.url} (${alineod.reachable ? "reachable" : "not reachable"})</div>
+            <div>default resources: ${resources.cpu} / ${resources.memory}</div>
+            <div>dashboard auth: ${s.authEnabled ? "token required" : "disabled (loopback only)"}</div>
+          </dl>
+        </div>
+        <div class="card">
+          <span class="eyebrow">model providers</span>
+          <div class="mt-2 flex flex-col gap-1">
+            ${providers
+              .map(
+                (p) => `
+              <div class="mono flex items-center gap-2 text-sm">
+                <span class="status-dot" style="background:${p.configured ? "var(--color-ok)" : "var(--color-muted)"};"></span>
+                ${p.label} <span style="color:var(--color-muted);">(${p.envVar})</span>
+              </div>`,
+              )
+              .join("")}
+          </div>
+        </div>`;
+    } catch (err) {
+      $loading.classList.add("hidden");
+      $error.textContent = err instanceof Error ? err.message : String(err);
+      $error.classList.remove("hidden");
+    }
+  }
+
+  load();
+</script>

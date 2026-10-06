@@ -160,3 +160,12 @@ describe("DELETE /runs/:runId", () => {
     expect((await call("DELETE", "/runs/r_missing")).status).toBe(404);
   });
 });
+
+describe("GET /runs", () => {
+  test("lists every run with its root agent", async () => {
+    const { runId, rootAgentId } = await startRun();
+    const list = await call("GET", "/runs");
+    expect(list.status).toBe(200);
+    expect(list.body.runs).toContainEqual(expect.objectContaining({ runId, rootAgentId }));
+  });
+});

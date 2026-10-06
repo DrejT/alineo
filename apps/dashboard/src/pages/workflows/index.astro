@@ -1,0 +1,93 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Workflows">
+  <div class="mb-5">
+    <h1 class="text-xl font-semibold">Workflows</h1>
+    <p class="eyebrow mt-1">ordered shell steps in one sandbox</p>
+  </div>
+
+  <form id="form" class="card mb-6 flex flex-col gap-3">
+    <label class="flex flex-col gap-1 text-sm">
+      Name
+      <input name="name" required class="btn" style="cursor: text; justify-content: flex-start;" placeholder="ci" />
+    </label>
+    <label class="flex flex-col gap-1 text-sm">
+      Steps <span style="color: var(--color-muted);">(one per line, <code class="mono">name: command</code>)</span>
+      <textarea name="steps" rows="4" required class="mono btn" style="cursor: text; justify-content: flex-start; font-size: 0.8rem;" placeholder="install: npm ci&#10;test: npm test"></textarea>
+    </label>
+    <div id="form-error" class="mono text-sm hidden" style="color: var(--color-danger);"></div>
+    <button type="submit" class="btn btn-primary self-start">Run workflow</button>
+  </form>
+
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">loading…</div>
+  <div id="state-empty" class="card hidden">No workflow runs yet.</div>
+  <div id="list" class="hidden" style="border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden;"></div>
+</Base>
+
+<script>
+  import { workflows, type WorkflowRun } from "../../lib/api";
+
+  const STATUS_COLOR: Record<string, string> = {
+    running: "var(--color-warn)",
+    done: "var(--color-ok)",
+    failed: "var(--color-danger)",
+  };
+
+  document.getElementById("form")!.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const data = new FormData(form);
+    const name = String(data.get("name"));
+    const steps = String(data.get("steps"))
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const at = line.indexOf(":");
+        return at === -1
+          ? { name: line, run: line }
+          : { name: line.slice(0, at).trim(), run: line.slice(at + 1).trim() };
+      });
+    const errorBox = document.getElementById("form-error")!;
+    errorBox.classList.add("hidden");
+    try {
+      const res = await workflows.create(name, steps);
+      location.href = `/workflows/detail?id=${res.id}`;
+    } catch (err) {
+      errorBox.textContent = err instanceof Error ? err.message : String(err);
+      errorBox.classList.remove("hidden");
+    }
+  });
+
+  function row(r: WorkflowRun): string {
+    return `
+      <a href="/workflows/detail?id=${r.id}" style="display:flex;align-items:center;gap:1rem;padding:0.75rem 1rem;border-bottom:1px solid var(--color-border);">
+        <span class="status-dot" style="background:${STATUS_COLOR[r.status] ?? "var(--color-muted)"};"></span>
+        <span class="mono text-sm" style="flex:1;">${r.name}</span>
+        <span class="id-pill">${r.status}</span>
+        <span class="mono text-xs" style="color:var(--color-muted);">${new Date(r.created_at).toLocaleTimeString()}</span>
+      </a>`;
+  }
+
+  async function load() {
+    const $loading = document.getElementById("state-loading")!;
+    const $empty = document.getElementById("state-empty")!;
+    const $list = document.getElementById("list")!;
+    try {
+      const { runs } = await workflows.list();
+      $loading.classList.add("hidden");
+      if (runs.length === 0) {
+        $empty.classList.remove("hidden");
+        return;
+      }
+      $list.innerHTML = runs.map(row).join("");
+      $list.classList.remove("hidden");
+    } catch {
+      $loading.textContent = "Couldn't reach the dashboard server.";
+    }
+  }
+
+  load();
+</script>

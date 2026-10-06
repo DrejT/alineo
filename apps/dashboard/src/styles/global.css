@@ -1,0 +1,299 @@
+@import "tailwindcss";
+@import "@xterm/xterm/css/xterm.css";
+@plugin "@tailwindcss/typography";
+
+/*
+ * Tailwind emits its own rules inside `@layer theme, base, components, utilities`.
+ * Per the CSS cascade-layers spec, unlayered rules always beat layered ones regardless of
+ * specificity or source order — so anything here that should be overridable by a Tailwind
+ * utility class MUST live in `@layer base`, matching apps/sandbox's own convention.
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    /* Same token set as apps/sandbox (the current, live design language) — accent hue 292. */
+    --color-bg: oklch(0.985 0 0);
+    --color-fg: oklch(0.16 0.005 286);
+    --color-muted: oklch(0.52 0.013 286);
+    --color-border: oklch(0.92 0.005 286);
+    --color-accent: oklch(0.5 0.26 292);
+    --color-accent-hover: oklch(0.44 0.24 292);
+    --color-danger: oklch(0.55 0.22 25);
+    --color-ok: oklch(0.6 0.17 145);
+    --color-warn: oklch(0.75 0.17 75);
+
+    /* Terminal/code-window surface, recovered from the landing site's design (git history —
+       apps/www was moved to its own repo) — monochrome, one accent reserved for strings. */
+    --color-code-bg: oklch(0.16 0 0);
+    --color-code-header-bg: oklch(0.11 0 0);
+    --color-code-border: oklch(0.3 0 0);
+    --color-code-fg: oklch(0.93 0 0);
+    --color-code-dim: oklch(0.78 0 0);
+    --color-code-muted: oklch(0.55 0 0);
+    --color-code-accent: oklch(0.72 0.13 292);
+
+    --font-sans: "Geist Variable", "Inter", system-ui, sans-serif;
+    --font-mono: "Geist Mono Variable", "Fira Code", ui-monospace, monospace;
+    --max-width: 1280px;
+    --radius-btn: 6px;
+    --nav-height: 52px;
+  }
+
+  html {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* ── buttons / badges ──────────────────────────────────────────────────────── */
+
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--color-border);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.875rem;
+  background: var(--color-bg);
+  transition: border-color 0.15s;
+}
+@utility btn-primary {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+}
+@utility btn-danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+@layer components {
+  .btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+  }
+}
+
+@utility card {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  background: var(--color-bg);
+}
+
+@utility status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-ok);
+  flex: none;
+}
+
+@utility mono {
+  font-family: var(--font-mono);
+}
+
+/* Sandbox-ID / resource badge pill — the "sandbox · 0.5 vCPU · 256Mi" idiom from the landing
+   site's hero code-window header. */
+@utility id-pill {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-muted);
+}
+
+/* Eyebrow/kicker label — repeats across the landing site's sections. */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* ── terminal / code-window surfaces ──────────────────────────────────────── */
+
+@utility code-wrapper {
+  border: 1px solid var(--color-code-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--color-code-bg);
+}
+@utility code-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 34px;
+  padding: 0 0.75rem;
+  background: var(--color-code-header-bg);
+  border-bottom: 1px solid var(--color-code-border);
+}
+
+@layer components {
+  .code-header .filename {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-code-muted);
+  }
+  .code-header .status-dot-live {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-code-accent);
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-code-accent), transparent 40%);
+    animation: code-pulse 2s ease-in-out infinite;
+  }
+  .code-header .node-tag {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-code-muted);
+    border: 1px solid var(--color-code-border);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+  }
+}
+
+@keyframes code-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-code-accent), transparent 20%);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-code-accent), transparent 100%);
+  }
+}
+
+/* Syntax "highlighting" for hand-marked-up code/log snippets — monochrome, one accent reserved
+   for strings, carried over verbatim from the landing site's idiom. */
+@utility tok-kw {
+  color: var(--color-code-fg);
+}
+@utility tok-var {
+  color: var(--color-code-dim);
+}
+@utility tok-fn {
+  color: var(--color-code-fg);
+}
+@utility tok-str {
+  color: var(--color-code-accent);
+}
+@utility tok-prop {
+  color: var(--color-code-dim);
+}
+@utility tok-op {
+  color: var(--color-code-muted);
+}
+@utility tok-punct {
+  color: var(--color-code-muted);
+}
+@utility tok-cmt {
+  color: var(--color-code-muted);
+  font-style: italic;
+}
+
+/* ── tabs (sandbox/session/swarm detail pages) ────────────────────────────── */
+
+@utility tab-btn {
+  font-size: 0.85rem;
+  padding: 0.5rem 0.1rem;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted);
+}
+
+@layer components {
+  .tab-btn.active {
+    color: var(--color-fg);
+    border-bottom-color: var(--color-accent);
+  }
+  .tab-btn:hover:not(.active) {
+    color: var(--color-fg);
+  }
+
+  /* Align typography plugin's prose vars to the site's own tokens instead of its default gray. */
+  .prose {
+    --tw-prose-body: var(--color-fg);
+    --tw-prose-headings: var(--color-fg);
+    --tw-prose-links: var(--color-accent);
+    --tw-prose-bold: var(--color-fg);
+    --tw-prose-bullets: var(--color-muted);
+    --tw-prose-hr: var(--color-border);
+    --tw-prose-quotes: var(--color-muted);
+    --tw-prose-quote-borders: var(--color-border);
+    --tw-prose-code: var(--color-fg);
+    --tw-prose-pre-code: var(--color-fg);
+    --tw-prose-pre-bg: var(--color-bg);
+    --tw-prose-th-borders: var(--color-border);
+    --tw-prose-td-borders: var(--color-border);
+  }
+  .prose :where(code):not(:where([class~="not-prose"] *))::before,
+  .prose :where(code):not(:where([class~="not-prose"] *))::after {
+    content: "";
+  }
+  .prose :where(pre):not(:where([class~="not-prose"] *)) {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.xterm {
+  padding: 0.5rem;
+}

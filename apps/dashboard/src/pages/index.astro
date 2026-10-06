@@ -1,0 +1,69 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Sandboxes">
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-semibold">Sandboxes</h1>
+      <p class="eyebrow mt-1">sandboxes created from this dashboard</p>
+    </div>
+    <a href="/sandboxes/new" class="btn btn-primary">+ New sandbox</a>
+  </div>
+
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">
+    loading sandboxes…
+  </div>
+  <div id="state-error" class="card mono text-sm hidden" style="border-color: var(--color-danger); color: var(--color-danger);"></div>
+  <div id="state-empty" class="card hidden">
+    <p class="mb-2">No sandboxes yet.</p>
+    <a href="/sandboxes/new" class="btn btn-primary">Create your first sandbox</a>
+  </div>
+
+  <div id="list" class="hidden" style="border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden;">
+  </div>
+</Base>
+
+<script>
+  import { sandboxes, type SandboxDetails } from "../lib/api";
+
+  const $loading = document.getElementById("state-loading")!;
+  const $error = document.getElementById("state-error")!;
+  const $empty = document.getElementById("state-empty")!;
+  const $list = document.getElementById("list")!;
+
+  function row(sb: SandboxDetails): string {
+    const age = Math.round((Date.now() - sb.startedAt) / 1000);
+    const ageText = age < 60 ? `${age}s` : age < 3600 ? `${Math.round(age / 60)}m` : `${Math.round(age / 3600)}h`;
+    return `
+      <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem 1rem;border-bottom:1px solid var(--color-border);">
+        <span class="status-dot" style="background:${sb.status === "running" ? "var(--color-ok)" : "var(--color-muted)"};"></span>
+        <a href="/sandboxes/detail?id=${sb.sandboxId}" class="mono text-sm" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sb.name}</a>
+        <span class="id-pill">${sb.sandboxId.slice(0, 12)}</span>
+        <span class="mono text-xs" style="color:var(--color-muted); width:4rem; text-align:right;">${ageText}</span>
+        <a href="/sandboxes/detail?id=${sb.sandboxId}" class="btn" style="padding:0.25rem 0.6rem; font-size:0.75rem;">Open</a>
+      </div>`;
+  }
+
+  async function load() {
+    try {
+      const { sandboxes: list } = await sandboxes.list();
+      $loading.classList.add("hidden");
+      if (list.length === 0) {
+        $empty.classList.remove("hidden");
+        return;
+      }
+      $list.innerHTML = list
+        .sort((a, b) => b.startedAt - a.startedAt)
+        .map(row)
+        .join("");
+      $list.classList.remove("hidden");
+    } catch (err) {
+      $loading.classList.add("hidden");
+      $error.textContent = `Couldn't reach the dashboard server: ${err instanceof Error ? err.message : String(err)}`;
+      $error.classList.remove("hidden");
+    }
+  }
+
+  load();
+</script>

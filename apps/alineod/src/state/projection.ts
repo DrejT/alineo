@@ -307,6 +307,20 @@ export function runAsOf(runId: string): number {
   return qMaxSeq.get(runId)?.m ?? 0;
 }
 
+const qRunIds = db.query<{ run_id: string }, []>(
+  `SELECT DISTINCT run_id FROM agents ORDER BY run_id`,
+);
+
+/** Every run this instance knows about — alineod never had a list-all-runs query before (only
+ *  get-by-id); the dashboard's runs list is the first caller. */
+export function listRuns(): { runId: string; rootAgentId: string | null; asOf: number }[] {
+  return qRunIds.all().map(({ run_id }) => {
+    const agents = qRunAgents.all(run_id);
+    const root = agents.find((a) => a.parent_agent_id === null) ?? null;
+    return { runId: run_id, rootAgentId: root?.agent_id ?? null, asOf: runAsOf(run_id) };
+  });
+}
+
 // "blocked" (agent-supervision.md): held awaiting an operator decision after a failed turn --
 // live, reconnectable, sandbox open, same posture as "paused".
 const LIVE_STATES = new Set(["provisioning", "running", "spawning", "paused", "blocked"]);

@@ -1,0 +1,68 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Sessions">
+  <div class="mb-5">
+    <h1 class="text-xl font-semibold">Sessions</h1>
+    <p class="eyebrow mt-1">every agent across every run</p>
+  </div>
+
+  <div id="state-loading" class="card mono text-sm" style="color: var(--color-muted);">loading sessions…</div>
+  <div id="state-error" class="card mono text-sm hidden" style="border-color: var(--color-danger); color: var(--color-danger);"></div>
+  <div id="state-empty" class="card hidden">
+    <p>No sessions yet — create one from <a href="/swarms" style="color: var(--color-accent);">Swarms</a>.</p>
+  </div>
+  <div id="list" class="hidden" style="border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden;"></div>
+</Base>
+
+<script>
+  import { runs, type AgentView } from "../../lib/api";
+
+  const $loading = document.getElementById("state-loading")!;
+  const $error = document.getElementById("state-error")!;
+  const $empty = document.getElementById("state-empty")!;
+  const $list = document.getElementById("list")!;
+
+  const STATE_COLOR: Record<string, string> = {
+    running: "var(--color-ok)",
+    provisioning: "var(--color-warn)",
+    spawning: "var(--color-warn)",
+    paused: "var(--color-muted)",
+    done: "var(--color-muted)",
+    failed: "var(--color-danger)",
+    aborted: "var(--color-danger)",
+  };
+
+  function row(a: AgentView): string {
+    return `
+      <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem 1rem;border-bottom:1px solid var(--color-border);">
+        <span class="status-dot" style="background:${STATE_COLOR[a.state] ?? "var(--color-muted)"};"></span>
+        <a href="/sessions/detail?id=${a.agentId}" class="mono text-sm" style="flex:1;min-width:0;">${a.specName}</a>
+        <span class="id-pill">${a.state}</span>
+        <span class="mono text-xs" style="color:var(--color-muted);">${a.agentId}</span>
+        <a href="/sessions/detail?id=${a.agentId}" class="btn" style="padding:0.25rem 0.6rem; font-size:0.75rem;">Open</a>
+      </div>`;
+  }
+
+  async function load() {
+    try {
+      const { runs: runList } = await runs.list();
+      const trees = await Promise.all(runList.map((r) => runs.get(r.runId)));
+      const all = trees.flatMap((t) => t.agents).sort((a, b) => b.createdAt - a.createdAt);
+      $loading.classList.add("hidden");
+      if (all.length === 0) {
+        $empty.classList.remove("hidden");
+        return;
+      }
+      $list.innerHTML = all.map(row).join("");
+      $list.classList.remove("hidden");
+    } catch (err) {
+      $loading.classList.add("hidden");
+      $error.textContent = `Couldn't reach alineod: ${err instanceof Error ? err.message : String(err)}`;
+      $error.classList.remove("hidden");
+    }
+  }
+
+  load();
+</script>
