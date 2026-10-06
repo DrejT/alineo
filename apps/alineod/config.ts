@@ -13,6 +13,9 @@ import { z } from "zod";
 
 const ms = z.coerce.number().int().positive();
 const path = z.string().min(1);
+/** `true`/`false`/`1`/`0` — `z.coerce.boolean()` would read the string "false" as true. */
+const flag = z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1");
+const nonNegativeInt = z.coerce.number().int().nonnegative();
 
 /**
  * Adaptive default for admission concurrency (admission-control.md): self-sizes per box instead
@@ -126,6 +129,68 @@ const ENV_VARS = {
     schema: ms,
     default: 1_000,
   }),
+  MEMORY_ENABLED: defineEnv({
+    name: "ALINEOD_MEMORY_ENABLED",
+    description:
+      "Give every agent a durable `@alineo-labs/memory` store, scoped by the spec's `resourceId`/`teamId` (see `AgentSpec.resourceId`). A spawned child gets a copy of its parent's memory, same as `Alineo.spawn()` outside alineod. Set `false` to run agents with no memory and have the memory routes answer 501.",
+    schema: flag,
+    default: true,
+  }),
+  MEMORY_DB_PATH: defineEnv({
+    name: "ALINEOD_MEMORY_DB_PATH",
+    description:
+      "SQLite file holding working memory and (when embeddings are configured) semantic memory. Kept apart from the ledger: memory is long-lived agent knowledge, the ledger is the swarm's audit trail, and the two have different retention.",
+    schema: path,
+    default: "./data/alineod-memory.db",
+  }),
+  MEMORY_EMBEDDINGS_URL: defineEnv({
+    name: "ALINEOD_MEMORY_EMBEDDINGS_URL",
+    description:
+      "Full URL of an OpenAI-compatible `/v1/embeddings` endpoint. Setting it (together with `ALINEOD_MEMORY_EMBEDDINGS_MODEL`) turns semantic memory on; leaving it empty keeps working memory only, and the facts routes answer 501.",
+    schema: z.string(),
+    default: "",
+  }),
+  MEMORY_EMBEDDINGS_MODEL: defineEnv({
+    name: "ALINEOD_MEMORY_EMBEDDINGS_MODEL",
+    description: "Model name sent to the embeddings endpoint. Required with the URL.",
+    schema: z.string(),
+    default: "",
+  }),
+  MEMORY_EMBEDDINGS_API_KEY: defineEnv({
+    name: "ALINEOD_MEMORY_EMBEDDINGS_API_KEY",
+    description:
+      "Bearer token for the embeddings endpoint. Empty sends no Authorization header (a local server).",
+    schema: z.string(),
+    default: "",
+  }),
+  MEMORY_EMBEDDINGS_ASYMMETRIC: defineEnv({
+    name: "ALINEOD_MEMORY_EMBEDDINGS_ASYMMETRIC",
+    description:
+      'Send `input_type: "passage"` when storing a fact and `"query"` when recalling. Asymmetric models (NVIDIA NIM, most retrieval models) rank noticeably worse without it; a symmetric endpoint may reject the extra field, so it is opt-in.',
+    schema: flag,
+    default: false,
+  }),
+  MEMORY_EMBEDDINGS_TIMEOUT_MS: defineEnv({
+    name: "ALINEOD_MEMORY_EMBEDDINGS_TIMEOUT_MS",
+    description:
+      "Bound on one embeddings request, so a stalled provider fails a `remember`/`recall` call instead of hanging it.",
+    schema: ms,
+    default: 30_000,
+  }),
+  MEMORY_MAX_FACTS: defineEnv({
+    name: "ALINEOD_MEMORY_MAX_FACTS",
+    description:
+      "Keep at most this many facts per resource, dropping the oldest as new ones arrive (auto-compaction). `0` = unbounded.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  MEMORY_MAX_AGE_MS: defineEnv({
+    name: "ALINEOD_MEMORY_MAX_AGE_MS",
+    description:
+      "Drop facts older than this on each auto-compaction pass. `0` = facts never expire.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
 } as const;
 
 const env = readEnvGroup(ENV_VARS, { onWarning: (message) => configWarnings.push(message) });
@@ -145,6 +210,15 @@ export const LEASE_TTL_MS = env.LEASE_TTL_MS;
 export const ADMISSION_CONCURRENCY = env.ADMISSION_CONCURRENCY;
 export const ADMISSION_TIMEOUT_MS = env.ADMISSION_TIMEOUT_MS;
 export const REATTACH_RETRY_DELAY_MS = env.REATTACH_RETRY_DELAY_MS;
+export const MEMORY_ENABLED = env.MEMORY_ENABLED;
+export const MEMORY_DB_PATH = env.MEMORY_DB_PATH;
+export const MEMORY_EMBEDDINGS_URL = env.MEMORY_EMBEDDINGS_URL;
+export const MEMORY_EMBEDDINGS_MODEL = env.MEMORY_EMBEDDINGS_MODEL;
+export const MEMORY_EMBEDDINGS_API_KEY = env.MEMORY_EMBEDDINGS_API_KEY;
+export const MEMORY_EMBEDDINGS_ASYMMETRIC = env.MEMORY_EMBEDDINGS_ASYMMETRIC;
+export const MEMORY_EMBEDDINGS_TIMEOUT_MS = env.MEMORY_EMBEDDINGS_TIMEOUT_MS;
+export const MEMORY_MAX_FACTS = env.MEMORY_MAX_FACTS;
+export const MEMORY_MAX_AGE_MS = env.MEMORY_MAX_AGE_MS;
 
 /**
  * Bun's socket idle timeout, in seconds. Bun.serve caps this at 255 and defaults it to ~10s —

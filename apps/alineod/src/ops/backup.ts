@@ -9,12 +9,18 @@
 import { Database } from "bun:sqlite";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
+import * as sqliteVec from "sqlite-vec";
 
 export interface BackupSources {
   /** alineod's own ledger (ALINEOD_DB_PATH). */
   dbPath: string;
   /** The SDK ledger (ALINEOD_SDK_LEDGER_PATH). Skipped if it doesn't exist yet. */
   sdkLedgerPath: string;
+  /**
+   * Agent memory (ALINEOD_MEMORY_DB_PATH). Skipped if it doesn't exist yet. Unlike both ledgers
+   * this one is NOT rebuildable from anything else — it is the only copy of what agents learned.
+   */
+  memoryDbPath?: string;
   /** Results and spec files (ALINEOD_WORK_DIR). Skipped if it doesn't exist yet. */
   workDir: string;
 }
@@ -39,8 +45,25 @@ export function backupDirName(at: Date = new Date()): string {
     .replaceAll(":", "-")}`;
 }
 
+/**
+ * Open a database for backup or verification. Semantic memory keeps its vectors in a `vec0`
+ * virtual table, and SQLite refuses to read — or `VACUUM INTO` — a database whose virtual-table
+ * module isn't loaded ("no such module: vec0"). Loading `sqlite-vec` is best-effort: a database
+ * without such a table never needs it, and one that does is reported by SQLite itself if the
+ * extension can't load on this platform.
+ */
+function openDb(path: string): Database {
+  const db = new Database(path, { readonly: true });
+  try {
+    sqliteVec.load(db);
+  } catch {
+    /* not needed unless the file has a vec0 table — SQLite says so then */
+  }
+  return db;
+}
+
 function snapshotDb(source: string, target: string): BackedUpDb {
-  const src = new Database(source, { readonly: true });
+  const src = openDb(source);
   try {
     src.exec("PRAGMA busy_timeout = 5000;");
     src.query("VACUUM INTO ?").run(target);
@@ -52,7 +75,7 @@ function snapshotDb(source: string, target: string): BackedUpDb {
 
 /** Open a backup read-only and check it: `integrity_check`, plus a row count per table. */
 export function verifyDb(file: string): BackedUpDb {
-  const db = new Database(file, { readonly: true });
+  const db = openDb(file);
   try {
     const integrity =
       db.query<{ integrity_check: string }, []>("PRAGMA integrity_check").get()?.integrity_check ??
@@ -80,8 +103,9 @@ export function backup(sources: BackupSources, destRoot: string, at = new Date()
   mkdirSync(dir, { recursive: true });
 
   const databases: BackedUpDb[] = [];
-  for (const path of [sources.dbPath, sources.sdkLedgerPath]) {
-    if (!existsSync(path)) continue;
+  // Same basename as the source, so two sources must not collide in one backup directory.
+  for (const path of [sources.dbPath, sources.sdkLedgerPath, sources.memoryDbPath]) {
+    if (!path || !existsSync(path)) continue;
     const copy = snapshotDb(path, join(dir, basename(path)));
     if (copy.integrity !== "ok") {
       throw new Error(`backup of ${path} failed its integrity check: ${copy.integrity}`);

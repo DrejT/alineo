@@ -90,6 +90,19 @@ bun run spec           # writes apps/alineod/spec/{openapi.json,events.schema.js
 | POST   | `/agents/:agentId/resume` | thaw a paused container                                       |
 | POST   | `/agents/:agentId/stop`   | abort + close                                                 |
 | GET    | `/agents/:agentId/result` | resolve a handle (`?wait=<seconds>` long-poll)                |
+| GET    | `/agents/:agentId/memory` | working memory + its resource ref (`PUT`/`DELETE .../memory/:key`) |
+| POST   | `/agents/:agentId/facts`  | remember a fact; `GET` recalls (`?query=`) or lists them      |
+| POST   | `/agents/:agentId/compactions` | prune old/excess facts now                               |
+
+## Memory (`src/engine/memory.ts`)
+
+Every agent alineod starts, resumes or reattaches is handed one shared, durable `@alineo-labs/memory`
+store (SQLite, `ALINEOD_MEMORY_DB_PATH`), scoped by the spec's `resourceId`/`teamId`. `Alineo.spawn()` then
+forks the parent's scope into each child. Working memory is always on; semantic memory turns on when
+`ALINEOD_MEMORY_EMBEDDINGS_URL` + `_MODEL` point at an OpenAI-compatible embeddings endpoint.
+`ALINEOD_MEMORY_ENABLED=false` opts out. The routes resolve the scope from the persisted spec, so memory
+stays reachable after an agent ends. See the
+[Agent memory guide](../docs/content/docs/alineod/guides/memory.mdx).
 
 ## State (`bun:sqlite`, `src/state/db.ts`)
 

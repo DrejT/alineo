@@ -13,6 +13,7 @@
  */
 import { Alineo, takeCheckpoint, checkpointsPath, type AgentSpec } from "alineo";
 import { get, register, sdkAdapter } from "./registry";
+import { memoryOptions } from "./memory";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
 import { resolveTurnFailure } from "./supervision";
@@ -252,6 +253,7 @@ async function tryRestartBridge(agentId: string): Promise<boolean> {
       adapter: sdkAdapter,
       spec: JSON.parse(row.spec_json),
       runId: row.run_id,
+      ...memoryOptions(),
     });
     register(agentId, restarted);
     log.info("bridge stopped answering — restarted it", { agentId });

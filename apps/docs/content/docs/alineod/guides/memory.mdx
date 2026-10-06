@@ -1,0 +1,89 @@
+---
+title: Agent memory
+description: How alineod gives every agent durable working and semantic memory, and how a spawned child inherits it.
+---
+
+An agent's sandbox is disposable; what it learned shouldn't be. alineod gives every agent it drives a durable
+`@alineo-labs/memory` store, scoped by **who the agent is** rather than which sandbox it happens to run in.
+
+```
+POST /runs ──▶ Alineo.start(spec, { memory })      one shared store, handed to every agent
+                  │
+                  ├─ spawn()  → child.memory = parent.memory, parent's scope forked into the child's
+                  └─ restart  → reattach()/resume() are handed the same store again
+```
+
+## What is stored, and under what key
+
+Memory is keyed by a **resource ref**: the spec's `resourceId` (default: its `name`) plus the optional `teamId`.
+That is the same rule `Alineo.resourceRef` uses, so it holds inside and outside alineod.
+
+- Two agents with the same `resourceId` share memory. A different `teamId` does not.
+- Memory outlives the sandbox. A lost container, a restore from checkpoint onto a different sandbox, a finished
+  or stopped agent, and an alineod restart all leave it readable.
+- **Working memory** is key/value: any JSON up to 64 KiB per value, keys up to 256 characters.
+- **Semantic memory** is a set of facts recalled by meaning. It needs an embeddings endpoint (below); without one
+  the facts routes answer `501` and working memory still works.
+
+## Spawned children
+
+`Alineo.spawn()` copies the parent's `.memory` onto the child and forks the parent's scope into the child's: the
+child starts with a **copy**, then diverges. Mutating the child's memory never touches the parent's. This holds
+after a restart too, because a rehydrated parent is handed the store again.
+
+Copying semantic facts re-embeds them in one batched call, so a fork of a large memory costs one embeddings
+request, not one per fact.
+
+## Configuration
+
+| Variable                               | Default                    | Description                                                                                             |
+| -------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `ALINEOD_MEMORY_ENABLED`               | `true`                     | `false` runs agents with no memory and answers the memory routes `501`.                                 |
+| `ALINEOD_MEMORY_DB_PATH`               | `./data/alineod-memory.db` | One SQLite file for working and semantic memory. Separate from the ledger: different retention.        |
+| `ALINEOD_MEMORY_EMBEDDINGS_URL`        | _(empty)_                  | Full URL of an OpenAI-compatible `/v1/embeddings` endpoint. With the model, turns semantic memory on.   |
+| `ALINEOD_MEMORY_EMBEDDINGS_MODEL`      | _(empty)_                  | Model name sent to it. Required with the URL; setting only one is a startup error.                      |
+| `ALINEOD_MEMORY_EMBEDDINGS_API_KEY`    | _(empty)_                  | Bearer token. Empty sends no `Authorization` header.                                                    |
+| `ALINEOD_MEMORY_EMBEDDINGS_ASYMMETRIC` | `false`                    | Send `input_type` `passage` when storing and `query` when recalling, for retrieval models that need it. |
+| `ALINEOD_MEMORY_EMBEDDINGS_TIMEOUT_MS` | `30000`                    | Bound on one embeddings request, body included.                                                         |
+| `ALINEOD_MEMORY_MAX_FACTS`             | `0`                        | Keep at most this many facts per resource, dropping the oldest as new ones arrive. `0` = unbounded.     |
+| `ALINEOD_MEMORY_MAX_AGE_MS`            | `0`                        | Drop facts older than this on each pass. `0` = facts never expire.                                      |
+
+The store opens at boot, before agents are reconnected, so a bad path stops alineod with a clear error instead of
+failing the first spawn.
+
+<Callout type="warn" title="Changing the embeddings model">
+  Don't change the embeddings **model** on a store that already holds facts. Vectors from different models aren't
+  comparable (and different dimensions are rejected outright), so recall quietly degrades. Point
+  `ALINEOD_MEMORY_DB_PATH` at a fresh file when you switch.
+</Callout>
+
+## HTTP API
+
+Routes take an **agent id** but resolve the scope from the agent's persisted spec, so they work for agents that
+have ended, or that alineod hasn't reconnected yet.
+
+| Method   | Path                           | Description                                                                |
+| -------- | ------------------------------ | -------------------------------------------------------------------------- |
+| `GET`    | `/agents/:agentId/memory`      | Working memory, the resource ref it lives under, and whether facts are on. |
+| `GET`    | `/agents/:agentId/memory/:key` | One value. `404` if the key isn't set.                                     |
+| `PUT`    | `/agents/:agentId/memory/:key` | Set a value. Body `{ "value": <any JSON> }`.                               |
+| `DELETE` | `/agents/:agentId/memory/:key` | Remove a key. Idempotent, always `204`.                                    |
+| `POST`   | `/agents/:agentId/facts`       | Remember a fact. Body `{ "content", "sourceRef"? }`. `201`.                |
+| `GET`    | `/agents/:agentId/facts`       | `?query=` recalls by meaning (`?topK=`, default 5, max 100). Without it, lists every fact newest-first (`?limit=`, default 100, max 1000). |
+| `POST`   | `/agents/:agentId/compactions` | Prune now. Body `{ "maxFacts"?, "maxAgeMs"? }`; age first, then the cap.   |
+
+`sourceRef` (`{ sandboxId, entryIndex }`) ties a fact to the ledger entry it came from. A fact with one is
+`verified`; that flag is computed, never taken from the request.
+
+| Status | When                                                                                |
+| ------ | ----------------------------------------------------------------------------------- |
+| `400`  | Invalid body or key, a value over 64 KiB, a bad `topK` or `limit`.                  |
+| `404`  | No such agent (or, for `GET .../memory/:key`, no such key).                         |
+| `501`  | Memory is disabled, or no embeddings endpoint is configured (for the facts routes). |
+| `502`  | The embeddings provider failed or timed out. Nothing was stored.                    |
+
+## Backups
+
+`bun apps/alineod/scripts/backup.ts` includes the memory database. Unlike both ledgers, it can't be rebuilt from
+anything else: it is the only copy of what agents learned. The backup is taken with `VACUUM INTO`, so it is
+consistent while alineod runs. To restore, stop alineod and put the file back at `ALINEOD_MEMORY_DB_PATH`.

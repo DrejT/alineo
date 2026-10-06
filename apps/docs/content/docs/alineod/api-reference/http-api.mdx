@@ -27,6 +27,7 @@ Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors ar
 | `POST`   | `/agents/:agentId/notify-on`     | Tell this agent when others finish.               |
 | `GET`    | `/agents/:agentId/inbox`         | This agent's pending and delivered notifications. |
 | `POST`   | `/agents/:agentId/inbox/deliver` | Deliver pending notifications now.                |
+| `GET`    | `/agents/:agentId/memory`        | Working memory — see [Agent memory](/docs/alineod/guides/memory), which also covers `PUT`/`DELETE .../memory/:key`, `.../facts` and `.../compactions`. |
 
 ## Runs
 

@@ -21,6 +21,10 @@
  * when the HTTP and MCP checks landed and found them already on the wire
  * (`GET /agents/:id/transcript`, `GET /runs/:id/events`): they were vocabulary in use, just not
  * written down.
+ *
+ * `memory` and `fact` joined with alineod's memory routes (`GET /agents/:id/memory`,
+ * `POST /agents/:id/facts`): `memory` is an agent's durable working memory, `fact` one item of
+ * its semantic memory.
  */
 export const SUBJECTS = [
   "run",
@@ -50,6 +54,8 @@ export const SUBJECTS = [
   "event",
   "result",
   "transcript",
+  "memory",
+  "fact",
 ] as const;
 
 /**

@@ -23,6 +23,7 @@
  */
 import { Alineo } from "alineo";
 import { get, register, sdkAdapter } from "./registry";
+import { memoryOptions } from "./memory";
 import { getAgentRow, getHandle, type AgentRow } from "../state/projection";
 import { attempt, sweepSubtree, type MemberResult } from "./subtree";
 import { emit } from "./emit";
@@ -112,6 +113,7 @@ export function resumeAgent(
             adapter: sdkAdapter,
             spec: JSON.parse(row.spec_json),
             runId: row.run_id,
+            ...memoryOptions(),
           });
           register(agentId, restarted);
           log.info("bridge didn't answer after resume — restarted it", { agentId });

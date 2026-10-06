@@ -10,6 +10,7 @@ import { runsRoutes } from "./routes/runs";
 import { agentsRoutes } from "./routes/agents";
 import { resultsRoutes } from "./routes/results";
 import { awaitRoutes } from "./routes/await";
+import { memoryRoutes } from "./routes/memory";
 
 export function createApp() {
   return new Elysia({
@@ -22,5 +23,6 @@ export function createApp() {
     .use(runsRoutes)
     .use(agentsRoutes)
     .use(resultsRoutes)
-    .use(awaitRoutes);
+    .use(awaitRoutes)
+    .use(memoryRoutes);
 }

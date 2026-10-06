@@ -17,6 +17,7 @@ import { emit } from "./emit";
 import { driveTurn } from "./stream";
 import { withInbox } from "./notify";
 import { acquireAdmission } from "./admission";
+import { memoryOptions } from "./memory";
 import { errorMessage } from "../util";
 
 export interface CreateRunResult {
@@ -83,6 +84,7 @@ export async function provisionRoot(
       runId,
       spawnDepth: body.budget?.spawnDepth,
       maxAgents: body.budget?.maxAgents,
+      ...memoryOptions(),
     });
     register(rootAgentId, agent);
     emit(runId, rootAgentId, "agent.provisioned", { sandboxId: agent.sandboxId });

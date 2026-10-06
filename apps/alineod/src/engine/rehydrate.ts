@@ -27,6 +27,8 @@ import {
   type AgentRow,
 } from "../state/projection";
 import { sdkAdapter, register, get } from "./registry";
+import type { Memory } from "@alineo-labs/memory";
+import { memoryOptions } from "./memory";
 import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
 import { provisionRoot } from "./runs";
@@ -117,7 +119,7 @@ async function onContainerRestored(
 
 async function reattachOne(a: AgentRow): Promise<void> {
   const spec = JSON.parse(a.spec_json);
-  const opts = { adapter: sdkAdapter, spec, runId: a.run_id };
+  const opts = { adapter: sdkAdapter, spec, runId: a.run_id, ...memoryOptions() };
   const wasRunning = a.state === "running";
 
   if (a.state === "paused") {
@@ -204,7 +206,7 @@ async function reattachOne(a: AgentRow): Promise<void> {
  */
 async function reattachWithRetry(
   sandboxId: string,
-  opts: { adapter: typeof sdkAdapter; spec: unknown; runId: string },
+  opts: { adapter: typeof sdkAdapter; spec: unknown; runId: string; memory?: Memory },
 ): Promise<Awaited<ReturnType<typeof Alineo.reattach>>> {
   const reattachOpts = { ...opts, spec: opts.spec as Record<string, unknown> };
   try {
@@ -235,7 +237,7 @@ async function reattachWithRetry(
  */
 async function reattachPaused(
   a: AgentRow,
-  opts: { adapter: typeof sdkAdapter; spec: unknown; runId: string },
+  opts: { adapter: typeof sdkAdapter; spec: unknown; runId: string; memory?: Memory },
 ): Promise<void> {
   try {
     const agent = await Alineo.reattach(a.sandbox_id!, {

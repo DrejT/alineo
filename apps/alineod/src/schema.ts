@@ -5,12 +5,20 @@
  * `../schema` unchanged.
  */
 export {
+  AddFactBody,
   AgentDetail,
   AgentView,
   AlineodEvent,
+  CompactionBody,
+  CompactionResultView,
   ControlScopeBody,
   CreateRunBody,
   CreateRunResponse,
+  FactsResponse,
+  MEMORY_KEY_MAX_CHARS,
+  MemoryValueBody,
+  MemoryValueResponse,
+  MemoryView,
   NotifyOnBody,
   PromptBody,
   QuiescenceView,

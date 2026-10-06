@@ -11,6 +11,7 @@ import "./src/state/db"; // side effect: open the db, create tables
 import { acquireLease, LeaseHeldError } from "./src/state/lease";
 import { connectSdkAdapter } from "./src/engine/registry";
 import { rehydrate } from "./src/engine/rehydrate";
+import { initMemory } from "./src/engine/memory";
 import { createApp } from "./src/app";
 
 // A daemon logs by default; ALINEO_LOG_LEVEL / ALINEO_LOG / ALINEO_LOG_FORMAT adjust it
@@ -42,6 +43,9 @@ try {
 }
 
 await connectSdkAdapter();
+// Before rehydrate: reconnected agents are handed this store, and a bad path should stop the
+// daemon here rather than on the first spawn.
+initMemory();
 await rehydrate();
 
 const app = createApp().listen(PORT);
