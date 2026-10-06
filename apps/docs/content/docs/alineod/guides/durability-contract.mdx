@@ -21,6 +21,7 @@ built, regardless of what any other page implies.
 | Sandbox session (`client.resume`)        | yes                                                             | **yes, to the last checkpoint** — snapshot + exec replay                                       | no — a snapshot is a `docker commit` on the sandbox host |
 | Agent SDK (`Alineo.reattach` / `resume`) | yes                                                             | no — `resume()` connects to the _existing_ sandbox; there's nothing to connect to if it's gone | no                                                       |
 | alineod swarm                            | yes — see [Crash recovery](/docs/alineod/guides/crash-recovery) | no — a missing container's agent ends `lost`                                                   | no                                                       |
+| alineod agent memory                     | yes                                                             | **yes** — keyed by agent identity, not sandbox                                                 | no — one SQLite file; back it up (`scripts/backup.ts`)   |
 
 The ledgers (alineod's and the SDK's) record _what happened_. They cannot rebuild _what an agent was
 doing_ — that state (the workspace, the coding agent's session file) lives only inside the container. The

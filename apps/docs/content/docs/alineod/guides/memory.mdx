@@ -6,12 +6,16 @@ description: How alineod gives every agent durable working and semantic memory, 
 An agent's sandbox is disposable; what it learned shouldn't be. alineod gives every agent it drives a durable
 `@alineo-labs/memory` store, scoped by **who the agent is** rather than which sandbox it happens to run in.
 
+```mermaid
+flowchart TB
+  S["alineod<br/>one shared memory store"] -->|"start / resume / reattach<br/>{ memory }"| P["parent agent<br/>resourceId: planner"]
+  P -->|"spawn() forks a copy"| C["child agent<br/>resourceId: worker"]
+  S --- DB[("alineod-memory.db<br/>working + semantic")]
+  P -. "reads / writes" .-> DB
+  C -. "reads / writes" .-> DB
+  R["restart"] -->|"reattach / resume<br/>same store again"| P
 ```
-POST /runs ──▶ Alineo.start(spec, { memory })      one shared store, handed to every agent
-                  │
-                  ├─ spawn()  → child.memory = parent.memory, parent's scope forked into the child's
-                  └─ restart  → reattach()/resume() are handed the same store again
-```
+
 
 ## What is stored, and under what key
 
@@ -33,6 +37,22 @@ after a restart too, because a rehydrated parent is handed the store again.
 
 Copying semantic facts re-embeds them in one batched call, so a fork of a large memory costs one embeddings
 request, not one per fact.
+
+## Example
+
+```bash
+# Give the root agent some working memory (agent a_1 has resourceId "planner")
+curl -X PUT localhost:4600/agents/a_1/memory/goal   -H 'content-type: application/json' -d '{"value": {"ship": "v2"}}'
+
+# Spawn a child from it. It starts with a copy:
+curl localhost:4600/agents/a_2/memory
+# {"agentId":"a_2","resourceRef":{"resourceId":"worker"},"semantic":false,
+#  "working":{"goal":{"ship":"v2"}}}
+
+# With an embeddings endpoint configured: remember, then recall by meaning
+curl -X POST localhost:4600/agents/a_1/facts   -H 'content-type: application/json' -d '{"content": "the customer prefers email"}'
+curl 'localhost:4600/agents/a_1/facts?query=how%20to%20contact%20them&topK=3'
+```
 
 ## Configuration
 
