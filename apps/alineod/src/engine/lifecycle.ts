@@ -134,9 +134,13 @@ export async function deleteRun(runId: string): Promise<void> {
  * is terminal by construction: `deleteRun` just ensured it, and the quiescent trigger only ever
  * fires when `quiescence()` already said so.
  *
- * `claimRunClose` is the one-shot guard: it atomically flips `runs.state` from open to closed,
- * so a second call for the same run (a retried DELETE racing an auto-close, or vice versa) is a
- * clean no-op rather than a double release or a second `run.closed`.
+ * `claimRunClose` is the one-shot guard: a second call for the same run (a retried DELETE
+ * racing an auto-close, or vice versa) is a clean no-op rather than a double release or a
+ * second `run.closed`. It deliberately does NOT flip `runs.state` to closed itself — only the
+ * `emit("run.closed")` at the bottom of this function does, via its own fold, after every
+ * member below is actually released. `state` flipping on the claim instead would make `GET
+ * /runs/:id` report "closed" while a member was still registered and spawnable (agent.close()
+ * is a real network call to OpenSandbox, not instant) — see projection.ts's claimRunClosing.
  */
 async function finalizeRun(runId: string, reason: "explicit" | "quiescent"): Promise<void> {
   if (!claimRunClose(runId)) return;

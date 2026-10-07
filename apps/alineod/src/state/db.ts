@@ -104,7 +104,12 @@ CREATE TABLE IF NOT EXISTS runs (
   run_id     TEXT PRIMARY KEY,
   close_when TEXT    NOT NULL,   -- explicit|quiescent
   state      TEXT    NOT NULL,   -- open|closed
-  closed_at  INTEGER
+  closed_at  INTEGER,
+  -- The one-shot CLAIM to close this run -- set the instant finalizeRun() is entered, well
+  -- before state/closed_at above flip (those wait for the run.closed event, after every
+  -- member's sandbox is actually released). Separate columns on purpose: see projection.ts's
+  -- claimRunClose() for the race this separation fixes.
+  closing_at INTEGER
 );
 
 -- D-f: client-supplied idempotency keys for POST /runs/:id/agents. Not ledger-backed (it's
@@ -141,6 +146,7 @@ for (const alter of [
   "ALTER TABLE agents ADD COLUMN paused_from TEXT",
   "ALTER TABLE agents ADD COLUMN paused_by TEXT",
   "ALTER TABLE agents ADD COLUMN released_at INTEGER",
+  "ALTER TABLE runs ADD COLUMN closing_at INTEGER",
 ]) {
   try {
     db.exec(alter);

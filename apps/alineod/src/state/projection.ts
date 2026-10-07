@@ -66,11 +66,23 @@ const insertRun = db.query(
    ON CONFLICT(run_id) DO NOTHING`,
 );
 
-// Also the live one-shot guard finalizeRun() claims before acting (lifecycle.ts) — the only
-// writer allowed to flip a run from open to closed, atomically, on every path (explicit or
-// quiescent) and on replay alike.
+// The only writer of `state`/`closed_at` — flips a run from open to closed, on every path
+// (explicit or quiescent) and on replay alike. Runs exclusively from the `run.closed` event's
+// own fold, which `finalizeRun` (lifecycle.ts) only reaches once every member's sandbox is
+// actually released — see claimRunClose below for why that ordering matters.
 const closeRunRow = db.query(
   `UPDATE runs SET state = 'closed', closed_at = $at WHERE run_id = $runId AND state = 'open'`,
+);
+
+// The one-shot CLAIM finalizeRun() takes before acting — deliberately NOT the same column as
+// `closeRunRow` above. A run closing against a real sandbox takes real wall-clock time
+// (agent.close() is a network call to OpenSandbox); if claiming the close also flipped `state`
+// to closed immediately, `GET /runs/:id` would report "closed" while the root agent was still
+// registered and spawnable — a client racing a spawn into that window got a live 202, not the
+// 409 "closed means released" promises. Found live against a real sandbox (close() took
+// ~2.6s); the unit tests never caught it because the fake SDK's close() resolves same-tick.
+const claimRunClosing = db.query(
+  `UPDATE runs SET closing_at = $at WHERE run_id = $runId AND closing_at IS NULL`,
 );
 
 const settleHandleRow = db.query(
@@ -316,13 +328,14 @@ export function getRun(runId: string): RunRow | null {
 }
 
 /**
- * Atomically flip a run from open to closed. Returns whether THIS call won — the one-shot
- * guard `finalizeRun` (lifecycle.ts) claims before acting, so two near-simultaneous triggers
- * (e.g. two siblings ending in the same tick) race harmlessly: only one proceeds to release
- * agents and emit `run.closed`.
+ * Atomically claim the right to close a run. Returns whether THIS call won — so two
+ * near-simultaneous triggers (e.g. two siblings ending in the same tick, or a client's DELETE
+ * racing an auto-close) race harmlessly: only one proceeds to release agents and emit
+ * `run.closed`. Does NOT itself flip `state` to closed — that's `closeRunRow`, reached only
+ * once release is actually done. See `claimRunClosing`'s comment for why the two are separate.
  */
 export function claimRunClose(runId: string): boolean {
-  return closeRunRow.run({ $runId: runId, $at: Date.now() }).changes > 0;
+  return claimRunClosing.run({ $runId: runId, $at: Date.now() }).changes > 0;
 }
 
 export function childCount(parentAgentId: string): number {
