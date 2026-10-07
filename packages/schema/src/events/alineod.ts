@@ -19,7 +19,25 @@ export const RunStarted = defineEvent({
   durable: true,
   version: 1,
   description: "A swarm run was created. Was `run_started` — the name workflow also used.",
-  schema: z.object({ runId: z.string() }),
+  schema: z.object({
+    runId: z.string(),
+    // `.default` rather than a version bump: every run before this field existed behaved
+    // exactly as "explicit", so an old row missing it folds correctly with no migration.
+    closeWhen: z.enum(["explicit", "quiescent"]).default("explicit"),
+  }),
+});
+
+export const RunClosed = defineEvent({
+  type: "run.closed",
+  durable: true,
+  version: 1,
+  description:
+    "The run finalized — a client deleted it (`explicit`), or it reached quiescence on its " +
+    'own under closeWhen: "quiescent". Resources are released; the ledger is kept.',
+  schema: z.object({
+    agentId: z.string().nullable(),
+    reason: z.enum(["explicit", "quiescent"]),
+  }),
 });
 
 export const RunQuiescent = defineEvent({

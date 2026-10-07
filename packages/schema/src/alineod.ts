@@ -32,10 +32,20 @@ export const BudgetOverride = z
 
 // ── POST /runs ────────────────────────────────────────────────────────────────
 
+export const CloseWhen = z
+  .enum(["explicit", "quiescent"])
+  .describe(
+    '"explicit" (default): the run stays open until a client deletes it. "quiescent": the ' +
+      "run closes itself the moment every agent in it is terminal and has nothing left to " +
+      "deliver.",
+  );
+export type CloseWhen = z.infer<typeof CloseWhen>;
+
 export const CreateRunBody = z.object({
   spec: AgentSpec,
   prompt: z.string().optional().describe("If set, drive one turn on the root agent after load."),
   budget: BudgetOverride.optional(),
+  closeWhen: CloseWhen.default("explicit"),
 });
 export type CreateRunBody = z.infer<typeof CreateRunBody>;
 
@@ -190,6 +200,12 @@ export const TreeView = z.object({
   rootAgentId: z.string().nullable(),
   agents: z.array(AgentView),
   asOf: z.number().describe("Highest ledger seq reflected in this projection."),
+  closeWhen: CloseWhen,
+  state: z
+    .enum(["open", "closed"])
+    .describe(
+      '"closed": a client deleted it, or it reached quiescence under closeWhen: "quiescent".',
+    ),
 });
 
 export const AgentDetail = AgentView.extend({

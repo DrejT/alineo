@@ -24,6 +24,7 @@ import {
   liveAgents,
   reconnectableTerminalAgents,
   agentsWithPendingInbox,
+  getRun,
   type AgentRow,
 } from "../state/projection";
 import { sdkAdapter, register, get } from "./registry";
@@ -282,6 +283,11 @@ async function retryProvision(a: AgentRow): Promise<void> {
         spawnDepth: a.spawn_budget ?? undefined,
         maxAgents: a.max_agents_budget ?? undefined,
       },
+      // provisionRoot() never reads this — only createRun()'s own `run.started` emit does,
+      // and that already happened (and was already folded) before the crash this is
+      // recovering from. Carried through anyway so the type stays honest about what a real
+      // CreateRunBody is, rather than asserting one without it.
+      closeWhen: getRun(a.run_id)?.close_when ?? "explicit",
     };
     await provisionRoot(a.run_id, a.agent_id, body);
     return;

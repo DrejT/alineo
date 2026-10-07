@@ -29,6 +29,14 @@
         "runId": {
           "type": "string"
         },
+        "closeWhen": {
+          "default": "explicit",
+          "type": "string",
+          "enum": [
+            "explicit",
+            "quiescent"
+          ]
+        },
         "event": {
           "type": "string",
           "enum": [
@@ -38,6 +46,35 @@
       },
       "required": [
         "runId",
+        "closeWhen",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "explicit",
+            "quiescent"
+          ]
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "run.closed"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "reason",
         "event"
       ],
       "additionalProperties": false

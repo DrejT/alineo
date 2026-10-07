@@ -364,10 +364,20 @@
                     },
                     "additionalProperties": false,
                     "description": "Overrides the spec's own spawnDepth / maxAgents (flag-beats-config)."
+                  },
+                  "closeWhen": {
+                    "default": "explicit",
+                    "type": "string",
+                    "enum": [
+                      "explicit",
+                      "quiescent"
+                    ],
+                    "description": "\"explicit\" (default): the run stays open until a client deletes it. \"quiescent\": the run closes itself the moment every agent in it is terminal and has nothing left to deliver."
                   }
                 },
                 "required": [
-                  "spec"
+                  "spec",
+                  "closeWhen"
                 ],
                 "additionalProperties": false
               }
@@ -509,13 +519,31 @@
                     "asOf": {
                       "type": "number",
                       "description": "Highest ledger seq reflected in this projection."
+                    },
+                    "closeWhen": {
+                      "type": "string",
+                      "enum": [
+                        "explicit",
+                        "quiescent"
+                      ],
+                      "description": "\"explicit\" (default): the run stays open until a client deletes it. \"quiescent\": the run closes itself the moment every agent in it is terminal and has nothing left to deliver."
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "closed"
+                      ],
+                      "description": "\"closed\": a client deleted it, or it reached quiescence under closeWhen: \"quiescent\"."
                     }
                   },
                   "required": [
                     "runId",
                     "rootAgentId",
                     "agents",
-                    "asOf"
+                    "asOf",
+                    "closeWhen",
+                    "state"
                   ],
                   "additionalProperties": false
                 }
