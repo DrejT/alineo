@@ -122,8 +122,9 @@ export const memoryRoutes = new Elysia()
     const limit = intParam(query.limit, "limit", DEFAULT_KEY_LIMIT, MAX_KEY_LIMIT);
     const after = typeof query.after === "string" && query.after !== "" ? query.after : undefined;
 
-    // Pages in key order. On a backend that can seek (SQLite does, via its primary-key index) the
-    // cost follows `limit`, not how many keys the agent has stored.
+    // Pages in key order. Cost follows `limit` only where the backend can seek — SQLite does, via
+    // its primary-key index. A backend without `listPage` is read whole on every page request and
+    // sliced here: correct and identically ordered, but O(keys) per request, not O(limit).
     const { entries, more } = await workingPage(store, ref, after, limit);
     return {
       agentId: params.agentId,
