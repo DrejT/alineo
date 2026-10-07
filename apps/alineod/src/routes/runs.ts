@@ -4,7 +4,7 @@ import { CreateRunBody } from "../schema";
 import { parseBody } from "./http";
 import { createRun } from "../engine/runs";
 import { deleteRun } from "../engine/lifecycle";
-import { getRunAgentViews, runAsOf } from "../state/projection";
+import { getRun, getRunAgentViews, runAsOf } from "../state/projection";
 import { HttpError } from "../engine/errors";
 import { sseResponse } from "./sse";
 
@@ -18,11 +18,17 @@ export const runsRoutes = new Elysia({ prefix: "/runs" })
     const agents = getRunAgentViews(params.runId);
     if (agents.length === 0) throw new HttpError(404, `no run ${params.runId}`);
     const root = agents.find((a) => a.parentAgentId === null) ?? null;
+    const run = getRun(params.runId);
     return {
       runId: params.runId,
       rootAgentId: root?.agentId ?? null,
       agents,
       asOf: runAsOf(params.runId),
+      // `run` can briefly be null: `run.started` folds a row the instant createRun() returns
+      // (synchronous, no I/O — see runs.ts's own comment), same instant the root agent's own
+      // row becomes visible, so this only shows up in theory, not in a real race.
+      closeWhen: run?.close_when ?? "explicit",
+      state: run?.state ?? "open",
     };
   })
 

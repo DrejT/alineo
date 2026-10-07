@@ -61,6 +61,18 @@ const upsertHandlePending = db.query(
    ON CONFLICT(agent_id) DO NOTHING`,
 );
 
+const insertRun = db.query(
+  `INSERT INTO runs (run_id, close_when, state) VALUES ($runId, $closeWhen, 'open')
+   ON CONFLICT(run_id) DO NOTHING`,
+);
+
+// Also the live one-shot guard finalizeRun() claims before acting (lifecycle.ts) — the only
+// writer allowed to flip a run from open to closed, atomically, on every path (explicit or
+// quiescent) and on replay alike.
+const closeRunRow = db.query(
+  `UPDATE runs SET state = 'closed', closed_at = $at WHERE run_id = $runId AND state = 'open'`,
+);
+
 const settleHandleRow = db.query(
   `UPDATE handles SET state = 'settled', outcome = $outcome, result_ref = $resultRef, settled_at = $settledAt
    WHERE agent_id = $agentId`,
@@ -77,6 +89,15 @@ const settleHandleIfPending = db.query(
 export function apply(row: LedgerRow): void {
   const p = row.payload ? (JSON.parse(row.payload) as Record<string, unknown>) : {};
   switch (row.event) {
+    case "run.started":
+      insertRun.run({
+        $runId: row.run_id,
+        $closeWhen: (p.closeWhen as string) ?? "explicit",
+      });
+      break;
+    case "run.closed":
+      closeRunRow.run({ $runId: row.run_id, $at: row.ts });
+      break;
     case "agent.spawned": {
       upsertAgent.run({
         $agentId: row.agent_id,
@@ -203,7 +224,7 @@ function mapOutcomeToState(outcome: string): string {
 /** Wipe and refold from the whole ledger. Called once at boot. */
 export function rebuild(): void {
   db.exec(
-    "DELETE FROM agents; DELETE FROM handles; DELETE FROM notify_subscriptions; DELETE FROM inbox;",
+    "DELETE FROM runs; DELETE FROM agents; DELETE FROM handles; DELETE FROM notify_subscriptions; DELETE FROM inbox;",
   );
   for (const row of readAllLedger()) apply(row);
 }
@@ -270,6 +291,38 @@ export function getAgentView(agentId: string): AgentView | null {
 
 export function getRunAgentViews(runId: string): AgentView[] {
   return qRunAgents.all(runId).map(rowToView);
+}
+
+const qRunRoot = db.query<AgentRow, [string]>(
+  `SELECT * FROM agents WHERE run_id = ? AND parent_agent_id IS NULL`,
+);
+
+/** The run's one root agent (D1: a run has exactly one root). */
+export function getRunRoot(runId: string): AgentRow | null {
+  return qRunRoot.get(runId) ?? null;
+}
+
+export interface RunRow {
+  run_id: string;
+  close_when: "explicit" | "quiescent";
+  state: "open" | "closed";
+  closed_at: number | null;
+}
+
+const qRun = db.query<RunRow, [string]>(`SELECT * FROM runs WHERE run_id = ?`);
+
+export function getRun(runId: string): RunRow | null {
+  return qRun.get(runId) ?? null;
+}
+
+/**
+ * Atomically flip a run from open to closed. Returns whether THIS call won — the one-shot
+ * guard `finalizeRun` (lifecycle.ts) claims before acting, so two near-simultaneous triggers
+ * (e.g. two siblings ending in the same tick) race harmlessly: only one proceeds to release
+ * agents and emit `run.closed`.
+ */
+export function claimRunClose(runId: string): boolean {
+  return closeRunRow.run({ $runId: runId, $at: Date.now() }).changes > 0;
 }
 
 export function childCount(parentAgentId: string): number {

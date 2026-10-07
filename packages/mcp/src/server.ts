@@ -45,6 +45,13 @@ const BudgetOverride = z
   })
   .describe("Overrides the spec's own spawnDepth / maxAgents (flag-beats-config).");
 
+const CloseWhen = z
+  .enum(["explicit", "quiescent"])
+  .describe(
+    '"explicit" (default): the run stays open until run_stop deletes it. "quiescent": the ' +
+      "run closes itself the moment every agent in it is done.",
+  );
+
 const AgentSpecInput = z
   .record(z.string(), z.unknown())
   .describe("An alineo AgentSpec object (validated server-side by alineod's own SDK call).");
@@ -87,9 +94,12 @@ export function buildServer(
           .optional()
           .describe("If set, drive one turn on the root agent after load."),
         budget: BudgetOverride.optional(),
+        closeWhen: CloseWhen.optional(),
       }),
     },
-    safe(async ({ spec, prompt, budget }) => ok(await client.createRun({ spec, prompt, budget }))),
+    safe(async ({ spec, prompt, budget, closeWhen }) =>
+      ok(await client.createRun({ spec, prompt, budget, closeWhen })),
+    ),
   );
 
   server.registerTool(

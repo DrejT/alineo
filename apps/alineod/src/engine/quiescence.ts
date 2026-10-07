@@ -1,26 +1,34 @@
 /**
  * Quiescence of `subtree(X)` (research/swarm-coordination.md §4, research/tier-1-2-plan.md #4):
- * every member terminal (`done` / `failed` / `aborted` / `lost` — budget-exceeded maps to failed)
- * and none still being spawned. A paused member means not quiescent, and is reported so a stalled
- * wait is visible. A finished-but-open member can be prompted again, so quiescence can flip back —
- * it's a state, not a one-shot event.
+ * every member terminal (`done` / `failed` / `aborted` / `lost` — budget-exceeded maps to failed),
+ * none still being spawned, and none holding a pending inbox entry. A paused member means not
+ * quiescent, and is reported so a stalled wait is visible. A finished-but-open member can be
+ * prompted again, so quiescence can flip back — it's a state, not a one-shot event.
+ *
+ * The pending-inbox check (plans/07-10-2026/close-when.md §3.3) matters because a `done`/`failed`
+ * member is still "idle" to notify.ts, not "closed" — its delivery rule is "held until its next
+ * prompt". Without this, a subtree could read as quiescent while a member is still holding a
+ * notification waiting for a prompt that a `closeWhen: "quiescent"` auto-close would make sure
+ * never arrives.
  */
 import { emit } from "./emit";
 import { waitUntil } from "./waitfor";
-import { getAgentRow, getHandle, resolveSubtree, runAsOf } from "../state/projection";
+import { getAgentRow, getHandle, pendingInbox, resolveSubtree, runAsOf } from "../state/projection";
 import type { QuiescenceView } from "../schema";
 
 const TERMINAL = new Set(["done", "failed", "aborted", "lost"]);
 
 type View = typeof QuiescenceView._zod.output;
 
-function quiescence(rootId: string): View | null {
+export function quiescence(rootId: string): View | null {
   const root = getAgentRow(rootId);
   if (!root) return null;
   const members = resolveSubtree(rootId);
   return {
     rootAgentId: rootId,
-    quiescent: members.every((m) => TERMINAL.has(m.state)),
+    quiescent: members.every(
+      (m) => TERMINAL.has(m.state) && pendingInbox(m.agent_id).length === 0,
+    ),
     asOf: runAsOf(root.run_id),
     members: members.map((m) => ({
       agentId: m.agent_id,

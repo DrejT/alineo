@@ -41,6 +41,7 @@ import type { z } from "zod";
 import type {
   AgentDetail as AgentDetailSchema,
   BudgetOverride as BudgetOverrideSchema,
+  CloseWhen as CloseWhenSchema,
   CreateRunResponse as CreateRunResponseSchema,
   ResultResponse as ResultResponseSchema,
   SpawnAgentResponse as SpawnAgentResponseSchema,
@@ -48,6 +49,7 @@ import type {
 } from "@alineo-labs/schema/alineod";
 
 export type BudgetOverride = z.infer<typeof BudgetOverrideSchema>;
+export type CloseWhen = z.infer<typeof CloseWhenSchema>;
 export type CreateRunResponse = z.infer<typeof CreateRunResponseSchema>;
 export type SpawnAgentResponse = z.infer<typeof SpawnAgentResponseSchema>;
 export type AgentDetail = z.infer<typeof AgentDetailSchema>;
@@ -63,6 +65,8 @@ export interface CreateRunBody {
   spec: Record<string, unknown>;
   prompt?: string;
   budget?: BudgetOverride;
+  /** Omitted means "explicit" — the run stays open until a client deletes it. */
+  closeWhen?: CloseWhen;
 }
 
 export interface SpawnAgentBody {

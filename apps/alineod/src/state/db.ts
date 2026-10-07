@@ -96,6 +96,17 @@ CREATE TABLE IF NOT EXISTS handles (
   settled_at INTEGER
 );
 
+-- plans/07-10-2026/close-when.md: a run-level cache, same status as agents/handles above --
+-- folded from run.started/run.closed by projection.ts's apply(), fully rebuildable. Nothing
+-- else in this file stores anything at the run level; a run was previously only ever the set
+-- of agents rows sharing one run_id.
+CREATE TABLE IF NOT EXISTS runs (
+  run_id     TEXT PRIMARY KEY,
+  close_when TEXT    NOT NULL,   -- explicit|quiescent
+  state      TEXT    NOT NULL,   -- open|closed
+  closed_at  INTEGER
+);
+
 -- D-f: client-supplied idempotency keys for POST /runs/:id/agents. Not ledger-backed (it's
 -- request-dedup bookkeeping, not swarm history) -- rebuild() never touches this table.
 CREATE TABLE IF NOT EXISTS spawn_idempotency (

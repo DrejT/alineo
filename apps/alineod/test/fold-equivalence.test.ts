@@ -44,6 +44,9 @@ function asRow(envelope: LedgerEnvelope): LedgerRow {
 function projectionSnapshot(runId: string) {
   return {
     run: runAsOf(runId),
+    runRow: db
+      .query<Record<string, unknown>, [string]>("SELECT * FROM runs WHERE run_id = ?")
+      .all(runId),
     agents: db
       .query<Record<string, unknown>, [string]>(
         "SELECT * FROM agents WHERE run_id = ? ORDER BY agent_id",
@@ -80,7 +83,7 @@ describe("fold equivalence", () => {
 
     // Now throw the projections away and rebuild from what the sinks saw instead.
     db.exec(
-      "DELETE FROM agents; DELETE FROM handles; DELETE FROM notify_subscriptions; DELETE FROM inbox;",
+      "DELETE FROM runs; DELETE FROM agents; DELETE FROM handles; DELETE FROM notify_subscriptions; DELETE FROM inbox;",
     );
     const envelopes = persistedOnly(sink.events)
       .filter((e) => e.runId === runId)
