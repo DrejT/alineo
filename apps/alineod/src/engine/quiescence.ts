@@ -26,9 +26,7 @@ export function quiescence(rootId: string): View | null {
   const members = resolveSubtree(rootId);
   return {
     rootAgentId: rootId,
-    quiescent: members.every(
-      (m) => TERMINAL.has(m.state) && pendingInbox(m.agent_id).length === 0,
-    ),
+    quiescent: members.every((m) => TERMINAL.has(m.state) && pendingInbox(m.agent_id).length === 0),
     asOf: runAsOf(root.run_id),
     members: members.map((m) => ({
       agentId: m.agent_id,

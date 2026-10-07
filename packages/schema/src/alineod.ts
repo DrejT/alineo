@@ -203,7 +203,9 @@ export const TreeView = z.object({
   closeWhen: CloseWhen,
   state: z
     .enum(["open", "closed"])
-    .describe('"closed": a client deleted it, or it reached quiescence under closeWhen: "quiescent".'),
+    .describe(
+      '"closed": a client deleted it, or it reached quiescence under closeWhen: "quiescent".',
+    ),
 });
 
 export const AgentDetail = AgentView.extend({
