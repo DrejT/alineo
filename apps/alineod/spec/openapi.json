@@ -2387,7 +2387,7 @@
                             "type": "boolean"
                           },
                           "rememberedAt": {
-                            "description": "Epoch ms. Present when listing, not on recall.",
+                            "description": "Epoch ms the fact was remembered. The shipped providers set it on every fact they return, recall and listing alike; optional only because the contract doesn't promise it of every possible provider.",
                             "type": "number"
                           }
                         },

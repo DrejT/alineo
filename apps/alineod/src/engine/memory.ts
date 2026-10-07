@@ -21,7 +21,12 @@
  * Disabled (`ALINEOD_MEMORY_ENABLED=false`) means `getMemoryStore()` is `undefined`, agents are started
  * with no `.memory` exactly as before this layer existed, and the memory routes answer 501.
  */
-import type { EmbeddingProvider, ResourceRef } from "@alineo-labs/memory";
+import type {
+  EmbeddingProvider,
+  IPrunableSemanticMemoryProvider,
+  IWorkingMemoryProvider,
+  ResourceRef,
+} from "@alineo-labs/memory";
 import { Memory } from "@alineo-labs/memory";
 import { resourceRefOf } from "@alineo-labs/schema";
 import {
@@ -188,13 +193,16 @@ export interface BuildMemoryOptions {
 }
 
 /**
- * The `Memory` facade plus the semantic provider behind it. `Memory` keeps its provider private
- * and has no way to list facts, so the facts route holds the provider too, for the bounded
- * `listRecent()` read.
+ * The `Memory` facade plus the providers behind it. `Memory` keeps them private and exposes only
+ * the lowest common denominator, so the routes hold the providers too — to reach the optional
+ * capabilities (`isPageable`, `isRecentListable`) a particular backend may offer. Typed as the
+ * interfaces, not the SQLite classes: nothing here depends on which backend it is.
  */
 export interface MemoryStore {
   memory: Memory;
-  semantic?: SQLiteSemanticMemoryProvider;
+  /** The working-memory provider behind `memory.workingMemory`, for the optional paging capability. */
+  working: IWorkingMemoryProvider;
+  semantic?: IPrunableSemanticMemoryProvider;
 }
 
 /** Assemble a `Memory` over one SQLite file. Exported for tests; `initMemory()` is the daemon's way in. */
@@ -215,21 +223,29 @@ export function buildMemory(opts: BuildMemoryOptions): MemoryStore {
           }
         : undefined,
   });
-  return { memory, semantic };
+  return { memory, working, semantic };
 }
 
-let current: MemoryStore | undefined;
-let initialised = false;
+/**
+ * `undefined` = not initialised yet. `{ store: undefined }` = initialised, and memory is
+ * disabled. Kept as one value because the two facts are one fact: "initialised" is only ever
+ * true together with whatever `store` is, and two variables to keep in step is how a bad config
+ * once became a permanent, silent "disabled" (see `initMemory`).
+ */
+let state: { store: MemoryStore | undefined } | undefined;
 
 /**
  * Open the memory store. Called once at boot by `server.ts` so a bad path or an unloadable
  * database stops the daemon with a clear error, rather than surfacing on the first agent spawn
  * minutes later; `getMemoryStore()` also calls it lazily so tests and scripts need no ceremony.
+ *
+ * Nothing is recorded until there is an outcome to record, so a bad config (or an unopenable
+ * database) throws on every call, and is never mistaken for "memory disabled".
  */
 export function initMemory(): MemoryStore | undefined {
-  if (initialised) return current;
+  if (state) return state.store;
   if (!MEMORY_ENABLED) {
-    initialised = true;
+    state = { store: undefined };
     log.info("memory disabled (ALINEOD_MEMORY_ENABLED=false)");
     return undefined;
   }
@@ -241,7 +257,7 @@ export function initMemory(): MemoryStore | undefined {
       "ALINEOD_MEMORY_EMBEDDINGS_URL and ALINEOD_MEMORY_EMBEDDINGS_MODEL must be set together",
     );
   }
-  current = buildMemory({
+  const store = buildMemory({
     dbPath: MEMORY_DB_PATH,
     embeddings: wantsSemantic
       ? createEmbeddingProvider({
@@ -255,17 +271,14 @@ export function initMemory(): MemoryStore | undefined {
     maxFacts: MEMORY_MAX_FACTS,
     maxAgeMs: MEMORY_MAX_AGE_MS,
   });
-  // Latched only once there is a store to keep. Latching earlier would turn a bad config (or an
-  // unopenable database) into a silent "memory disabled" for every call after the first throw,
-  // when every call should keep reporting the real problem.
-  initialised = true;
+  state = { store };
   log.info("memory ready", {
     path: MEMORY_DB_PATH,
-    semantic: current.memory.hasSemanticMemory,
+    semantic: store.memory.hasSemanticMemory,
     maxFacts: MEMORY_MAX_FACTS || undefined,
     maxAgeMs: MEMORY_MAX_AGE_MS || undefined,
   });
-  return current;
+  return store;
 }
 
 /** The daemon's shared memory store, or `undefined` when memory is disabled. */
@@ -274,26 +287,28 @@ export function getMemoryStore(): MemoryStore | undefined {
 }
 
 /**
- * Spread into every `Alineo.start()` / `.resume()` / `.reattach()` options object, so the call
- * site can't forget it — `{}` when memory is disabled, which leaves `.memory` unset.
+ * `{ memory }` for an `Alineo` options object, or `{}` when memory is disabled (which leaves
+ * `.memory` unset). Used only by `sdk.ts` — the one place alineod creates agents — so no call site
+ * can forget it; `test/sdk-entrypoint.test.ts` holds that line.
  */
 export function memoryOptions(): { memory?: Memory } {
   const store = getMemoryStore();
   return store ? { memory: store.memory } : {};
 }
 
-/**
- * Working-memory reads and deletes, as named functions rather than `.get(` / `.delete(` calls at
- * the route: `scripts/check-vocabulary.ts` counts those substrings as route registrations in
- * `src/routes/`, and a provider method sharing the name would fail its "every route has a
- * literal path" floor.
- */
-export function readWorking(store: MemoryStore, ref: ResourceRef, key: string): Promise<unknown> {
-  return store.memory.workingMemory.get(ref, key);
-}
+const utf8 = new TextEncoder();
 
-export function removeWorking(store: MemoryStore, ref: ResourceRef, key: string): Promise<void> {
-  return store.memory.workingMemory.delete(ref, key);
+/**
+ * Compare two strings by their UTF-8 bytes — the order SQLite's BINARY collation gives, and so the
+ * order every backend's working-memory pages are in. Not JavaScript's `<`, which compares UTF-16
+ * code units and puts an astral character (U+1F600) before U+FFFF where bytes put it after.
+ */
+export function compareUtf8(a: string, b: string): number {
+  const x = utf8.encode(a);
+  const y = utf8.encode(b);
+  const n = Math.min(x.length, y.length);
+  for (let i = 0; i < n; i++) if (x[i] !== y[i]) return x[i]! - y[i]!;
+  return x.length - y.length;
 }
 
 /**
@@ -323,12 +338,10 @@ export function agentResourceRef(specJson: string, fallbackName: string): Resour
 
 /** Test seam: swap the shared store (or `undefined` to simulate disabled). @internal */
 export function installMemoryForTests(store: MemoryStore | undefined): void {
-  current = store;
-  initialised = true;
+  state = { store };
 }
 
 /** Test seam: forget the shared store so the next `getMemoryStore()` re-reads the config. @internal */
 export function resetMemoryForTests(): void {
-  current = undefined;
-  initialised = false;
+  state = undefined;
 }

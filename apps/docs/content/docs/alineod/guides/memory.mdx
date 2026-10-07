@@ -73,8 +73,8 @@ failing the first spawn.
 
 <Callout type="warn" title="Changing the embeddings model">
   Don't change the embeddings **model** on a store that already holds facts. Vectors from different models aren't
-  comparable (and different dimensions are rejected outright), so recall quietly degrades. Point
-  `ALINEOD_MEMORY_DB_PATH` at a fresh file when you switch.
+  comparable, so recall quietly degrades — and a model of a different dimension is refused outright, with an error
+  that says so, before anything is written. Point `ALINEOD_MEMORY_DB_PATH` at a fresh file when you switch.
 </Callout>
 
 ## HTTP API
@@ -84,7 +84,7 @@ have ended, or that alineod hasn't reconnected yet.
 
 | Method   | Path                           | Description                                                                |
 | -------- | ------------------------------ | -------------------------------------------------------------------------- |
-| `GET`    | `/agents/:agentId/memory`      | One page of working memory (`?limit=`, default 100, max 1000; `?after=` a key), the resource ref, and whether facts are on. A `nextAfter` in the reply means more keys follow. |
+| `GET`    | `/agents/:agentId/memory`      | One page of working memory in ascending UTF-8 key order (`?limit=`, default 100, max 1000; `?after=` a key), the resource ref, and whether facts are on. A `nextAfter` in the reply means more keys follow — pass it back as `?after=`. |
 | `GET`    | `/agents/:agentId/memory/:key` | One value. `404` if the key isn't set.                                     |
 | `PUT`    | `/agents/:agentId/memory/:key` | Set a value. Body `{ "value": <any JSON> }`.                               |
 | `DELETE` | `/agents/:agentId/memory/:key` | Remove a key. Idempotent, always `204`.                                    |
@@ -107,6 +107,13 @@ Large working memories are read key by key (`GET .../memory/:key`) or paged; one
 
 ## Backups
 
-`bun apps/alineod/scripts/backup.ts` includes the memory database. Unlike both ledgers, it can't be rebuilt from
-anything else: it is the only copy of what agents learned. The backup is taken with `VACUUM INTO`, so it is
-consistent while alineod runs. To restore, stop alineod and put the file back at `ALINEOD_MEMORY_DB_PATH`.
+`bun apps/alineod/scripts/backup.ts [destDir] [--keep N]` includes the memory database. Unlike both ledgers, it
+can't be rebuilt from anything else: it is the only copy of what agents learned. The backup is taken with
+`VACUUM INTO`, so it is consistent while alineod runs. To restore, stop alineod and put the file back at
+`ALINEOD_MEMORY_DB_PATH`.
+
+A backup is **all or nothing**. The copies are built in a hidden staging directory and moved into place only once
+every database has copied and verified, so a failure never leaves a directory that looks like a backup but is
+missing the database that mattered most. If the memory database holds a vector index and the `sqlite-vec`
+extension can't load on the host, the backup stops before writing anything and says why. The three database paths
+must have different file names, since each copy is written under its source's name.

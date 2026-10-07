@@ -11,9 +11,9 @@
  * turn to `catchUpTurn`, which polls Pi's state until it's really done. The same happens when
  * the timeout fires during a pause (its clock runs on this host, not in the frozen sandbox).
  */
-import { Alineo, takeCheckpoint, checkpointsPath, type AgentSpec } from "alineo";
-import { get, register, sdkAdapter } from "./registry";
-import { memoryOptions } from "./memory";
+import { takeCheckpoint, checkpointsPath, type Alineo, type AgentSpec } from "alineo";
+import { get } from "./registry";
+import { restartBridge } from "./sdk";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
 import { resolveTurnFailure } from "./supervision";
@@ -249,13 +249,7 @@ async function tryRestartBridge(agentId: string): Promise<boolean> {
   const agent = get(agentId);
   if (!row || !agent) return false;
   try {
-    const restarted = await Alineo.resume(agent.sandboxId, {
-      adapter: sdkAdapter,
-      spec: JSON.parse(row.spec_json),
-      runId: row.run_id,
-      ...memoryOptions(),
-    });
-    register(agentId, restarted);
+    await restartBridge(agentId, agent.sandboxId, row);
     log.info("bridge stopped answering — restarted it", { agentId });
     return true;
   } catch (err) {

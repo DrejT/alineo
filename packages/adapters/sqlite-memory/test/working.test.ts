@@ -91,3 +91,62 @@ describe("SQLiteWorkingMemoryProvider", () => {
     }
   });
 });
+
+describe("SQLiteWorkingMemoryProvider.listPage", () => {
+  const ref = { resourceId: "user-1" };
+
+  async function seeded(keys: string[]) {
+    const provider = new SQLiteWorkingMemoryProvider(":memory:");
+    for (const k of keys) await provider.set(ref, k, `v-${k}`);
+    await provider.set({ resourceId: "someone-else" }, "zzz-not-mine", 1);
+    return provider;
+  }
+
+  it("returns one page in ascending key order, and says whether more follow", async () => {
+    const provider = await seeded(["d", "b", "a", "c", "e"]);
+
+    const first = await provider.listPage(ref, { limit: 2 });
+    expect(first.entries).toEqual([
+      ["a", "v-a"],
+      ["b", "v-b"],
+    ]);
+    expect(first.more).toBe(true);
+
+    const second = await provider.listPage(ref, { after: "b", limit: 2 });
+    expect(second.entries.map(([k]) => k)).toEqual(["c", "d"]);
+    expect(second.more).toBe(true);
+
+    const last = await provider.listPage(ref, { after: "d", limit: 2 });
+    expect(last.entries.map(([k]) => k)).toEqual(["e"]);
+    expect(last.more).toBe(false);
+    provider.close();
+  });
+
+  it("an exactly-full last page is not followed by a phantom one", async () => {
+    const provider = await seeded(["a", "b"]);
+    expect((await provider.listPage(ref, { limit: 2 })).more).toBe(false);
+    provider.close();
+  });
+
+  it("orders by UTF-8 bytes, and keeps integer-like keys in that order too", async () => {
+    // As a list of pairs the order survives; as an object, "9" would jump ahead of "10".
+    const provider = await seeded(["9", "10", "😀", "￿", "é", "Z"]);
+    const { entries } = await provider.listPage(ref, { limit: 10 });
+    expect(entries.map(([k]) => k)).toEqual(["10", "9", "Z", "é", "￿", "😀"]);
+    provider.close();
+  });
+
+  it("an empty resource, a limit of 0, and a cursor past the end are all just empty", async () => {
+    const provider = await seeded(["a"]);
+    expect(await provider.listPage({ resourceId: "nobody" }, { limit: 5 })).toEqual({
+      entries: [],
+      more: false,
+    });
+    expect((await provider.listPage(ref, { limit: 0 })).entries).toEqual([]);
+    expect(await provider.listPage(ref, { after: "zzz", limit: 5 })).toEqual({
+      entries: [],
+      more: false,
+    });
+    provider.close();
+  });
+});

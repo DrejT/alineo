@@ -386,7 +386,14 @@ export const FactView = z.object({
   content: z.string(),
   sourceRef: z.object({ sandboxId: z.string(), entryIndex: z.number().int() }).optional(),
   verified: z.boolean().optional(),
-  rememberedAt: z.number().optional().describe("Epoch ms. Present when listing, not on recall."),
+  rememberedAt: z
+    .number()
+    .optional()
+    .describe(
+      "Epoch ms the fact was remembered. The shipped providers set it on every fact they " +
+        "return, recall and listing alike; optional only because the contract doesn't promise " +
+        "it of every possible provider.",
+    ),
 });
 
 export const FactsResponse = z.object({

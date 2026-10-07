@@ -94,6 +94,25 @@ export interface IBulkSemanticMemoryProvider extends ISemanticMemoryProvider {
   rememberMany(ref: ResourceRef, facts: MemoryFact[]): Promise<void>;
 }
 
+/**
+ * Optional capability: read just the newest facts, without enumerating the resource's whole set.
+ * `listAll()` is right for compaction and `Memory.fork()`, which need everything; it is wrong for
+ * a caller that pages, because it loads and deserializes every fact the resource ever remembered.
+ * A provider with an index to walk can answer this directly; one without simply doesn't implement
+ * it, and the caller falls back to `listAll()`.
+ */
+export interface IRecentSemanticMemoryProvider extends ISemanticMemoryProvider {
+  /** The `limit` most recently remembered facts, newest first. */
+  listRecent(ref: ResourceRef, limit: number): Promise<RememberedFact[]>;
+}
+
+/** True if `provider` implements the optional newest-first capability. */
+export function isRecentListable(
+  provider: ISemanticMemoryProvider,
+): provider is IRecentSemanticMemoryProvider {
+  return typeof (provider as Partial<IRecentSemanticMemoryProvider>).listRecent === "function";
+}
+
 /** True if `provider` implements the optional bulk-remember capability. */
 export function isBulkRememberable(
   provider: ISemanticMemoryProvider,

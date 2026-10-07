@@ -13,6 +13,31 @@ export interface IWorkingMemoryProvider {
 }
 
 /**
+ * Optional capability: read one page of a resource's entries, in ascending key order (UTF-8 byte
+ * order), without loading the rest. `list()` returns everything and so costs in proportion to how
+ * much the resource has stored; a provider with an ordered index can answer a page in proportion
+ * to the page.
+ *
+ * `entries` is an ordered list of pairs, not a record, on purpose: a JavaScript object does not
+ * keep the order keys were added in — integer-like keys (`"9"`, `"10"`) come out first, in numeric
+ * order — so a record would silently scramble the very order a page cursor depends on.
+ */
+export interface IPagedWorkingMemoryProvider extends IWorkingMemoryProvider {
+  /** Up to `limit` entries whose key sorts after `after` (or from the start when omitted). */
+  listPage(
+    ref: ResourceRef,
+    opts: { after?: string; limit: number },
+  ): Promise<{ entries: Array<[key: string, value: unknown]>; more: boolean }>;
+}
+
+/** True if `provider` implements the optional paging capability. */
+export function isPageable(
+  provider: IWorkingMemoryProvider,
+): provider is IPagedWorkingMemoryProvider {
+  return typeof (provider as Partial<IPagedWorkingMemoryProvider>).listPage === "function";
+}
+
+/**
  * Reference implementation — a process-local `Map`. Not durable across restarts, not shared
  * across processes or hosts. Exists to prove `IWorkingMemoryProvider` composes with `Memory`,
  * to give unit tests something to run against without a real database, and to give a first

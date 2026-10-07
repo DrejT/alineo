@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
 import type { EmbeddingProvider } from "@alineo-labs/memory";
 import { SQLiteSemanticMemoryProvider } from "../src/semantic.ts";
@@ -285,6 +288,77 @@ describe("SQLiteSemanticMemoryProvider.listRecent", () => {
       Date.now = realNow;
     }
     expect((await provider.listRecent(ref, 3)).map((f) => f.content)).toEqual(["c", "b", "a"]);
+    provider.close();
+  });
+});
+
+describe("SQLiteSemanticMemoryProvider embedding dimensions", () => {
+  const sized = (n: number): EmbeddingProvider => ({
+    id: `dim-${n}`,
+    async embed(texts) {
+      return texts.map(() => Array.from({ length: n }, (_, i) => (i === 0 ? 1 : 0)));
+    },
+  });
+  const ref = { resourceId: "user-1" };
+  /** The message a promise rejects with, or "" if it resolved. */
+  const failure = (p: Promise<unknown>): Promise<string> =>
+    p.then(
+      () => "",
+      (e: Error) => e.message,
+    );
+
+  function tmpFile(): string {
+    return join(mkdtempSync(join(tmpdir(), "sqlite-memory-dim-")), "memory.db");
+  }
+
+  it("refuses a different-width embedding model on an existing store — before writing anything", async () => {
+    const path = tmpFile();
+    const first = new SQLiteSemanticMemoryProvider(path, sized(3));
+    await first.remember(ref, { content: "stored with a 3-dim model" });
+    first.close();
+
+    // A restart with a different model: this instance's own idea of the width starts out empty,
+    // so only the table on disk can say it's wrong.
+    const second = new SQLiteSemanticMemoryProvider(path, sized(5));
+    expect(await failure(second.remember(ref, { content: "a 5-dim fact" }))).toMatch(
+      /3-dimensional embeddings but this embedding model produced 5/,
+    );
+    expect(await failure(second.rememberMany(ref, [{ content: "another" }]))).toMatch(
+      /3-dimensional/,
+    );
+
+    // Nothing half-written: no metadata row without its vector, and the index never claimed to work.
+    expect((await second.listAll(ref)).map((f) => f.content)).toEqual([
+      "stored with a 3-dim model",
+    ]);
+    expect(second.hasVectorIndex).toBe(false);
+    second.close();
+  });
+
+  it("is still happy to reopen with the same model, and recall still works", async () => {
+    const path = tmpFile();
+    const first = new SQLiteSemanticMemoryProvider(path, sized(4));
+    await first.remember(ref, { content: "kept" });
+    first.close();
+
+    const again = new SQLiteSemanticMemoryProvider(path, sized(4));
+    await again.remember(ref, { content: "added after restart" });
+    expect(again.hasVectorIndex).toBe(true);
+    expect((await again.recall(ref, "anything", { topK: 5 })).length).toBe(2);
+    again.close();
+  });
+
+  it("catches a model that changes width within one process too", async () => {
+    let n = 3;
+    const shifty: EmbeddingProvider = {
+      id: "shifty",
+      embed: async (texts) => texts.map(() => Array.from({ length: n }, () => 1)),
+    };
+    const provider = new SQLiteSemanticMemoryProvider(":memory:", shifty);
+    await provider.remember(ref, { content: "first" });
+    n = 6;
+    expect(await failure(provider.remember(ref, { content: "second" }))).toMatch(/3-dimensional/);
+    expect((await provider.listAll(ref)).length).toBe(1);
     provider.close();
   });
 });

@@ -6,6 +6,7 @@ import type {
   EmbeddingProvider,
   IBulkSemanticMemoryProvider,
   IPrunableSemanticMemoryProvider,
+  IRecentSemanticMemoryProvider,
   MemoryFact,
   RememberedFact,
   ResourceRef,
@@ -24,6 +25,14 @@ type Row = {
 };
 
 const VEC_TABLE = "alineo_semantic_vec";
+
+function dimensionMismatch(existing: number, got: number): Error {
+  return new Error(
+    `semantic memory was built for ${existing}-dimensional embeddings but this embedding model ` +
+      `produced ${got}. Vectors from different models are not comparable, so the index can't be ` +
+      `shared: point this store at a fresh database file when you change embedding models.`,
+  );
+}
 
 /**
  * Load the `sqlite-vec` extension into `db`. `false` (not a throw) when it can't load — an
@@ -62,7 +71,10 @@ export function loadSqliteVec(db: Database): boolean {
  * lower-performance code path over the same data.
  */
 export class SQLiteSemanticMemoryProvider
-  implements IPrunableSemanticMemoryProvider, IBulkSemanticMemoryProvider
+  implements
+    IPrunableSemanticMemoryProvider,
+    IBulkSemanticMemoryProvider,
+    IRecentSemanticMemoryProvider
 {
   private readonly db: Database;
   private vecAvailable: boolean;
@@ -91,8 +103,30 @@ export class SQLiteSemanticMemoryProvider
     return this.vecAvailable && this.vecDimensions != null;
   }
 
+  /**
+   * Make sure the `vec0` index exists and was built for vectors of `dimensions` — and throw,
+   * before anything is written, when it was not.
+   *
+   * `CREATE VIRTUAL TABLE IF NOT EXISTS` is a silent no-op against a table that already exists
+   * with a different width, and the dimension this instance tracks in memory starts out null on
+   * every process start. So after switching to an embedding model of another size, nothing here
+   * would object: the index would be reported as usable (`hasVectorIndex`) and the first insert
+   * would fail deep in the native extension, after the fact's metadata row was already written.
+   * Compare against the width actually on disk instead, and name the way out.
+   */
   private ensureVecTable(dimensions: number): void {
-    if (this.vecDimensions != null) return;
+    if (this.vecDimensions != null) {
+      if (dimensions !== this.vecDimensions)
+        throw dimensionMismatch(this.vecDimensions, dimensions);
+      return;
+    }
+    const existing = this.db
+      .prepare<{ sql: string }, [string]>("SELECT sql FROM sqlite_master WHERE name = ?")
+      .get(VEC_TABLE);
+    const onDisk = existing ? /float\[(\d+)\]/.exec(existing.sql)?.[1] : undefined;
+    if (onDisk !== undefined && Number(onDisk) !== dimensions) {
+      throw dimensionMismatch(Number(onDisk), dimensions);
+    }
     // `scope` is declared as a partition key, not a plain column: vec0 applies it natively
     // during the KNN traversal itself, before `k` is counted. A plain column filtered via an
     // outer JOIN (tried first, verified wrong) applies AFTER vec0 already picked its global
@@ -115,6 +149,10 @@ export class SQLiteSemanticMemoryProvider
     const [vector] = await this.embeddings.embed([fact.content], { type: "passage" });
     if (!vector) return;
 
+    // Before the insert, not after: a vector of the wrong width must fail without leaving a
+    // metadata row behind that the vector index doesn't have.
+    if (this.vecAvailable) this.ensureVecTable(vector.length);
+
     const result = this.db
       .prepare(
         `INSERT INTO alineo_semantic_memory
@@ -132,7 +170,6 @@ export class SQLiteSemanticMemoryProvider
       );
 
     if (this.vecAvailable) {
-      this.ensureVecTable(vector.length);
       this.db
         .prepare(`INSERT INTO ${VEC_TABLE}(rowid, scope, embedding) VALUES (?, ?, ?)`)
         .run(result.lastInsertRowid, scopeKey(ref), new Float32Array(vector));

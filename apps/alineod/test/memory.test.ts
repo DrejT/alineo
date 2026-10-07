@@ -6,10 +6,18 @@
  * child), so what these tests prove is that alineod hands the SDK what it needs to do that.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  InMemorySemanticMemoryProvider,
   InMemoryWorkingMemoryProvider,
   Memory,
   type EmbeddingProvider,
@@ -20,6 +28,7 @@ import {
   EmbeddingsError,
   agentResourceRef,
   buildMemory,
+  compareUtf8,
   createEmbeddingProvider,
   getMemoryStore,
   installMemoryForTests,
@@ -27,9 +36,11 @@ import {
   type MemoryStore,
 } from "../src/engine/memory";
 import { emit } from "../src/engine/emit";
-import { backup } from "../src/ops/backup";
+import { backup, parseBackupArgs, prune } from "../src/ops/backup";
 import { get } from "../src/engine/registry";
 import { rehydrate } from "../src/engine/rehydrate";
+import { restartBridge } from "../src/engine/sdk";
+import { getAgentRow } from "../src/state/projection";
 import { newAgentId, newRunId } from "../src/ids";
 import { call, spawnChild, spec, startRun, until, wipeState } from "./helpers";
 import { FakeAgent, fakeSdk } from "./fakes";
@@ -665,6 +676,10 @@ describe("semantic memory routes", () => {
     expect(res.body.query).toBe("what dog does the customer own");
     expect(res.body.facts).toHaveLength(2);
     expect(res.body.facts[0].content).toBe("customer owns a golden retriever dog");
+    // Recall carries the same fields listing does — `rememberedAt` included.
+    expect(
+      res.body.facts.every((f: { rememberedAt: unknown }) => typeof f.rememberedAt === "number"),
+    ).toBe(true);
   });
 
   test("`verified` is computed from sourceRef, never taken from the caller", async () => {
@@ -800,6 +815,151 @@ describe("semantic memory routes", () => {
   });
 });
 
+describe("a backend without the optional capabilities", () => {
+  /** In-memory providers: not pageable, no `listRecent` — the Postgres-shaped case. */
+  function plainStore(): MemoryStore {
+    const working = new InMemoryWorkingMemoryProvider();
+    const semantic = new InMemorySemanticMemoryProvider(bagOfWords());
+    return { memory: new Memory({ workingMemory: working, semantic }), working, semantic };
+  }
+
+  /** Every key, in the order the pages delivered them — following `nextAfter`, as a client would. */
+  async function pages(id: string, limit: number): Promise<string[][]> {
+    const out: string[][] = [];
+    let after: string | undefined;
+    for (let guard = 0; guard < 20; guard++) {
+      const q = `limit=${limit}${after === undefined ? "" : `&after=${encodeURIComponent(after)}`}`;
+      const res = (await call("GET", `/agents/${id}/memory?${q}`)).body;
+      // Sorted within the page: the JSON object a client parses lists integer-like keys first
+      // whatever order they were sent in, so only the cursor — not key order inside one page —
+      // carries the ordering. Which keys land on which page is what must be right.
+      out.push(Object.keys(res.working).sort(compareUtf8));
+      if (res.nextAfter === undefined) return out;
+      after = res.nextAfter;
+    }
+    throw new Error("paging did not terminate");
+  }
+
+  // UTF-8 byte order is not UTF-16 code-unit order: 😀 (F0 9F 98 80) sorts AFTER U+FFFF (EF BF BF)
+  // in bytes and BEFORE it as JavaScript's default sort would have it.
+  const KEYS = ["b", "😀", "a", "\uffff", "é", "Z", "10", "9"];
+  const IN_ORDER = ["10", "9", "Z", "a", "b", "é", "\uffff", "😀"];
+
+  async function fill(id: string): Promise<void> {
+    for (const k of KEYS) {
+      await call("PUT", `/agents/${id}/memory/${encodeURIComponent(k)}`, { value: k });
+    }
+  }
+
+  test("working-memory paging is identical on a seekable backend and on one that must be read whole", async () => {
+    installMemoryForTests(buildMemory({ dbPath: tmpDb() }));
+    const sqlite = await newRoot("page-sqlite");
+    await fill(sqlite.id);
+    const fromSqlite = await Promise.all([1, 3, 8].map((n) => pages(sqlite.id, n)));
+
+    installMemoryForTests(plainStore());
+    const plain = await newRoot("page-plain");
+    await fill(plain.id);
+    const fromPlain = await Promise.all([1, 3, 8].map((n) => pages(plain.id, n)));
+
+    expect(fromPlain).toEqual(fromSqlite);
+    // Every key exactly once, in the documented order, at every page size — including the
+    // integer-like keys ("10" before "9" in byte order) a JavaScript object would reorder.
+    for (const result of fromSqlite) expect(result.flat()).toEqual(IN_ORDER);
+  });
+
+  test('the cursor follows the ordered list, not the object — "10" then "9" is not repeated or skipped', async () => {
+    installMemoryForTests(buildMemory({ dbPath: tmpDb() }));
+    const { id } = await newRoot("cursor-int-keys");
+    for (const k of ["9", "10", "2", "a"]) {
+      await call("PUT", `/agents/${id}/memory/${k}`, { value: k });
+    }
+    // Byte order: "10" < "2" < "9" < "a". Page of two, then the rest.
+    const first = (await call("GET", `/agents/${id}/memory?limit=2`)).body;
+    expect(Object.keys(first.working).sort(compareUtf8)).toEqual(["10", "2"]);
+    expect(first.nextAfter).toBe("2");
+    const second = (await call("GET", `/agents/${id}/memory?limit=2&after=2`)).body;
+    expect(Object.keys(second.working).sort(compareUtf8)).toEqual(["9", "a"]);
+    expect(second).not.toHaveProperty("nextAfter");
+  });
+
+  test("listing facts falls back to listAll, newest first — it is not silently empty", async () => {
+    installMemoryForTests(plainStore());
+    const { id } = await newRoot("plain-facts");
+    for (const content of ["first fact", "second fact", "third fact"]) {
+      await call("POST", `/agents/${id}/facts`, { content });
+      await Bun.sleep(4);
+    }
+    const all = (await call("GET", `/agents/${id}/facts`)).body.facts;
+    expect(all.map((f: { content: string }) => f.content)).toEqual([
+      "third fact",
+      "second fact",
+      "first fact",
+    ]);
+    const two = (await call("GET", `/agents/${id}/facts?limit=2`)).body.facts;
+    expect(two.map((f: { content: string }) => f.content)).toEqual(["third fact", "second fact"]);
+  });
+
+  test("a semantic Memory with no provider handle to list from says so, rather than returning nothing", async () => {
+    const working = new InMemoryWorkingMemoryProvider();
+    const semantic = new InMemorySemanticMemoryProvider(bagOfWords());
+    installMemoryForTests({ memory: new Memory({ workingMemory: working, semantic }), working });
+    const { id } = await newRoot("no-handle");
+    const res = await call("GET", `/agents/${id}/facts`);
+    expect(res.status).toBe(501);
+    expect(res.body.error).toMatch(/cannot list facts/);
+  });
+});
+
+describe("restarting a bridge", () => {
+  test("restartBridge resumes through the one SDK door, so the restarted agent keeps its memory", async () => {
+    const { root, id } = await newRoot("restart-memory");
+    root.memory = undefined; // what an agent restarted without the store would look like
+    const before = fakeSdk.calls.resume.length;
+
+    await restartBridge(id, root.sandboxId, getAgentRow(id)!);
+
+    expect(fakeSdk.calls.resume.length).toBe(before + 1);
+    expect(get(id)).toBe(root as never);
+    // (cast: the assignment above narrowed `root.memory` to `undefined` for the type checker)
+    expect(root.memory as unknown).toBe(getMemoryStore()!.memory);
+  });
+
+  test("a bridge restarted after unpausing keeps its memory", async () => {
+    const runId = newRunId();
+    const sandbox = new FakeAgent({ name: "pause-restart", runId });
+    sandbox.paused = true;
+    sandbox.streaming = true;
+    const id = newAgentId();
+    emit(runId, id, "agent.spawned", {
+      parentAgentId: null,
+      runId,
+      specName: sandbox.name,
+      specJson: JSON.stringify(spec(sandbox.name)),
+      depth: 0,
+      spawnIndex: 0,
+      sandboxId: null,
+      spawnBudget: 2,
+      maxAgentsBudget: null,
+      waitFor: null,
+      prompt: null,
+    });
+    emit(runId, id, "agent.provisioned", { sandboxId: sandbox.sandboxId });
+    emit(runId, id, "agent.state_changed", { from: "provisioning", to: "running" });
+    emit(runId, id, "agent.state_changed", { from: "running", to: "paused", reason: "operator" });
+    sandbox.bridgeDown = true;
+    await rehydrate();
+
+    sandbox.memory = undefined;
+    sandbox.lastText = "done";
+    sandbox.streaming = false;
+    expect((await call("POST", `/agents/${id}/resume`)).status).toBe(202);
+
+    expect(fakeSdk.calls.resume).toEqual([sandbox.sandboxId]);
+    expect(sandbox.memory as unknown).toBe(getMemoryStore()!.memory);
+  });
+});
+
 describe("failures that are not the embeddings provider's", () => {
   /** A semantic store whose own storage fails — the SQLite-full / WAL-lock / corruption class. */
   function brokenStorage(): MemoryStore {
@@ -812,9 +972,11 @@ describe("failures that are not the embeddings provider's", () => {
       listAll: async () => fail(),
       forget: async () => fail(),
     };
+    const working = new InMemoryWorkingMemoryProvider();
     return {
-      memory: new Memory({ workingMemory: new InMemoryWorkingMemoryProvider(), semantic }),
-      semantic: { listRecent: async () => fail() } as never,
+      memory: new Memory({ workingMemory: working, semantic }),
+      working,
+      semantic: { ...semantic, listRecent: async () => fail() } as never,
     };
   }
 
@@ -927,6 +1089,40 @@ describe("GET /memory paging", () => {
   });
 });
 
+async function semanticStoreWithFact(): Promise<{ path: string }> {
+  const path = tmpDb();
+  const store = buildMemory({ dbPath: path, embeddings: bagOfWords() });
+  await store.memory.remember({ resourceId: "r" }, { content: "alpha beta" });
+  return { path };
+}
+
+describe("parseBackupArgs", () => {
+  test("keeps the destination whether or not --keep is given — the inline version dropped it", () => {
+    expect(parseBackupArgs(["/mnt/offsite"])).toEqual({ dest: "/mnt/offsite", keep: undefined });
+    expect(parseBackupArgs(["/mnt/offsite", "--keep", "3"])).toEqual({
+      dest: "/mnt/offsite",
+      keep: 3,
+    });
+    expect(parseBackupArgs(["--keep", "3", "/mnt/offsite"])).toEqual({
+      dest: "/mnt/offsite",
+      keep: 3,
+    });
+  });
+
+  test("defaults the destination to ./backups", () => {
+    expect(parseBackupArgs([])).toEqual({ dest: "./backups", keep: undefined });
+    expect(parseBackupArgs(["--keep", "2"])).toEqual({ dest: "./backups", keep: 2 });
+  });
+
+  test("rejects what it can't make sense of, rather than guessing", () => {
+    expect(() => parseBackupArgs(["--keep"])).toThrow(/positive integer/);
+    expect(() => parseBackupArgs(["--keep", "0"])).toThrow(/positive integer/);
+    expect(() => parseBackupArgs(["--keep", "x"])).toThrow(/positive integer/);
+    expect(() => parseBackupArgs(["--bogus"])).toThrow(/unknown option --bogus/);
+    expect(() => parseBackupArgs(["a", "b"])).toThrow(/unexpected extra argument b/);
+  });
+});
+
 describe("backup", () => {
   test("captures working and semantic memory from a live store, and the copy is restorable", async () => {
     const { store, path } = semanticStore();
@@ -982,6 +1178,80 @@ describe("backup", () => {
     );
     // And nothing was created for the failed attempts.
     expect(existsSync(out)).toBe(false);
+  });
+
+  test("is all-or-nothing: a copy that fails leaves no backup directory behind", () => {
+    const dir = mkdtempSync(join(tmpdir(), "alineod-memory-backup-"));
+    const out = join(dir, "out");
+    // Two good ledgers, then a memory "database" that isn't one — the failure lands last, after
+    // the earlier copies are already written.
+    buildMemory({ dbPath: join(dir, "alineod.db") });
+    buildMemory({ dbPath: join(dir, "sdk.db") });
+    writeFileSync(join(dir, "memory.db"), "this is not a sqlite database at all");
+
+    expect(() =>
+      backup(
+        {
+          dbPath: join(dir, "alineod.db"),
+          sdkLedgerPath: join(dir, "sdk.db"),
+          memoryDbPath: join(dir, "memory.db"),
+          workDir: join(dir, "w"),
+        },
+        out,
+      ),
+    ).toThrow();
+
+    // Neither the finished-looking directory nor its staging area survives.
+    expect(existsSync(out) ? readdirSync(out) : []).toEqual([]);
+  });
+
+  test("says up front, writing nothing, when the vector extension can't load for a memory db that needs it", async () => {
+    const { path } = await semanticStoreWithFact();
+    const dir = mkdtempSync(join(tmpdir(), "alineod-memory-backup-"));
+    const out = join(dir, "out");
+    const sources = {
+      dbPath: join(dir, "alineod.db"),
+      sdkLedgerPath: join(dir, "sdk.db"),
+      memoryDbPath: path,
+      workDir: join(dir, "w"),
+    };
+    expect(() => backup(sources, out, new Date(), { loadVec: () => false })).toThrow(
+      /sqlite-vec extension could not be loaded[\s\S]*Nothing was written/,
+    );
+    expect(existsSync(out)).toBe(false);
+    // The same database backs up fine when the extension does load.
+    expect(backup(sources, out).databases[0]!.integrity).toBe("ok");
+  });
+
+  test("a memory db with no vector index doesn't need the extension", () => {
+    const dir = mkdtempSync(join(tmpdir(), "alineod-memory-backup-"));
+    buildMemory({ dbPath: join(dir, "memory.db") }); // working memory only
+    const result = backup(
+      {
+        dbPath: join(dir, "alineod.db"),
+        sdkLedgerPath: join(dir, "sdk.db"),
+        memoryDbPath: join(dir, "memory.db"),
+        workDir: join(dir, "w"),
+      },
+      join(dir, "out"),
+      new Date(),
+      { loadVec: () => false },
+    );
+    expect(result.databases).toHaveLength(1);
+  });
+
+  test("prune sweeps a crashed run's old staging directory, but not one that may still be writing", () => {
+    const root = mkdtempSync(join(tmpdir(), "alineod-memory-prune-"));
+    const old = join(root, ".alineod-2026-01-01T00-00-00Z.partial");
+    const fresh = join(root, ".alineod-2026-01-02T00-00-00Z.partial");
+    mkdirSync(old);
+    mkdirSync(fresh);
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000);
+    utimesSync(old, twoHoursAgo, twoHoursAgo);
+
+    expect(prune(root, 5)).toEqual([".alineod-2026-01-01T00-00-00Z.partial"]);
+    expect(existsSync(old)).toBe(false);
+    expect(existsSync(fresh)).toBe(true);
   });
 
   test("a deployment that never created a memory file just skips it", () => {

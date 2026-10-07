@@ -12,16 +12,16 @@
  * copied `.db` alone opens fine and is missing them. See src/ops/backup.ts.
  */
 import { DB_PATH, MEMORY_DB_PATH, SDK_LEDGER_PATH, WORK_DIR } from "../config";
-import { backup, prune } from "../src/ops/backup";
+import { backup, parseBackupArgs, prune } from "../src/ops/backup";
 
-const args = process.argv.slice(2);
-const keepAt = args.indexOf("--keep");
-const keep = keepAt >= 0 ? Number(args[keepAt + 1]) : undefined;
-if (keep !== undefined && !(Number.isInteger(keep) && keep > 0)) {
-  console.error("--keep takes a positive integer");
+let parsed: ReturnType<typeof parseBackupArgs>;
+try {
+  parsed = parseBackupArgs(process.argv.slice(2));
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
   process.exit(2);
 }
-const dest = args.find((a, i) => !a.startsWith("--") && i !== keepAt + 1) ?? "./backups";
+const { dest, keep } = parsed;
 
 const result = backup(
   {

@@ -4,12 +4,13 @@ export { scopeKey } from "./types";
 export { MemoryCapabilityError } from "./errors";
 export type { MemoryCapability } from "./errors";
 
-export { InMemoryWorkingMemoryProvider } from "./working";
-export type { IWorkingMemoryProvider } from "./working";
+export { InMemoryWorkingMemoryProvider, isPageable } from "./working";
+export type { IPagedWorkingMemoryProvider, IWorkingMemoryProvider } from "./working";
 
 export {
   InMemorySemanticMemoryProvider,
   isPrunable,
+  isRecentListable,
   isBulkRememberable,
   cosineSimilarity,
   factFromRow,
@@ -18,6 +19,7 @@ export type {
   EmbeddingProvider,
   ISemanticMemoryProvider,
   IPrunableSemanticMemoryProvider,
+  IRecentSemanticMemoryProvider,
   IBulkSemanticMemoryProvider,
   MemoryFact,
   RememberedFact,
