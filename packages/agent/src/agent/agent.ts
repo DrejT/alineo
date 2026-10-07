@@ -1,5 +1,6 @@
 import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
+import { resourceRefOf } from "@alineo-labs/schema";
 import type { PiAdapter } from "../adapters/pi";
 import type { AgentSpec } from "../schema";
 import type { AlineoAgentConfig } from "../config";
@@ -134,7 +135,7 @@ export class Alineo {
     this.sandboxId = sandbox.sandboxId;
     this.name = spec.name;
     this.teamId = spec.teamId;
-    this.resourceId = spec.resourceId ?? spec.name;
+    this.resourceId = resourceRefOf(spec).resourceId;
     this.adapter = adapter;
     this.env = env;
     this.fromSnapshot = fromSnapshot;

@@ -34,6 +34,13 @@ import {
   ResultResponse,
   TranscriptResponse,
   AlineodEvent,
+  AddFactBody,
+  CompactionBody,
+  CompactionResultView,
+  FactsResponse,
+  MemoryValueBody,
+  MemoryValueResponse,
+  MemoryView,
 } from "../src/schema";
 
 const OUT_DIR = join(import.meta.dir, "../spec");
@@ -278,6 +285,159 @@ const openapi = {
         parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           "200": { description: "{ delivery: steer | turn | held | dropped | none }" },
+        },
+      },
+    },
+    "/agents/{agentId}/memory": {
+      get: {
+        summary: "The agent's working memory, and the scope it lives under",
+        description:
+          "Keyed by the agent spec's resourceId (default: its name) and teamId, read from the persisted spec — so it works after the agent ended, and across an alineod restart. A spawned child starts with a copy of its parent's memory.",
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 1000, default: 100 },
+            description: "Entries per page, in sorted key order.",
+          },
+          {
+            name: "after",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "Return keys after this one — the previous page's `nextAfter`.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "One page of working memory",
+            content: { "application/json": { schema: json(MemoryView) } },
+          },
+          "400": { description: "Bad limit" },
+          "404": { description: "No such agent" },
+          "501": { description: "Memory is disabled on this alineod" },
+        },
+      },
+    },
+    "/agents/{agentId}/memory/{key}": {
+      get: {
+        summary: "One working-memory value",
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          { name: "key", in: "path", required: true, schema: { type: "string", maxLength: 256 } },
+        ],
+        responses: {
+          "200": {
+            description: "The value",
+            content: { "application/json": { schema: json(MemoryValueResponse) } },
+          },
+          "400": { description: "Key is empty or longer than 256 characters" },
+          "404": { description: "No such agent, or no such key" },
+          "501": { description: "Memory is disabled on this alineod" },
+        },
+      },
+      put: {
+        summary: "Set a working-memory value (any JSON, at most 64 KiB)",
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          { name: "key", in: "path", required: true, schema: { type: "string", maxLength: 256 } },
+        ],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: json(MemoryValueBody) } },
+        },
+        responses: {
+          "200": {
+            description: "Stored",
+            content: { "application/json": { schema: json(MemoryValueResponse) } },
+          },
+          "400": { description: "Bad key, or a value that is missing, too large or not JSON" },
+          "404": { description: "No such agent" },
+          "501": { description: "Memory is disabled on this alineod" },
+        },
+      },
+      delete: {
+        summary: "Remove a working-memory key (idempotent)",
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          { name: "key", in: "path", required: true, schema: { type: "string", maxLength: 256 } },
+        ],
+        responses: {
+          "204": { description: "Removed, or never there" },
+          "400": { description: "Key is empty or longer than 256 characters" },
+          "404": { description: "No such agent" },
+          "501": { description: "Memory is disabled on this alineod" },
+        },
+      },
+    },
+    "/agents/{agentId}/facts": {
+      post: {
+        summary: "Remember a fact (semantic memory)",
+        parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: json(AddFactBody) } },
+        },
+        responses: {
+          "201": { description: "Remembered" },
+          "400": { description: "Invalid body" },
+          "404": { description: "No such agent" },
+          "501": { description: "Memory disabled, or no embeddings endpoint configured" },
+          "502": { description: "The embeddings provider failed" },
+        },
+      },
+      get: {
+        summary: "Recall facts by meaning (?query=), or list every fact newest-first",
+        parameters: [
+          { name: "agentId", in: "path", required: true, schema: { type: "string" } },
+          { name: "query", in: "query", required: false, schema: { type: "string" } },
+          {
+            name: "topK",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 5 },
+            description: "With ?query= only.",
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 1000, default: 100 },
+            description: "Without ?query= only.",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Facts",
+            content: { "application/json": { schema: json(FactsResponse) } },
+          },
+          "400": { description: "Bad topK or limit" },
+          "404": { description: "No such agent" },
+          "501": { description: "Memory disabled, or no embeddings endpoint configured" },
+          "502": { description: "The embeddings provider failed" },
+        },
+      },
+    },
+    "/agents/{agentId}/compactions": {
+      post: {
+        summary: "Prune old or excess facts now",
+        description:
+          "Age-based removal runs first, then the count cap. Neither set removes nothing. Independent of the automatic pass ALINEOD_MEMORY_MAX_FACTS / ALINEOD_MEMORY_MAX_AGE_MS run after each remembered fact.",
+        parameters: [{ name: "agentId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: false,
+          content: { "application/json": { schema: json(CompactionBody) } },
+        },
+        responses: {
+          "200": {
+            description: "What was removed",
+            content: { "application/json": { schema: json(CompactionResultView) } },
+          },
+          "400": { description: "Invalid body" },
+          "404": { description: "No such agent" },
+          "501": { description: "Memory disabled, or no embeddings endpoint configured" },
         },
       },
     },

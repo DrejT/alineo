@@ -6,27 +6,28 @@ description: Every alineod route — runs, agents, control actions, and results.
 Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors are returned as
 `{ "error": "<message>" }` with an appropriate status; an invalid body is `400` and names each failing field.
 
-| Method   | Path                             | Description                                       |
-| -------- | -------------------------------- | ------------------------------------------------- |
-| `GET`    | `/health`                        | Liveness check.                                   |
-| `POST`   | `/runs`                          | Create a run and its root agent.                  |
-| `GET`    | `/runs/:runId`                   | The run's spawn tree.                             |
-| `DELETE` | `/runs/:runId`                   | Stop every live agent in the run.                 |
-| `GET`    | `/runs/:runId/events`            | The run's event stream (SSE).                     |
-| `POST`   | `/runs/:runId/agents`            | Spawn a child agent.                              |
-| `GET`    | `/agents/:agentId`               | One agent's state and session stats.              |
-| `POST`   | `/agents/:agentId/prompt`        | Start a new turn.                                 |
-| `POST`   | `/agents/:agentId/steer`         | Redirect the current turn.                        |
-| `POST`   | `/agents/:agentId/pause`         | Freeze the agent's container.                     |
-| `POST`   | `/agents/:agentId/resume`        | Thaw a paused container.                          |
-| `POST`   | `/agents/:agentId/stop`          | Abort and close the agent.                        |
-| `GET`    | `/agents/:agentId/result`        | Get, or wait for, the agent's result.             |
-| `GET`    | `/agents/:agentId/transcript`    | What the agent said and did, turn by turn.        |
-| `GET`    | `/agents/:agentId/await`         | Wait for the agent's subtree to finish.           |
-| `POST`   | `/runs/:runId/await`             | Wait on a set of agents, or a subtree.            |
-| `POST`   | `/agents/:agentId/notify-on`     | Tell this agent when others finish.               |
-| `GET`    | `/agents/:agentId/inbox`         | This agent's pending and delivered notifications. |
-| `POST`   | `/agents/:agentId/inbox/deliver` | Deliver pending notifications now.                |
+| Method   | Path                             | Description                                                                                                                                            |
+| -------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET`    | `/health`                        | Liveness check.                                                                                                                                        |
+| `POST`   | `/runs`                          | Create a run and its root agent.                                                                                                                       |
+| `GET`    | `/runs/:runId`                   | The run's spawn tree.                                                                                                                                  |
+| `DELETE` | `/runs/:runId`                   | Stop every live agent in the run.                                                                                                                      |
+| `GET`    | `/runs/:runId/events`            | The run's event stream (SSE).                                                                                                                          |
+| `POST`   | `/runs/:runId/agents`            | Spawn a child agent.                                                                                                                                   |
+| `GET`    | `/agents/:agentId`               | One agent's state and session stats.                                                                                                                   |
+| `POST`   | `/agents/:agentId/prompt`        | Start a new turn.                                                                                                                                      |
+| `POST`   | `/agents/:agentId/steer`         | Redirect the current turn.                                                                                                                             |
+| `POST`   | `/agents/:agentId/pause`         | Freeze the agent's container.                                                                                                                          |
+| `POST`   | `/agents/:agentId/resume`        | Thaw a paused container.                                                                                                                               |
+| `POST`   | `/agents/:agentId/stop`          | Abort and close the agent.                                                                                                                             |
+| `GET`    | `/agents/:agentId/result`        | Get, or wait for, the agent's result.                                                                                                                  |
+| `GET`    | `/agents/:agentId/transcript`    | What the agent said and did, turn by turn.                                                                                                             |
+| `GET`    | `/agents/:agentId/await`         | Wait for the agent's subtree to finish.                                                                                                                |
+| `POST`   | `/runs/:runId/await`             | Wait on a set of agents, or a subtree.                                                                                                                 |
+| `POST`   | `/agents/:agentId/notify-on`     | Tell this agent when others finish.                                                                                                                    |
+| `GET`    | `/agents/:agentId/inbox`         | This agent's pending and delivered notifications.                                                                                                      |
+| `POST`   | `/agents/:agentId/inbox/deliver` | Deliver pending notifications now.                                                                                                                     |
+| `GET`    | `/agents/:agentId/memory`        | Working memory — see [Agent memory](/docs/alineod/guides/memory), which also covers `PUT`/`DELETE .../memory/:key`, `.../facts` and `.../compactions`. |
 
 ## Runs
 

@@ -53,6 +53,12 @@ A child whose parent could not be reconnected ends as `lost`.
 </Step>
 <Step>
 
+### Hand the memory store back
+
+Before reconnecting anything, alineod opens its memory database, and every agent it reattaches or resumes is handed
+that same store. Memory is keyed by the agent's identity, not its sandbox, so nothing about it needs recovering, and
+a reconnected parent still forks its memory into the next child it spawns. See [Agent memory](/docs/alineod/guides/memory).
+
 ### Serve requests
 
 The daemon starts listening once reconnection is done; spawn retries continue in the background.

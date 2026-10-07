@@ -21,8 +21,8 @@
  * concurrent commands on the same agent could otherwise interleave against a live sandbox
  * instead of just racing a redundant no-op.
  */
-import { Alineo } from "alineo";
-import { get, register, sdkAdapter } from "./registry";
+import { get } from "./registry";
+import { restartBridge } from "./sdk";
 import { getAgentRow, getHandle, type AgentRow } from "../state/projection";
 import { attempt, sweepSubtree, type MemberResult } from "./subtree";
 import { emit } from "./emit";
@@ -108,12 +108,7 @@ export function resumeAgent(
       );
       if (!bridgeOk) {
         try {
-          const restarted = await Alineo.resume(agent.sandboxId, {
-            adapter: sdkAdapter,
-            spec: JSON.parse(row.spec_json),
-            runId: row.run_id,
-          });
-          register(agentId, restarted);
+          await restartBridge(agentId, agent.sandboxId, row);
           log.info("bridge didn't answer after resume — restarted it", { agentId });
         } catch (err) {
           const msg = errorMessage(err);

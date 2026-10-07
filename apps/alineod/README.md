@@ -76,20 +76,33 @@ bun run spec           # writes apps/alineod/spec/{openapi.json,events.schema.js
 
 ## Routes
 
-| Method | Path                      |                                                               |
-| ------ | ------------------------- | ------------------------------------------------------------- |
-| POST   | `/runs`                   | create a run, load the root agent, optional first `prompt`    |
-| GET    | `/runs/:runId`            | the spawn tree (flat list + parent pointers, `asOf` seq)      |
-| DELETE | `/runs/:runId`            | abort + close every live agent; **ledger kept**               |
-| GET    | `/runs/:runId/events`     | SSE — the whole swarm on one stream, `Last-Event-ID` aware    |
-| POST   | `/runs/:runId/agents`     | spawn a child (`parentAgentId`, optional `waitFor`, `prompt`) |
-| GET    | `/agents/:agentId`        | inspect + `sessionStats` (omitted while paused; 2s bound)     |
-| POST   | `/agents/:agentId/prompt` | drive a turn                                                  |
-| POST   | `/agents/:agentId/steer`  | redirect the current turn (lands at the next turn boundary)   |
-| POST   | `/agents/:agentId/pause`  | freeze the agent's container                                  |
-| POST   | `/agents/:agentId/resume` | thaw a paused container                                       |
-| POST   | `/agents/:agentId/stop`   | abort + close                                                 |
-| GET    | `/agents/:agentId/result` | resolve a handle (`?wait=<seconds>` long-poll)                |
+| Method | Path                           |                                                                    |
+| ------ | ------------------------------ | ------------------------------------------------------------------ |
+| POST   | `/runs`                        | create a run, load the root agent, optional first `prompt`         |
+| GET    | `/runs/:runId`                 | the spawn tree (flat list + parent pointers, `asOf` seq)           |
+| DELETE | `/runs/:runId`                 | abort + close every live agent; **ledger kept**                    |
+| GET    | `/runs/:runId/events`          | SSE — the whole swarm on one stream, `Last-Event-ID` aware         |
+| POST   | `/runs/:runId/agents`          | spawn a child (`parentAgentId`, optional `waitFor`, `prompt`)      |
+| GET    | `/agents/:agentId`             | inspect + `sessionStats` (omitted while paused; 2s bound)          |
+| POST   | `/agents/:agentId/prompt`      | drive a turn                                                       |
+| POST   | `/agents/:agentId/steer`       | redirect the current turn (lands at the next turn boundary)        |
+| POST   | `/agents/:agentId/pause`       | freeze the agent's container                                       |
+| POST   | `/agents/:agentId/resume`      | thaw a paused container                                            |
+| POST   | `/agents/:agentId/stop`        | abort + close                                                      |
+| GET    | `/agents/:agentId/result`      | resolve a handle (`?wait=<seconds>` long-poll)                     |
+| GET    | `/agents/:agentId/memory`      | working memory + its resource ref (`PUT`/`DELETE .../memory/:key`) |
+| POST   | `/agents/:agentId/facts`       | remember a fact; `GET` recalls (`?query=`) or lists them           |
+| POST   | `/agents/:agentId/compactions` | prune old/excess facts now                                         |
+
+## Memory (`src/engine/memory.ts`)
+
+Every agent alineod starts, resumes or reattaches is handed one shared, durable `@alineo-labs/memory`
+store (SQLite, `ALINEOD_MEMORY_DB_PATH`), scoped by the spec's `resourceId`/`teamId`. `Alineo.spawn()` then
+forks the parent's scope into each child. Working memory is always on; semantic memory turns on when
+`ALINEOD_MEMORY_EMBEDDINGS_URL` + `_MODEL` point at an OpenAI-compatible embeddings endpoint.
+`ALINEOD_MEMORY_ENABLED=false` opts out. The routes resolve the scope from the persisted spec, so memory
+stays reachable after an agent ends. See the
+[Agent memory guide](../docs/content/docs/alineod/guides/memory.mdx).
 
 ## State (`bun:sqlite`, `src/state/db.ts`)
 

@@ -9,10 +9,10 @@
  * caller polls `GET /runs/:id` or `GET /agents/:id` (state "provisioning" → "running"/"failed")
  * or watches `GET /runs/:id/events`.
  */
-import { Alineo } from "alineo";
 import type { CreateRunBody } from "../schema";
 import { newRunId, newAgentId } from "../ids";
-import { sdkAdapter, register } from "./registry";
+import { register } from "./registry";
+import { sdkStart } from "./sdk";
 import { emit } from "./emit";
 import { driveTurn } from "./stream";
 import { withInbox } from "./notify";
@@ -78,8 +78,7 @@ export async function provisionRoot(
     return;
   }
   try {
-    const agent = await Alineo.start(body.spec, {
-      adapter: sdkAdapter,
+    const agent = await sdkStart(body.spec, {
       runId,
       spawnDepth: body.budget?.spawnDepth,
       maxAgents: body.budget?.maxAgents,

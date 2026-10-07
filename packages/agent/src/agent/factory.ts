@@ -4,6 +4,7 @@ import { LedgerEvent, type IStorageAdapter, type SandboxHandle } from "@alineo-l
 import { getLogger, type Logger } from "@alineo-labs/logger";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { resolveProjectConfig, type AlineoAgentConfig } from "../config";
+import { resourceRefOf } from "@alineo-labs/schema";
 import { validateAgentSpec, type AgentSpec } from "../schema";
 import {
   PiAdapter,
@@ -179,7 +180,7 @@ export async function loadAgent(
           credentialProxy: needsCredentialProxy,
           // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment
           // for why this matters (episodicRecall() enforces teamId strictly).
-          resourceId: spec.resourceId ?? spec.name,
+          resourceId: resourceRefOf(spec).resourceId,
           teamId: spec.teamId,
         });
         log.info("snapshot ready", { elapsed: elapsed(t1), sandboxId: sb.sandboxId });
@@ -210,7 +211,7 @@ export async function loadAgent(
       credentialProxy: needsCredentialProxy,
       // Kept consistent with `Alineo.resourceRef` — see `AgentSpec.teamId`'s doc comment for
       // why this matters (episodicRecall() enforces teamId strictly).
-      resourceId: spec.resourceId ?? spec.name,
+      resourceId: resourceRefOf(spec).resourceId,
       teamId: spec.teamId,
     });
     log.info("sandbox ready", { elapsed: elapsed(t1), sandboxId: sb.sandboxId });
@@ -425,7 +426,7 @@ export async function resumeAgent(
       // `restoreSnapshot()`, `connect()` can't discover a running sandbox's *original*
       // resourceId/teamId from the ledger on its own — but resume() already has `spec` in hand
       // here, so it can still supply the right values for any later `.fork()` off this handle.
-      resourceId: spec.resourceId ?? spec.name,
+      resourceId: resourceRefOf(spec).resourceId,
       teamId: spec.teamId,
     });
   } catch (err) {
@@ -573,7 +574,7 @@ export async function reattachAgent(
   try {
     sb = await client.connect(sandboxId, spec.name, {
       runId,
-      resourceId: spec.resourceId ?? spec.name,
+      resourceId: resourceRefOf(spec).resourceId,
       teamId: spec.teamId,
       // Same reason as resumeAgent() — client.connect() only wires up the `fork` dependency
       // when `resources` is passed, so a reattached agent needs this too if it's going to

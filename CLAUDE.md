@@ -275,6 +275,8 @@ apps/alineod/                     — the swarm control daemon: HTTP + SSE, Bun 
   src/state/db.ts                 — three tables; `ledger` is the source of truth, `agents`/`handles` are
                                     caches rebuildable from it (crash-only design)
   src/state/projection.ts         — apply()/rebuild(): the only writer of the cache tables
+  src/engine/memory.ts            — the one shared, durable `Memory` (SQLite working + optional semantic) handed to
+                                    every agent via memoryOptions(); a spawned child gets a fork of its parent's scope
   src/schema.ts                   — the wire contract as Zod. AgentSpec is the real schema now, and the
                                     event union is DERIVED from @alineo-labs/schema's definitions
 apps/docs/                        — the documentation site (Next.js static export)

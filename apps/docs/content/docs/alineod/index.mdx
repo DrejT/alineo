@@ -25,6 +25,7 @@ an event schema), any language can drive a swarm without an SDK of its own.
 - **Live control** — `steer` a running turn, `pause`/`resume` an agent's container, `stop` an agent or delete a whole run.
 - **One event stream per run** — lifecycle events plus every agent's forwarded harness events, resumable with `Last-Event-ID`.
 - **Drive it from any MCP client** — `npx alineo-mcp` exposes these controls as tools for Claude Code, Claude Desktop, and Cursor. See [MCP server](/docs/alineod/getting-started/mcp).
+- **Durable agent memory** — every agent gets working and semantic memory that outlives its sandbox, and a spawned child starts with a copy of its parent's. See [Agent memory](/docs/alineod/guides/memory).
 - **Crash-only recovery** — agents run in containers, not as child processes; restart alineod and it reconnects to the swarm without interrupting in-flight turns.
 
 <Cards>
@@ -36,7 +37,7 @@ an event schema), any language can drive a swarm without an SDK of its own.
   <Card
     href="/docs/alineod/guides"
     title="Guides"
-    description="How runs, budgets, fan-out/gather, steering, pausing, and crash recovery work."
+    description="How runs, budgets, fan-out/gather, steering, pausing, memory, and crash recovery work."
   />
   <Card
     href="/docs/alineod/api-reference"

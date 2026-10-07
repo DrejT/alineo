@@ -18,7 +18,7 @@
  *      it was unconditionally marked "lost"). Only possible if the parent came back in pass
  *      1 (or is itself a retried root); anything else really is unrecoverable.
  */
-import { Alineo, isSandboxGone } from "alineo";
+import { isSandboxGone, type Alineo } from "alineo";
 import {
   rebuild,
   liveAgents,
@@ -27,7 +27,8 @@ import {
   getRun,
   type AgentRow,
 } from "../state/projection";
-import { sdkAdapter, register, get } from "./registry";
+import { register, get } from "./registry";
+import { sdkReattach, sdkResume } from "./sdk";
 import { emit } from "./emit";
 import { catchUpTurn } from "./stream";
 import { provisionRoot } from "./runs";
@@ -117,8 +118,8 @@ async function onContainerRestored(
 }
 
 async function reattachOne(a: AgentRow): Promise<void> {
-  const spec = JSON.parse(a.spec_json);
-  const opts = { adapter: sdkAdapter, spec, runId: a.run_id };
+  const spec = JSON.parse(a.spec_json) as Record<string, unknown>;
+  const opts = { spec, runId: a.run_id };
   const wasRunning = a.state === "running";
 
   if (a.state === "paused") {
@@ -149,7 +150,7 @@ async function reattachOne(a: AgentRow): Promise<void> {
   }
 
   try {
-    const agent = await Alineo.resume(a.sandbox_id!, opts);
+    const agent = await sdkResume(a.sandbox_id!, opts);
     register(a.agent_id, agent);
     await onContainerRestored(a, agent, "resumed");
     // The turn that was running died with the old bridge process, and nothing is following it:
@@ -205,11 +206,10 @@ async function reattachOne(a: AgentRow): Promise<void> {
  */
 async function reattachWithRetry(
   sandboxId: string,
-  opts: { adapter: typeof sdkAdapter; spec: unknown; runId: string },
-): Promise<Awaited<ReturnType<typeof Alineo.reattach>>> {
-  const reattachOpts = { ...opts, spec: opts.spec as Record<string, unknown> };
+  opts: { spec: Record<string, unknown>; runId: string },
+): Promise<Awaited<ReturnType<typeof sdkReattach>>> {
   try {
-    return await Alineo.reattach(sandboxId, reattachOpts);
+    return await sdkReattach(sandboxId, opts);
   } catch (err) {
     if (isSandboxGone(err)) throw err;
     // Previously silent -- found live on my-vps, 2026-10-04: a transient failure here (the
@@ -219,7 +219,7 @@ async function reattachWithRetry(
     // only inferable from two separate fresh sandboxIds appearing in the ledger.
     log.warn("reattach failed, retrying once", { sandboxId, error: errorMessage(err) });
     await Bun.sleep(REATTACH_RETRY_DELAY_MS);
-    return await Alineo.reattach(sandboxId, reattachOpts);
+    return await sdkReattach(sandboxId, opts);
   }
 }
 
@@ -236,14 +236,10 @@ async function reattachWithRetry(
  */
 async function reattachPaused(
   a: AgentRow,
-  opts: { adapter: typeof sdkAdapter; spec: unknown; runId: string },
+  opts: { spec: Record<string, unknown>; runId: string },
 ): Promise<void> {
   try {
-    const agent = await Alineo.reattach(a.sandbox_id!, {
-      ...opts,
-      spec: opts.spec as Record<string, unknown>,
-      skipReadyCheck: true,
-    });
+    const agent = await sdkReattach(a.sandbox_id!, { ...opts, skipReadyCheck: true });
     register(a.agent_id, agent);
     log.info("reattached — paused, bridge not probed", {
       agentId: a.agent_id,

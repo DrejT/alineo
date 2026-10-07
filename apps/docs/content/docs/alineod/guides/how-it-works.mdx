@@ -91,6 +91,20 @@ exhausted dimension.
 alineod tracks these budgets itself, because it calls `spawn()` from outside any sandbox — the SDK's in-sandbox
 mechanism (the `ALINEO_SPAWN_DEPTH` environment variable used by `alineo spawn`) doesn't apply there.
 
+## Memory
+
+Agents also carry **memory**, which is separate from the ledger. The ledger records what the swarm _did_; memory
+holds what an agent _learned_, keyed by the spec's `resourceId` (default: its `name`) and `teamId` rather than by
+sandbox.
+
+- alineod hands one shared, durable store to every agent it starts, resumes or reattaches.
+- A spawned child starts with a **copy** of its parent's memory, then diverges.
+- It survives the sandbox: a lost container, a finished agent and an alineod restart all leave it readable.
+- Unlike the derived tables below, it is **not** rebuilt from the ledger. It is the only copy, so it is backed up
+  with the databases.
+
+See [Agent memory](/docs/alineod/guides/memory) for the routes, configuration and semantic recall.
+
 ## The ledger
 
 Every state change goes through one path: **append to the ledger → update the derived tables → publish to the

@@ -332,6 +332,105 @@ export const ResultResponse = z.object({
   result: z.string().nullable().describe("The result text, inline."),
 });
 
+// ── /agents/:id/memory, /facts, /compactions ─────────────────────────────────
+
+/** Bounds enforced at the wire, so one request can't park an unbounded blob in the store. */
+export const MEMORY_KEY_MAX_CHARS = 256;
+export const MEMORY_VALUE_MAX_BYTES = 64 * 1024;
+export const FACT_CONTENT_MAX_CHARS = 8 * 1024;
+
+const ResourceRefView = z.object({
+  resourceId: z.string(),
+  teamId: z.string().optional(),
+});
+
+export const MemoryView = z.object({
+  agentId: z.string(),
+  resourceRef: ResourceRefView.describe(
+    "The scope every memory call below is keyed by: the agent spec's `resourceId` (default: its " +
+      "`name`) and `teamId`. Memory outlives the sandbox, so it stays readable after the agent ends.",
+  ),
+  semantic: z.boolean().describe("Whether semantic memory (facts) is configured on this alineod."),
+  working: z
+    .record(z.string(), z.unknown())
+    .describe("One page of entries, in sorted key order. See `nextAfter`."),
+  nextAfter: z
+    .string()
+    .optional()
+    .describe("Present when more keys follow: pass it as `?after=` to read the next page."),
+});
+
+export const MemoryValueBody = z.object({
+  // One `superRefine`, so the (potentially 64 KiB) value is serialized once for both checks.
+  value: z.unknown().superRefine((v, ctx) => {
+    if (v === undefined) {
+      ctx.addIssue({ code: "custom", message: "value is required" });
+      return;
+    }
+    let json: string | undefined;
+    try {
+      json = JSON.stringify(v);
+    } catch {
+      json = undefined;
+    }
+    if (json === undefined) {
+      ctx.addIssue({ code: "custom", message: "value must be JSON-serializable" });
+    } else if (new TextEncoder().encode(json).byteLength > MEMORY_VALUE_MAX_BYTES) {
+      ctx.addIssue({
+        code: "custom",
+        message: `value must be at most ${MEMORY_VALUE_MAX_BYTES} bytes as JSON`,
+      });
+    }
+  }),
+});
+
+export const MemoryValueResponse = z.object({ key: z.string(), value: z.unknown() });
+
+export const AddFactBody = z.object({
+  content: z.string().min(1).max(FACT_CONTENT_MAX_CHARS),
+  sourceRef: z
+    .object({ sandboxId: z.string().min(1), entryIndex: z.number().int().nonnegative() })
+    .optional()
+    .describe(
+      "Ties the fact to the ledger entry it came from. Only a fact with a `sourceRef` is " +
+        "`verified` — that flag is computed, never caller-set.",
+    ),
+});
+
+export const FactView = z.object({
+  id: z.string().optional(),
+  content: z.string(),
+  sourceRef: z.object({ sandboxId: z.string(), entryIndex: z.number().int() }).optional(),
+  verified: z.boolean().optional(),
+  rememberedAt: z
+    .number()
+    .optional()
+    .describe(
+      "Epoch ms the fact was remembered. The shipped providers set it on every fact they " +
+        "return, recall and listing alike; optional only because the contract doesn't promise " +
+        "it of every possible provider.",
+    ),
+});
+
+export const FactsResponse = z.object({
+  agentId: z.string(),
+  query: z.string().nullable().describe("Echo of `?query=`; null when listing every fact."),
+  facts: z.array(FactView),
+});
+
+export const CompactionBody = z
+  .object({
+    maxFacts: z.number().int().positive().optional(),
+    maxAgeMs: z.number().int().positive().optional(),
+  })
+  .describe("Both optional and combinable; neither set removes nothing.");
+
+export const CompactionResultView = z.object({
+  removed: z.number().int(),
+  remaining: z.number().int(),
+  summarized: z.number().int(),
+});
+
 // ── GET /agents/:id/transcript ───────────────────────────────────────────────
 
 export const TranscriptMessage = z.discriminatedUnion("role", [

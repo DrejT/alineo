@@ -7,6 +7,7 @@
  * which is what `reattach`/`resume` look up.
  */
 import { readFileSync } from "node:fs";
+import type { Memory, ResourceRef } from "@alineo-labs/memory";
 
 export interface FakeEvent {
   type: string;
@@ -56,6 +57,10 @@ export class FakeAgent {
   readonly sandboxId: string;
   readonly name: string;
   readonly runId: string;
+  /** Set from `opts.memory` by every constructor below, like the real `Alineo.memory`. */
+  memory?: Memory;
+  readonly resourceId: string;
+  readonly teamId: string | undefined;
 
   readonly prompts: string[] = [];
   readonly steered: string[] = [];
@@ -149,8 +154,21 @@ export class FakeAgent {
     sandboxId: "",
   };
 
-  constructor(opts: { name: string; runId: string; sandboxId?: string }) {
+  /** Same derivation as the real `Alineo.resourceRef`: `resourceId ?? name`, plus `teamId`. */
+  get resourceRef(): ResourceRef {
+    return { resourceId: this.resourceId, teamId: this.teamId };
+  }
+
+  constructor(opts: {
+    name: string;
+    runId: string;
+    sandboxId?: string;
+    resourceId?: string;
+    teamId?: string;
+  }) {
     this.name = opts.name;
+    this.resourceId = opts.resourceId ?? opts.name;
+    this.teamId = opts.teamId;
     this.runId = opts.runId;
     this.sandboxId = opts.sandboxId ?? `sb-${++sandboxCounter}`;
     this.sandbox.sandboxId = this.sandboxId;
@@ -243,12 +261,24 @@ export class FakeAgent {
           'OpenSandboxError: {"code":"SNAPSHOT::INVALID_SOURCE_STATE","message":"Snapshot can only be created from a Running sandbox."}',
         );
       }
-      const spec = JSON.parse(readFileSync(specPath, "utf8")) as { name?: string };
+      const spec = JSON.parse(readFileSync(specPath, "utf8")) as {
+        name?: string;
+        resourceId?: string;
+        teamId?: string;
+      };
       // Like the real SDK, a forked child gets its own correlation runId — not alineod's run.
       const child = new FakeAgent({
         name: spec.name ?? "agent",
         runId: `sdk-${crypto.randomUUID()}`,
+        resourceId: spec.resourceId,
+        teamId: spec.teamId,
       });
+      // What `Alineo.spawn()` does: inherit the parent's `.memory`, then fork the parent's scope
+      // into the child's (packages/agent/src/agent/agent.ts + factory.ts's forkChildMemory).
+      // Without a `.memory` on the parent this is a no-op — which is exactly the bug alineod had
+      // before it passed one in.
+      child.memory = this.memory;
+      if (this.memory) await this.memory.fork(this.resourceRef, child.resourceRef.resourceId);
       this.spawns.push({ specPath, opts, child });
       return child;
     } finally {
@@ -315,18 +345,31 @@ export const fakeSdk = {
 };
 
 export const FakeAlineo = {
-  async start(spec: { name?: string }, opts: { runId: string }): Promise<FakeAgent> {
+  async start(
+    spec: { name?: string; resourceId?: string; teamId?: string },
+    opts: { runId: string; memory?: Memory },
+  ): Promise<FakeAgent> {
     fakeSdk.calls.start++;
     if (fakeSdk.startGate) await fakeSdk.startGate;
     if (fakeSdk.startError) throw fakeSdk.startError;
-    return new FakeAgent({ name: spec.name ?? "agent", runId: opts.runId });
+    const agent = new FakeAgent({
+      name: spec.name ?? "agent",
+      runId: opts.runId,
+      resourceId: spec.resourceId,
+      teamId: spec.teamId,
+    });
+    agent.memory = opts.memory;
+    return agent;
   },
 
   async reattach(sandboxId: string, opts?: Record<string, unknown>): Promise<FakeAgent> {
     fakeSdk.calls.reattach.push(sandboxId);
     fakeSdk.calls.reattachOpts.push(opts);
     const restored = fakeSdk.reattachOntoNewSandbox.get(sandboxId);
-    if (restored) return restored;
+    if (restored) {
+      restored.memory = (opts as { memory?: Memory } | undefined)?.memory;
+      return restored;
+    }
     const agent = fakeSdk.sandboxes.get(sandboxId);
     // The real reattach probes the bridge, which a frozen container can't answer.
     const probeFails = agent?.paused && !opts?.skipReadyCheck;
@@ -336,13 +379,17 @@ export const FakeAlineo = {
     if (!agent || fakeSdk.reattachFails.has(sandboxId) || probeFails) {
       throw new Error(`bridge in ${sandboxId} did not answer`);
     }
+    agent.memory = (opts as { memory?: Memory } | undefined)?.memory;
     return agent;
   },
 
-  async resume(sandboxId: string): Promise<FakeAgent> {
+  async resume(sandboxId: string, opts?: { memory?: Memory }): Promise<FakeAgent> {
     fakeSdk.calls.resume.push(sandboxId);
     const restored = fakeSdk.resumeOntoNewSandbox.get(sandboxId);
-    if (restored) return restored;
+    if (restored) {
+      restored.memory = opts?.memory;
+      return restored;
+    }
     const agent = fakeSdk.sandboxes.get(sandboxId);
     if (fakeSdk.resumeUnavailable.has(sandboxId)) {
       throw new Error("Unable to connect. Is the computer able to access the url?");
@@ -362,6 +409,7 @@ export const FakeAlineo = {
     // A resumed bridge is a fresh process — whatever made the old one unresponsive (hangState)
     // is gone with it, the same way bridgeDown clears above.
     agent.hangState = false;
+    agent.memory = opts?.memory;
     return agent;
   },
 };

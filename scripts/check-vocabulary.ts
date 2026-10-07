@@ -375,10 +375,24 @@ const routeFiles = [...new Bun.Glob("*.ts").scanSync({ cwd: ALINEOD_ROUTES_DIR }
 for (const name of routeFiles) {
   const file = `${ALINEOD_ROUTES_DIR}/${name}`;
   const source = await Bun.file(file).text();
-  const registrations = source.match(/\.(get|post|put|patch|delete)\(/g)?.length ?? 0;
-  const paths = [...source.matchAll(/\.(?:get|post|put|patch|delete)\(\s*"([^"]*)"/g)].map(
-    (m) => m[1]!,
+  // A registration is `.method(` as a route is written — not any call that happens to share the
+  // name. `workingMemory.get(ref, key)` and `map.delete(key)` are not routes, and counting them
+  // used to force production code to be renamed around this check. So a registration is one of:
+  //   - a literal path starting with "/"                         `.get("/agents/:id", ...)`
+  //   - a first argument, then a comma, then a handler           `.get(PATH, async ({ params }) => ...)`
+  //     (the handler starting with `(`, `function`, or `name =>`)
+  // The second form is what catches a route built from a computed path: it is counted but has no
+  // literal to read, so the two counts below diverge and the check fails.
+  const registrationRe = new RegExp(
+    String.raw`\.(?:get|post|put|patch|delete)\(\s*(?:"(\/[^"]*)"|(?:"([^"]*)"|\x60[^\x60]*\x60|[A-Za-z_$][\w$.]*)\s*,\s*(?:async\s*)?(?:\(|function\b|[A-Za-z_$][\w$]*\s*=>))`,
+    "g",
   );
+  const found = [...source.matchAll(registrationRe)];
+  const registrations = found.length;
+  const paths = found.flatMap((m) => {
+    const literal = m[1] ?? m[2];
+    return literal === undefined ? [] : [literal];
+  });
   routesSeen += registrations;
 
   if (paths.length !== registrations) {

@@ -1,2 +1,2 @@
 export { SQLiteWorkingMemoryProvider } from "./working";
-export { SQLiteSemanticMemoryProvider } from "./semantic";
+export { SQLiteSemanticMemoryProvider, loadSqliteVec } from "./semantic";

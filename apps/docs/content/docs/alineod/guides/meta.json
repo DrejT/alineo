@@ -6,6 +6,7 @@
     "coordination",
     "steering-and-pausing",
     "crash-recovery",
+    "memory",
     "durability-contract"
   ]
 }
