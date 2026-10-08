@@ -13,7 +13,10 @@ recalled facts into plain text:
 ```ts
 import { buildContextSnippet } from "@alineo-labs/memory";
 
-const context = await buildContextSnippet(memory, agent.resourceRef, { query: userMessage, topK: 5 });
+const context = await buildContextSnippet(memory, agent.resourceRef, {
+  query: userMessage,
+  topK: 5,
+});
 for await (const chunk of agent.prompt(context ? `${context}\n\n${userMessage}` : userMessage)) {
   process.stdout.write(chunk);
 }
@@ -22,8 +25,8 @@ for await (const chunk of agent.prompt(context ? `${context}\n\n${userMessage}` 
 It returns `""` when there is nothing to say. Options: `query`, `topK`, `maxWorkingMemoryKeys` (default 20).
 
 <Callout type="info">
-  This builds the string only — nothing prepends it automatically, because the Pi bridge has no hook for a session's
-  system prompt yet.
+  This builds the string only — nothing prepends it automatically, because the Pi bridge has no hook
+  for a session's system prompt yet.
 </Callout>
 
 ## Let the model write memory

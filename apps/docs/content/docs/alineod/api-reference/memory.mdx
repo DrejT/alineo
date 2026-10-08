@@ -7,11 +7,11 @@ This is the library API behind [Memory model](/docs/alineod/concepts/memory-mode
 
 ## `new Memory(options)`
 
-| Option          | Type                      | Description                                                         |
-| --------------- | ------------------------- | ------------------------------------------------------------------- |
-| `workingMemory` | `IWorkingMemoryProvider`  | **Required.**                                                       |
-| `semantic`      | `ISemanticMemoryProvider` | Optional. Enables `remember` / `recall`.                            |
-| `autoCompact`   | `AutoCompactOptions`      | `maxFacts`, `maxAgeMs`, `summarize`, `checkEvery` (default 1).      |
+| Option          | Type                      | Description                                                    |
+| --------------- | ------------------------- | -------------------------------------------------------------- |
+| `workingMemory` | `IWorkingMemoryProvider`  | **Required.**                                                  |
+| `semantic`      | `ISemanticMemoryProvider` | Optional. Enables `remember` / `recall`.                       |
+| `autoCompact`   | `AutoCompactOptions`      | `maxFacts`, `maxAgeMs`, `summarize`, `checkEvery` (default 1). |
 
 | Member                               | Returns                            | Notes                                                  |
 | ------------------------------------ | ---------------------------------- | ------------------------------------------------------ |
@@ -26,7 +26,10 @@ This is the library API behind [Memory model](/docs/alineod/concepts/memory-mode
 | `fork(parentRef, childResourceId)`   | `Promise<ForkMemoryResult>`        | `{ ref, workingKeysCopied, semanticFactsCopied }`      |
 
 ```ts
-interface ResourceRef { resourceId: string; teamId?: string }
+interface ResourceRef {
+  resourceId: string;
+  teamId?: string;
+}
 
 interface MemoryFact {
   content: string;
@@ -35,29 +38,33 @@ interface MemoryFact {
 }
 
 type RememberedFact = MemoryFact & { id: string; rememberedAt: number };
-interface CompactionResult { removed: number; remaining: number; summarized: number }
+interface CompactionResult {
+  removed: number;
+  remaining: number;
+  summarized: number;
+}
 ```
 
 ## Functions
 
-| Function                                                                    | Purpose                                      |
-| --------------------------------------------------------------------------- | -------------------------------------------- |
-| `episodicRecall(adapter, ref, { limit?, branch?, resolveSessions? })`       | Ledger entries for a resource                |
-| `episodicTree(adapter, ref, { resolveSessions? })`                          | Fork tree of `EpisodicBranch`                |
-| `buildContextSnippet(memory, ref, { query?, topK?, maxWorkingMemoryKeys? })` | Prompt text                                  |
-| `createMemoryTools(memory, ref)`                                            | `MemoryTool[]`                               |
-| `compactSemanticMemory(provider, ref, opts?)`                               | Standalone compaction                        |
-| `createMemoryLifecycleHooks(memory, ref, opts?)`                            | `SandboxHooks`                               |
-| `withTeamAccessControl(provider, checker)` / `withTeamAccessControlSemantic` | Team gate                                    |
-| `scopeKey(ref)`                                                             | Escaped storage key                          |
-| `isPrunable(p)` / `isBulkRememberable(p)`                                   | Capability checks                            |
+| Function                                                                     | Purpose                       |
+| ---------------------------------------------------------------------------- | ----------------------------- |
+| `episodicRecall(adapter, ref, { limit?, branch?, resolveSessions? })`        | Ledger entries for a resource |
+| `episodicTree(adapter, ref, { resolveSessions? })`                           | Fork tree of `EpisodicBranch` |
+| `buildContextSnippet(memory, ref, { query?, topK?, maxWorkingMemoryKeys? })` | Prompt text                   |
+| `createMemoryTools(memory, ref)`                                             | `MemoryTool[]`                |
+| `compactSemanticMemory(provider, ref, opts?)`                                | Standalone compaction         |
+| `createMemoryLifecycleHooks(memory, ref, opts?)`                             | `SandboxHooks`                |
+| `withTeamAccessControl(provider, checker)` / `withTeamAccessControlSemantic` | Team gate                     |
+| `scopeKey(ref)`                                                              | Escaped storage key           |
+| `isPrunable(p)` / `isBulkRememberable(p)`                                    | Capability checks             |
 
 ## Errors
 
-| Class                     | Thrown when                                                       |
-| ------------------------- | ----------------------------------------------------------------- |
-| `MemoryCapabilityError`   | A method needs a provider that wasn't configured                  |
-| `MemoryAccessDeniedError` | A `TeamAccessChecker` rejects a `teamId`                          |
+| Class                     | Thrown when                                      |
+| ------------------------- | ------------------------------------------------ |
+| `MemoryCapabilityError`   | A method needs a provider that wasn't configured |
+| `MemoryAccessDeniedError` | A `TeamAccessChecker` rejects a `teamId`         |
 
 ## Provider interfaces
 
@@ -115,8 +122,8 @@ SQLite isolates each resource inside the `vec0` partition key during the KNN sea
 `CREATE EXTENSION vector` is allowed.
 
 <Callout type="warn">
-  The Postgres backend is type-checked and reviewed but has not been run against a live server in this repo's
-  tests, including the HNSW path. SQLite is tested against a real file.
+  The Postgres backend is type-checked and reviewed but has not been run against a live server in
+  this repo's tests, including the HNSW path. SQLite is tested against a real file.
 </Callout>
 
 To bring your own backend, implement the interfaces above, key storage with `scopeKey(ref)`, and reuse

@@ -8,9 +8,9 @@ run can share across sandboxes and across runs. It is keyed by a durable **`reso
 project — rather than by a `sandboxId`, which only names one session.
 
 <Callout type="info">
-  alineod wires a shared `Memory` into every agent it drives and exposes it over HTTP — see
-  [Agent memory](/docs/alineod/concepts/memory). This page is the library model underneath, which you also use
-  directly from the [Agent SDK](/docs/agent).
+  alineod wires a shared `Memory` into every agent it drives and exposes it over HTTP — see [Agent
+  memory](/docs/alineod/concepts/memory). This page is the library model underneath, which you also
+  use directly from the [Agent SDK](/docs/agent).
 </Callout>
 
 ```ts
@@ -32,11 +32,11 @@ await agent.memory?.remember(agent.resourceRef, { content: "user prefers concise
 
 ## Three kinds
 
-| Kind                | Answers                                         | Storage                                | Required |
-| ------------------- | ----------------------------------------------- | -------------------------------------- | -------- |
-| **Working memory**  | "What do I know about this user?" — key/value   | A provider you choose                  | Yes      |
-| **Semantic memory** | "What did I learn that's relevant?" — vector recall | A provider + an embedding model    | No       |
-| **Episodic memory** | "What actually happened?" — the ledger, by resource | None — a read over the ledger      | No       |
+| Kind                | Answers                                             | Storage                         | Required |
+| ------------------- | --------------------------------------------------- | ------------------------------- | -------- |
+| **Working memory**  | "What do I know about this user?" — key/value       | A provider you choose           | Yes      |
+| **Semantic memory** | "What did I learn that's relevant?" — vector recall | A provider + an embedding model | No       |
+| **Episodic memory** | "What actually happened?" — the ledger, by resource | None — a read over the ledger   | No       |
 
 They are separate slots because real backends support different subsets. Calling `remember()` or `recall()` with no
 semantic provider throws `MemoryCapabilityError` — never an empty result that looks like "nothing matched".
@@ -85,8 +85,11 @@ changes it makes never reach the parent. `teamId` carries over, and copied facts
 `verified` survives the fork.
 
 ```ts
-const { ref: childRef, workingKeysCopied, semanticFactsCopied } =
-  await memory.fork(parentRef, "child-resource-id");
+const {
+  ref: childRef,
+  workingKeysCopied,
+  semanticFactsCopied,
+} = await memory.fork(parentRef, "child-resource-id");
 ```
 
 If you need children to share one memory instead, give them the same `resourceId` rather than forking. `fork()`
