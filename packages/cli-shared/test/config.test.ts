@@ -4,6 +4,8 @@ import { tmpdir } from "os";
 import { join } from "path";
 import {
   serverConfigContent,
+  withDockerHostIp,
+  DOCKER_HOST_IP,
   serverConfigPath,
   serverConfigDir,
   serverDataDir,
@@ -52,6 +54,43 @@ describe("serverConfigContent", () => {
 
   it("pins [store].path to the container-side mount target set up in init.ts (/data)", () => {
     expect(serverConfigContent(EIP)).toContain(`path = "/data/opensandbox.db"`);
+  });
+
+  it("sets [docker].host_ip so an egress sidecar's readiness probe can reach it", () => {
+    const content = serverConfigContent(EIP);
+    const docker = content.slice(content.indexOf("[docker]"), content.indexOf("[store]"));
+    expect(docker).toContain(`host_ip = "${DOCKER_HOST_IP}"`);
+  });
+});
+
+describe("withDockerHostIp", () => {
+  const OLD = `[server]
+eip = "http://127.0.0.1:8080"
+
+[docker]
+network_mode = "bridge"
+
+[egress]
+image = "opensandbox/egress:v1.1.7"
+`;
+
+  it("adds host_ip under [docker] and leaves the rest of the file alone", () => {
+    const out = withDockerHostIp(OLD);
+    expect(out).toBe(OLD.replace("[docker]\n", `[docker]\nhost_ip = "${DOCKER_HOST_IP}"\n`));
+  });
+
+  it("returns null when host_ip is already set, including a hand-picked value", () => {
+    expect(
+      withDockerHostIp(OLD.replace("[docker]\n", '[docker]\nhost_ip = "172.17.0.1"\n')),
+    ).toBeNull();
+  });
+
+  it("returns null when there is no [docker] table to put it in", () => {
+    expect(withDockerHostIp('[server]\neip = "x"\n')).toBeNull();
+  });
+
+  it("is a no-op on what serverConfigContent writes", () => {
+    expect(withDockerHostIp(serverConfigContent("http://127.0.0.1:8080"))).toBeNull();
   });
 });
 

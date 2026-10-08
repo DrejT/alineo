@@ -27,12 +27,14 @@ import {
   serverConfigPath,
   serverConfigContent,
   serverDataDir,
+  withDockerHostIp,
 } from "./config.js";
 import { PI_MODEL_API_KEY_ENV_VARS } from "./pi-model-keys.js";
 
 export type Log = (message: string) => void;
 
 export const OPENSANDBOX_CONTAINER_NAME = "alineo-opensandbox";
+const OPENSANDBOX_IMAGE = "opensandbox/server:latest";
 // 127.0.0.1, not "localhost" — some hosts resolve "localhost" to ::1 first,
 // and OpenSandbox only listens on IPv4.
 export const SERVER_URL = "http://127.0.0.1:8080";
@@ -81,9 +83,19 @@ export async function runInit(log: Log): Promise<InitResult> {
   await checkDocker();
 
   const openSandboxConfigChanged = await ensureServerConfig();
+  const hostIpAdded = await ensureServerHostIp();
   await ensureServerDataDir();
 
-  const state = await getContainerState(OPENSANDBOX_CONTAINER_NAME);
+  let state = await getContainerState(OPENSANDBOX_CONTAINER_NAME);
+
+  if (hostIpAdded && state !== "missing") {
+    // `host_ip` is only useful with the `--add-host` the container is created with, and a
+    // restart cannot add that. The snapshot db lives in the bind-mounted data dir, so
+    // recreating loses nothing.
+    log("OpenSandbox config gained host_ip — recreating the container to match...");
+    await removeContainer(OPENSANDBOX_CONTAINER_NAME);
+    state = "missing";
+  }
 
   if (state === "running") {
     if (openSandboxConfigChanged) {
@@ -100,6 +112,11 @@ export async function runInit(log: Log): Promise<InitResult> {
     log("Waiting for OpenSandbox to be ready...");
     await pollHealth(`${SERVER_URL}/health`);
   } else {
+    // `docker run` reuses an image already on disk, however old. A stale `latest` once
+    // mismatched the pinned egress image, so pull it here.
+    log(`Pulling ${OPENSANDBOX_IMAGE}...`);
+    await pullImage(OPENSANDBOX_IMAGE);
+
     log("Starting OpenSandbox in Docker...");
 
     await runContainer(
@@ -110,6 +127,10 @@ export async function runInit(log: Log): Promise<InitResult> {
         ...RESTART_ARGS,
         "-p",
         "8080:8080",
+        // Resolves `[docker].host_ip` (see DOCKER_HOST_IP) on native Linux Docker, where the
+        // name does not exist by default. Docker Desktop resolves it already.
+        "--add-host",
+        "host.docker.internal:host-gateway",
         "-v",
         "/var/run/docker.sock:/var/run/docker.sock",
         "-v",
@@ -122,7 +143,7 @@ export async function runInit(log: Log): Promise<InitResult> {
         "SANDBOX_CONFIG_PATH=/etc/opensandbox/config.toml",
         "-e",
         "OPENSANDBOX_INSECURE_SERVER=YES",
-        "opensandbox/server:latest",
+        OPENSANDBOX_IMAGE,
       ],
       "OpenSandbox container",
     );
@@ -289,6 +310,18 @@ async function ensureServerEip(eip: string): Promise<boolean> {
   const updated = eipLine.test(existing)
     ? existing.replace(eipLine, `eip = "${eip}"`)
     : existing.replace(/^\[server\]/m, `[server]\neip = "${eip}"`);
+  await Bun.write(path, updated);
+  return true;
+}
+
+/**
+ * Adds `[docker].host_ip` to a `server.toml` written before `init` set it (see `DOCKER_HOST_IP`).
+ * A fresh file already has it from `serverConfigContent`. Returns whether the file changed.
+ */
+async function ensureServerHostIp(): Promise<boolean> {
+  const path = serverConfigPath();
+  const updated = withDockerHostIp(await Bun.file(path).text());
+  if (updated === null) return false;
   await Bun.write(path, updated);
   return true;
 }
