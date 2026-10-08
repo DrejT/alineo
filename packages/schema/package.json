@@ -1,6 +1,6 @@
 {
   "name": "@alineo-labs/schema",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The shapes of the system: the ledger envelope, every event definition, and the subjects and verbs that CLI commands, SDK methods, HTTP routes, MCP tools and event names are built out of. Types and Zod schemas only — no behaviour.",
   "license": "Apache-2.0",
   "repository": {

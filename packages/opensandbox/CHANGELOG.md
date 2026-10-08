@@ -1,5 +1,21 @@
 # @drej/opensandbox
 
+## 0.3.2
+
+### Patch Changes
+
+- 8baafa7: `ControlClient.listSandboxes()` now returns every sandbox, not just the first 20. OpenSandbox
+  paginates with `page`/`pageSize` and ignores the `limit`/`offset` this client was sending, so every
+  listing stopped at the server's default page. The visible symptom: `alineo agents` cross-checks the
+  ledger against the live list, so with more than 20 sandboxes running it reported the rest as
+  gone. `limit` and `offset` still work — they are applied after every page is fetched.
+- b9afb28: `ControlClient.renewExpiration(id, expiresAt)` now sends the new expiry. It used to POST an empty
+  body, which OpenSandbox rejects — its `RenewSandboxExpirationRequest` requires an RFC 3339
+  `expiresAt` — so the method could never succeed. It takes a `Date` or an ISO string.
+
+  Worth knowing when you reach for it: a sandbox created **without** a `timeout` never expires, so
+  there is nothing to renew. The agent SDK creates its sandboxes that way.
+
 ## 0.3.1
 
 ### Patch Changes

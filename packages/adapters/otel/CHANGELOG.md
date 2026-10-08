@@ -1,5 +1,17 @@
 # @drej/otel
 
+## 0.1.6
+
+### Patch Changes
+
+- Updated dependencies [daac497]
+- Updated dependencies [79b74cc]
+- Updated dependencies [e604a70]
+- Updated dependencies [5f9c089]
+- Updated dependencies [c9c8f2f]
+- Updated dependencies [8734d5f]
+  - @alineo-labs/core@0.5.0
+
 ## 0.1.5
 
 ### Patch Changes

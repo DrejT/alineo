@@ -1,5 +1,232 @@
 # @drej/agent
 
+## 0.7.0
+
+### Minor Changes
+
+- a5bd004: **BREAKING:** `AgentSpec.cli` → `AgentSpec.harness`, `cliVersion` → `harnessVersion`.
+
+  ```diff
+  -{ "name": "my-agent", "cli": "pi", "cliVersion": "1.2.3", "model": "…" }
+  +{ "name": "my-agent", "harness": "pi", "harnessVersion": "1.2.3", "model": "…" }
+  ```
+
+  `cli: "pi"` said the agent-loop driver _is_ a CLI. True of Pi, accidental in general — Claude
+  Code, Codex and opencode are the next drivers, and `cli: "claude-code"` would read as a category
+  error the day one ships. Renaming now costs one field; renaming after three drivers ship costs a
+  migration and a docs rewrite.
+
+  There is no alias, but a spec that still uses `cli` gets told so by name rather than
+  "must have a 'harness' field":
+
+  ```
+  ✖ Agent spec must have a 'harness' field. Supported values: pi
+
+  This spec uses 'cli' and 'cliVersion', renamed to 'harness' and 'harnessVersion':
+  the field names the agent-loop driver, which is not always a CLI.
+  ```
+
+  **Your cached snapshots survive.** `computeSetupHash()` deliberately keeps the old key names in
+  the object it hashes — it is a cache key nobody reads, and changing the spelling would have
+  invalidated every existing snapshot, turning a field rename into a ~90s rebuild of every agent.
+
+  `alineo list` now heads that column `HARNESS`, and `alineo-mcp`'s `SpecSummary.cli` is
+  `SpecSummary.harness`. The published JSON Schema at `registry.alineo.tech/spec/agent.json`
+  requires `harness`, so an editor validating an old spec against `$schema` will flag it.
+
+  Unchanged: telemetry's own `cliVersion`, which is the version of the alineo CLI itself — a
+  different field that happens to share a name.
+
+- 548ba60: New `BridgeDisconnectedError`, thrown by a `prompt()`/`bash()` stream when the underlying
+  connection closes without the bridge's own `[DONE]` sentinel ever arriving — the bridge process
+  died mid-stream, not Pi genuinely finishing the turn. Previously this looked identical to a
+  clean finish at the stream level (a raw TCP EOF and an application-level `[DONE]` both just end
+  the generator with no error), so a crashed bridge's partial turn could be silently recorded as a
+  successful one with whatever text happened to be read back. Verified live on `my-vps`
+  (durability-roadmap M2.1 follow-up, 2026-10-03): `kill -9`ing the bridge process mid-tool-call
+  settled the turn as a false `success` with no text, in under 20 seconds.
+- de786a7: Config is now found, merged and validated in one place.
+
+  `alineo.config.json` is located by walking up from the working directory (bounded by a `.git`
+  directory, `$HOME`, or the filesystem root) instead of being read only from the exact working
+  directory. Running a script from a subdirectory previously fell back to built-in defaults in
+  silence, which looked identical to having no config at all.
+
+  Sources are merged lowest-first — `~/.config/alineo/config.json`, then `alineo.config.json`,
+  then `ALINEO_CONFIG_CONTENT` (inline JSON), then `ALINEO_SERVER_URL` / `ALINEO_API_KEY` /
+  `ALINEO_USE_SERVER_PROXY`, then explicit options — validated once, then frozen. A malformed file
+  or a bad value now fails with the offending key and file named, rather than being dropped.
+
+  `Alineo.load()`, `.resume()`, `.reattach()` and `.attach()` accept `opts.config` to skip file and
+  environment discovery entirely, for embedded callers and tests that must not depend on the
+  working directory. The config is also read once per working directory now, not on every call.
+
+  Three behaviour changes worth noting.
+
+  A project config found by walking up will now apply where defaults were previously used.
+
+  A global `~/.config/alineo/config.json` is merged under a project config instead of being ignored
+  whenever a project config exists. The SDK previously ignored the global config entirely while
+  `alineo-cli` already read it, so on a machine with a global config and no project config the two
+  disagreed about `adapterPath` — and therefore used different agent snapshot caches. They now
+  agree. If that describes your setup, the first `Alineo.load()` of each spec after upgrading
+  rebuilds its snapshot at the new location instead of reusing the old one; nothing is lost, but
+  expect one slow run per spec.
+
+  A spec that relied on the built-in `adapterPath`/`agentsDir` defaults while a global config set
+  different ones will now follow the global config. Pass `opts.config`, or set the value explicitly
+  in a project `alineo.config.json`, to pin it.
+
+- 5bbc193: Add checkpoint retention (durability-roadmap.md M3, chunk 3.5). `takeCheckpoint()` now prunes
+  a sandbox's own checkpoint directory down to the newest `DEFAULT_CHECKPOINT_RETENTION` (3)
+  files after every successful write — restore (3.3) only ever reads the latest one, so older
+  checkpoints are just disk use with no live purpose. Sorted by file mtime (set at write time,
+  monotonic regardless of process restarts), not by the `turn` number embedded in the filename,
+  since `turn` resets to 0 across a resume/reattach.
+
+  Overridable per call via `takeCheckpoint(sb, dir, { turn, retain })`. A pruning failure is
+  swallowed, not thrown — the checkpoint the call was actually for already succeeded, and a
+  cleanup failure must never retroactively turn that into an error.
+
+- 5f9c089: Add resume-from-checkpoint (durability-roadmap.md M3, chunk 3.3). `Alineo.resume()` and
+  `Alineo.reattach()` now fall through to provisioning a fresh container from the cached setup
+  snapshot and restoring the latest turn checkpoint into it (3.2) when the sandbox itself is gone
+  entirely — not just unreachable. Previously both only ever called `client.connect()` against
+  the existing sandbox and threw if it was gone, with no fallback at all.
+
+  New in `alineo`: `isSandboxGone()` (promoted from `apps/alineod`'s own private copy and
+  extended — it now also recognizes an `Exited`-after-reboot container, a `200 OK` with `state:
+"Terminated"`/`"Failed"`, not only a 404), `findLatestCheckpoint()`, `restoreCheckpoint()`.
+
+  New in `@alineo-labs/core`: `SandboxHandle.writeFileBytes()` — the write-side counterpart to
+  3.2's `readFileBytes()`, byte-safe for uploading binary content (a gzip tarball) that
+  `writeFile()`'s string-typed signature isn't safe for.
+
+  If the agent was never checkpointed, falls back to a fresh (blank) session rather than failing —
+  losing the conversation is still better than losing the agent. Known gap: a spec with
+  `approval: "hold"` credential bindings isn't restorable through this path yet (`resumeAgent`/
+  `reattachAgent` don't accept an `onEgressRequest` handler).
+
+- 3b47fb1: `AgentSpec` and the permission-policy types move to `@alineo-labs/schema`.
+
+  Both remain re-exported from `alineo`, so every existing import keeps working. What stays in
+  `alineo` is what actually does something: `validateAgentSpec()`, `normalizePermissions()`,
+  `evaluatePolicy()` and the safe-command lists.
+
+  **alineod stops modelling `AgentSpec` as `z.record(z.string(), z.unknown())`.** It was an
+  opaque pass-through on the reasoning that the SDK owns validation — true for validation, and
+  not for the wire contract: `apps/alineod/spec/openapi.json` documented the daemon's most important
+  request body as "some object". It now carries the real shape, and an invalid spec comes back
+  from `POST /runs` as a 400 naming the bad field rather than failing later inside
+  `Alineo.start()`. That is a behaviour change: a spec alineod used to accept and fail on is now
+  refused up front.
+
+  `AgentSpec` is still kept twice — a documented `interface` and a Zod schema — because the
+  interface's doc comments are what a reader sees on hover and `z.infer<>` would erase them. A
+  type-level assertion now makes the pair provably identical, failing the build if a field is
+  added to one and not the other. It has to read the schema's `shape` rather than `z.infer` of
+  the schema: `AgentSpecSchema` is `.loose()`, and an index signature makes every structural
+  comparison vacuously true.
+
+- 06e7c2f: **BREAKING:** four `Alineo` methods are renamed so that one word means one thing across the
+  CLI, the SDK and the daemon.
+
+  | Before                    | Now                            | Why                                                                                                        |
+  | ------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+  | `Alineo.load(spec, opts)` | `Alineo.start(spec, opts)`     | "load" reads like parsing a file. It provisions a container and a harness — and takes ~90s the first time. |
+  | `agent.fork(entryId)`     | `agent.branchSession(entryId)` | it branches a **conversation** and never leaves the container                                              |
+  | `agent.clone()`           | `agent.duplicateSession()`     | same — unqualified `clone` reads like a sandbox operation                                                  |
+  | `agent.getForkMessages()` | `agent.getBranchPoints()`      | it returns where a conversation can branch, and feeds `branchSession()`                                    |
+
+  `fork` was doing three jobs: `sb.fork()` copies a filesystem, `agent.fork()` branched a Pi
+  conversation, and the CLI's `alineo fork` was really a spawn. It now means exactly one thing —
+  the sandbox-level copy — and `sandbox.fork()` is unchanged.
+
+  The Pi adapter keeps Pi's own names (`/fork`, `/clone` are its bridge endpoints). The adapter
+  speaks the harness's vocabulary; alineo speaks its own on the way out.
+
+  No aliases, per the same reasoning as the CLI rename: `Alineo.load` is gone rather than
+  deprecated, so an upgrade fails at the type level instead of at runtime.
+
+- de786a7: **Breaking:** `AgentSpec.model` is now required.
+
+  It was optional, and a spec that omitted it silently inherited Pi's own default. That meant a
+  run's results could not be attributed to a model afterwards — the same class of problem as an
+  agent reporting success without having done the work. The model an agent runs on is part of what
+  the agent _is_, so the spec has to name it.
+
+  A spec without `model` now fails validation with `Agent spec must have a 'model' string — name
+the model this agent runs on`, alongside any other problems in the same spec. To migrate, add the
+  model you were relying on Pi to pick, for example `"model": "nvidia/nemotron-3-super-120b-a12b"`.
+
+  `Alineo.attach()` builds a stub spec for a sandbox it did not create; it now reads the model back
+  from the sandbox's own `/etc/alineo-pi.json` rather than inventing one, and reports `"unknown"`
+  for sandboxes created before that file existed.
+
+- 8734d5f: Add turn-level checkpointing (durability-roadmap.md M3, chunk 3.2) — opt-in via
+  `AgentSpec.checkpoint: true`. After every turn that genuinely finishes (never one alineod
+  gave up waiting on, even if recorded as a success from leftover partial text — that doesn't
+  mean the session file finished flushing), alineod tars the agent's workspace + Pi session file,
+  stores it on disk, and records a new `agent.checkpointed { turn, snapshotRef }` ledger event —
+  written only once the tarball is confirmed stored, since an event with no file behind it is
+  unreachable garbage.
+
+  New in `@alineo-labs/core`: `LedgerEvent.AgentCheckpointed`, and `SandboxHandle.readFileBytes()` —
+  a byte-safe file read (no `TextDecoder`) for binary content like a gzip tarball, which the
+  existing `readFile()` would corrupt.
+
+  New in `alineo`: `takeCheckpoint()`, `checkpointsPath()`, `CHECKPOINT_ROOT`, and
+  `DEFAULT_CHECKPOINT_EXCLUDES`, exported as public API for a standalone SDK caller to use
+  directly (`alineo` gets a `minor` bump for this — pre-1.0, so a public API addition is a
+  `minor`, not `major`, per the project's own versioning convention).
+
+  Deliberately not `sb.checkpoint()` — that calls OpenSandbox's own snapshot primitive, which on
+  the Docker runtime is literally `docker commit` (confirmed against OpenSandbox's source,
+  M3's 3.1 research) and measured at 44.3s for a 236MB container. This mechanism tars a few
+  directories via `sb.exec()` instead, measured at well under 2s even unfiltered.
+
+### Patch Changes
+
+- 79b74cc: A permission request still pending when a session resumes (its parked tool call died with the
+  previous Pi process, and can't be recovered) is now recorded with `decision: { kind: "dropped" }`
+  instead of `decision: { kind: "reject" }`. The old value claimed a human rejected the request;
+  none did — nobody could, since the call it was about no longer exists. `"dropped"` says what
+  actually happened. If anything reads `decision.kind` from `permission.resolved` ledger entries
+  looking specifically for a human rejection, it should no longer match this case.
+- 228d8a6: Resolve an agent's memory identity through `resourceRefOf()` from `@alineo-labs/schema` instead of
+  five inline copies of `spec.resourceId ?? spec.name` (the `Alineo` constructor, a spawned child's
+  frozen `resourceId`, and the ledger threading in `load`/`resume`/`attach`/`spawn`). No behaviour
+  change; it exists so alineod, which resolves a scope from a persisted spec with no live `Alineo` to
+  ask, applies the same rule rather than its own reading of it.
+- bc8cb33: Fix a container leak in `resumeAgent()`/`reattachAgent()`'s restore-from-checkpoint fallback
+  (3.3): if a step after provisioning the fresh container (extracting the checkpoint, restarting
+  the bridge) failed, the already-running fresh container was never closed, and a caller's own
+  retry provisioned yet another one on top of it. Found live on `my-vps` during M3's end-to-end
+  verification — two orphaned containers from one restore attempt.
+- Updated dependencies [f9d1c2e]
+- Updated dependencies [e8756ae]
+- Updated dependencies [daac497]
+- Updated dependencies [228d8a6]
+- Updated dependencies [316dd94]
+- Updated dependencies [79b74cc]
+- Updated dependencies [c2a9c22]
+- Updated dependencies [d22672b]
+- Updated dependencies [228d8a6]
+- Updated dependencies [e604a70]
+- Updated dependencies [e604a70]
+- Updated dependencies [5f9c089]
+- Updated dependencies [e185452]
+- Updated dependencies [3b47fb1]
+- Updated dependencies [680bced]
+- Updated dependencies [c9c8f2f]
+- Updated dependencies [8734d5f]
+- Updated dependencies [f5f9999]
+- Updated dependencies [be6be44]
+  - @alineo-labs/schema@0.2.0
+  - @alineo-labs/core@0.5.0
+  - @alineo-labs/memory@0.3.0
+  - @alineo-labs/sandbox@0.5.0
+
 ## 0.6.0
 
 ### Minor Changes
