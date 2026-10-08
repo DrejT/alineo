@@ -27,6 +27,23 @@ const sb = await client.sandbox({
   — no sidecar is attached.
 </Callout>
 
+<Callout type="warn" title="Not available under gVisor">
+  A server whose `[secure_runtime]` is `gvisor` (`runsc`) rejects any `networkPolicy` or
+  `credentialProxy` request with `networkPolicy is not compatible with runtime 'gvisor'`. The egress
+  sidecar redirects DNS with an iptables `nat` rule, and gVisor does not implement that table.
+  OpenSandbox reports the same limit in its own issue #934. Run these sandboxes on a server with the
+  plain Docker runtime — a second server on another port is enough — or use Kata. The runtime is a
+  server setting, so one server cannot serve both.
+</Callout>
+
+<Callout title="Sidecar did not become ready">
+  `Egress sidecar did not become ready within 30s … Connection refused` on a server that runs in a
+  container means `[docker].host_ip` is missing from `server.toml`: the server probes the sidecar at
+  its own `127.0.0.1`. `alineo init` sets `host_ip = "host.docker.internal"` and adds `--add-host
+  host.docker.internal:host-gateway` to the container. Re-run `alineo init` to add both to an
+  existing install.
+</Callout>
+
 ## NetworkPolicy
 
 | Field           | Type                | Description                                                                   |

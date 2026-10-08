@@ -96,6 +96,31 @@ export function serverDataDir(): string {
  * message itself suggests does not exist as a published tag. v1.0.22 is the latest.
  */
 /**
+ * Where the OpenSandbox server, running in its own container, reaches the ports it publishes on
+ * the host (`[docker].host_ip`). Without it the server falls back to `127.0.0.1` — its own
+ * loopback — so the readiness probe for an egress sidecar gets "connection refused" from a
+ * sidecar that is healthy, and every sandbox with a `networkPolicy` fails to start
+ * ("Egress sidecar did not become ready within 30s"). `init` adds
+ * `--add-host host.docker.internal:host-gateway` to the container so the name resolves on native
+ * Linux Docker as well as Docker Desktop.
+ */
+export const DOCKER_HOST_IP = "host.docker.internal";
+
+/**
+ * Adds `host_ip` to an existing `server.toml` that has none, leaving everything else (including
+ * hand edits) alone. Returns `null` when nothing needs to change: a `host_ip` is already set, or
+ * there is no `[docker]` table to put it in.
+ */
+export function withDockerHostIp(toml: string): string | null {
+  if (/^host_ip\s*=/m.test(toml)) return null;
+  if (!/^\[docker\]/m.test(toml)) return null;
+  return toml.replace(
+    /^\[docker\][^\n]*\n/m,
+    (header) => `${header}host_ip = "${DOCKER_HOST_IP}"\n`,
+  );
+}
+
+/**
  * `egress.image`/`egress.mode` are configured unconditionally, not opt-in. Per OpenSandbox's
  * own control flow, a configured `egress.image` is inert for any sandbox created without a
  * `networkPolicy` — no sidecar is attached, no behavior changes for anyone not touching
@@ -117,6 +142,7 @@ execd_image = "opensandbox/execd:v1.0.22"
 
 [docker]
 network_mode = "bridge"
+host_ip = "${DOCKER_HOST_IP}"
 
 [store]
 type = "sqlite"
