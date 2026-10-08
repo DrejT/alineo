@@ -1,5 +1,73 @@
 # @drej/postgres
 
+## 0.3.0
+
+### Minor Changes
+
+- c9c8f2f: **BREAKING:** the SDK ledger's event names are namespaced. `LedgerEvent` members are unchanged;
+  their **values** are not:
+
+  ```
+  sandbox_created    → sandbox.created        exec_start    → exec.started
+  checkpoint_created → sandbox.checkpoint_created   exec_event    → exec.output
+  credential_bound   → credential.bound       exec_complete → exec.completed
+  run_started        → workflow.started       checkpoint    → step.checkpointed
+  ```
+
+  `run_started` meant a workflow run here and a _swarm_ run in alineod. It is `workflow.started`
+  now, and `run.started` belongs to alineod alone.
+
+  `LedgerEvent.Snapshot` is deprecated and emits `sandbox.checkpoint_created` — the same value
+  `CheckpointCreated` has, because that is what it always recorded: a sandbox checkpoint the
+  workflow engine happened to take.
+
+  **Code using the `LedgerEvent` enum keeps compiling.** Code comparing `entry.event` against a
+  raw string does not, and neither does a query filtering on one.
+
+  **Existing databases migrate on `connect()`** — both the sqlite and postgres adapters run a
+  one-time, idempotent rename of `alineo_events.event`. It matters that it runs before any read:
+  `getSandboxDetails` aggregates on literal names, so an unmigrated row does not error, it
+  silently stops existing. **One-way**: an older SDK reading a migrated database would find
+  sessions it cannot see.
+
+  Both adapters share one statement from `@alineo-labs/ledger` — a single `CASE` over one scan
+  rather than ~25 `UPDATE`s, because `event` is unindexed on that table.
+
+  `Sandbox` accepts an `@internal` `sink` that receives a `LedgerEnvelope` for every event,
+  beside the ledger write. Synchronous, isolated, and it runs _before_ the ledger queue, so a
+  slow or broken exporter can neither delay nor fail the operation it is exporting.
+
+  Unchanged: the harness `AgentEvent` stream (`tool_start`, `text`, …). Those are the SDK's
+  public streaming API, not what it stores; alineod translates them at its own boundary.
+
+### Patch Changes
+
+- 6250860: Replace `alineo_events`'s two single-column indexes (`sandbox_id`, `name`) with one composite
+  index on `(name, sandbox_id, ts, id)`, matching the shape every hot read actually queries
+  (`WHERE name = ? AND sandbox_id = ? ORDER BY ts`) instead of forcing SQLite/Postgres to pick one
+  index, filter the rest, and sort separately. `id` is a tie-breaker only — `ts` stays the primary
+  sort key, since callers can append entries out of timestamp order.
+
+  `@alineo-labs/sqlite`'s table definition also drops `AUTOINCREMENT` from `alineo_events.id` —
+  an append-only log doesn't need SQLite's no-rowid-reuse guarantee, and `AUTOINCREMENT` pays for
+  it with an extra `sqlite_sequence` write on every insert. Only affects freshly-created
+  databases; an existing one keeps its current `id` column as-is (SQLite can't retroactively
+  strip `AUTOINCREMENT` from a table that already has it, and it's a minor insert-cost
+  difference, not a correctness one).
+
+  The old indexes are dropped on `connect()` for an already-existing database of either backend,
+  not just skipped on a new one.
+
+- Updated dependencies [daac497]
+- Updated dependencies [79b74cc]
+- Updated dependencies [c2a9c22]
+- Updated dependencies [e604a70]
+- Updated dependencies [5f9c089]
+- Updated dependencies [c9c8f2f]
+- Updated dependencies [8734d5f]
+  - @alineo-labs/core@0.5.0
+  - @alineo-labs/ledger@0.2.0
+
 ## 0.2.3
 
 ### Patch Changes

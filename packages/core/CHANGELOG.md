@@ -1,5 +1,124 @@
 # @drej/core
 
+## 0.5.0
+
+### Minor Changes
+
+- e604a70: **BREAKING:** remove nine `LedgerEvent` members that nothing in alineo emits or reads:
+  `RunStarted`, `StepStart`, `StepComplete`, `StepFailed`, `StepRolledBack`, `WorkflowComplete`,
+  `WorkflowFailed`, `Checkpoint`, and the deprecated `Snapshot`.
+
+  Workflow event names (`workflow.started`, `step.started`, and the rest) are defined in
+  `@alineo-labs/schema`, not in this enum. Use `LedgerEvent.CheckpointCreated` in place of
+  `LedgerEvent.Snapshot`.
+
+- c9c8f2f: **BREAKING:** the SDK ledger's event names are namespaced. `LedgerEvent` members are unchanged;
+  their **values** are not:
+
+  ```
+  sandbox_created    → sandbox.created        exec_start    → exec.started
+  checkpoint_created → sandbox.checkpoint_created   exec_event    → exec.output
+  credential_bound   → credential.bound       exec_complete → exec.completed
+  run_started        → workflow.started       checkpoint    → step.checkpointed
+  ```
+
+  `run_started` meant a workflow run here and a _swarm_ run in alineod. It is `workflow.started`
+  now, and `run.started` belongs to alineod alone.
+
+  `LedgerEvent.Snapshot` is deprecated and emits `sandbox.checkpoint_created` — the same value
+  `CheckpointCreated` has, because that is what it always recorded: a sandbox checkpoint the
+  workflow engine happened to take.
+
+  **Code using the `LedgerEvent` enum keeps compiling.** Code comparing `entry.event` against a
+  raw string does not, and neither does a query filtering on one.
+
+  **Existing databases migrate on `connect()`** — both the sqlite and postgres adapters run a
+  one-time, idempotent rename of `alineo_events.event`. It matters that it runs before any read:
+  `getSandboxDetails` aggregates on literal names, so an unmigrated row does not error, it
+  silently stops existing. **One-way**: an older SDK reading a migrated database would find
+  sessions it cannot see.
+
+  Both adapters share one statement from `@alineo-labs/ledger` — a single `CASE` over one scan
+  rather than ~25 `UPDATE`s, because `event` is unindexed on that table.
+
+  `Sandbox` accepts an `@internal` `sink` that receives a `LedgerEnvelope` for every event,
+  beside the ledger write. Synchronous, isolated, and it runs _before_ the ledger queue, so a
+  slow or broken exporter can neither delay nor fail the operation it is exporting.
+
+  Unchanged: the harness `AgentEvent` stream (`tool_start`, `text`, …). Those are the SDK's
+  public streaming API, not what it stores; alineod translates them at its own boundary.
+
+### Patch Changes
+
+- daac497: Add `IEngineLedger`, a generic two-level-partition append-only ledger primitive (durability-roadmap.md M3, chunk 3.1b), and `SQLiteEngineLedger`, its `bun:sqlite` implementation. `apps/alineod`'s swarm ledger (`apps/alineod/src/state/db.ts`) now binds onto this shared, tested implementation instead of hand-rolling its own `bun:sqlite` queries — bound onto its _existing_ `ledger` table and `run_id`/`agent_id` columns via `SQLiteEngineLedgerSchema`, not a renamed one, so the physical schema and every other file addressing that table directly are unaffected.
+
+  Purely additive — no existing export's signature changes.
+
+- 79b74cc: A permission request still pending when a session resumes (its parked tool call died with the
+  previous Pi process, and can't be recovered) is now recorded with `decision: { kind: "dropped" }`
+  instead of `decision: { kind: "reject" }`. The old value claimed a human rejected the request;
+  none did — nobody could, since the call it was about no longer exists. `"dropped"` says what
+  actually happened. If anything reads `decision.kind` from `permission.resolved` ledger entries
+  looking specifically for a human rejection, it should no longer match this case.
+- 5f9c089: Add resume-from-checkpoint (durability-roadmap.md M3, chunk 3.3). `Alineo.resume()` and
+  `Alineo.reattach()` now fall through to provisioning a fresh container from the cached setup
+  snapshot and restoring the latest turn checkpoint into it (3.2) when the sandbox itself is gone
+  entirely — not just unreachable. Previously both only ever called `client.connect()` against
+  the existing sandbox and threw if it was gone, with no fallback at all.
+
+  New in `alineo`: `isSandboxGone()` (promoted from `apps/alineod`'s own private copy and
+  extended — it now also recognizes an `Exited`-after-reboot container, a `200 OK` with `state:
+"Terminated"`/`"Failed"`, not only a 404), `findLatestCheckpoint()`, `restoreCheckpoint()`.
+
+  New in `@alineo-labs/core`: `SandboxHandle.writeFileBytes()` — the write-side counterpart to
+  3.2's `readFileBytes()`, byte-safe for uploading binary content (a gzip tarball) that
+  `writeFile()`'s string-typed signature isn't safe for.
+
+  If the agent was never checkpointed, falls back to a fresh (blank) session rather than failing —
+  losing the conversation is still better than losing the agent. Known gap: a spec with
+  `approval: "hold"` credential bindings isn't restorable through this path yet (`resumeAgent`/
+  `reattachAgent` don't accept an `onEgressRequest` handler).
+
+- 8734d5f: Add turn-level checkpointing (durability-roadmap.md M3, chunk 3.2) — opt-in via
+  `AgentSpec.checkpoint: true`. After every turn that genuinely finishes (never one alineod
+  gave up waiting on, even if recorded as a success from leftover partial text — that doesn't
+  mean the session file finished flushing), alineod tars the agent's workspace + Pi session file,
+  stores it on disk, and records a new `agent.checkpointed { turn, snapshotRef }` ledger event —
+  written only once the tarball is confirmed stored, since an event with no file behind it is
+  unreachable garbage.
+
+  New in `@alineo-labs/core`: `LedgerEvent.AgentCheckpointed`, and `SandboxHandle.readFileBytes()` —
+  a byte-safe file read (no `TextDecoder`) for binary content like a gzip tarball, which the
+  existing `readFile()` would corrupt.
+
+  New in `alineo`: `takeCheckpoint()`, `checkpointsPath()`, `CHECKPOINT_ROOT`, and
+  `DEFAULT_CHECKPOINT_EXCLUDES`, exported as public API for a standalone SDK caller to use
+  directly (`alineo` gets a `minor` bump for this — pre-1.0, so a public API addition is a
+  `minor`, not `major`, per the project's own versioning convention).
+
+  Deliberately not `sb.checkpoint()` — that calls OpenSandbox's own snapshot primitive, which on
+  the Docker runtime is literally `docker commit` (confirmed against OpenSandbox's source,
+  M3's 3.1 research) and measured at 44.3s for a 236MB container. This mechanism tars a few
+  directories via `sb.exec()` instead, measured at well under 2s even unfiltered.
+
+- Updated dependencies [f9d1c2e]
+- Updated dependencies [e8756ae]
+- Updated dependencies [228d8a6]
+- Updated dependencies [316dd94]
+- Updated dependencies [c2a9c22]
+- Updated dependencies [d22672b]
+- Updated dependencies [8baafa7]
+- Updated dependencies [b9afb28]
+- Updated dependencies [e604a70]
+- Updated dependencies [e185452]
+- Updated dependencies [3b47fb1]
+- Updated dependencies [680bced]
+- Updated dependencies [8734d5f]
+- Updated dependencies [f5f9999]
+- Updated dependencies [be6be44]
+  - @alineo-labs/schema@0.2.0
+  - @alineo-labs/opensandbox@0.3.2
+
 ## 0.4.2
 
 ### Patch Changes
