@@ -74,7 +74,7 @@ jobs:
 
       # The oxlint plugin's rule tests run under `node --test`: oxlint's RuleTester
       # refuses to run on Bun, and type-stripping .test.ts needs Node >= 22.18.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
 
