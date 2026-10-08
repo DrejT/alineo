@@ -2,10 +2,9 @@ import { ImageResponse } from "next/og";
 import {
   coreSource,
   workflowSource,
-  alineoSource,
+  cliSource,
   agentSource,
   alineodSource,
-  examplesSource,
   cookbooksSource,
   playgroundSource,
 } from "@/lib/source";
@@ -14,10 +13,9 @@ import { loadOgFonts, ogImageSize, renderOgImage } from "@/lib/og-image";
 const SOURCES = {
   core: coreSource,
   workflow: workflowSource,
-  alineo: alineoSource,
+  cli: cliSource,
   agent: agentSource,
   alineod: alineodSource,
-  examples: examplesSource,
   cookbooks: cookbooksSource,
   playground: playgroundSource,
 } as const;

@@ -82,4 +82,4 @@ Runtime `sb.egress.*` changes are **sidecar-local**: they don't survive the side
 
 `networkPolicy` (which hosts are reachable) and `credentialProxy` (transparent credential injection) are separate concerns that ride the same sidecar. `credentialProxy: true` **requires** `networkPolicy` to also be set. See [Credentials](/docs/core/concepts/credentials).
 
-For an agent that should hold a specific host behind a **human decision** before it's reachable, see [Permission gate](/docs/agent/getting-started/permissions#holding-network-egress-for-approval).
+For an agent that should hold a specific host behind a **human decision** before it's reachable, see [Permission gate](/docs/agent/concepts/permissions#holding-network-egress-for-approval).

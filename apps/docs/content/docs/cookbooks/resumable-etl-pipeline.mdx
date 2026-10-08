@@ -103,7 +103,7 @@ reads it straight away — the transform never re-runs.
   is an optimization: the Nth `exec()` call since resume returns the Nth call's original result,
   whatever command is actually passed — there's no check that it matches what was recorded. Always
   re-issue calls in the same order as the original run. See [Checkpoint &
-  Resume](/docs/examples/snapshot-replay) for the primitive this recipe builds on.
+  Resume](/docs/core/concepts/snapshots) for the primitive this recipe builds on.
 </Callout>
 
 <Callout type="warn" title="Server proxy">

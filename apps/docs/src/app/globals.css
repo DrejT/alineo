@@ -107,6 +107,13 @@ html.dark {
   }
 }
 
+/* HomeLayout caps --fd-layout-width at 1400px, so on wide screens DocsLayout pads ~250px of
+   empty margin on each side and the sidebar's contents float far from the left edge. Let the
+   docs grid span the viewport so the sidebar hugs the edge at its natural 268px width. */
+#nd-docs-layout {
+  --fd-layout-width: 100vw;
+}
+
 /* Force dark theme exclusively on the sidebar */
 aside {
   --color-fd-background: #7a1b48;
@@ -126,7 +133,17 @@ aside {
   --color-fd-accent-foreground: #ffffff;
   --color-fd-ring: #ffffff;
 
+  /* Grainy gradient (noteweave-style): soft light/dark blooms in the same plum hue, with an
+     feTurbulence noise tile layered on top for the film grain. */
   background-color: var(--color-fd-background) !important;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.1 -0.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E"),
+    radial-gradient(70% 18% at 0% 0%, #e2b2a0 0%, rgb(226 178 160 / 0) 100%),
+    radial-gradient(75% 14% at 8% 12%, #c8607f 0%, rgb(200 96 127 / 0) 100%),
+    radial-gradient(85% 26% at 105% 66%, #b9507a 0%, rgb(185 80 122 / 0) 100%),
+    radial-gradient(130% 22% at 40% 105%, #4f0d2a 0%, rgb(79 13 42 / 0) 100%),
+    linear-gradient(175deg, #b0406c 0%, #9a2a60 22%, #8c2457 48%, #7a1b48 72%, #5a1031 100%) !important;
+  background-blend-mode: soft-light, normal, normal, normal, normal, normal;
   color: var(--color-fd-foreground) !important;
   border-right: 1px solid var(--color-fd-border) !important;
 }

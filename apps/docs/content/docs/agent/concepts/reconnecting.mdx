@@ -1,0 +1,102 @@
+---
+title: Reconnecting and restoring
+description: Pick an agent back up after your process exits, and bring it back from its last completed turn when its container is gone.
+---
+
+The agent lives in the container, not in your Node process. Kill the process, come back tomorrow, and pick the
+same agent back up by its sandbox ID:
+
+```ts
+const agent = await Alineo.reattach(sandboxId, { adapter });
+```
+
+Keep `agent.sandboxId` somewhere — a file, a database row, the ledger — and any later process can reach it.
+
+## Four ways back in
+
+| Method              | The bridge inside the container                     | A turn that is running | Use it when                                                       |
+| ------------------- | --------------------------------------------------- | ---------------------- | ----------------------------------------------------------------- |
+| `Alineo.reattach()` | Kept. Fails within 5 s if it doesn't answer.        | Keeps running.         | Your process restarted, the container didn't.                     |
+| `Alineo.resume()`   | Restarted; Pi continues its session (`--continue`). | Dropped.               | The bridge died, or `reattach()` failed.                          |
+| `Alineo.attach()`   | Not touched, not connected.                         | Unaffected.            | You only need `agent.sandbox` or `agent.spawn()`, not `prompt()`. |
+| `Alineo.start()`    | A new agent in a new container.                     | —                      | You want a fresh agent, not this one.                             |
+
+The usual pattern tries the gentle rung first:
+
+```ts
+let agent: Alineo;
+try {
+  agent = await Alineo.reattach(sandboxId, { adapter });
+} catch {
+  agent = await Alineo.resume(sandboxId, { adapter }); // the bridge really is gone
+}
+```
+
+This is exactly how [alineod reconnects a swarm](/docs/alineod/concepts/crash-recovery) after it restarts.
+
+## When the container is gone
+
+`reattach()` and `resume()` both handle a container that no longer exists — deleted, reaped, or left `Exited` by a
+machine reboot, which OpenSandbox can't start again. Instead of failing, they **restore** the agent:
+
+1. A fresh container is created from the spec's [setup snapshot](/docs/agent/concepts/snapshots), so Pi and every
+   package are already installed.
+2. The agent's latest turn checkpoint, if it has one, is extracted into it.
+3. The bridge starts on the restored session.
+
+The returned agent continues the conversation from its last completed turn. Its `sandboxId` is the **new**
+container's — store it in place of the old one.
+
+Without a turn checkpoint, step 2 is skipped and the agent comes back with a blank session: the right packages,
+none of the conversation. Losing the conversation is still better than losing the agent.
+
+## Turn checkpoints
+
+A turn checkpoint is a tarball of the agent's home directory — `/root`, where Pi keeps its session file and where
+the agent usually works — written to the host after a turn finishes cleanly. Package caches (`.npm`, `.cache`,
+Cargo and Go download caches, `__pycache__`) are left out. Taking one costs well under two seconds.
+
+It is different from the two other snapshots in the stack:
+
+|          | Setup snapshot                             | Turn checkpoint                             | `sb.checkpoint()`                                                    |
+| -------- | ------------------------------------------ | ------------------------------------------- | -------------------------------------------------------------------- |
+| Holds    | Pi and the spec's packages and setup steps | One agent's conversation and home directory | A whole container                                                    |
+| Taken    | Once per spec, by `Alineo.start()`         | After every completed turn, opt-in          | When you call it                                                     |
+| Restores | A fresh, empty agent                       | That agent, to its last completed turn      | A [sandbox session](/docs/core/concepts/snapshots), with exec replay |
+
+Set `"checkpoint": true` on the spec to opt in. [alineod](/docs/alineod) then takes one after every turn that ends
+cleanly, records `agent.checkpointed`, and keeps the newest three per sandbox.
+
+Driving an agent from the SDK alone, take them yourself after each turn — next to your ledger, where `resume()` and
+`reattach()` look for them:
+
+```ts
+import { Alineo, textOnly, takeCheckpoint, checkpointsPath } from "alineo";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+
+const ledgerPath = "./.alineo/ledger.db";
+const adapter = new SQLiteAdapter(ledgerPath);
+const dir = checkpointsPath(ledgerPath); // .alineo/checkpoints, next to the ledger
+
+const agent = await Alineo.start(spec, { adapter });
+
+let turn = 0;
+for await (const chunk of textOnly(agent.prompt("Add tests for the parser."))) {
+  process.stdout.write(chunk);
+}
+await takeCheckpoint(agent.sandbox, dir, { turn: ++turn });
+```
+
+`takeCheckpoint()` throws if the tar or the write fails. Treat that as a missed checkpoint, not a failed turn —
+the turn itself already succeeded. It prunes to the newest three by default; pass `retain` to keep more.
+
+### What a checkpoint doesn't hold
+
+- **Files outside `/root`.** `/tmp`, `/workspace` and anything else come back as the setup snapshot left them. Keep
+  work the agent needs to survive under its home directory.
+- **The turn that was running.** A checkpoint is taken after a turn, so an interrupted turn is not in it.
+- **Anything off this machine.** Checkpoints are files next to the ledger. Losing that disk loses them — see
+  [the durability contract](/docs/alineod/concepts/durability-contract).
+
+Specs with `approval: "hold"` credential bindings can't be restored onto a fresh container yet. `resume()` and
+`reattach()` throw for them when the container is gone.

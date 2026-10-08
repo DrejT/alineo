@@ -1,0 +1,15 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "how-it-works",
+    "fan-out-gather",
+    "coordination",
+    "steering-and-pausing",
+    "supervision",
+    "crash-recovery",
+    "durability-contract",
+    "memory",
+    "memory-model",
+    "memory-in-practice"
+  ]
+}

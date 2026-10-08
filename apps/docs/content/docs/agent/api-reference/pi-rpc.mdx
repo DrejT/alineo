@@ -1,0 +1,323 @@
+---
+title: Pi RPC passthroughs
+description: The Alineo methods that pass straight through to Pi's RPC — sessions, models, retries, inspection, compaction.
+---
+
+These methods are thin wrappers over [Pi](https://pi.ai)'s own RPC commands: each sends one command to the
+bridge inside the sandbox and returns Pi's answer. They are the same on every agent, however it was created —
+`Alineo.start()`, `resume()` or `reattach()`. An agent from `Alineo.attach()` has no bridge, so every method here
+throws on it. For the class itself, see [Alineo](/docs/agent/api-reference/alineo).
+
+---
+
+## Session management
+
+### agent.newSession()
+
+```ts
+async newSession(): Promise<void>
+```
+
+Reset Pi's conversation context. Pi forgets all prior messages. The sandbox filesystem is unchanged — files written in previous turns remain.
+
+### agent.duplicateSession()
+
+```ts
+async duplicateSession(): Promise<{ cancelled: boolean }>
+```
+
+Branch the harness conversation at its current position, creating a new session file. Same container, same bridge — nothing on disk is copied. Returns whether the branch was cancelled.
+
+### agent.branchSession()
+
+```ts
+async branchSession(entryId: string): Promise<{ text: string; cancelled: boolean }>
+```
+
+Branch the harness conversation from a specific message entry in its history. `entryId` comes from `getBranchPoints()` (see below), not `getMessages()` — `PiMessage` has no `id`/`entryId` field. Returns the text of the message branched from, and whether it was cancelled.
+
+Both of these branch a **conversation**. `agent.sandbox.fork()` is the one that copies a filesystem; these never leave the container.
+
+```ts
+const points = await agent.getBranchPoints();
+if (points.length > 0) {
+  const branched = await agent.branchSession(points[0].entryId);
+  console.log(`Branched from: "${branched.text.slice(0, 60)}"`);
+}
+```
+
+### agent.switchSession()
+
+```ts
+async switchSession(sessionPath: string): Promise<{ cancelled: boolean }>
+```
+
+Switch Pi to a different session file on disk.
+
+### agent.getMessages()
+
+```ts
+async getMessages(): Promise<PiMessage[]>
+```
+
+Retrieve Pi's full conversation history for the current session.
+
+```ts
+const messages = await agent.getMessages();
+console.log(`${messages.length} messages in session`);
+```
+
+---
+
+## Model control
+
+### agent.setModel()
+
+```ts
+async setModel(provider: string, modelId: string): Promise<PiModel>
+```
+
+Switch Pi to a specific model. The model must be in Pi's configured model list. Returns the activated `PiModel`.
+
+### agent.cycleModel()
+
+```ts
+async cycleModel(): Promise<{ model: PiModel; thinkingLevel: ThinkingLevel; isScoped: boolean } | null>
+```
+
+Cycle Pi to the next configured model. Returns the new model info, or `null` if only one model is configured.
+
+### agent.getAvailableModels()
+
+```ts
+async getAvailableModels(): Promise<PiModel[]>
+```
+
+List all models available to Pi under the current provider configuration.
+
+### agent.setThinkingLevel()
+
+```ts
+async setThinkingLevel(level: ThinkingLevel): Promise<void>
+```
+
+Set Pi's reasoning level. Only effective on models that support extended thinking. `level` is `"none" | "low" | "medium" | "high"`.
+
+### agent.cycleThinkingLevel()
+
+```ts
+async cycleThinkingLevel(): Promise<{ level: ThinkingLevel } | null>
+```
+
+Cycle Pi's thinking level. Returns `null` if the current model doesn't support thinking.
+
+---
+
+## Reliability
+
+### agent.setAutoRetry()
+
+```ts
+async setAutoRetry(enabled: boolean): Promise<void>
+```
+
+Enable or disable Pi's automatic retry on transient errors (429, 500, 502, 503, 504). Auto-retry is **on by default**: 3 attempts with exponential backoff (2 s / 4 s / 8 s).
+
+Disable it when you want to handle errors yourself by observing `auto_retry_start` and `auto_retry_end` events in the stream:
+
+```ts
+await agent.setAutoRetry(false);
+
+for await (const ev of agent.prompt("Run the test suite.")) {
+  if (ev.type === "text") process.stdout.write(ev.text);
+  if (ev.type === "auto_retry_start") {
+    console.error(
+      `[retry] attempt ${ev.attempt}/${ev.maxAttempts} in ${ev.delayMs}ms — ${ev.errorMessage}`,
+    );
+  }
+  if (ev.type === "auto_retry_end" && !ev.success) {
+    console.error(`[retry] failed after ${ev.attempt} attempts: ${ev.finalError}`);
+  }
+}
+```
+
+### agent.abortRetry()
+
+```ts
+async abortRetry(): Promise<void>
+```
+
+Abort an in-progress auto-retry immediately. Pi stops waiting and fails the current operation, emitting `auto_retry_end` with `success: false`.
+
+### agent.abortBash()
+
+```ts
+async abortBash(): Promise<void>
+```
+
+Abort a currently-executing bash command without cancelling the whole prompt. No-op when no bash command is running.
+
+---
+
+## Session inspection
+
+### agent.getSessionStats()
+
+```ts
+async getSessionStats(): Promise<SessionStats>
+```
+
+Retrieve token usage, cost, and message counts for the current session.
+
+```ts
+const stats = await agent.getSessionStats();
+console.log(`tokens: ${stats.tokens.total}, cost: $${stats.cost.toFixed(6)}`);
+if (stats.contextUsage) {
+  console.log(`context: ${stats.contextUsage.percent.toFixed(1)}% full`);
+}
+```
+
+See [SessionStats](#sessionstats) for the full type.
+
+### agent.getLastAssistantText()
+
+```ts
+async getLastAssistantText(): Promise<string | null>
+```
+
+Retrieve the text of Pi's most recent assistant response without needing to iterate the stream. Returns `null` if Pi hasn't responded yet in the current session.
+
+### agent.getBranchPoints()
+
+```ts
+async getBranchPoints(): Promise<{ entryId: string; text: string }[]>
+```
+
+List the fork entry points available in the current session. Each entry has `entryId` (suitable for passing to `fork()`) and `text` (the message content at that point).
+
+```ts
+const points = await agent.getBranchPoints();
+for (const p of points) {
+  console.log(`${p.entryId}: "${p.text.slice(0, 60)}"`);
+}
+```
+
+### agent.getCommands()
+
+```ts
+async getCommands(): Promise<PiSlashCommand[]>
+```
+
+List Pi's available slash commands, including extensions, prompt templates, and skills. Returns `PiSlashCommand[]`.
+
+```ts
+const cmds = await agent.getCommands();
+for (const cmd of cmds) {
+  console.log(`/${cmd.name} [${cmd.source}]${cmd.description ? ` — ${cmd.description}` : ""}`);
+}
+```
+
+### agent.setSessionName()
+
+```ts
+async setSessionName(name: string): Promise<void>
+```
+
+Set a display name for the current Pi session.
+
+### agent.exportHtml()
+
+```ts
+async exportHtml(outputPath?: string): Promise<{ path: string }>
+```
+
+Export a static HTML transcript of the current session to the sandbox filesystem. Returns the container path of the generated file. Use `agent.sandbox.readFile(path)` to retrieve the contents.
+
+```ts
+const { path } = await agent.exportHtml();
+const html = await agent.sandbox.readFile(path);
+```
+
+---
+
+## Advanced control
+
+### agent.setSteeringMode()
+
+```ts
+async setSteeringMode(mode: "all" | "one-at-a-time"): Promise<void>
+```
+
+Control how Pi processes queued steering messages. `"all"` applies all queued steers at once; `"one-at-a-time"` applies them sequentially between turns.
+
+### agent.setFollowUpMode()
+
+```ts
+async setFollowUpMode(mode: "all" | "one-at-a-time"): Promise<void>
+```
+
+Control how Pi processes queued follow-up messages. `"all"` sends all queued follow-ups at once; `"one-at-a-time"` sends them sequentially.
+
+---
+
+## Context management
+
+### agent.setAutoCompaction()
+
+```ts
+async setAutoCompaction(enabled: boolean): Promise<void>
+```
+
+Enable or disable Pi's automatic context compaction.
+
+### agent.compact()
+
+```ts
+async compact(customInstructions?: string): Promise<CompactResult>
+```
+
+Manually trigger Pi's context compaction. Returns a `CompactResult`: `{ summary, firstKeptEntryId, tokensBefore, estimatedTokensAfter }`.
+
+---
+
+## SessionStats
+
+```ts
+import type { SessionStats } from "alineo";
+```
+
+Returned by `agent.getSessionStats()`.
+
+| Field               | Type      | Description                                         |
+| ------------------- | --------- | --------------------------------------------------- |
+| `sessionId`         | `string`  | Pi's internal session identifier                    |
+| `sessionFile`       | `string?` | Path to the session file on disk                    |
+| `userMessages`      | `number`  | Number of user turns                                |
+| `assistantMessages` | `number`  | Number of assistant turns                           |
+| `toolCalls`         | `number`  | Total tool calls made                               |
+| `toolResults`       | `number`  | Total tool results received                         |
+| `totalMessages`     | `number`  | Sum of all messages                                 |
+| `tokens.input`      | `number`  | Input tokens consumed                               |
+| `tokens.output`     | `number`  | Output tokens generated                             |
+| `tokens.cacheRead`  | `number`  | Tokens read from prompt cache                       |
+| `tokens.cacheWrite` | `number`  | Tokens written to prompt cache                      |
+| `tokens.total`      | `number`  | Total tokens (all categories)                       |
+| `cost`              | `number`  | Estimated cost in USD                               |
+| `contextUsage`      | `object?` | `{ tokens, contextWindow, percent }` — context fill |
+
+---
+
+## PiSlashCommand
+
+```ts
+import type { PiSlashCommand } from "alineo";
+```
+
+Returned by `agent.getCommands()`.
+
+| Field         | Type                                 | Description                                      |
+| ------------- | ------------------------------------ | ------------------------------------------------ |
+| `name`        | `string`                             | Invokable command name (without the leading `/`) |
+| `description` | `string?`                            | Human-readable description                       |
+| `source`      | `"extension" \| "prompt" \| "skill"` | Where the command comes from                     |
+| `sourceInfo`  | `unknown`                            | Metadata about the owning resource               |

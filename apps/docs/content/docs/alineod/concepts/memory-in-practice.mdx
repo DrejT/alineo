@@ -1,0 +1,103 @@
+---
+title: Using memory
+description: Getting memory in front of the model, keeping it bounded, restricting it by team, and recording checkpoints.
+---
+
+How the pieces in [Memory model](/docs/alineod/concepts/memory-model) are used day to day.
+
+## Put it in the prompt
+
+`buildContextSnippet()` assembles working memory and, given a `query` and a semantic provider, the most relevant
+recalled facts into plain text:
+
+```ts
+import { buildContextSnippet } from "@alineo-labs/memory";
+
+const context = await buildContextSnippet(memory, agent.resourceRef, {
+  query: userMessage,
+  topK: 5,
+});
+for await (const chunk of agent.prompt(context ? `${context}\n\n${userMessage}` : userMessage)) {
+  process.stdout.write(chunk);
+}
+```
+
+It returns `""` when there is nothing to say. Options: `query`, `topK`, `maxWorkingMemoryKeys` (default 20).
+
+<Callout type="info">
+  This builds the string only — nothing prepends it automatically, because the Pi bridge has no hook
+  for a session's system prompt yet.
+</Callout>
+
+## Let the model write memory
+
+`createMemoryTools(memory, ref)` returns tool definitions (name, description, JSON-Schema parameters, executor):
+
+| Tool                 | Does                                           | Available                        |
+| -------------------- | ---------------------------------------------- | -------------------------------- |
+| `set_working_memory` | Store a key/value fact                         | Always                           |
+| `get_working_memory` | Return every working-memory fact               | Always                           |
+| `remember_fact`      | Store a long-term fact                         | If semantic memory is configured |
+| `recall_facts`       | Search long-term memory (`topK` defaults to 5) | If semantic memory is configured |
+
+They aren't auto-registered into Pi yet; adapt them to whatever tool surface you use.
+
+## Typed profiles
+
+`SchemaWorkingMemory<T>` stores one validated object under a single key — any Zod schema works as the validator:
+
+```ts
+const profile = new SchemaWorkingMemory(workingMemoryProvider, Profile);
+await profile.update(ref, { preferredLanguage: "TypeScript" }); // merges, then validates
+```
+
+## Keep it bounded
+
+A remembered fact stays verbatim until pruned. `compactSemanticMemory()` works on any provider with `listAll` /
+`forget` (all shipped ones):
+
+```ts
+await memory.compactSemanticMemory(ref, { maxFacts: 500, maxAgeMs: 30 * 24 * 60 * 60 * 1000 });
+// → { removed, remaining, summarized }
+```
+
+Age is applied first, then the count cap. Pass `summarize(facts) => string[]` to consolidate instead of delete —
+replacements are written **before** the originals go, and carry no `sourceRef`, so they aren't `verified`.
+
+To run it automatically, set `autoCompact: { maxFacts: 500, checkEvery: 10 }` on `Memory`. A failed compaction fails
+the `remember()` it rode along with, so raise `checkEvery` or schedule it yourself to decouple them.
+
+## Restrict by team
+
+`teamId` isolates data structurally everywhere, but only Postgres enforces it (row-level security). On other
+backends wrap the providers:
+
+```ts
+const checker = { canAccess: (teamId: string) => currentUser.teamIds.includes(teamId) };
+
+const memory = new Memory({
+  workingMemory: withTeamAccessControl(new SQLiteWorkingMemoryProvider("./mem.db"), checker),
+  semantic: withTeamAccessControlSemantic(mySemanticProvider, checker),
+});
+```
+
+A denied call throws `MemoryAccessDeniedError` before the provider is touched; a `ref` without `teamId` passes
+through. This is an app-layer gate, not an isolation boundary — a buggy checker is still a hole, so pair it with
+Postgres RLS for hostile multi-tenant setups.
+
+## Record the last checkpoint
+
+`createMemoryLifecycleHooks(memory, ref)` returns `SandboxHooks` that write the most recent `sandboxId` and the latest
+checkpoint's `{ sandboxId, snapshotId, name, at }` into working memory:
+
+```ts
+const sb = await client.sandbox({
+  image: "node:22",
+  resources: { cpu: "500m", memory: "512Mi" },
+  resourceId: ref.resourceId,
+  hooks: composeHooks([createMemoryLifecycleHooks(memory, ref)]),
+});
+```
+
+Options: `checkpointKey`, `sessionKey`, `onError` (a failed write is dropped, never thrown into the sandbox
+operation). It records metadata only — restoring state is a [checkpoint](/docs/alineod/concepts/crash-recovery)'s job.

@@ -1,0 +1,120 @@
+---
+title: Memory model
+description: Memory that outlives any one sandbox — working facts, semantic recall and episodic history, scoped by a durable resourceId and forked into every spawned child.
+---
+
+An agent's sandbox is disposable; what it learned shouldn't be. `@alineo-labs/memory` is the memory layer agents in a
+run can share across sandboxes and across runs. It is keyed by a durable **`resourceId`** — a user, an account, a
+project — rather than by a `sandboxId`, which only names one session.
+
+<Callout type="info">
+  alineod wires a shared `Memory` into every agent it drives and exposes it over HTTP — see [Agent
+  memory](/docs/alineod/concepts/memory). This page is the library model underneath, which you also
+  use directly from the [Agent SDK](/docs/agent).
+</Callout>
+
+```ts
+import { Memory } from "@alineo-labs/memory";
+import {
+  SQLiteWorkingMemoryProvider,
+  SQLiteSemanticMemoryProvider,
+} from "@alineo-labs/sqlite-memory";
+import { createNvidiaEmbeddingProvider } from "@alineo-labs/model-providers";
+
+const memory = new Memory({
+  workingMemory: new SQLiteWorkingMemoryProvider("./alineo-memory.db"),
+  semantic: new SQLiteSemanticMemoryProvider("./alineo-memory.db", createNvidiaEmbeddingProvider()),
+});
+
+const agent = await Alineo.start(spec, { adapter, memory });
+await agent.memory?.remember(agent.resourceRef, { content: "user prefers concise answers" });
+```
+
+## Three kinds
+
+| Kind                | Answers                                             | Storage                         | Required |
+| ------------------- | --------------------------------------------------- | ------------------------------- | -------- |
+| **Working memory**  | "What do I know about this user?" — key/value       | A provider you choose           | Yes      |
+| **Semantic memory** | "What did I learn that's relevant?" — vector recall | A provider + an embedding model | No       |
+| **Episodic memory** | "What actually happened?" — the ledger, by resource | None — a read over the ledger   | No       |
+
+They are separate slots because real backends support different subsets. Calling `remember()` or `recall()` with no
+semantic provider throws `MemoryCapabilityError` — never an empty result that looks like "nothing matched".
+
+```ts
+const ref = { resourceId: "user-42" }; // add teamId for shared scoping
+
+await memory.workingMemory.set(ref, "plan", "pro");
+await memory.workingMemory.list(ref); // { plan: "pro" }
+
+await memory.remember(ref, { content: "upgraded to Pro on the 3rd" });
+await memory.recall(ref, "what plan is the user on?", { topK: 3 });
+```
+
+## `resourceId`, not `sandboxId`
+
+Set it on the sandbox and the ledger records it on `sandbox.created` — no schema change. `resume()`,
+`restoreSnapshot()` and `sb.fork()` inherit it. `agent.resourceRef` defaults `resourceId` to the agent's own `name`
+unless `AgentSpec.resourceId` is set, which is also what episodic recall expects, so it works with no extra wiring.
+
+Storage is keyed on `scopeKey(ref)` with each part escaped, so `resourceId: "acme:corp"` can never collide with
+`{ teamId: "acme", resourceId: "corp" }`.
+
+## Verified facts
+
+Pass a `sourceRef` to tie a fact to the ledger entry it came from:
+
+```ts
+await memory.remember(ref, {
+  content: "user confirmed the refund",
+  sourceRef: { sandboxId: sb.sandboxId, entryIndex: 42 },
+});
+
+const [fact] = await memory.recall(ref, "refund");
+fact.verified; // true
+```
+
+`verified` is **computed** (`sourceRef != null`) and ignored on input, so a caller can't claim a free-form fact is
+verified. A fact you can point at real execution history is worth more than a model's summary of it.
+
+## Memory in a swarm
+
+`Alineo.spawn()` calls `memory.fork(parentRef, childResourceId)` for every child: working memory is copied in full
+and semantic memory too where the provider supports pruning (`listAll`). The child gets an **independent** copy —
+changes it makes never reach the parent. `teamId` carries over, and copied facts keep their `sourceRef`, so
+`verified` survives the fork.
+
+```ts
+const {
+  ref: childRef,
+  workingKeysCopied,
+  semanticFactsCopied,
+} = await memory.fork(parentRef, "child-resource-id");
+```
+
+If you need children to share one memory instead, give them the same `resourceId` rather than forking. `fork()`
+copies memory only; the sandbox is forked by `spawn()` itself.
+
+## Episodic memory
+
+A read-shaped view over the [ledger](/docs/alineod/concepts/durability-contract), regrouped by `resourceId`:
+
+```ts
+import { episodicRecall, episodicTree } from "@alineo-labs/memory";
+
+await episodicRecall(adapter, ref, { limit: 100 });
+await episodicRecall(adapter, ref, { branch: "lineage" }); // include forked-from ancestors
+
+const [root] = await episodicTree(adapter, ref); // the real fork tree
+root.entries; // this session's own entries
+root.children; // sessions forked from it
+```
+
+`"lineage"` flattens ancestry into one time-ordered stream; `episodicTree()` keeps sibling branches apart, which is
+what you want when asking "what did the other worker do?". Sessions match on `SandboxDetails.resourceId`, falling back
+to the ledger `name`; pass `resolveSessions` for another convention.
+
+## Next
+
+[Using memory](/docs/alineod/concepts/memory-in-practice) covers feeding it to the model, compaction, team access and
+lifecycle hooks. [Memory reference](/docs/alineod/api-reference/memory) lists the API and the backends.

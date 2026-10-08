@@ -3,8 +3,7 @@ import {
   workflowSource,
   agentSource,
   alineodSource,
-  alineoSource,
-  examplesSource,
+  cliSource,
   cookbooksSource,
   playgroundSource,
 } from "@/lib/source";
@@ -18,8 +17,7 @@ export async function GET() {
     ...workflowSource.getPages(),
     ...agentSource.getPages(),
     ...alineodSource.getPages(),
-    ...alineoSource.getPages(),
-    ...examplesSource.getPages(),
+    ...cliSource.getPages(),
     ...cookbooksSource.getPages(),
     ...playgroundSource.getPages(),
   ];

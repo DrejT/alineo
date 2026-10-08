@@ -44,6 +44,7 @@
     "test": "bun scripts/workspace-run.ts test",
     "test:integration": "bun run --cwd tests/integration test",
     "check:vocabulary": "bun scripts/check-vocabulary.ts",
+    "check:docs-links": "bun scripts/check-docs-links.ts",
     "check:dead-code": "fallow dead-code",
     "lint": "oxlint packages examples cookbooks && oxlint -c .oxlintrc.console.json apps/alineod apps/sandbox/server",
     "lint:fix": "oxlint --fix packages examples cookbooks",

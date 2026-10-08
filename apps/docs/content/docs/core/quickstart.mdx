@@ -1,0 +1,134 @@
+---
+title: Quickstart
+description: Install the sandbox client, start OpenSandbox locally, and run your first command in a container.
+---
+
+<Steps>
+<Step>
+
+### Install
+
+```bash
+bun add @alineo-labs/sandbox @alineo-labs/sqlite
+```
+
+`@alineo-labs/sqlite` is the ledger every command is written to. For a ledger shared by several processes, use
+`@alineo-labs/postgres` instead — [storage](/docs/core/storage).
+
+</Step>
+<Step>
+
+### Start a local sandbox server
+
+The quickest path runs OpenSandbox in Docker and writes `alineo.config.json` for you:
+
+```bash
+bunx alineo-cli init
+```
+
+A server started this way hands out container addresses your host can't reach, so pass `useServerProxy: true` to
+the client in the next step.
+
+To run it on the host instead, without Docker, create `~/.sandbox.toml`:
+
+```toml title="~/.sandbox.toml"
+[server]
+host = "127.0.0.1"
+port = 8080
+
+[runtime]
+type = "docker"
+execd_image = "opensandbox/execd:v1.0.22"
+
+[docker]
+network_mode = "bridge"
+
+[ingress]
+mode = "direct"
+
+[egress]
+mode = "dns"
+```
+
+and start it with `uvx opensandbox-server`. Container addresses are reachable from the host here, so no proxy is
+needed.
+
+</Step>
+<Step>
+
+### Hello world
+
+```ts title="hello.ts"
+import { Sandbox } from "@alineo-labs/sandbox";
+import { SQLiteAdapter } from "@alineo-labs/sqlite";
+
+const client = new Sandbox({
+  baseUrl: "http://localhost:8080",
+  adapter: new SQLiteAdapter("./ledger.db"),
+  useServerProxy: true, // with `alineo init`; leave it off for `uvx opensandbox-server`
+});
+
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "512Mi" },
+  name: "hello-world",
+});
+
+try {
+  await sb.exec('echo "hello world"').pipe(process.stdout);
+} finally {
+  await sb.close();
+}
+```
+
+```bash
+bun hello.ts
+# hello world
+```
+
+`resources` is required — OpenSandbox rejects a sandbox without it. There is no `connect()` on the client and no
+`close()` on the adapter: it initialises on first use and closes itself when the process exits.
+
+</Step>
+</Steps>
+
+## Capture output
+
+Await the `ExecHandle` directly to get `{ stdout, stderr, exitCode }`:
+
+```ts
+const sb = await client.sandbox({
+  image: "node:22-slim",
+  resources: { cpu: "500m", memory: "256Mi" },
+});
+try {
+  const { stdout: nodeVersion } = await sb.exec('node -e "process.stdout.write(process.version)"');
+  await sb.exec(`echo "Running on Node ${nodeVersion.trim()}"`).pipe(process.stdout);
+} finally {
+  await sb.close();
+}
+```
+
+## Write and read files
+
+```ts
+const sb = await client.sandbox({
+  image: "ubuntu:22.04",
+  resources: { cpu: "500m", memory: "256Mi" },
+});
+try {
+  await sb.writeFile("/tmp/hello.txt", "hello from alineo\n");
+  const content = await sb.readFile("/tmp/hello.txt");
+  console.log(content.trim()); // "hello from alineo"
+} finally {
+  await sb.close();
+}
+```
+
+## Next steps
+
+- [How it works](/docs/core/concepts/how-it-works) — the full mental model
+- [exec & execCode](/docs/core/concepts/exec) — every exec option and streaming mode
+- [Checkpoint and resume](/docs/core/concepts/snapshots) — pick a crashed run up where it stopped
+- [Sandbox client reference](/docs/core/api-reference/sandbox) — every client option
+- [Workflow SDK](/docs/workflow) — `retry`, `when`, `forEach` and `parallel`, with one `await` at the end

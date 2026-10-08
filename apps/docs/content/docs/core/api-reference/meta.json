@@ -1,4 +1,4 @@
 {
-  "title": "API Reference",
-  "pages": ["alineo-client", "workflow-run", "errors"]
+  "title": "API reference",
+  "pages": ["sandbox", "exec-handle", "errors"]
 }

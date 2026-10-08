@@ -1,4 +1,4 @@
 {
-  "title": "Alineo SDK",
-  "pages": ["index", "getting-started", "api-reference"]
+  "title": "Agent SDK",
+  "pages": ["index", "quickstart", "concepts", "api-reference"]
 }

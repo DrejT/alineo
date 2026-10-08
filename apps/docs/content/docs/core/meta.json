@@ -1,12 +1,14 @@
 {
   "title": "Core SDK",
   "pages": [
-    "getting-started",
+    "index",
+    "quickstart",
     "concepts",
-    "building",
-    "patterns",
-    "adapters",
     "api-reference",
+    "storage",
+    "custom-adapter",
+    "observability",
+    "flue",
     "ai-resources"
   ]
 }

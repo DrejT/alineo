@@ -6,28 +6,28 @@ description: Every alineod route — runs, agents, control actions, and results.
 Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors are returned as
 `{ "error": "<message>" }` with an appropriate status; an invalid body is `400` and names each failing field.
 
-| Method   | Path                             | Description                                                                                                                                            |
-| -------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET`    | `/health`                        | Liveness check.                                                                                                                                        |
-| `POST`   | `/runs`                          | Create a run and its root agent.                                                                                                                       |
-| `GET`    | `/runs/:runId`                   | The run's spawn tree.                                                                                                                                  |
-| `DELETE` | `/runs/:runId`                   | Stop every live agent in the run.                                                                                                                      |
-| `GET`    | `/runs/:runId/events`            | The run's event stream (SSE).                                                                                                                          |
-| `POST`   | `/runs/:runId/agents`            | Spawn a child agent.                                                                                                                                   |
-| `GET`    | `/agents/:agentId`               | One agent's state and session stats.                                                                                                                   |
-| `POST`   | `/agents/:agentId/prompt`        | Start a new turn.                                                                                                                                      |
-| `POST`   | `/agents/:agentId/steer`         | Redirect the current turn.                                                                                                                             |
-| `POST`   | `/agents/:agentId/pause`         | Freeze the agent's container.                                                                                                                          |
-| `POST`   | `/agents/:agentId/resume`        | Thaw a paused container.                                                                                                                               |
-| `POST`   | `/agents/:agentId/stop`          | Abort and close the agent.                                                                                                                             |
-| `GET`    | `/agents/:agentId/result`        | Get, or wait for, the agent's result.                                                                                                                  |
-| `GET`    | `/agents/:agentId/transcript`    | What the agent said and did, turn by turn.                                                                                                             |
-| `GET`    | `/agents/:agentId/await`         | Wait for the agent's subtree to finish.                                                                                                                |
-| `POST`   | `/runs/:runId/await`             | Wait on a set of agents, or a subtree.                                                                                                                 |
-| `POST`   | `/agents/:agentId/notify-on`     | Tell this agent when others finish.                                                                                                                    |
-| `GET`    | `/agents/:agentId/inbox`         | This agent's pending and delivered notifications.                                                                                                      |
-| `POST`   | `/agents/:agentId/inbox/deliver` | Deliver pending notifications now.                                                                                                                     |
-| `GET`    | `/agents/:agentId/memory`        | Working memory — see [Agent memory](/docs/alineod/guides/memory), which also covers `PUT`/`DELETE .../memory/:key`, `.../facts` and `.../compactions`. |
+| Method   | Path                             | Description                                                                                                                                              |
+| -------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`    | `/health`                        | Liveness check.                                                                                                                                          |
+| `POST`   | `/runs`                          | Create a run and its root agent.                                                                                                                         |
+| `GET`    | `/runs/:runId`                   | The run's spawn tree.                                                                                                                                    |
+| `DELETE` | `/runs/:runId`                   | Stop every live agent in the run.                                                                                                                        |
+| `GET`    | `/runs/:runId/events`            | The run's event stream (SSE).                                                                                                                            |
+| `POST`   | `/runs/:runId/agents`            | Spawn a child agent.                                                                                                                                     |
+| `GET`    | `/agents/:agentId`               | One agent's state and session stats.                                                                                                                     |
+| `POST`   | `/agents/:agentId/prompt`        | Start a new turn.                                                                                                                                        |
+| `POST`   | `/agents/:agentId/steer`         | Redirect the current turn.                                                                                                                               |
+| `POST`   | `/agents/:agentId/pause`         | Freeze the agent's container.                                                                                                                            |
+| `POST`   | `/agents/:agentId/resume`        | Thaw a paused container.                                                                                                                                 |
+| `POST`   | `/agents/:agentId/stop`          | Abort and close the agent.                                                                                                                               |
+| `GET`    | `/agents/:agentId/result`        | Get, or wait for, the agent's result.                                                                                                                    |
+| `GET`    | `/agents/:agentId/transcript`    | What the agent said and did, turn by turn.                                                                                                               |
+| `GET`    | `/agents/:agentId/await`         | Wait for the agent's subtree to finish.                                                                                                                  |
+| `POST`   | `/runs/:runId/await`             | Wait on a set of agents, or a subtree.                                                                                                                   |
+| `POST`   | `/agents/:agentId/notify-on`     | Tell this agent when others finish.                                                                                                                      |
+| `GET`    | `/agents/:agentId/inbox`         | This agent's pending and delivered notifications.                                                                                                        |
+| `POST`   | `/agents/:agentId/inbox/deliver` | Deliver pending notifications now.                                                                                                                       |
+| `GET`    | `/agents/:agentId/memory`        | Working memory — see [Agent memory](/docs/alineod/concepts/memory), which also covers `PUT`/`DELETE .../memory/:key`, `.../facts` and `.../compactions`. |
 
 ## Runs
 
@@ -36,12 +36,13 @@ Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors ar
 Create a run with one root agent. Returns `202`; the sandbox is provisioned in the background and `prompt`, if
 set, runs once it's ready.
 
-| Field               | Type    | Description                                    |
-| ------------------- | ------- | ---------------------------------------------- |
-| `spec`              | object  | An agent spec, validated by the SDK. Required. |
-| `prompt`            | string  | First turn to run on the root agent.           |
-| `budget.spawnDepth` | integer | Overrides the spec's `spawnDepth`.             |
-| `budget.maxAgents`  | integer | Overrides the spec's `maxAgents`.              |
+| Field               | Type    | Description                                                                                                                                         |
+| ------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spec`              | object  | An agent spec, validated by the SDK. Required.                                                                                                      |
+| `prompt`            | string  | First turn to run on the root agent.                                                                                                                |
+| `budget.spawnDepth` | integer | Overrides the spec's `spawnDepth`.                                                                                                                  |
+| `budget.maxAgents`  | integer | Overrides the spec's `maxAgents`.                                                                                                                   |
+| `closeWhen`         | string  | `"explicit"` (default) or `"quiescent"`. With `"quiescent"` the run closes itself once every agent in it has ended and has nothing left to deliver. |
 
 ```json
 // 202
@@ -60,6 +61,8 @@ response — pass it as `Last-Event-ID` to stream everything after this snapshot
   "runId": "r_3f9a1c20",
   "rootAgentId": "a_7b2e44d1",
   "asOf": 42,
+  "closeWhen": "explicit",
+  "state": "open",
   "agents": [
     {
       "agentId": "a_7b2e44d1",
@@ -78,6 +81,7 @@ response — pass it as `Last-Event-ID` to stream everything after this snapshot
 }
 ```
 
+`closeWhen` is the run's close policy. `state` is `open` until the run is closed, by `DELETE` or by quiescence.
 `404` if the run doesn't exist.
 
 ### DELETE /runs/:runId
@@ -96,16 +100,16 @@ See [Events](/docs/alineod/api-reference/events).
 
 Spawn a child by forking a live parent's sandbox. Returns `202`.
 
-| Field               | Type               | Description                                                                                                                                                                                                                                                              |
-| ------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `parentAgentId`     | string             | A live agent in this run. Required.                                                                                                                                                                                                                                      |
-| `spec`              | object             | The child's agent spec. Required.                                                                                                                                                                                                                                        |
-| `prompt`            | string             | Turn to run once the child is ready.                                                                                                                                                                                                                                     |
-| `waitFor`           | string[] \| object | Agents in this run whose results must settle before the child is forked. Their results are written to `/inputs/`. The object form adds `mode`, `k`, `onDepFailure`, `deadlineSec` and `onDeadline`; see [Coordination](/docs/alineod/guides/coordination#waitfor-modes). |
-| `notifyOn`          | string[]           | Agents to tell this child about when they finish, without blocking it. See [Coordination](/docs/alineod/guides/coordination#notifyon).                                                                                                                                   |
-| `budget.spawnDepth` | integer            | Overrides the parent's remaining `spawnDepth`.                                                                                                                                                                                                                           |
-| `budget.maxAgents`  | integer            | Overrides the parent's remaining `maxAgents`.                                                                                                                                                                                                                            |
-| `idempotencyKey`    | string             | A retry with the same key returns the original child instead of creating another.                                                                                                                                                                                        |
+| Field               | Type               | Description                                                                                                                                                                                                                                                                |
+| ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parentAgentId`     | string             | A live agent in this run. Required.                                                                                                                                                                                                                                        |
+| `spec`              | object             | The child's agent spec. Required.                                                                                                                                                                                                                                          |
+| `prompt`            | string             | Turn to run once the child is ready.                                                                                                                                                                                                                                       |
+| `waitFor`           | string[] \| object | Agents in this run whose results must settle before the child is forked. Their results are written to `/inputs/`. The object form adds `mode`, `k`, `onDepFailure`, `deadlineSec` and `onDeadline`; see [Coordination](/docs/alineod/concepts/coordination#waitfor-modes). |
+| `notifyOn`          | string[]           | Agents to tell this child about when they finish, without blocking it. See [Coordination](/docs/alineod/concepts/coordination#notifyon).                                                                                                                                   |
+| `budget.spawnDepth` | integer            | Overrides the parent's remaining `spawnDepth`.                                                                                                                                                                                                                             |
+| `budget.maxAgents`  | integer            | Overrides the parent's remaining `maxAgents`.                                                                                                                                                                                                                              |
+| `idempotencyKey`    | string             | A retry with the same key returns the original child instead of creating another.                                                                                                                                                                                          |
 
 ```json
 // 202
@@ -121,7 +125,7 @@ Spawn a child by forking a live parent's sandbox. Returns `202`.
 | `409`  | The parent isn't live.                                                                       |
 
 A spawn refused by a budget still returns `202`; the child then ends with outcome `budget-exceeded` and a
-`budget.denied` event is emitted. See [Fan-out and gather](/docs/alineod/guides/fan-out-gather).
+`budget.denied` event is emitted. See [Fan-out and gather](/docs/alineod/concepts/fan-out-gather).
 
 ### GET /agents/:agentId
 
@@ -136,7 +140,7 @@ available. `sessionStats` is omitted while the agent is paused, or if the harnes
 ```
 
 Starts a new turn and returns `202` immediately; follow it on the event stream or via the result route. `409` if
-the agent isn't live.
+the agent isn't live. On a `blocked` agent this is the retry — see [Supervision](/docs/alineod/concepts/supervision).
 
 ### POST /agents/:agentId/steer
 
@@ -149,7 +153,7 @@ Returns `202` and emits `agent.steered`.
 
 With `"scope": "subtree"`, the agent gets one message: yours plus a list of its direct children, so it redirects
 them itself. Returns `200` with `{ deliveredAs: "steer" | "turn" | "queued", roster }`. See
-[Steering a subtree](/docs/alineod/guides/steering-and-pausing#steering-a-subtree).
+[Steering a subtree](/docs/alineod/concepts/steering-and-pausing#steering-a-subtree).
 
 | Status | When                                   |
 | ------ | -------------------------------------- |
@@ -157,7 +161,7 @@ them itself. Returns `200` with `{ deliveredAs: "steer" | "turn" | "queued", ros
 | `409`  | The agent isn't live.                  |
 | `502`  | The harness didn't accept the message. |
 
-See [Steering and pausing](/docs/alineod/guides/steering-and-pausing#steer).
+See [Steering and pausing](/docs/alineod/concepts/steering-and-pausing#steer).
 
 ### POST /agents/:agentId/pause
 
@@ -250,7 +254,7 @@ provider's `errorMessage`). A turn appears once it ends, so an agent mid-turn sh
 
 ## Coordination
 
-See [Coordination](/docs/alineod/guides/coordination) for how these fit together.
+See [Coordination](/docs/alineod/concepts/coordination) for how these fit together.
 
 ### GET /agents/:agentId/await
 
