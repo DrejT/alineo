@@ -57,6 +57,13 @@ const openapi = {
       "Initiate and orchestrate agent swarms. alineod drives OpenSandbox through the alineo SDK; " +
       "this is the language-neutral wire contract.",
   },
+  servers: [
+    {
+      url: "http://localhost:{port}",
+      description: "A self-hosted alineod. There is no hosted alineo API.",
+      variables: { port: { default: "4600", description: "ALINEOD_PORT" } },
+    },
+  ],
   paths: {
     "/runs": {
       post: {
@@ -490,6 +497,160 @@ const openapi = {
     },
   },
 };
+
+/**
+ * Every operation's `operationId` and `description`. Agents that turn an OpenAPI spec into
+ * function-calling tools use the id as the tool name and the description as its prompt, so each
+ * must be unique and say when to call the operation. Keyed `METHOD /path`; the loop below throws
+ * if an operation has no entry or an entry has no operation.
+ */
+const OPERATIONS: Record<string, { operationId: string; description: string }> = {
+  "POST /runs": {
+    operationId: "createRun",
+    description:
+      "Start a run by loading a root agent from an agent spec. Returns the run id and the root agent id. Call this first; every other operation needs the ids it returns.",
+  },
+  "GET /runs/{runId}": {
+    operationId: "getRunTree",
+    description:
+      "Return the whole spawn tree of a run: each agent, its parent, and its state. Use it to see what is running before you steer, pause, or stop.",
+  },
+  "DELETE /runs/{runId}": {
+    operationId: "deleteRun",
+    description:
+      "Tear down every sandbox in the run. The ledger is kept, so the run can still be read and replayed afterward.",
+  },
+  "GET /runs/{runId}/events": {
+    operationId: "streamRunEvents",
+    description:
+      "Open a server-sent event stream of everything the swarm does. Reconnect with Last-Event-ID to resume without gaps.",
+  },
+  "POST /runs/{runId}/agents": {
+    operationId: "spawnAgent",
+    description:
+      "Spawn a child agent under a parent in this run. The budget (spawnDepth, maxAgents) is checked first and a denied spawn returns 409.",
+  },
+  "GET /agents/{agentId}": {
+    operationId: "getAgent",
+    description:
+      "Return one agent's state, spec, parent, and sandbox. Use it to check whether an agent is live before you send it a command.",
+  },
+  "POST /agents/{agentId}/prompt": {
+    operationId: "promptAgent",
+    description:
+      "Send a prompt to an agent and start a turn. The call returns at once with 202. Read progress from the event stream and the final output from getAgentResult.",
+  },
+  "POST /agents/{agentId}/steer": {
+    operationId: "steerAgent",
+    description:
+      "Redirect an agent in the middle of a turn. With scope subtree, the agent gets the steer and a list of its children and passes it on itself. Nothing is broadcast.",
+  },
+  "POST /agents/{agentId}/pause": {
+    operationId: "pauseAgent",
+    description:
+      "Freeze the agent's sandbox container. With scope subtree, freeze every descendant too, parents first. Undo with resumeAgent.",
+  },
+  "POST /agents/{agentId}/resume": {
+    operationId: "resumeAgent",
+    description:
+      "Unfreeze a paused agent's sandbox. With scope subtree, unfreeze every paused descendant too, children first.",
+  },
+  "POST /agents/{agentId}/stop": {
+    operationId: "stopAgent",
+    description:
+      "Abort the agent's turn and close its sandbox. With scope subtree, stop every descendant too, leaves first. A finished agent keeps its outcome.",
+  },
+  "GET /agents/{agentId}/await": {
+    operationId: "awaitAgentQuiescent",
+    description:
+      "Hold the request until the agent's subtree has no work left, or until wait seconds pass. Use it instead of polling.",
+  },
+  "POST /runs/{runId}/await": {
+    operationId: "awaitRun",
+    description:
+      "Wait on a set of agents with a waitFor mode (all, any, or k of n), or on a subtree, without spawning anything.",
+  },
+  "POST /agents/{agentId}/notify-on": {
+    operationId: "subscribeAgentNotifications",
+    description:
+      "Tell this agent when each listed agent finishes. Notices go into the agent's inbox and are delivered between turns.",
+  },
+  "GET /agents/{agentId}/inbox": {
+    operationId: "getAgentInbox",
+    description: "List an agent's pending and delivered notifications.",
+  },
+  "POST /agents/{agentId}/inbox/deliver": {
+    operationId: "deliverAgentInbox",
+    description:
+      "Deliver pending notifications now. If the agent is idle, this starts a new turn. The response says how each was delivered.",
+  },
+  "GET /agents/{agentId}/memory": {
+    operationId: "listAgentMemory",
+    description:
+      "List an agent's working-memory entries in key order, one page at a time. Pass nextAfter from the last page as after to continue.",
+  },
+  "GET /agents/{agentId}/memory/{key}": {
+    operationId: "getAgentMemoryValue",
+    description: "Read one working-memory value by key. Returns 404 if the key is not set.",
+  },
+  "PUT /agents/{agentId}/memory/{key}": {
+    operationId: "setAgentMemoryValue",
+    description: "Write one working-memory value. The value can be any JSON up to 64 KiB.",
+  },
+  "DELETE /agents/{agentId}/memory/{key}": {
+    operationId: "deleteAgentMemoryValue",
+    description: "Delete one working-memory key. The call succeeds if the key was never set.",
+  },
+  "POST /agents/{agentId}/facts": {
+    operationId: "addAgentFact",
+    description:
+      "Store a fact in the agent's semantic memory. Needs an embeddings endpoint configured on this alineod.",
+  },
+  "GET /agents/{agentId}/facts": {
+    operationId: "recallAgentFacts",
+    description:
+      "Find facts by meaning with ?query=, or list every fact newest-first without it. Use topK with a query and limit without one.",
+  },
+  "POST /agents/{agentId}/compactions": {
+    operationId: "compactAgentFacts",
+    description:
+      "Remove old or excess facts now. Age-based removal runs first, then the count cap. Returns what was removed.",
+  },
+  "GET /agents/{agentId}/transcript": {
+    operationId: "getAgentTranscript",
+    description:
+      "Return what the agent said and did, one entry per finished turn: messages, tool calls, and errors. Pass full=1 for untruncated text and the model's thinking.",
+  },
+  "GET /agents/{agentId}/result": {
+    operationId: "getAgentResult",
+    description:
+      "Resolve an agent's result. Returns 200 when settled and 202 while pending. Pass wait to long-poll for up to that many seconds.",
+  },
+};
+
+const seen = new Set<string>();
+for (const [path, item] of Object.entries(openapi.paths)) {
+  for (const [method, op] of Object.entries(item)) {
+    const key = `${method.toUpperCase()} ${path}`;
+    const doc = OPERATIONS[key];
+    if (!doc) throw new Error(`emit-spec: no operationId/description for ${key}`);
+    if (seen.has(doc.operationId))
+      throw new Error(`emit-spec: duplicate operationId ${doc.operationId}`);
+    seen.add(doc.operationId);
+    // Keep any longer note already written on the operation; the new text leads.
+    const prior = (op as { description?: string }).description;
+    Object.assign(op, {
+      operationId: doc.operationId,
+      description: prior ? `${doc.description} ${prior}` : doc.description,
+    });
+  }
+}
+for (const key of Object.keys(OPERATIONS)) {
+  const [method, path] = key.split(" ");
+  if (!(openapi.paths as Record<string, Record<string, unknown>>)[path]?.[method.toLowerCase()]) {
+    throw new Error(`emit-spec: OPERATIONS has ${key} but the spec has no such operation`);
+  }
+}
 
 writeFileSync(join(OUT_DIR, "openapi.json"), JSON.stringify(openapi, null, 2) + "\n");
 writeFileSync(

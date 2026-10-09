@@ -5,6 +5,18 @@
     "version": "0.0.0",
     "description": "Initiate and orchestrate agent swarms. alineod drives OpenSandbox through the alineo SDK; this is the language-neutral wire contract."
   },
+  "servers": [
+    {
+      "url": "http://localhost:{port}",
+      "description": "A self-hosted alineod. There is no hosted alineo API.",
+      "variables": {
+        "port": {
+          "default": "4600",
+          "description": "ALINEOD_PORT"
+        }
+      }
+    }
+  ],
   "paths": {
     "/runs": {
       "post": {
@@ -416,7 +428,9 @@
           "422": {
             "description": "Spec load failed"
           }
-        }
+        },
+        "operationId": "createRun",
+        "description": "Start a run by loading a root agent from an agent spec. Returns the run id and the root agent id. Call this first; every other operation needs the ids it returns."
       }
     },
     "/runs/{runId}": {
@@ -550,7 +564,9 @@
               }
             }
           }
-        }
+        },
+        "operationId": "getRunTree",
+        "description": "Return the whole spawn tree of a run: each agent, its parent, and its state. Use it to see what is running before you steer, pause, or stop."
       },
       "delete": {
         "summary": "Tear down the run (keeps the ledger)",
@@ -568,13 +584,15 @@
           "204": {
             "description": "Torn down"
           }
-        }
+        },
+        "operationId": "deleteRun",
+        "description": "Tear down every sandbox in the run. The ledger is kept, so the run can still be read and replayed afterward."
       }
     },
     "/runs/{runId}/events": {
       "get": {
         "summary": "SSE stream of the whole swarm",
-        "description": "text/event-stream. alineod agent_* events plus forwarded harness events, each tagged with agentId. Honours Last-Event-ID (the ledger seq).",
+        "description": "Open a server-sent event stream of everything the swarm does. Reconnect with Last-Event-ID to resume without gaps. text/event-stream. alineod agent_* events plus forwarded harness events, each tagged with agentId. Honours Last-Event-ID (the ledger seq).",
         "parameters": [
           {
             "name": "runId",
@@ -592,7 +610,8 @@
               "text/event-stream": {}
             }
           }
-        }
+        },
+        "operationId": "streamRunEvents"
       }
     },
     "/runs/{runId}/agents": {
@@ -1080,7 +1099,9 @@
           "409": {
             "description": "Budget denied / parent not live"
           }
-        }
+        },
+        "operationId": "spawnAgent",
+        "description": "Spawn a child agent under a parent in this run. The budget (spawnDepth, maxAgents) is checked first and a denied spawn returns 409."
       }
     },
     "/agents/{agentId}": {
@@ -1171,7 +1192,9 @@
               }
             }
           }
-        }
+        },
+        "operationId": "getAgent",
+        "description": "Return one agent's state, spec, parent, and sandbox. Use it to check whether an agent is live before you send it a command."
       }
     },
     "/agents/{agentId}/prompt": {
@@ -1211,13 +1234,15 @@
           "202": {
             "description": "Accepted"
           }
-        }
+        },
+        "operationId": "promptAgent",
+        "description": "Send a prompt to an agent and start a turn. The call returns at once with 202. Read progress from the event stream and the final output from getAgentResult."
       }
     },
     "/agents/{agentId}/steer": {
       "post": {
         "summary": "Redirect the agent's current turn",
-        "description": "Steer never broadcasts (research/swarm-control.md §8a). With scope: \"subtree\", the agent gets one message — the steer plus a roster of its direct children — and redirects them itself.",
+        "description": "Redirect an agent in the middle of a turn. With scope subtree, the agent gets the steer and a list of its children and passes it on itself. Nothing is broadcast. Steer never broadcasts (research/swarm-control.md §8a). With scope: \"subtree\", the agent gets one message — the steer plus a roster of its direct children — and redirects them itself.",
         "parameters": [
           {
             "name": "agentId",
@@ -1332,7 +1357,8 @@
           "502": {
             "description": "The bridge rejected the steer"
           }
-        }
+        },
+        "operationId": "steerAgent"
       }
     },
     "/agents/{agentId}/pause": {
@@ -1439,7 +1465,9 @@
           "502": {
             "description": "The sandbox rejected the pause"
           }
-        }
+        },
+        "operationId": "pauseAgent",
+        "description": "Freeze the agent's sandbox container. With scope subtree, freeze every descendant too, parents first. Undo with resumeAgent."
       }
     },
     "/agents/{agentId}/resume": {
@@ -1546,13 +1574,15 @@
           "502": {
             "description": "The sandbox rejected the resume"
           }
-        }
+        },
+        "operationId": "resumeAgent",
+        "description": "Unfreeze a paused agent's sandbox. With scope subtree, unfreeze every paused descendant too, children first."
       }
     },
     "/agents/{agentId}/stop": {
       "post": {
         "summary": "Abort + close an agent (or, with scope: subtree, it and every descendant)",
-        "description": "Stopping an agent that already finished closes its sandbox and emits agent_released, keeping its outcome.",
+        "description": "Abort the agent's turn and close its sandbox. With scope subtree, stop every descendant too, leaves first. A finished agent keeps its outcome. Stopping an agent that already finished closes its sandbox and emits agent_released, keeping its outcome.",
         "parameters": [
           {
             "name": "agentId",
@@ -1657,7 +1687,8 @@
           "202": {
             "description": "Accepted (scope: agent)"
           }
-        }
+        },
+        "operationId": "stopAgent"
       }
     },
     "/agents/{agentId}/await": {
@@ -1760,7 +1791,9 @@
           "404": {
             "description": "No such agent"
           }
-        }
+        },
+        "operationId": "awaitAgentQuiescent",
+        "description": "Hold the request until the agent's subtree has no work left, or until wait seconds pass. Use it instead of polling."
       }
     },
     "/runs/{runId}/await": {
@@ -1892,7 +1925,9 @@
           "400": {
             "description": "Invalid body, k, or an agent not in this run"
           }
-        }
+        },
+        "operationId": "awaitRun",
+        "description": "Wait on a set of agents with a waitFor mode (all, any, or k of n), or on a subtree, without spawning anything."
       }
     },
     "/agents/{agentId}/notify-on": {
@@ -1945,7 +1980,9 @@
           "404": {
             "description": "No such agent"
           }
-        }
+        },
+        "operationId": "subscribeAgentNotifications",
+        "description": "Tell this agent when each listed agent finishes. Notices go into the agent's inbox and are delivered between turns."
       }
     },
     "/agents/{agentId}/inbox": {
@@ -1965,7 +2002,9 @@
           "200": {
             "description": "{ agentId, pending, delivered }"
           }
-        }
+        },
+        "operationId": "getAgentInbox",
+        "description": "List an agent's pending and delivered notifications."
       }
     },
     "/agents/{agentId}/inbox/deliver": {
@@ -1985,13 +2024,15 @@
           "200": {
             "description": "{ delivery: steer | turn | held | dropped | none }"
           }
-        }
+        },
+        "operationId": "deliverAgentInbox",
+        "description": "Deliver pending notifications now. If the agent is idle, this starts a new turn. The response says how each was delivered."
       }
     },
     "/agents/{agentId}/memory": {
       "get": {
         "summary": "The agent's working memory, and the scope it lives under",
-        "description": "Keyed by the agent spec's resourceId (default: its name) and teamId, read from the persisted spec — so it works after the agent ended, and across an alineod restart. A spawned child starts with a copy of its parent's memory.",
+        "description": "List an agent's working-memory entries in key order, one page at a time. Pass nextAfter from the last page as after to continue. Keyed by the agent spec's resourceId (default: its name) and teamId, read from the persisted spec — so it works after the agent ended, and across an alineod restart. A spawned child starts with a copy of its parent's memory.",
         "parameters": [
           {
             "name": "agentId",
@@ -2084,7 +2125,8 @@
           "501": {
             "description": "Memory is disabled on this alineod"
           }
-        }
+        },
+        "operationId": "listAgentMemory"
       }
     },
     "/agents/{agentId}/memory/{key}": {
@@ -2140,7 +2182,9 @@
           "501": {
             "description": "Memory is disabled on this alineod"
           }
-        }
+        },
+        "operationId": "getAgentMemoryValue",
+        "description": "Read one working-memory value by key. Returns 404 if the key is not set."
       },
       "put": {
         "summary": "Set a working-memory value (any JSON, at most 64 KiB)",
@@ -2211,7 +2255,9 @@
           "501": {
             "description": "Memory is disabled on this alineod"
           }
-        }
+        },
+        "operationId": "setAgentMemoryValue",
+        "description": "Write one working-memory value. The value can be any JSON up to 64 KiB."
       },
       "delete": {
         "summary": "Remove a working-memory key (idempotent)",
@@ -2247,7 +2293,9 @@
           "501": {
             "description": "Memory is disabled on this alineod"
           }
-        }
+        },
+        "operationId": "deleteAgentMemoryValue",
+        "description": "Delete one working-memory key. The call succeeds if the key was never set."
       }
     },
     "/agents/{agentId}/facts": {
@@ -2320,7 +2368,9 @@
           "502": {
             "description": "The embeddings provider failed"
           }
-        }
+        },
+        "operationId": "addAgentFact",
+        "description": "Store a fact in the agent's semantic memory. Needs an embeddings endpoint configured on this alineod."
       },
       "get": {
         "summary": "Recall facts by meaning (?query=), or list every fact newest-first",
@@ -2448,13 +2498,15 @@
           "502": {
             "description": "The embeddings provider failed"
           }
-        }
+        },
+        "operationId": "recallAgentFacts",
+        "description": "Find facts by meaning with ?query=, or list every fact newest-first without it. Use topK with a query and limit without one."
       }
     },
     "/agents/{agentId}/compactions": {
       "post": {
         "summary": "Prune old or excess facts now",
-        "description": "Age-based removal runs first, then the count cap. Neither set removes nothing. Independent of the automatic pass ALINEOD_MEMORY_MAX_FACTS / ALINEOD_MEMORY_MAX_AGE_MS run after each remembered fact.",
+        "description": "Remove old or excess facts now. Age-based removal runs first, then the count cap. Returns what was removed. Age-based removal runs first, then the count cap. Neither set removes nothing. Independent of the automatic pass ALINEOD_MEMORY_MAX_FACTS / ALINEOD_MEMORY_MAX_AGE_MS run after each remembered fact.",
         "parameters": [
           {
             "name": "agentId",
@@ -2534,7 +2586,8 @@
           "501": {
             "description": "Memory disabled, or no embeddings endpoint configured"
           }
-        }
+        },
+        "operationId": "compactAgentFacts"
       }
     },
     "/agents/{agentId}/transcript": {
@@ -2716,7 +2769,9 @@
           "404": {
             "description": "No such agent"
           }
-        }
+        },
+        "operationId": "getAgentTranscript",
+        "description": "Return what the agent said and did, one entry per finished turn: messages, tool calls, and errors. Pass full=1 for untruncated text and the model's thinking."
       }
     },
     "/agents/{agentId}/result": {
@@ -2828,7 +2883,9 @@
               }
             }
           }
-        }
+        },
+        "operationId": "getAgentResult",
+        "description": "Resolve an agent's result. Returns 200 when settled and 202 while pending. Pass wait to long-poll for up to that many seconds."
       }
     }
   }
