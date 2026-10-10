@@ -39,16 +39,16 @@ run them. Name them in bold prose when a history note is needed.
 
 ### Package map (where to look)
 
-| Package | Role |
-|---|---|
-| `alineo` (`packages/agent`) | Agent SDK — the `Alineo` class |
-| `alineo-cli` (`packages/cli`) | The `alineo` binary |
-| `alineo-mcp` (`packages/mcp`) | MCP server over alineod's HTTP+SSE API |
-| `@alineo-labs/schema` | Types + Zod only: vocabulary, `AgentSpec`, event definitions, `LedgerEnvelope` |
-| `@alineo-labs/ledger` | Behaviour: `EventSink`, `LedgerStorage`, fold/replay helpers |
-| `@alineo-labs/memory` (+ `sqlite-memory`, `postgres-memory`) | Working + semantic memory, episodic recall |
-| `@alineo-labs/sandbox`, `@alineo-labs/workflow`, `@alineo-labs/otel`, `@alineo-labs/vault` | Not covered by this skill |
-| `apps/alineod` | The swarm daemon (Bun + Elysia + `bun:sqlite`) |
+| Package                                                                                    | Role                                                                           |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `alineo` (`packages/agent`)                                                                | Agent SDK — the `Alineo` class                                                 |
+| `alineo-cli` (`packages/cli`)                                                              | The `alineo` binary                                                            |
+| `alineo-mcp` (`packages/mcp`)                                                              | MCP server over alineod's HTTP+SSE API                                         |
+| `@alineo-labs/schema`                                                                      | Types + Zod only: vocabulary, `AgentSpec`, event definitions, `LedgerEnvelope` |
+| `@alineo-labs/ledger`                                                                      | Behaviour: `EventSink`, `LedgerStorage`, fold/replay helpers                   |
+| `@alineo-labs/memory` (+ `sqlite-memory`, `postgres-memory`)                               | Working + semantic memory, episodic recall                                     |
+| `@alineo-labs/sandbox`, `@alineo-labs/workflow`, `@alineo-labs/otel`, `@alineo-labs/vault` | Not covered by this skill                                                      |
+| `apps/alineod`                                                                             | The swarm daemon (Bun + Elysia + `bun:sqlite`)                                 |
 
 `Alineo.start()` installs the harness + setup steps once, then snapshots — subsequent starts
 restore from that **setup snapshot** (`agent.fromSnapshot`). Three ways back to a live agent:

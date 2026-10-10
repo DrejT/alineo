@@ -23,17 +23,17 @@ The CLI does **not** talk to it (there is no `alineo run` command): use `curl`, 
 
 Paths follow `/{subjects}/:id/{verb}` and are checked in CI.
 
-| Route | Does |
-|---|---|
-| `POST /runs`, `GET /runs/:id`, `DELETE /runs/:id` | create / inspect / close a run |
-| `GET /runs/:id/events` | SSE stream of the run's events (`Last-Event-ID` resumes) |
-| `POST /runs/:id/await` | wait on a set of agents (`settled`/`all`/`any`/`quorum`) |
-| `POST /runs/:id/agents` | spawn an agent (optionally with `waitFor`, `notifyOn`) |
-| `GET /agents/:id`, `/agents/:id/transcript`, `/agents/:id/await` | inspect / read / wait |
-| `POST /agents/:id/prompt` · `steer` · `pause` · `resume` · `stop` | drive an agent. `pause`/`resume`/`stop`/`steer` take `idempotencyKey`; `pause`/`resume`/`stop` take `scope: "agent"` (default) or `"subtree"` |
-| `POST /agents/:id/notify-on`, `GET /agents/:id/inbox`, `POST .../inbox/deliver` | parent notification |
-| `GET/PUT/DELETE /agents/:id/memory[/:key]`, `POST/GET .../facts`, `POST .../compactions` | agent memory |
-| `GET /health` | liveness |
+| Route                                                                                    | Does                                                                                                                                          |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /runs`, `GET /runs/:id`, `DELETE /runs/:id`                                        | create / inspect / close a run                                                                                                                |
+| `GET /runs/:id/events`                                                                   | SSE stream of the run's events (`Last-Event-ID` resumes)                                                                                      |
+| `POST /runs/:id/await`                                                                   | wait on a set of agents (`settled`/`all`/`any`/`quorum`)                                                                                      |
+| `POST /runs/:id/agents`                                                                  | spawn an agent (optionally with `waitFor`, `notifyOn`)                                                                                        |
+| `GET /agents/:id`, `/agents/:id/transcript`, `/agents/:id/await`                         | inspect / read / wait                                                                                                                         |
+| `POST /agents/:id/prompt` · `steer` · `pause` · `resume` · `stop`                        | drive an agent. `pause`/`resume`/`stop`/`steer` take `idempotencyKey`; `pause`/`resume`/`stop` take `scope: "agent"` (default) or `"subtree"` |
+| `POST /agents/:id/notify-on`, `GET /agents/:id/inbox`, `POST .../inbox/deliver`          | parent notification                                                                                                                           |
+| `GET/PUT/DELETE /agents/:id/memory[/:key]`, `POST/GET .../facts`, `POST .../compactions` | agent memory                                                                                                                                  |
+| `GET /health`                                                                            | liveness                                                                                                                                      |
 
 ## Budgets and run lifetime
 
@@ -71,12 +71,12 @@ An upstream API error ends a turn early. alineod must record that as a failure, 
 Do not say "durable" where the docs say "resumable". The table below is the claim; anything not
 in it is not built. Authoritative page: `/docs/alineod/concepts/durability-contract`.
 
-| Layer | alineod crash | Container loss / reboot | Disk or host loss |
-|---|---|---|---|
-| Sandbox session (`client.resume`) | yes | yes, to last `sb.checkpoint()` | no |
-| Agent SDK (`reattach`/`resume`) | yes | yes, to last turn checkpoint | no |
-| alineod swarm | yes | yes, to last completed turn **for specs with `checkpoint: true`**; otherwise the agent returns on a fresh container with a blank session | no |
-| Agent memory | yes | yes (keyed by agent identity) | no — one SQLite file, back it up (`apps/alineod/scripts/backup.ts`) |
+| Layer                             | alineod crash | Container loss / reboot                                                                                                                  | Disk or host loss                                                   |
+| --------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Sandbox session (`client.resume`) | yes           | yes, to last `sb.checkpoint()`                                                                                                           | no                                                                  |
+| Agent SDK (`reattach`/`resume`)   | yes           | yes, to last turn checkpoint                                                                                                             | no                                                                  |
+| alineod swarm                     | yes           | yes, to last completed turn **for specs with `checkpoint: true`**; otherwise the agent returns on a fresh container with a blank session | no                                                                  |
+| Agent memory                      | yes           | yes (keyed by agent identity)                                                                                                            | no — one SQLite file, back it up (`apps/alineod/scripts/backup.ts`) |
 
 Known gaps: no restore onto a different machine; one alineod instance per database; specs with
 `approval: "hold"` credential bindings cannot be restored onto a fresh container (agent ends
@@ -85,11 +85,11 @@ are **at-least-once**, not exactly-once.
 
 ### The three "snapshots"
 
-| Name | Taken | Carries |
-|---|---|---|
-| Setup snapshot | once per spec, by `Alineo.start()` | packages + setup steps; an *empty* conversation |
-| Turn checkpoint | after each clean turn when `checkpoint: true` | `/root`: Pi session + files — **the conversation** |
-| `sb.checkpoint()` | explicitly, Core SDK | whole container, for exec replay |
+| Name              | Taken                                         | Carries                                            |
+| ----------------- | --------------------------------------------- | -------------------------------------------------- |
+| Setup snapshot    | once per spec, by `Alineo.start()`            | packages + setup steps; an _empty_ conversation    |
+| Turn checkpoint   | after each clean turn when `checkpoint: true` | `/root`: Pi session + files — **the conversation** |
+| `sb.checkpoint()` | explicitly, Core SDK                          | whole container, for exec replay                   |
 
 ## Memory
 

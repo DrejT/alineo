@@ -2,20 +2,20 @@
 
 Run via `bunx alineo-cli <command>` or `alineo <command>` after global install.
 
-| Command | What it does |
-|---|---|
-| `alineo init` | Start OpenSandbox **and alineod** in Docker (see [below](#alineod-the-swarm-daemon)), write `alineo.config.json` |
-| `alineo agents` | List running agent sessions (ledger + live control-plane) |
-| `alineo start <spec> [--prompt <msg>]` | Start a fresh agent sandbox from a spec file, print its name; with `--prompt`, also send one prompt and print the reply — **direct SDK call, does not go through alineod** even if it's running |
-| `alineo prompt <id> <msg>` | Resume an agent and send one prompt |
-| `alineo spawn <parent> <spec>` | Attach to a live sandbox and spawn a child from its own live filesystem (needs `spawnDepth` > 0 on the parent) |
-| `alineo steer <sandbox-id> <msg>` | Redirect a running session — via `Alineo.reattach()`; lands at the session's next turn boundary, not instantly |
-| `alineo stop <id>` | Close a sandbox by ID |
-| `alineo logs <name>` | Print ledger events for a session |
-| `alineo add <url>` | Fetch and save an agent spec locally |
-| `alineo list` | List saved agent specs |
-| `alineo remove <name>` | Delete a saved agent spec |
-| `alineo telemetry status\|enable\|disable` | Anonymous usage telemetry toggle |
+| Command                                    | What it does                                                                                                                                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `alineo init`                              | Start OpenSandbox **and alineod** in Docker (see [below](#alineod-the-swarm-daemon)), write `alineo.config.json`                                                                                |
+| `alineo agents`                            | List running agent sessions (ledger + live control-plane)                                                                                                                                       |
+| `alineo start <spec> [--prompt <msg>]`     | Start a fresh agent sandbox from a spec file, print its name; with `--prompt`, also send one prompt and print the reply — **direct SDK call, does not go through alineod** even if it's running |
+| `alineo prompt <id> <msg>`                 | Resume an agent and send one prompt                                                                                                                                                             |
+| `alineo spawn <parent> <spec>`             | Attach to a live sandbox and spawn a child from its own live filesystem (needs `spawnDepth` > 0 on the parent)                                                                                  |
+| `alineo steer <sandbox-id> <msg>`          | Redirect a running session — via `Alineo.reattach()`; lands at the session's next turn boundary, not instantly                                                                                  |
+| `alineo stop <id>`                         | Close a sandbox by ID                                                                                                                                                                           |
+| `alineo logs <name>`                       | Print ledger events for a session                                                                                                                                                               |
+| `alineo add <url>`                         | Fetch and save an agent spec locally                                                                                                                                                            |
+| `alineo list`                              | List saved agent specs                                                                                                                                                                          |
+| `alineo remove <name>`                     | Delete a saved agent spec                                                                                                                                                                       |
+| `alineo telemetry status\|enable\|disable` | Anonymous usage telemetry toggle                                                                                                                                                                |
 
 Run `alineo --help` for the authoritative list: the help text and the dispatch table are both
 generated from `packages/cli/src/commands/registry.ts`. Retired: **alineo fork**, **alineo kill**,
@@ -23,11 +23,11 @@ generated from `packages/cli/src/commands/registry.ts`. Retired: **alineo fork**
 
 #### Config files
 
-| File | Location | Purpose |
-|---|---|---|
-| `alineo.config.json` | Project root (found by walking up) | `serverUrl`, `useServerProxy`, `adapterPath`, `defaults.resources`. Merged lowest-first with `~/.config/alineo/config.json`, then `ALINEO_*` env vars — one source in `@alineo-labs/config-shared` |
-| `~/.config/alineo/server.toml` | Global | OpenSandbox server config (written by `alineo init`; sets `eip` and, for egress sidecars, `host_ip = "host.docker.internal"`) |
-| `~/.config/alineo/opensandbox-data` | Global | Bind-mounted snapshot-metadata db, so cached snapshots survive the container being recreated |
+| File                                | Location                           | Purpose                                                                                                                                                                                            |
+| ----------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `alineo.config.json`                | Project root (found by walking up) | `serverUrl`, `useServerProxy`, `adapterPath`, `defaults.resources`. Merged lowest-first with `~/.config/alineo/config.json`, then `ALINEO_*` env vars — one source in `@alineo-labs/config-shared` |
+| `~/.config/alineo/server.toml`      | Global                             | OpenSandbox server config (written by `alineo init`; sets `eip` and, for egress sidecars, `host_ip = "host.docker.internal"`)                                                                      |
+| `~/.config/alineo/opensandbox-data` | Global                             | Bind-mounted snapshot-metadata db, so cached snapshots survive the container being recreated                                                                                                       |
 
 ## alineod (the swarm daemon)
 
@@ -71,7 +71,7 @@ call the `Alineo` SDK class **directly**, in-process, regardless of whether alin
 alineod itself is built by calling that same `Alineo.start()`/`.spawn()` API **server-side**, from
 inside its own process, driven by its HTTP routes (`POST /runs`, `POST /runs/:id/agents`, `waitFor`
 gather, `/steer`, `/pause`/`/resume`, SSE `/runs/:id/events`, ...). There is currently no CLI
-subcommand that creates a run *through* alineod — you `curl -X POST localhost:4600/runs -d
+subcommand that creates a run _through_ alineod — you `curl -X POST localhost:4600/runs -d
 '{"spec": ..., "prompt": ...}'` directly, or run a script (`apps/alineod/scripts/demo-swarm.py`,
 any `cookbooks/*/index.ts`). Full API + quickstart: `apps/alineod/README.md` and
 `/docs/alineod`. For the MCP route, see [alineod § MCP server](alineod.md#mcp-server-alineo-mcp);

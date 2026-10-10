@@ -28,27 +28,27 @@ try {
 Source of truth: `packages/schema/src/agent-spec.ts` (interface + Zod, kept in step by a drift test).
 The old field names `cli`/`cliVersion` are gone — they are `harness`/`harnessVersion`.
 
-| Field        | Type                     | Notes                                                            |
-| ------------ | ------------------------ | ----------------------------------------------------------------- |
-| `name`       | `string`                 | Sandbox session name                                              |
-| `harness`    | `"pi"`                   | Agent-loop driver. Only `"pi"` today                              |
-| `harnessVersion` | `string?`            | npm specifier for the harness, e.g. `"0.80.2"`. Defaults to latest |
-| `model`      | `string`                 | **Required.** Passed via `--model`; a result must be attributable to a model |
-| `provider`   | `string?`                | AI provider via `--provider`; omit for direct API key             |
-| `packages`   | `string[]?`              | APT packages installed before the harness                         |
-| `env`        | `Record<string, string \| CredentialEnvBinding>?` | `"${MY_KEY}"` resolves from host env. A `CredentialEnvBinding` never becomes a container env var — see [Credentials](#credentials-and-egress) |
-| `resources`  | `{ cpu, memory, gpu? }?` | Falls back to `alineo.config.json` `defaults.resources`           |
-| `setup`      | `SetupStep[]?`           | `{ name, run, cwd? }[]` — bash steps run before the snapshot      |
-| `spawnDepth` | `number?`                | Nesting budget for `agent.spawn()`; omit = spawning disabled      |
-| `maxAgents`  | `number?`                | Optional cap on total descendants for this lineage                |
-| `permissions` | `"auto" \| "ask" \| "readonly" \| PermissionPolicy` | Human-in-the-loop tool-call gate, default `"auto"` — see [Permissions](#permissions) |
-| `onFailure`  | `"fail" \| "ask" \| "retry"` | Failed-turn policy, default `"fail"` — see [Failure policy](#failure-policy) |
-| `maxRetries` | `number?`                | Required in effect when `onFailure: "retry"`; no default          |
-| `maxConsecutiveFailures` | `number?`    | Circuit breaker, default 3                                        |
-| `checkpoint` | `boolean?`               | Opt in to a turn checkpoint after every clean turn — see [Turn checkpoints](#turn-checkpoints) |
-| `teamId` / `resourceId` | `string?`     | Memory scope identity for `agent.resourceRef` (`resourceId` defaults to `name`) |
-| `metadata`, `title`, `description`, `author`, `categories` | — | Registry-facing; `metadata` has no runtime effect |
-| `registryDependencies` | `string[]?`    | Used by `alineo add` only                                         |
+| Field                                                      | Type                                                | Notes                                                                                                                                         |
+| ---------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                                     | `string`                                            | Sandbox session name                                                                                                                          |
+| `harness`                                                  | `"pi"`                                              | Agent-loop driver. Only `"pi"` today                                                                                                          |
+| `harnessVersion`                                           | `string?`                                           | npm specifier for the harness, e.g. `"0.80.2"`. Defaults to latest                                                                            |
+| `model`                                                    | `string`                                            | **Required.** Passed via `--model`; a result must be attributable to a model                                                                  |
+| `provider`                                                 | `string?`                                           | AI provider via `--provider`; omit for direct API key                                                                                         |
+| `packages`                                                 | `string[]?`                                         | APT packages installed before the harness                                                                                                     |
+| `env`                                                      | `Record<string, string \| CredentialEnvBinding>?`   | `"${MY_KEY}"` resolves from host env. A `CredentialEnvBinding` never becomes a container env var — see [Credentials](#credentials-and-egress) |
+| `resources`                                                | `{ cpu, memory, gpu? }?`                            | Falls back to `alineo.config.json` `defaults.resources`                                                                                       |
+| `setup`                                                    | `SetupStep[]?`                                      | `{ name, run, cwd? }[]` — bash steps run before the snapshot                                                                                  |
+| `spawnDepth`                                               | `number?`                                           | Nesting budget for `agent.spawn()`; omit = spawning disabled                                                                                  |
+| `maxAgents`                                                | `number?`                                           | Optional cap on total descendants for this lineage                                                                                            |
+| `permissions`                                              | `"auto" \| "ask" \| "readonly" \| PermissionPolicy` | Human-in-the-loop tool-call gate, default `"auto"` — see [Permissions](#permissions)                                                          |
+| `onFailure`                                                | `"fail" \| "ask" \| "retry"`                        | Failed-turn policy, default `"fail"` — see [Failure policy](#failure-policy)                                                                  |
+| `maxRetries`                                               | `number?`                                           | Required in effect when `onFailure: "retry"`; no default                                                                                      |
+| `maxConsecutiveFailures`                                   | `number?`                                           | Circuit breaker, default 3                                                                                                                    |
+| `checkpoint`                                               | `boolean?`                                          | Opt in to a turn checkpoint after every clean turn — see [Turn checkpoints](#turn-checkpoints)                                                |
+| `teamId` / `resourceId`                                    | `string?`                                           | Memory scope identity for `agent.resourceRef` (`resourceId` defaults to `name`)                                                               |
+| `metadata`, `title`, `description`, `author`, `categories` | —                                                   | Registry-facing; `metadata` has no runtime effect                                                                                             |
+| `registryDependencies`                                     | `string[]?`                                         | Used by `alineo add` only                                                                                                                     |
 
 Changing `harness`/`harnessVersion`/`packages`/`setup` invalidates the cached setup snapshot
 automatically. `permissions`, `onFailure` and `checkpoint` do not.
@@ -60,13 +60,13 @@ else — every field, every problem reported at once. An invalid spec throws
 
 ## Loading and lifecycle
 
-| Call | Behavior |
-|---|---|
-| `Alineo.start(specPath, opts)` | Spin up (or restore from snapshot) a sandbox, install Pi, run setup, return a ready `Alineo`. `opts.rebuild: true` forces a full reinstall. |
-| `Alineo.reattach(sandboxId, opts)` | Reconnect to a live sandbox, **keeping its bridge** if it is alive. Try this first; fall back to `resume` if it throws. `skipReadyCheck: true` accepts a Paused sandbox (resume it yourself, then `agent.adapter.waitReady()`). |
-| `Alineo.resume(sandboxId, opts)` | The bridge really is gone: restarts it. Pi/workspace untouched. If the container itself is gone, restores from the latest turn checkpoint into a fresh container (needs `checkpoint: true` on the spec). |
-| `Alineo.attach(sandboxId, opts)` | Connect **without** touching the bridge (unlike `resume`, which kills+restarts it). Use for `.spawn()`-only access — `.prompt()`/`.bash()` throw since there's no bridge. This is how `alineo spawn` attaches from inside the very Pi bash-tool call spawning it. |
-| `agent.close()` | Stop the container, release resources. Always call in `finally`. |
+| Call                               | Behavior                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Alineo.start(specPath, opts)`     | Spin up (or restore from snapshot) a sandbox, install Pi, run setup, return a ready `Alineo`. `opts.rebuild: true` forces a full reinstall.                                                                                                                       |
+| `Alineo.reattach(sandboxId, opts)` | Reconnect to a live sandbox, **keeping its bridge** if it is alive. Try this first; fall back to `resume` if it throws. `skipReadyCheck: true` accepts a Paused sandbox (resume it yourself, then `agent.adapter.waitReady()`).                                   |
+| `Alineo.resume(sandboxId, opts)`   | The bridge really is gone: restarts it. Pi/workspace untouched. If the container itself is gone, restores from the latest turn checkpoint into a fresh container (needs `checkpoint: true` on the spec).                                                          |
+| `Alineo.attach(sandboxId, opts)`   | Connect **without** touching the bridge (unlike `resume`, which kills+restarts it). Use for `.spawn()`-only access — `.prompt()`/`.bash()` throw since there's no bridge. This is how `alineo spawn` attaches from inside the very Pi bash-tool call spawning it. |
+| `agent.close()`                    | Stop the container, release resources. Always call in `finally`.                                                                                                                                                                                                  |
 
 Every constructor takes `opts.adapter` (required) and optionally `opts.memory` (a `Memory` instance, exposed as `agent.memory`) and `opts.config`/`opts.runId`.
 
@@ -80,6 +80,7 @@ Load 2 (warm):   snapshot restore → bridge                                   ~
 `agent.spawn(childSpecPath, opts?)` forks **this agent's own live sandbox** — filesystem,
 installed packages, uncommitted state, everything currently on disk — into a new independent
 sandbox with its own Pi bridge. No install/setup steps re-run. Different from:
+
 - `Alineo.start()` — always starts fresh from a spec's own snapshot.
 - `agent.branchSession()`/`agent.duplicateSession()` — harness conversation branching, same container/bridge.
 
@@ -126,11 +127,11 @@ makes a matching request wait for a human — `agent.pendingEgressRequests()` li
 A turn can end without finishing: an upstream model-API error, a tool failure, alineod restarting.
 `onFailure` chooses what happens:
 
-| Value | On a failed turn |
-|---|---|
-| `"fail"` (default) | The turn settles failed, with the error |
-| `"ask"` | The agent is held `blocked` until someone prompts (retry, optionally with corrective text) or stops it |
-| `"retry"` | Re-prompts up to `maxRetries`, then holds as `"ask"` |
+| Value              | On a failed turn                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `"fail"` (default) | The turn settles failed, with the error                                                                |
+| `"ask"`            | The agent is held `blocked` until someone prompts (retry, optionally with corrective text) or stops it |
+| `"retry"`          | Re-prompts up to `maxRetries`, then holds as `"ask"`                                                   |
 
 `maxConsecutiveFailures` (default 3) blocks the agent regardless of policy so a retry budget or a
 patient operator can't become a cost loop. Supervision is opt-in: a turn may have real side
@@ -156,35 +157,35 @@ container died is recorded as `agent.turn_interrupted`, never silently dropped o
 
 ## Mid-flight control & session management
 
-| Call | Behavior |
-|---|---|
-| `agent.steer(message)` | Redirect Pi's current response mid-flight |
-| `agent.followUp(message)` | Queue a message for after the current task finishes |
-| `agent.abort()` | Interrupt the in-progress response |
-| `agent.newSession()` | Fresh Pi conversation; filesystem unchanged |
-| `agent.duplicateSession()` | Branch the conversation here → `{ cancelled }` |
-| `agent.branchSession(entryId)` | Branch the conversation from a history entry → `{ text, cancelled }` |
-| `agent.getMessages()` / `agent.getBranchPoints()` | Full history / where the conversation can branch |
-| `agent.setModel(provider, modelId)` / `agent.cycleModel()` | Model switching |
-| `agent.getAvailableModels()` | List every model available to Pi under the current provider config — the way to find a valid `modelId` for `setModel()`/a spec's `model` field, rather than guessing the string |
-| `agent.setThinkingLevel(level)` / `agent.cycleThinkingLevel()` | Reasoning effort |
-| `agent.compact(instructions?)` / `agent.setAutoCompaction(bool)` | Context compaction |
-| `agent.setAutoRetry(bool)` / `agent.abortRetry()` | Retry on 429/500/502/503/504 (on by default: 3 attempts, 2s/4s/8s backoff) |
-| `agent.setEnv(vars)` | Update container env; restarts Pi to pick it up |
-| `agent.getSessionStats()` / `agent.getLogs()` / `agent.exportHtml()` | Inspection/export |
+| Call                                                                 | Behavior                                                                                                                                                                        |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent.steer(message)`                                               | Redirect Pi's current response mid-flight                                                                                                                                       |
+| `agent.followUp(message)`                                            | Queue a message for after the current task finishes                                                                                                                             |
+| `agent.abort()`                                                      | Interrupt the in-progress response                                                                                                                                              |
+| `agent.newSession()`                                                 | Fresh Pi conversation; filesystem unchanged                                                                                                                                     |
+| `agent.duplicateSession()`                                           | Branch the conversation here → `{ cancelled }`                                                                                                                                  |
+| `agent.branchSession(entryId)`                                       | Branch the conversation from a history entry → `{ text, cancelled }`                                                                                                            |
+| `agent.getMessages()` / `agent.getBranchPoints()`                    | Full history / where the conversation can branch                                                                                                                                |
+| `agent.setModel(provider, modelId)` / `agent.cycleModel()`           | Model switching                                                                                                                                                                 |
+| `agent.getAvailableModels()`                                         | List every model available to Pi under the current provider config — the way to find a valid `modelId` for `setModel()`/a spec's `model` field, rather than guessing the string |
+| `agent.setThinkingLevel(level)` / `agent.cycleThinkingLevel()`       | Reasoning effort                                                                                                                                                                |
+| `agent.compact(instructions?)` / `agent.setAutoCompaction(bool)`     | Context compaction                                                                                                                                                              |
+| `agent.setAutoRetry(bool)` / `agent.abortRetry()`                    | Retry on 429/500/502/503/504 (on by default: 3 attempts, 2s/4s/8s backoff)                                                                                                      |
+| `agent.setEnv(vars)`                                                 | Update container env; restarts Pi to pick it up                                                                                                                                 |
+| `agent.getSessionStats()` / `agent.getLogs()` / `agent.exportHtml()` | Inspection/export                                                                                                                                                               |
 
 `agent.sandbox` gives direct access to the underlying `SandboxHandle` — `exec()`, `readFile()`,
 `writeFile()`, etc. — independent of Pi.
 
 ## Properties
 
-| Property | Type | Notes |
-|---|---|---|
-| `agent.sandboxId` | `string` | OpenSandbox container ID |
-| `agent.resourceRef` | `ResourceRef` | Durable memory scope (`resourceId`, optional `teamId`) |
-| `agent.memory` | `Memory?` | Present when a `Memory` was passed in `opts` |
-| `agent.name` | `string` | Name from the spec |
-| `agent.sandbox` | `SandboxHandle` | Underlying sandbox object |
-| `agent.fromSnapshot` | `boolean` | `true` when restored from cache |
+| Property             | Type            | Notes                                                  |
+| -------------------- | --------------- | ------------------------------------------------------ |
+| `agent.sandboxId`    | `string`        | OpenSandbox container ID                               |
+| `agent.resourceRef`  | `ResourceRef`   | Durable memory scope (`resourceId`, optional `teamId`) |
+| `agent.memory`       | `Memory?`       | Present when a `Memory` was passed in `opts`           |
+| `agent.name`         | `string`        | Name from the spec                                     |
+| `agent.sandbox`      | `SandboxHandle` | Underlying sandbox object                              |
+| `agent.fromSnapshot` | `boolean`       | `true` when restored from cache                        |
 
 Full reference: `packages/agent/README.md`.

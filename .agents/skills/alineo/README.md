@@ -15,6 +15,7 @@ This will automatically fetch and install the skill into your `.agents/skills/al
 ## What This Skill Does
 
 When an AI agent is equipped with this skill, it gains deep, context-aware knowledge of the Alineo framework. Specifically, the skill enables the agent to:
+
 - **Write and Debug Alineo Agent Code**: Generate correct TypeScript SDK code for starting, resuming, reattaching and spawning Pi agents, including streaming prompts, session control, permissions and checkpoints.
 - **Use the Alineo CLI**: Expertly navigate the `alineo-cli` for local development workflows, including what `alineo init` now sets up (OpenSandbox + the alineod container) and how to feed it a model API key.
 - **Troubleshoot Effectively**: Quickly diagnose common issues, especially Windows-specific gotchas or SQLite/Postgres adapter problems.
