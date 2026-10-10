@@ -47,6 +47,19 @@ const agent = await Alineo.start(specPath, { adapter: new SQLiteAdapter("./.alin
 Always close the agent in `afterAll`/`finally` — avoids container leaks and ensures
 `sandbox.closed` is written to the ledger.
 
+Tests read `OPEN_SANDBOX_SERVER_PROXY` (default **on**, because an `alineo init` server hands out
+container-internal endpoints the host can't reach). Set it to `false` for a bare
+`uvx opensandbox-server`.
+
+**Testing a branch's CLI:** specs that spawn children do `npm install -g alineo-cli`, which pulls
+npm's version, not your checkout's. Use `bun scripts/local-cli-spec.ts <spec.json> [out.json]` to
+rewrite a spec to install the local build.
+
+**Pinning an NVIDIA model:** answering `/v1/chat/completions` is not the bar — a reasoning model
+that streams nothing while it thinks trips alineod's 180 s prompt-inactivity timeout and the turn
+comes back empty. Re-measure with `bun apps/alineod/scripts/probe-models.ts <model...>`, several
+samples (the failure is intermittent).
+
 Assert on observable behaviour, not internals:
 
 ```ts
@@ -69,6 +82,14 @@ bun scripts/new-example.ts <name>
 #   tests/integration/<name>.test.ts
 ```
 
+## Docs
+
+`apps/docs/content/docs/` is **unversioned** — edit pages in place (the `vX.Y` folders and
+`cut-doc-version.ts` were removed in #232). Layout per product: `index.mdx`, `quickstart.mdx`,
+`concepts/`, `api-reference/`. Snippets must come from `packages/*/src`, not from another page.
+Don't claim ahead of the durability roadmap: "resumable to the last completed turn" is proved,
+"durable" is not.
+
 ## Build & Release
 
 ```bash
@@ -88,6 +109,9 @@ Before committing work on this repo:
 - [ ] `bun run test` — all unit tests pass
 - [ ] `bun run typecheck` — no TypeScript errors
 - [ ] `bun run build` — all packages build cleanly
+- [ ] `bun run check:vocabulary` — CLI/MCP/HTTP/event names agree, every spec validates
+- [ ] `bun run check:dead-code` — fallow; removing dead code is **its own commit**, never mixed into a feature
+- [ ] `bun run check:docs-links` if you moved or renamed a docs page (add a `_redirects` rule, one hop)
 - [ ] Integration test if touching sandbox lifecycle: `bun run test:integration`
 - [ ] Changeset added if touching any publishable package: `bunx changeset`
 - [ ] Changeset committed (not just staged): `bunx changeset status --since origin/main`
