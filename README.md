@@ -101,6 +101,10 @@ npx skills add DrejT/alineo --skill alineo
 
 </details>
 
+
+
+Agent products give you one agent. Sandbox providers give you a box. alineo is the layer between them: it runs many agents, keeps a record of what each one did, and lets a person stay in control. It is fully open source under Apache 2.0, runs locally with no account, and has no closed control plane.
+
 ## Community
 
 [Discord](https://discord.com/invite/XGkPu3YBH4) ·
