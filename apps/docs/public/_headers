@@ -12,8 +12,6 @@
   Content-Type: image/png
 /docs-og/*
   Content-Type: image/png
-/blog-og/*
-  Content-Type: image/png
 
 # llms.txt / llms-full.txt are Markdown. Serve them as such — matches the per-page
 # /llms.mdx/*.md responses (Cloudflare already types those correctly from the .md
@@ -22,12 +20,3 @@
   Content-Type: text/markdown; charset=utf-8
 /llms-full.txt
   Content-Type: text/markdown; charset=utf-8
-
-# Feed readers want application/rss+xml (Cloudflare would serve .xml as application/xml).
-/blog/rss.xml
-  Content-Type: application/rss+xml; charset=utf-8
-
-# Blog cover images / demo GIFs are content-addressed by slug and never change in place —
-# a new asset gets a new path. Cache hard.
-/blog-assets/*
-  Cache-Control: public, max-age=31536000, immutable

@@ -7,7 +7,7 @@
 // `apps/docs/public/_redirects` is read only by Cloudflare Pages, after deploy — so a page
 // move with one wrong path builds green and becomes a 404 that a reader finds. Four checks:
 //
-//   1. Links     — every `/docs/...` link in docs and blog MDX, in the docs app's own source,
+//   1. Links     — every `/docs/...` link in docs MDX, in the docs app's own source,
 //                  and every `docs.alineo.tech/docs/...` URL anywhere in the repo resolves to
 //                  a live page. A link that only works through a redirect fails too: the
 //                  redirect is for URLs we no longer control, not for ones we write today.
@@ -26,7 +26,6 @@ import { join, relative } from "node:path";
 const ROOT = join(import.meta.dir, "..");
 const DOCS_APP = join(ROOT, "apps/docs");
 const CONTENT = join(DOCS_APP, "content/docs");
-const BLOG = join(DOCS_APP, "content/blog");
 const PUBLIC = join(DOCS_APP, "public");
 const APP = join(DOCS_APP, "src/app");
 const REDIRECTS = join(PUBLIC, "_redirects");
@@ -57,12 +56,8 @@ for (const file of new Bun.Glob("**/*.mdx").scanSync({ cwd: CONTENT })) {
   routes.add(stripTrailingSlash(`/docs/${path}`));
 }
 
-for (const file of new Bun.Glob("*.mdx").scanSync({ cwd: BLOG })) {
-  routes.add(`/blog/${file.replace(/\.mdx$/, "")}`);
-}
-
 // Static app pages: every `page.tsx` without a dynamic segment. The dynamic ones are the docs
-// collections and blog posts, both covered above.
+// collections, covered above.
 for (const file of new Bun.Glob("**/page.tsx").scanSync({ cwd: APP })) {
   if (file.includes("[")) continue;
   const dir = file.replace(/\/?page\.tsx$/, "");
@@ -158,9 +153,6 @@ function scan(file: string, patterns: RegExp[]): void {
 }
 
 for (const file of new Bun.Glob("**/*.mdx").scanSync({ cwd: CONTENT, absolute: true })) {
-  scan(file, [MARKDOWN_LINK, ATTRIBUTE_LINK, ABSOLUTE_LINK]);
-}
-for (const file of new Bun.Glob("*.mdx").scanSync({ cwd: BLOG, absolute: true })) {
   scan(file, [MARKDOWN_LINK, ATTRIBUTE_LINK, ABSOLUTE_LINK]);
 }
 for (const file of new Bun.Glob("**/*.{ts,tsx}").scanSync({
