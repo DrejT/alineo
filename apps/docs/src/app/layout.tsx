@@ -69,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               { text: "Docs", url: "/docs/alineod", active: "nested-url" },
               { text: "Cookbook", url: "/cookbook", active: "nested-url" },
               { text: "Playground", url: "/docs/playground", active: "nested-url" },
-              { text: "Blog", url: "/blog", active: "nested-url" },
+              { text: "Blog", url: "https://alineo.tech/blog", active: "none" },
               { text: "FAQ", url: "/faq", active: "nested-url" },
               { text: "Changelog", url: "/changelog", active: "nested-url" },
             ]}

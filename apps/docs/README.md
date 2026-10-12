@@ -15,7 +15,6 @@ content/docs/
   workflow/    — Workflow SDK, `@alineo-labs/workflow`: the lazy pipeline builder
   cookbooks/   — task-shaped recipes across products
   playground/  — in-browser runs
-content/blog/  — blog posts
 src/
   app/            — Next.js App Router routes, layout, sitemap
   components/     — search dialog, playground, cookbook widgets
