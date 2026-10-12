@@ -11,7 +11,7 @@
 //                  and every `docs.alineo.tech/docs/...` URL anywhere in the repo resolves to
 //                  a live page. A link that only works through a redirect fails too: the
 //                  redirect is for URLs we no longer control, not for ones we write today.
-//   2. Targets   — every internal `_redirects` target is a live page (absolute URLs are skipped).
+//   2. Targets   — every `_redirects` target is a live page.
 //   3. Chains    — no `_redirects` target is itself a redirect source. One hop, always.
 //   4. Shadowing — no `_redirects` source is a live page. Cloudflare applies the rule before
 //                  serving the file, so a rule on a live URL silently hides that page.
@@ -99,9 +99,6 @@ function isRedirectSource(path: string): boolean {
 
 for (const rule of rules) {
   const where = `_redirects:${rule.line} (${rule.from} → ${rule.to})`;
-
-  // An absolute URL points at another site (e.g. the blog at alineo.tech); nothing to check.
-  if (/^https?:\/\//.test(rule.to)) continue;
 
   // A `:splat` target can only be checked at its fixed prefix; the rest is the caller's path.
   const target = stripTrailingSlash(rule.to.replace(/\/?:splat$/, ""));
