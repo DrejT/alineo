@@ -1,6 +1,6 @@
 # alineo
 
-Run [Pi](https://pi.ai) coding agents inside isolated [alineo](https://alineo.tech) sandbox containers. Pi can read and write files, run shell commands, and execute scripts — streamed back through a simple TypeScript API.
+Run [Pi](https://github.com/earendil-works/pi) coding agents inside isolated [alineo](https://alineo.tech) sandbox containers. Pi can read and write files, run shell commands, and execute scripts — streamed back through a simple TypeScript API.
 
 ```bash
 bun add alineo
