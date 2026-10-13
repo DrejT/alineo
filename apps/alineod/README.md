@@ -2,8 +2,6 @@
 
 The swarm control daemon — HTTP + SSE orchestration for swarms of sandboxed agents.
 
-Design: [`research/daemon.md`](../../../research/daemon.md).
-
 **User docs:** `apps/docs/content/docs/alineod/` — published at `/docs/alineod` (quickstart, deployment,
 guides, HTTP API and event reference).
 
@@ -102,7 +100,7 @@ forks the parent's scope into each child. Working memory is always on; semantic 
 `ALINEOD_MEMORY_EMBEDDINGS_URL` + `_MODEL` point at an OpenAI-compatible embeddings endpoint.
 `ALINEOD_MEMORY_ENABLED=false` opts out. The routes resolve the scope from the persisted spec, so memory
 stays reachable after an agent ends. See the
-[Agent memory guide](../docs/content/docs/alineod/guides/memory.mdx).
+[Agent memory guide](https://docs.alineo.tech/docs/alineod/concepts/memory).
 
 ## State (`bun:sqlite`, `src/state/db.ts`)
 
@@ -146,7 +144,6 @@ disturb a running swarm.
 
 Agent-initiated coordination (an agent's own `await` / `notifyWhen`) · checkpoint & rollback · `interrupt` /
 `rebudget` · context-policy knobs · channels · the authority model.
-See [`research/open-questions.md`](../../../research/open-questions.md).
 
 ## Known issues
 

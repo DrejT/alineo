@@ -57,7 +57,7 @@ try {
 }
 ```
 
-Agents run [Pi](https://pi.ai) inside [OpenSandbox](https://opensandbox.ai) containers.
+Agents run [Pi](https://github.com/earendil-works/pi) inside [OpenSandbox](https://opensandbox.ai) containers.
 [Full quickstart →](https://docs.alineo.tech/docs/agent/quickstart)
 
 ## What you get
