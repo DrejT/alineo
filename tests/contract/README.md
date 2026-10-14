@@ -44,4 +44,6 @@ It creates and closes real sandboxes. It takes about a minute.
 ## What it has found
 
 - `execd v1.0.22` emits one stdout event per line **without the newline**, so `echo one; echo two`
-  returned `"onetwo"`. `release-1.1.1` keeps the newline. `alineo init` pinned `v1.0.22`.
+  returned `"onetwo"`. `release-1.1.1` keeps the newline (OpenSandbox 380322ba). `alineo init`
+  pinned `v1.0.22`. Fixed twice: the pin moved to `release-1.1.1`, and `ExecHandle` restores the
+  endings for installs that kept the old pin. The suite passes on both execd versions.

@@ -1,6 +1,26 @@
 import { SSEEventType } from "@alineo-labs/opensandbox";
 import type { SSEEvent } from "@alineo-labs/opensandbox";
 
+/**
+ * True when a stream of output events was split into lines by a server that dropped the line
+ * ending, as `execd` before 1.1.1 did (OpenSandbox 380322ba, "preserve command output line
+ * endings"). `echo one; echo two` then arrives as the two events `"one"` and `"two"`.
+ *
+ * It is a statement about the whole stream: at least two events, none of which contains a `\n` or
+ * `\r`. A server that keeps line endings emits one event per line *with* its ending, and a
+ * trailing fragment with no ending only as the last event, so it never produces this shape.
+ * A stream with a single event is left alone, because one ending-less event is also what
+ * `printf abc` looks like on a server that keeps line endings.
+ */
+export function lineEndingsStripped(events: readonly string[]): boolean {
+  return events.length >= 2 && events.every((text) => !/[\r\n]/.test(text));
+}
+
+/** The text of a stream of output events, with line endings restored when the server dropped them. */
+export function joinOutputEvents(events: readonly string[]): string {
+  return lineEndingsStripped(events) ? `${events.join("\n")}\n` : events.join("");
+}
+
 export interface ExecResult {
   stdout: string;
   stderr: string;
@@ -56,8 +76,12 @@ export class ExecHandle implements PromiseLike<ExecResult> {
   private _done = false;
   private _err: unknown;
   private _hasErr = false;
+  private readonly _lineEvents: boolean;
 
   constructor(driver: ExecDriver) {
+    // Only a command stream is line events. PTY output is raw terminal bytes in arbitrary
+    // chunks, and a replayed result is already one string, so neither is touched.
+    this._lineEvents = driver.type === "stream";
     if (driver.type === "replay") {
       if (driver.result.stdout) this._chunks.push(driver.result.stdout);
       this._done = true;
@@ -135,8 +159,8 @@ export class ExecHandle implements PromiseLike<ExecResult> {
     }
 
     const result: ExecResult = {
-      stdout: this._chunks.join(""),
-      stderr: stderr.join(""),
+      stdout: joinOutputEvents(this._chunks),
+      stderr: joinOutputEvents(stderr),
       exitCode,
     };
     await onDone(result);
@@ -161,17 +185,46 @@ export class ExecHandle implements PromiseLike<ExecResult> {
     return this._promise;
   }
 
-  /** Async generator yielding stdout chunks as they arrive. */
+  /**
+   * Async generator yielding stdout chunks as they arrive.
+   *
+   * Chunks carry their own line endings. Against a server that drops them (`execd` before
+   * 1.1.1), a chunk with no ending is held until the next event or the end of the stream, which
+   * is what tells the two cases apart, and then yielded with its ending restored. A server that
+   * keeps endings is never held: every complete line has one, and a trailing fragment is
+   * followed by the end of the stream.
+   */
   async *stdout(): AsyncGenerator<string> {
     let pos = 0;
     while (true) {
-      while (pos < this._chunks.length) yield this._chunks[pos++];
-      if (this._done) break;
+      while (pos < this._chunks.length) {
+        const chunk = this._chunks[pos];
+        const hasEnding = !this._lineEvents || /[\r\n]/.test(chunk);
+        const isLastSoFar = pos === this._chunks.length - 1;
+        if (hasEnding) {
+          pos++;
+          yield chunk;
+        } else if (!isLastSoFar) {
+          // Another event followed an ending-less one: the ending was dropped.
+          pos++;
+          yield `${chunk}\n`;
+        } else if (this._done) {
+          // The last event, and the stream is over. Restore the ending only when the whole
+          // stream was line events with theirs dropped.
+          pos++;
+          yield lineEndingsStripped(this._chunks) ? `${chunk}\n` : chunk;
+        } else {
+          break; // might be a fragment or a line: wait for the next event or the end
+        }
+      }
+      if (this._done) {
+        if (pos >= this._chunks.length) break;
+        continue;
+      }
       await new Promise<void>((r) => {
         this._wakeup = r;
       });
     }
-    while (pos < this._chunks.length) yield this._chunks[pos++];
     if (this._hasErr) throw this._err;
   }
 

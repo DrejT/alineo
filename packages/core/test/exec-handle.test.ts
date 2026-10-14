@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ExecHandle } from "../src/exec-handle.ts";
+import { ExecHandle, joinOutputEvents, lineEndingsStripped } from "../src/exec-handle.ts";
 import { SSEEventType } from "@alineo-labs/opensandbox";
 import type { SSEEvent } from "@alineo-labs/opensandbox";
 
@@ -62,23 +62,23 @@ describe("ExecHandle — streaming mode", () => {
   it("streams stdout chunks via stdout() generator", async () => {
     const handle = new ExecHandle({
       type: "stream",
-      gen: makeStream([stdout("a"), stdout("b"), stdout("c"), error(0)]),
+      gen: makeStream([stdout("a\n"), stdout("b\n"), stdout("c\n"), error(0)]),
       onDone: async () => {},
     });
     const chunks: string[] = [];
     for await (const chunk of handle.stdout()) chunks.push(chunk);
-    expect(chunks).toEqual(["a", "b", "c"]);
+    expect(chunks).toEqual(["a\n", "b\n", "c\n"]);
   });
 
   it("pipe() writes chunks to writable", async () => {
     const handle = new ExecHandle({
       type: "stream",
-      gen: makeStream([stdout("x"), stdout("y"), error(0)]),
+      gen: makeStream([stdout("x\n"), stdout("y\n"), error(0)]),
       onDone: async () => {},
     });
     const written: string[] = [];
     await handle.pipe({ write: (c) => written.push(c) });
-    expect(written).toEqual(["x", "y"]);
+    expect(written).toEqual(["x\n", "y\n"]);
   });
 
   it("calls onDone with the completed result", async () => {
@@ -132,5 +132,96 @@ describe("ExecHandle — replay mode", () => {
     });
     const result = await handle.result();
     expect(result.exitCode).toBe(5);
+  });
+});
+
+describe("line endings dropped by execd before 1.1.1", () => {
+  it("restores them in the result when every event is a bare line", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("one"), stdout("two"), stdout("three"), error(0)]),
+      onDone: async () => {},
+    });
+    expect(result.stdout).toBe("one\ntwo\nthree\n");
+  });
+
+  it("does the same for stderr", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([stderr("e1"), stderr("e2"), error(1)]),
+      onDone: async () => {},
+    });
+    expect(result.stderr).toBe("e1\ne2\n");
+  });
+
+  it("leaves a stream alone when the events carry their own endings", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("one\n"), stdout("two\n"), error(0)]),
+      onDone: async () => {},
+    });
+    expect(result.stdout).toBe("one\ntwo\n");
+  });
+
+  it("leaves a trailing fragment alone when earlier events had endings", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("one\n"), stdout("tail"), error(0)]),
+      onDone: async () => {},
+    });
+    expect(result.stdout).toBe("one\ntail");
+  });
+
+  it("leaves a single ending-less event alone (printf abc)", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("abc"), error(0)]),
+      onDone: async () => {},
+    });
+    expect(result.stdout).toBe("abc");
+  });
+
+  it("restores the endings in the streamed chunks too", async () => {
+    const handle = new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("one"), stdout("two"), stdout("three"), error(0)]),
+      onDone: async () => {},
+    });
+    const chunks: string[] = [];
+    for await (const chunk of handle.stdout()) chunks.push(chunk);
+    expect(chunks.join("")).toBe("one\ntwo\nthree\n");
+    expect(chunks).toEqual(["one\n", "two\n", "three\n"]);
+  });
+
+  it("does not hold back chunks from a server that keeps endings", async () => {
+    const handle = new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("a\n"), stdout("b\n"), error(0)]),
+      onDone: async () => {},
+    });
+    const chunks: string[] = [];
+    for await (const chunk of handle.stdout()) chunks.push(chunk);
+    expect(chunks).toEqual(["a\n", "b\n"]);
+  });
+
+  it("a carriage return counts as an ending (progress output)", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("10%\r"), stdout("20%\r"), error(0)]),
+      onDone: async () => {},
+    });
+    expect(result.stdout).toBe("10%\r20%\r");
+  });
+
+  it("lineEndingsStripped needs at least two events", () => {
+    expect(lineEndingsStripped([])).toBe(false);
+    expect(lineEndingsStripped(["a"])).toBe(false);
+    expect(lineEndingsStripped(["a", "b"])).toBe(true);
+    expect(lineEndingsStripped(["a", "b\n"])).toBe(false);
+  });
+
+  it("joinOutputEvents joins plainly when endings are present", () => {
+    expect(joinOutputEvents(["a\n", "b\n"])).toBe("a\nb\n");
+    expect(joinOutputEvents([])).toBe("");
   });
 });
