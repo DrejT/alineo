@@ -12,7 +12,7 @@ import type {
 } from "./types";
 
 /** Whether a provider can do something. `"unverified"` means it is configured to, and not proven. */
-export type Capability = boolean | "unverified";
+export type SandboxProviderCapability = boolean | "unverified";
 
 /**
  * What a provider can do, as data.
@@ -20,29 +20,29 @@ export type Capability = boolean | "unverified";
  * Plain data on purpose: a CLI or a docs generator can read it without loading a provider's
  * SDK, and a spec can be checked against it before a sandbox is created.
  */
-export interface ProviderCapabilities {
+export interface SandboxProviderCapabilities {
   /**
    * `false` when the provider cannot snapshot. Otherwise what a snapshot keeps: `filesystem`
    * (files, not processes) or `memory` (files and running processes).
    */
   snapshot: { kind: "filesystem" | "memory" } | false;
   /** `pauseSandbox` and `resumeSandbox`. */
-  pause: Capability;
+  pause: SandboxProviderCapability;
   /** Runtime egress rules through {@link SandboxProvider.egress}. */
-  egress: Capability;
+  egress: SandboxProviderCapability;
   /** Credential injection that keeps the value outside the guest. */
-  credentials: Capability;
+  credentials: SandboxProviderCapability;
   /** An interactive terminal through {@link SandboxProvider.connectPty}. */
-  pty: Capability;
+  pty: SandboxProviderCapability;
   /** Stateful code contexts through {@link ExecChannel.executeCode}. */
-  code: Capability;
+  code: SandboxProviderCapability;
 }
 
-export interface ProviderDescriptor {
+export interface SandboxProviderDescriptor {
   /** A short stable id, recorded on the ledger: `"opensandbox"`. */
   id: string;
   label: string;
-  capabilities: ProviderCapabilities;
+  capabilities: SandboxProviderCapabilities;
 }
 
 /**
@@ -58,7 +58,7 @@ export interface ProviderDescriptor {
  */
 export interface SandboxProvider {
   readonly id: string;
-  readonly descriptor: ProviderDescriptor;
+  readonly descriptor: SandboxProviderDescriptor;
 
   createSandbox(request: CreateSandboxRequest): Promise<SandboxInfo>;
   getSandbox(sandboxId: string): Promise<SandboxInfo>;

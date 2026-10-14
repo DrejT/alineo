@@ -141,7 +141,9 @@ packages/core/                    — Sandbox primitive (no runtime deps outside
                                     isolated in its own try/catch so one broken adapter can't break siblings or
                                     the sandbox operation that triggered them
   src/sandbox/bash-session.ts     — BashSession class
-  src/sandbox/resolve.ts          — resolveExecClient()
+  src/sandbox/resolve.ts          — resolveExecChannel(): asks the provider for an exec channel, re-throws
+                                    EXEC_NOT_READY as ExecConnectionError
+  src/sandbox/capabilities.ts     — requireCapability(): refuse what the provider declared it cannot do
   src/sandbox/types.ts            — ExecOptions, SandboxHooks, SandboxDeps, PendingInteractiveExec, ExecCodeOptions
   src/sandbox/internal.ts         — SandboxInternal (package-private facade the split modules operate over)
   src/sandbox/index.ts            — barrel — re-exported from src/index.ts
@@ -150,7 +152,13 @@ packages/core/                    — Sandbox primitive (no runtime deps outside
   src/errors.ts                   — WorkflowError, SandboxError, ExecConnectionError, CommandError
   src/logger.ts                   — ILogger, ConsoleLogger, noopLogger
 
-packages/opensandbox/             — OpenSandbox HTTP clients
+packages/errors/                  — stable error codes + AlineoError (zero deps, lowest layer; published and
+                                    external so there is one class at runtime)
+packages/provider/                — SandboxProvider interface + provider-neutral types (SandboxState,
+                                    ExecChannel, PtyChannel, SandboxProviderDescriptor). Core and the SDK
+                                    depend on this, not on a provider
+packages/opensandbox/             — OpenSandbox HTTP clients + OpenSandboxProvider (implements SandboxProvider)
+  src/provider.ts                 — OpenSandboxProvider: maps states, owns the execd readiness wait
   src/control.ts                  — ControlClient (sandbox lifecycle via REST)
   src/exec.ts                     — ExecClient (code/command execution via SSE)
   src/types.ts                    — Full OpenSandbox API type system
@@ -319,7 +327,7 @@ apps/sandbox/                     — the browser playground
 
 **Hooks**: `SandboxHooks` provides lifecycle callbacks: `onSandboxCreated`, `onExecStart`, `onExecComplete`, `onCheckpoint`, `onSandboxClosed`, `onSandboxFailed`. Pass via `SandboxOptions.hooks`. Use `otelHooks(tracer)` from `@alineo-labs/otel` for OpenTelemetry tracing.
 
-**execd readiness**: OpenSandbox reports a sandbox as "Running" before execd is ready. `resolveExecClient()` calls `getEndpoint()` once (each call returns a different ephemeral proxy port) then polls `listContexts()` until execd responds.
+**execd readiness**: OpenSandbox reports a sandbox as "Running" before execd is ready. `OpenSandboxProvider.connectExec()` calls `getEndpoint()` once (each call returns a different ephemeral proxy port) then polls `listContexts()` until execd responds; core re-throws a failure as `ExecConnectionError`.
 
 **Sandbox entrypoint**: Always `["tail", "-f", "/dev/null"]` — `/bin/bash` exits immediately without a TTY, killing the container. `client.sandbox()` sets this automatically.
 

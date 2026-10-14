@@ -31,8 +31,8 @@ export type {
   SnapshotState,
 } from "./types";
 export type {
-  Capability,
-  ProviderCapabilities,
-  ProviderDescriptor,
+  SandboxProviderCapability,
+  SandboxProviderCapabilities,
+  SandboxProviderDescriptor,
   SandboxProvider,
 } from "./provider";

@@ -4,7 +4,7 @@ import type {
   EgressChannel,
   ExecChannel,
   ListSandboxesFilter,
-  ProviderDescriptor,
+  SandboxProviderDescriptor,
   PtyChannel,
   SandboxInfo,
   SandboxProvider,
@@ -126,7 +126,7 @@ export interface OpenSandboxProviderOptions {
 export class OpenSandboxProvider implements SandboxProvider {
   readonly id = "opensandbox";
 
-  readonly descriptor: ProviderDescriptor = {
+  readonly descriptor: SandboxProviderDescriptor = {
     id: "opensandbox",
     label: "OpenSandbox",
     capabilities: {

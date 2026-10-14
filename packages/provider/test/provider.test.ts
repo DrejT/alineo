@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type {
-  ProviderDescriptor,
+  SandboxProviderDescriptor,
   SandboxInfo,
   SandboxState,
   SandboxProvider,
@@ -13,7 +13,7 @@ import type {
  */
 function inMemoryProvider(): SandboxProvider {
   const sandboxes = new Map<string, SandboxInfo>();
-  const descriptor: ProviderDescriptor = {
+  const descriptor: SandboxProviderDescriptor = {
     id: "memory",
     label: "In memory",
     capabilities: {

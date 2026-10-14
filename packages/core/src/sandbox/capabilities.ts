@@ -1,8 +1,8 @@
-import type { ProviderCapabilities, SandboxProvider } from "@alineo-labs/provider";
+import type { SandboxProviderCapabilities, SandboxProvider } from "@alineo-labs/provider";
 import { SandboxError } from "../errors";
 
 /** The capabilities a caller can require of a provider. */
-export type RequiredCapability = keyof ProviderCapabilities;
+export type RequiredCapability = keyof SandboxProviderCapabilities;
 
 /**
  * Throw `CAPABILITY_UNSUPPORTED`, naming the capability and the provider, when the provider

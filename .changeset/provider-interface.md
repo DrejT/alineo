@@ -13,7 +13,7 @@ types it speaks in. `@alineo-labs/opensandbox` gains `OpenSandboxProvider`, whic
   `provisioning`, never `running`.
 - `connectExec` resolves once the sandbox accepts a connection, and rejects with
   `EXEC_NOT_READY`, with the attempt count and the wait in `details`, when it never does.
-- `ProviderDescriptor` declares what a provider can do as plain data.
+- `SandboxProviderDescriptor` declares what a provider can do as plain data.
 
 Nothing consumes it yet. Core and the SDK move onto it next.
 
