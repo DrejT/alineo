@@ -1,6 +1,6 @@
+export { CodeLanguage } from "./types";
 export type {
   CodeContext,
-  CodeLanguage,
   CreateSandboxRequest,
   CreateSessionRequest,
   CreateSessionResponse,
@@ -26,9 +26,9 @@ export type {
   Resources,
   RunInSessionRequest,
   SandboxInfo,
-  SandboxPhase,
+  SandboxState,
   SnapshotInfo,
-  SnapshotPhase,
+  SnapshotState,
 } from "./types";
 export type {
   Capability,

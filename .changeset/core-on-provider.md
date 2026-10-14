@@ -9,7 +9,7 @@ Core and the SDK now run on a `SandboxProvider`, not on OpenSandbox's HTTP clien
 
 - `@alineo-labs/core` no longer imports `@alineo-labs/opensandbox`. `SandboxDeps.control` is
   `SandboxDeps.provider`, and `SandboxDeps.useServerProxy` is gone (it is the provider's own
-  setting). Phases replace OpenSandbox's state enums, and `ExecEvent` replaces `SSEEvent`.
+  setting). `SandboxState` (a string union) replaces OpenSandbox's state enums, and `ExecEvent` replaces `SSEEvent`.
 - `resolveExecClient(control, id, ...)` is replaced by `resolveExecChannel(provider, id)`. The
   provider owns the wait. An `EXEC_NOT_READY` from it is re-thrown as `ExecConnectionError`.
 - `sb.egress.*` and `exec(cmd, { interactive: true })` throw `CAPABILITY_UNSUPPORTED` on a

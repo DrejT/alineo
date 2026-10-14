@@ -9,14 +9,14 @@
 // ── sandbox ──────────────────────────────────────────────────────────────────
 
 /**
- * Where a sandbox is in its life, in alineo's words.
+ * Where a sandbox is in its life, in alineo's words. The same word alineod uses for an agent: `state`.
  *
  * Every provider maps its own states onto these. **A state a provider cannot place becomes
  * `provisioning`, never `running`**: reporting a sandbox as running before it is hides the
  * startup deadline, and a caller that waits for `running` then times out with a reason instead
  * of acting on a sandbox that is not there.
  */
-export type SandboxPhase =
+export type SandboxState =
   | "provisioning"
   | "running"
   | "pausing"
@@ -28,12 +28,12 @@ export type SandboxPhase =
 
 export interface SandboxInfo {
   id: string;
-  phase: SandboxPhase;
+  state: SandboxState;
   /**
    * The provider's own word for the state (`"Terminated"`, `"Running"`), for messages and logs.
-   * Not for logic: branch on `phase`.
+   * Not for logic: branch on `state`.
    */
-  state?: string;
+  nativeState?: string;
   reason?: string;
   message?: string;
   createdAt?: string;
@@ -44,7 +44,7 @@ export interface SandboxInfo {
 }
 
 export interface ListSandboxesFilter {
-  phase?: SandboxPhase;
+  state?: SandboxState;
   limit?: number;
   offset?: number;
 }
@@ -93,12 +93,12 @@ export interface CreateSandboxRequest {
 
 // ── snapshot ─────────────────────────────────────────────────────────────────
 
-export type SnapshotPhase = "pending" | "ready" | "failed";
+export type SnapshotState = "pending" | "ready" | "failed";
 
 export interface SnapshotInfo {
   id: string;
   sandboxId: string;
-  phase: SnapshotPhase;
+  state: SnapshotState;
   createdAt: string;
 }
 
@@ -160,7 +160,21 @@ export interface ExecEvent {
   timestamp: number;
 }
 
-export type CodeLanguage = "python" | "javascript" | "typescript" | "go" | "java" | "bash";
+/**
+ * The languages a code context can run. One definition: OpenSandbox and the SDK re-export this.
+ *
+ * A const object and a type of the same name, so `CodeLanguage.Python` works as a value and
+ * `CodeLanguage` works as a type, which is how the enum it replaces was used.
+ */
+export const CodeLanguage = {
+  Python: "python",
+  JavaScript: "javascript",
+  TypeScript: "typescript",
+  Go: "go",
+  Java: "java",
+  Bash: "bash",
+} as const;
+export type CodeLanguage = (typeof CodeLanguage)[keyof typeof CodeLanguage];
 
 export interface CodeContext {
   id: string;

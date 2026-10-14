@@ -7,10 +7,10 @@ import type {
   ProviderDescriptor,
   PtyChannel,
   SandboxInfo,
-  SandboxPhase,
   SandboxProvider,
+  SandboxState as State,
   SnapshotInfo,
-  SnapshotPhase,
+  SnapshotState as SnapState,
 } from "@alineo-labs/provider";
 import { ControlClient } from "./control";
 import { EgressClient } from "./egress";
@@ -23,13 +23,13 @@ import type { Sandbox, Snapshot } from "./types";
 const EXECD_PORT = 44772;
 
 /**
- * Where an OpenSandbox state sits in alineo's phases.
+ * Where an OpenSandbox state sits in alineo's states.
  *
  * `Unknown`, and any state added after this was written, is `provisioning`, never `running`:
  * calling a sandbox running before it is would hide its startup deadline.
  */
-export function phaseOf(state: SandboxState | string): SandboxPhase {
-  switch (state) {
+export function stateOf(native: SandboxState | string): State {
+  switch (native) {
     case SandboxState.Running:
       return "running";
     case SandboxState.Pausing:
@@ -49,9 +49,9 @@ export function phaseOf(state: SandboxState | string): SandboxPhase {
   }
 }
 
-/** The OpenSandbox state a phase filter means. The inverse of {@link phaseOf}, for list filters. */
-function stateOfPhase(phase: SandboxPhase): SandboxState {
-  switch (phase) {
+/** The OpenSandbox state a state filter means. The inverse of {@link stateOf}, for list filters. */
+function nativeStateOf(state: State): SandboxState {
+  switch (state) {
     case "running":
       return SandboxState.Running;
     case "pausing":
@@ -72,17 +72,17 @@ function stateOfPhase(phase: SandboxPhase): SandboxState {
 }
 
 /** Committing and Pushing are both "not ready yet". */
-export function snapshotPhaseOf(state: SnapshotState | string): SnapshotPhase {
-  if (state === SnapshotState.Ready) return "ready";
-  if (state === SnapshotState.Failed) return "failed";
+export function snapshotStateOf(native: SnapshotState | string): SnapState {
+  if (native === SnapshotState.Ready) return "ready";
+  if (native === SnapshotState.Failed) return "failed";
   return "pending";
 }
 
 function toSandboxInfo(raw: Sandbox): SandboxInfo {
   return {
     id: raw.id,
-    phase: phaseOf(raw.status.state),
-    state: raw.status.state,
+    state: stateOf(raw.status.state),
+    nativeState: raw.status.state,
     ...(raw.status.reason !== undefined ? { reason: raw.status.reason } : {}),
     ...(raw.status.message !== undefined ? { message: raw.status.message } : {}),
     createdAt: raw.createdAt,
@@ -96,7 +96,7 @@ function toSnapshotInfo(raw: Snapshot): SnapshotInfo {
   return {
     id: raw.id,
     sandboxId: raw.sandboxId,
-    phase: snapshotPhaseOf(raw.state),
+    state: snapshotStateOf(raw.state),
     createdAt: raw.createdAt,
   };
 }
@@ -120,7 +120,7 @@ export interface OpenSandboxProviderOptions {
  * OpenSandbox as a {@link SandboxProvider}.
  *
  * A thin adapter over the three HTTP clients in this package: it holds their configuration,
- * maps OpenSandbox's states onto alineo's phases, and owns the one piece of logic that is not a
+ * maps OpenSandbox's states onto alineo's states, and owns the one piece of logic that is not a
  * pass-through, which is waiting for `execd` to accept a connection.
  */
 export class OpenSandboxProvider implements SandboxProvider {
@@ -170,7 +170,7 @@ export class OpenSandboxProvider implements SandboxProvider {
 
   async listSandboxes(filter: ListSandboxesFilter = {}): Promise<SandboxInfo[]> {
     const raw = await this.control.listSandboxes({
-      ...(filter.phase !== undefined ? { state: stateOfPhase(filter.phase) } : {}),
+      ...(filter.state !== undefined ? { state: nativeStateOf(filter.state) } : {}),
       ...(filter.limit !== undefined ? { limit: filter.limit } : {}),
       ...(filter.offset !== undefined ? { offset: filter.offset } : {}),
     });

@@ -35,7 +35,7 @@ export async function getSessions(config?: AlineoConfig): Promise<SessionSnapsho
 
   let liveIds: Set<string> | null = null;
   try {
-    const raw = await client.provider.listSandboxes({ phase: "running" });
+    const raw = await client.provider.listSandboxes({ state: "running" });
     liveIds = new Set(raw.map((s) => s.id));
   } catch {
     // Control-plane listing is best-effort; fall back to trusting the ledger

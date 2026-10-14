@@ -140,10 +140,10 @@ export class SandboxCore implements SandboxInternal {
     let delay = 100;
     while (Date.now() < deadline) {
       const s = await this.deps.provider.getSandbox(this.sandboxId);
-      if (s.phase === "running") return;
-      if (s.phase === "failed" || s.phase === "terminated") {
+      if (s.state === "running") return;
+      if (s.state === "failed" || s.state === "terminated") {
         throw new SandboxError(
-          `SandboxHandle entered ${s.state ?? s.phase}: ${s.message ?? ""}`,
+          `SandboxHandle entered ${s.nativeState ?? s.state}: ${s.message ?? ""}`,
           this.sandboxId,
           "SANDBOX_START_FAILED",
         );
@@ -164,8 +164,8 @@ export class SandboxCore implements SandboxInternal {
     let delay = 100;
     while (Date.now() < deadline) {
       const snap = await this.deps.provider.getSnapshot(snapshotId);
-      if (snap.phase === "ready") return;
-      if (snap.phase === "failed") {
+      if (snap.state === "ready") return;
+      if (snap.state === "failed") {
         throw new SandboxError(`Snapshot ${snapshotId} failed`, this.sandboxId, "SNAPSHOT_FAILED");
       }
       await new Promise<void>((r) => setTimeout(r, delay));

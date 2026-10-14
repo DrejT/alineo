@@ -1,3 +1,5 @@
+import type { CodeLanguage } from "@alineo-labs/provider";
+
 export interface Resources {
   cpu?: string;
   memory?: string;
@@ -166,15 +168,6 @@ export interface SSEEvent {
   execution_count?: number;
   execution_time?: number;
   timestamp: number;
-}
-
-export enum CodeLanguage {
-  Python = "python",
-  JavaScript = "javascript",
-  TypeScript = "typescript",
-  Go = "go",
-  Java = "java",
-  Bash = "bash",
 }
 
 export interface CodeContext {

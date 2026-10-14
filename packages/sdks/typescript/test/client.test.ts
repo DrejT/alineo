@@ -339,7 +339,7 @@ function makeFakeControl(overrides: Record<string, unknown> = {}) {
   return {
     id: "opensandbox",
     createSandbox: vi.fn().mockResolvedValue({ id: "new-id" }),
-    getSandbox: vi.fn().mockResolvedValue({ id: "x", phase: "running", state: "Running" }),
+    getSandbox: vi.fn().mockResolvedValue({ id: "x", state: "running", nativeState: "Running" }),
     ...overrides,
   };
 }
@@ -387,7 +387,7 @@ describe("Sandbox.connect() paused sandboxes", () => {
   it("refuses a Paused sandbox by default", async () => {
     const client = makeClient(makeAdapter());
     internals(client)._provider = makeFakeControl({
-      getSandbox: vi.fn().mockResolvedValue({ id: "x", phase: "paused", state: "Paused" }),
+      getSandbox: vi.fn().mockResolvedValue({ id: "x", state: "paused", nativeState: "Paused" }),
     });
 
     await expect(client.connect("sandbox-1", "my-agent")).rejects.toThrow(/allowPaused/);
@@ -396,7 +396,7 @@ describe("Sandbox.connect() paused sandboxes", () => {
   it("connects to a Paused sandbox with allowPaused, returning a handle marked paused", async () => {
     const client = makeClient(makeAdapter());
     internals(client)._provider = makeFakeControl({
-      getSandbox: vi.fn().mockResolvedValue({ id: "x", phase: "paused", state: "Paused" }),
+      getSandbox: vi.fn().mockResolvedValue({ id: "x", state: "paused", nativeState: "Paused" }),
     });
 
     const sb = await client.connect("sandbox-1", "my-agent", { allowPaused: true });
@@ -407,7 +407,9 @@ describe("Sandbox.connect() paused sandboxes", () => {
   it("still refuses a sandbox that is neither Running nor Paused, even with allowPaused", async () => {
     const client = makeClient(makeAdapter());
     internals(client)._provider = makeFakeControl({
-      getSandbox: vi.fn().mockResolvedValue({ id: "x", phase: "terminated", state: "Terminated" }),
+      getSandbox: vi
+        .fn()
+        .mockResolvedValue({ id: "x", state: "terminated", nativeState: "Terminated" }),
     });
 
     await expect(client.connect("sandbox-1", "my-agent", { allowPaused: true })).rejects.toThrow(

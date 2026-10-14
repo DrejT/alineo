@@ -646,10 +646,10 @@ export class Sandbox {
     await this._ensureConnected();
     const info = await this._provider.getSandbox(sandboxId);
     // The provider's own word for the state reads better in a message, and is what a caller
-    // matches on (`isSandboxGone`). The phase is what this decides on.
-    const state = info.state ?? info.phase;
-    const paused = info.phase === "paused";
-    if (info.phase !== "running" && !(paused && opts?.allowPaused)) {
+    // matches on (`isSandboxGone`). The neutral state is what this decides on.
+    const state = info.nativeState ?? info.state;
+    const paused = info.state === "paused";
+    if (info.state !== "running" && !(paused && opts?.allowPaused)) {
       throw new SandboxClientError(
         `SandboxHandle ${sandboxId} is ${state} — can only connect to Running sandboxes` +
           (paused ? " (pass allowPaused to connect to a Paused one)" : ""),
@@ -908,7 +908,7 @@ export class Sandbox {
     const record = await this._adapter.getEnvironment(name);
     if (record) {
       const snap = await this._provider.getSnapshot(record.snapshotId).catch(() => null);
-      if (snap?.phase === "ready") {
+      if (snap?.state === "ready") {
         return this._createFromSnapshot(record.snapshotId, opts.resources, name, opts.shell, extra);
       }
       // Stale snapshot (server-side TTL or deletion) — fall through to rebuild
@@ -1124,13 +1124,13 @@ export class Sandbox {
     let delay = 100;
     while (Date.now() < deadline) {
       const s = await this._provider.getSandbox(sandboxId);
-      if (s.phase === "running") return;
-      if (s.phase === "failed" || s.phase === "terminated") {
+      if (s.state === "running") return;
+      if (s.state === "failed" || s.state === "terminated") {
         throw new SandboxClientError(
-          `SandboxHandle ${sandboxId} entered state ${s.state ?? s.phase}: ${s.message ?? ""}`,
+          `SandboxHandle ${sandboxId} entered state ${s.nativeState ?? s.state}: ${s.message ?? ""}`,
           500,
           "SANDBOX_START_FAILED",
-          { details: { sandboxId, state: s.state ?? s.phase } },
+          { details: { sandboxId, state: s.nativeState ?? s.state } },
         );
       }
       await new Promise<void>((r) => setTimeout(r, delay));

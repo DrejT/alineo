@@ -26,7 +26,7 @@ function makeAdapter(): IStorageAdapter {
 function makeControl(snapshotId = "snap-abc") {
   return stubProvider({
     createSnapshot: vi.fn().mockResolvedValue({ id: snapshotId }),
-    getSnapshot: vi.fn().mockResolvedValue({ phase: "ready" }),
+    getSnapshot: vi.fn().mockResolvedValue({ state: "ready" }),
     deleteSandbox: vi.fn().mockResolvedValue(undefined),
   });
 }

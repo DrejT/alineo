@@ -57,6 +57,13 @@ describe("isSandboxGone", () => {
       }
     });
 
+    it("reads the neutral lower-case state as well as the provider's own word", () => {
+      for (const state of ["terminated", "failed"]) {
+        const err = new AlineoError("SANDBOX_NOT_RUNNING", "not running", { details: { state } });
+        expect(isSandboxGone(err)).toBe(true);
+      }
+    });
+
     it("does not treat SANDBOX_NOT_RUNNING in another state as gone", () => {
       for (const state of ["Pending", "Resuming", "Unknown"]) {
         const err = new AlineoError("SANDBOX_NOT_RUNNING", "not running", { details: { state } });

@@ -33,8 +33,9 @@ export function isSandboxGone(err: unknown): boolean {
   if (alineoCode === "SANDBOX_NOT_FOUND") return true;
   if (alineoCode === "SANDBOX_NOT_RUNNING") {
     // Terminated and Failed are gone for good. Pending or Unknown is only "not up yet".
+    // The provider's own word (`Terminated`) or the neutral one (`terminated`).
     const state = (err as { details?: { state?: unknown } }).details?.state;
-    return state === "Terminated" || state === "Failed";
+    return typeof state === "string" && ["terminated", "failed"].includes(state.toLowerCase());
   }
 
   // Fallback for an error that carries no alineo code: one from an older alineo, a foreign

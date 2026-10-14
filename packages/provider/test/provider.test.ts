@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   ProviderDescriptor,
   SandboxInfo,
-  SandboxPhase,
+  SandboxState,
   SandboxProvider,
 } from "../src/index.ts";
 
@@ -34,13 +34,13 @@ function inMemoryProvider(): SandboxProvider {
     id: "memory",
     descriptor,
     createSandbox: async () => {
-      const info: SandboxInfo = { id: `sb-${sandboxes.size + 1}`, phase: "running" };
+      const info: SandboxInfo = { id: `sb-${sandboxes.size + 1}`, state: "running" };
       sandboxes.set(info.id, info);
       return info;
     },
     getSandbox: async (id) => sandboxes.get(id) ?? missing(id),
     listSandboxes: async (filter) =>
-      [...sandboxes.values()].filter((s) => !filter?.phase || s.phase === filter.phase),
+      [...sandboxes.values()].filter((s) => !filter?.state || s.state === filter.state),
     deleteSandbox: async (id) => {
       sandboxes.delete(id);
     },
@@ -49,10 +49,10 @@ function inMemoryProvider(): SandboxProvider {
     createSnapshot: async (sandboxId) => ({
       id: "snap-1",
       sandboxId,
-      phase: "ready",
+      state: "ready",
       createdAt: "now",
     }),
-    getSnapshot: async (id) => ({ id, sandboxId: "sb-1", phase: "ready", createdAt: "now" }),
+    getSnapshot: async (id) => ({ id, sandboxId: "sb-1", state: "ready", createdAt: "now" }),
     getEndpoint: async (_id, port) => ({ endpoint: `localhost:${port}` }),
     getDiagnosticLogs: async () => [],
     getDiagnosticEvents: async () => [],
@@ -67,8 +67,8 @@ describe("SandboxProvider", () => {
     const provider = inMemoryProvider();
 
     const created = await provider.createSandbox({ image: { uri: "x" } });
-    expect(created.phase satisfies SandboxPhase).toBe("running");
-    expect(await provider.listSandboxes({ phase: "running" })).toHaveLength(1);
+    expect(created.state satisfies SandboxState).toBe("running");
+    expect(await provider.listSandboxes({ state: "running" })).toHaveLength(1);
 
     await provider.deleteSandbox(created.id);
     expect(await provider.listSandboxes()).toHaveLength(0);

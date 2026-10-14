@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isAlineoError } from "@alineo-labs/errors";
 import { ControlClient } from "../src/control.ts";
-import { OpenSandboxProvider, phaseOf, snapshotPhaseOf } from "../src/provider.ts";
+import { CodeLanguage as ProviderCodeLanguage } from "@alineo-labs/provider";
+import { CodeLanguage } from "../src/index.ts";
+import { OpenSandboxProvider, stateOf, snapshotStateOf } from "../src/provider.ts";
 import { SandboxState, SnapshotState } from "../src/types.ts";
 
 function controlWith(methods: Partial<Record<keyof ControlClient, unknown>>): ControlClient {
@@ -11,7 +13,7 @@ function controlWith(methods: Partial<Record<keyof ControlClient, unknown>>): Co
   ) as ControlClient;
 }
 
-describe("phaseOf", () => {
+describe("stateOf", () => {
   it.each([
     [SandboxState.Pending, "provisioning"],
     [SandboxState.Running, "running"],
@@ -21,34 +23,34 @@ describe("phaseOf", () => {
     [SandboxState.Stopping, "stopping"],
     [SandboxState.Terminated, "terminated"],
     [SandboxState.Failed, "failed"],
-  ])("maps %s to %s", (state, phase) => {
-    expect(phaseOf(state)).toBe(phase);
+  ])("maps %s to %s", (native, state) => {
+    expect(stateOf(native)).toBe(state);
   });
 
   it("maps Unknown to provisioning, never running", () => {
-    expect(phaseOf(SandboxState.Unknown)).toBe("provisioning");
+    expect(stateOf(SandboxState.Unknown)).toBe("provisioning");
   });
 
   it("maps a state added after this was written to provisioning, never running", () => {
-    expect(phaseOf("Hibernating")).toBe("provisioning");
+    expect(stateOf("Hibernating")).toBe("provisioning");
   });
 });
 
-describe("snapshotPhaseOf", () => {
+describe("snapshotStateOf", () => {
   it("treats every in-flight state as pending", () => {
-    expect(snapshotPhaseOf(SnapshotState.Pending)).toBe("pending");
-    expect(snapshotPhaseOf(SnapshotState.Committing)).toBe("pending");
-    expect(snapshotPhaseOf(SnapshotState.Pushing)).toBe("pending");
+    expect(snapshotStateOf(SnapshotState.Pending)).toBe("pending");
+    expect(snapshotStateOf(SnapshotState.Committing)).toBe("pending");
+    expect(snapshotStateOf(SnapshotState.Pushing)).toBe("pending");
   });
 
   it("maps the two final states", () => {
-    expect(snapshotPhaseOf(SnapshotState.Ready)).toBe("ready");
-    expect(snapshotPhaseOf(SnapshotState.Failed)).toBe("failed");
+    expect(snapshotStateOf(SnapshotState.Ready)).toBe("ready");
+    expect(snapshotStateOf(SnapshotState.Failed)).toBe("failed");
   });
 });
 
 describe("OpenSandboxProvider control calls", () => {
-  it("returns a phase and keeps the provider's own state word", async () => {
+  it("returns a neutral state and keeps the provider's own word for it", async () => {
     const provider = new OpenSandboxProvider({
       baseUrl: "http://x",
       control: controlWith({
@@ -63,15 +65,15 @@ describe("OpenSandboxProvider control calls", () => {
 
     expect(await provider.getSandbox("sb-1")).toEqual({
       id: "sb-1",
-      phase: "terminated",
-      state: "Terminated",
+      state: "terminated",
+      nativeState: "Terminated",
       message: "exited 137",
       createdAt: "2026-10-14T00:00:00Z",
       metadata: { runId: "r1" },
     });
   });
 
-  it("flattens a snapshot to a phase", async () => {
+  it("flattens a snapshot to a state", async () => {
     const provider = new OpenSandboxProvider({
       baseUrl: "http://x",
       control: controlWith({
@@ -87,19 +89,19 @@ describe("OpenSandboxProvider control calls", () => {
     expect(await provider.createSnapshot("sb-1")).toEqual({
       id: "snap-1",
       sandboxId: "sb-1",
-      phase: "pending",
+      state: "pending",
       createdAt: "t",
     });
   });
 
-  it("translates a phase filter into the server's state filter", async () => {
+  it("translates a state filter into the server's state filter", async () => {
     const listSandboxes = vi.fn().mockResolvedValue([]);
     const provider = new OpenSandboxProvider({
       baseUrl: "http://x",
       control: controlWith({ listSandboxes }),
     });
 
-    await provider.listSandboxes({ phase: "running", limit: 5 });
+    await provider.listSandboxes({ state: "running", limit: 5 });
 
     expect(listSandboxes).toHaveBeenCalledWith({ state: SandboxState.Running, limit: 5 });
   });
@@ -205,5 +207,22 @@ describe("OpenSandboxProvider.connectExec", () => {
     });
     expect((err as Error).message).toMatch(/after 3 attempts over \d+s/);
     expect(((err as Error).cause as Error).message).toBe("connect ECONNREFUSED 10.0.0.5");
+  });
+});
+
+describe("CodeLanguage", () => {
+  it("is one definition: this package re-exports the provider's", () => {
+    expect(CodeLanguage).toBe(ProviderCodeLanguage);
+  });
+
+  it("keeps the members and values the old enum had", () => {
+    expect(CodeLanguage).toEqual({
+      Python: "python",
+      JavaScript: "javascript",
+      TypeScript: "typescript",
+      Go: "go",
+      Java: "java",
+      Bash: "bash",
+    });
   });
 });
