@@ -12,14 +12,20 @@
 import { errorCodeFromText } from "@alineo-labs/errors";
 import type { ErrorCode } from "@alineo-labs/errors";
 import { getAgentRow, type AgentRow } from "../state/projection";
-import { recordConsecutiveFailure, recordTurnRetry } from "../state/db";
+import { recordConsecutiveFailure, recordTurnRetry, resetFailureCounters } from "../state/db";
+import {
+  TRANSIENT_RETRY_BASE_MS,
+  TRANSIENT_RETRY_MAX,
+  TRANSIENT_RETRY_MAX_DELAY_MS,
+} from "../../config";
 import { emit } from "./emit";
 
 export type SupervisionReason = "ask" | "retries-exhausted" | "circuit-tripped";
 
 export type FailureResolution =
   | { action: "settled" }
-  | { action: "retry"; message: string }
+  /** `delayMs` is how long to wait before re-sending. Absent or 0 means at once. */
+  | { action: "retry"; message: string; delayMs?: number }
   | { action: "blocked"; reason: SupervisionReason };
 
 interface FailurePolicySpec {
@@ -55,8 +61,25 @@ export function resolveTurnFailure(
   const row = getAgentRow(agentId);
   if (!row) return { action: "settled" }; // agent gone — nothing left to decide for
 
-  const consecutiveFailures = recordConsecutiveFailure(agentId);
   const errorCode = opts.errorCode ?? errorCodeFromText(opts.error);
+
+  // A transient model-provider failure (429, 5xx) is retried here, before the agent's own
+  // onFailure policy sees it. It is not the agent's fault and not a sign the agent is stuck, so
+  // it does not count toward the circuit breaker. Bounded, with a growing backoff, so a
+  // provider that stays down still ends in the normal policy.
+  const transient = nextTransientRetry(agentId, errorCode, opts.retryMessage);
+  if (transient) {
+    emit(runId, agentId, "agent.turn_retried", {
+      error: opts.error,
+      errorCode: transient.errorCode,
+      attempt: transient.attempt,
+      maxAttempts: TRANSIENT_RETRY_MAX,
+      delayMs: transient.delayMs,
+    });
+    return { action: "retry", message: transient.message, delayMs: transient.delayMs };
+  }
+
+  const consecutiveFailures = recordConsecutiveFailure(agentId);
   const code = errorCode ? { errorCode } : {};
   emit(runId, agentId, "agent.turn_failed", { error: opts.error, ...code, consecutiveFailures });
 
@@ -104,6 +127,38 @@ export function resolveTurnFailure(
   // onFailure === "ask" (the default) — no auto-retry, hold immediately.
   block(runId, row, "ask", opts.error, errorCode);
   return { action: "blocked", reason: "ask" };
+}
+
+/** Per-agent count of transient retries since the last good turn. Memory only, and that is fine:
+ * a crash loses the count, and the next failure starts a fresh bounded sequence. */
+const transientAttempts = new Map<string, number>();
+
+/** The codes a turn may be retried for. Both are a provider saying "not now". */
+const TURN_RETRYABLE: ReadonlySet<ErrorCode> = new Set(["MODEL_RATE_LIMITED", "MODEL_UNAVAILABLE"]);
+
+function nextTransientRetry(
+  agentId: string,
+  errorCode: ErrorCode | undefined,
+  retryMessage: string | null,
+): { errorCode: ErrorCode; message: string; attempt: number; delayMs: number } | undefined {
+  if (!errorCode || !TURN_RETRYABLE.has(errorCode) || !retryMessage) return undefined;
+  if (TRANSIENT_RETRY_MAX <= 0) return undefined;
+  const attempt = (transientAttempts.get(agentId) ?? 0) + 1;
+  if (attempt > TRANSIENT_RETRY_MAX) return undefined;
+  transientAttempts.set(agentId, attempt);
+  return { errorCode, message: retryMessage, attempt, delayMs: transientDelayMs(attempt) };
+}
+
+/** Backoff for the n-th transient retry: base doubled each time, capped, with up to 25% jitter. */
+export function transientDelayMs(attempt: number, random: () => number = Math.random): number {
+  const raw = Math.min(TRANSIENT_RETRY_MAX_DELAY_MS, TRANSIENT_RETRY_BASE_MS * 2 ** (attempt - 1));
+  return Math.round(raw * (0.75 + random() * 0.5));
+}
+
+/** A turn succeeded: clear the supervision counters and the transient-retry count. */
+export function recordTurnSuccess(agentId: string): void {
+  resetFailureCounters(agentId);
+  transientAttempts.delete(agentId);
 }
 
 function block(

@@ -16,11 +16,10 @@ import { get } from "./registry";
 import { restartBridge } from "./sdk";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
-import { resolveTurnFailure } from "./supervision";
+import { recordTurnSuccess, resolveTurnFailure } from "./supervision";
 import { errorCodeOf } from "@alineo-labs/errors";
 import { errorMessage, sleep, withTimeout } from "../util";
 import { getAgentRow, getHandle } from "../state/projection";
-import { resetFailureCounters } from "../state/db";
 import {
   CATCH_UP_POLL_MS,
   PROMPT_INACTIVITY_TIMEOUT_MS,
@@ -73,10 +72,12 @@ async function maybeCheckpoint(runId: string, agentId: string): Promise<void> {
 const driving = new Set<string>();
 /** Agents whose turn alineod is following by polling Pi's state. */
 const catchingUp = new Set<string>();
+/** Agents waiting out a transient-retry backoff. Counts as an active turn. */
+const backingOff = new Set<string>();
 
 /** True while alineod is following a turn on this agent, by stream or by polling. */
 export function isTurnActive(agentId: string): boolean {
-  return driving.has(agentId) || catchingUp.has(agentId);
+  return driving.has(agentId) || catchingUp.has(agentId) || backingOff.has(agentId);
 }
 
 /** True while alineod is polling a turn it stopped streaming (or reconnected to mid-turn). */
@@ -91,6 +92,7 @@ export function isCatchingUp(agentId: string): boolean {
 export function forgetAllTurnTrackingForFaultInjection(): void {
   driving.clear();
   catchingUp.clear();
+  backingOff.clear();
 }
 
 /**
@@ -124,8 +126,18 @@ export function turnError(messages: unknown): string | undefined {
  * immediately (and wrongly) clear the new call's tracking. Deferring to a fresh microtask
  * guarantees the old call's finally has already run first.
  */
-function deferRetry(agentId: string, message: string): void {
-  queueMicrotask(() => void driveTurn(agentId, message));
+function deferRetry(agentId: string, message: string, delayMs = 0): void {
+  if (delayMs <= 0) {
+    queueMicrotask(() => void driveTurn(agentId, message));
+    return;
+  }
+  // Backing off: the agent is still mid-turn from a caller's point of view, so a prompt that
+  // arrives now must queue behind this retry, not start a second turn beside it.
+  backingOff.add(agentId);
+  setTimeout(() => {
+    backingOff.delete(agentId);
+    void driveTurn(agentId, message);
+  }, delayMs);
 }
 
 /** Runs in the background — callers do not await this. */
@@ -160,10 +172,10 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
         resultRef: text ? resultRef : null,
         retryMessage: message,
       });
-      if (decision.action === "retry") deferRetry(agentId, decision.message);
+      if (decision.action === "retry") deferRetry(agentId, decision.message, decision.delayMs);
       return;
     }
-    resetFailureCounters(agentId);
+    recordTurnSuccess(agentId);
     emit(runId, agentId, "handle.settled", { outcome: "success", resultRef });
     emit(runId, agentId, "agent.ended", { outcome: "success", endedAt: Date.now() });
     void maybeCheckpoint(runId, agentId);
@@ -205,9 +217,9 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
         resultRef: null,
         retryMessage: message,
       });
-      if (decision.action === "retry") deferRetry(agentId, decision.message);
+      if (decision.action === "retry") deferRetry(agentId, decision.message, decision.delayMs);
     } else {
-      resetFailureCounters(agentId);
+      recordTurnSuccess(agentId);
       emit(runId, agentId, "handle.settled", { outcome: "success", resultRef });
       emit(runId, agentId, "agent.ended", { outcome: "success", endedAt: Date.now() });
     }
@@ -348,9 +360,9 @@ export async function catchUpTurn(
         resultRef: text ? resultRef : null,
         retryMessage: row.prompt,
       });
-      if (decision.action === "retry") deferRetry(agentId, decision.message);
+      if (decision.action === "retry") deferRetry(agentId, decision.message, decision.delayMs);
     } else {
-      resetFailureCounters(agentId);
+      recordTurnSuccess(agentId);
       emit(runId, agentId, "handle.settled", { outcome, resultRef: text ? resultRef : null });
       // `error` can be set even on a "success" settle here — e.g. catch-up gave up on a turn
       // that was still running (giveUpReason) but kept its partial text; that explanation is

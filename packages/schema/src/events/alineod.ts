@@ -301,6 +301,26 @@ export const AgentTurnFailed = defineEvent({
   }),
 });
 
+export const AgentTurnRetried = defineEvent({
+  type: "agent.turn_retried",
+  durable: true,
+  version: 1,
+  description:
+    "A turn failed with a transient model-provider error (a 429 or a 5xx) and alineod is " +
+    "re-sending it after a backoff. This is not a supervision failure: it does not count toward " +
+    "the circuit breaker. After `maxAttempts` the failure is recorded as `agent.turn_failed`.",
+  schema: z.object({
+    agentId: z.string().nullable(),
+    error: z.string(),
+    errorCode: z.string(),
+    /** 1-based number of this retry. */
+    attempt: z.number().int(),
+    maxAttempts: z.number().int(),
+    /** The wait before the turn is re-sent, in milliseconds. */
+    delayMs: z.number().int(),
+  }),
+});
+
 export const AgentTurnInterrupted = defineEvent({
   type: "agent.turn_interrupted",
   durable: true,

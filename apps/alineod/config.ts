@@ -129,6 +129,26 @@ const ENV_VARS = {
     schema: ms,
     default: 1_000,
   }),
+  TRANSIENT_RETRY_MAX: defineEnv({
+    name: "ALINEOD_TRANSIENT_RETRY_MAX",
+    description:
+      "How many times alineod re-sends a turn that failed with a transient model-provider error (a 429 or a 5xx that ended the turn) before it applies the agent's `onFailure` policy. These retries are not counted as failures by the circuit breaker. `0` turns them off.",
+    schema: z.coerce.number().int().nonnegative(),
+    default: 3,
+  }),
+  TRANSIENT_RETRY_BASE_MS: defineEnv({
+    name: "ALINEOD_TRANSIENT_RETRY_BASE_MS",
+    description:
+      "First backoff before a transient retry. It doubles on each attempt, with up to 25% jitter, and is capped at `ALINEOD_TRANSIENT_RETRY_MAX_DELAY_MS`.",
+    schema: ms,
+    default: 2_000,
+  }),
+  TRANSIENT_RETRY_MAX_DELAY_MS: defineEnv({
+    name: "ALINEOD_TRANSIENT_RETRY_MAX_DELAY_MS",
+    description: "Upper bound on one transient-retry backoff.",
+    schema: ms,
+    default: 30_000,
+  }),
   MEMORY_ENABLED: defineEnv({
     name: "ALINEOD_MEMORY_ENABLED",
     description:
@@ -210,6 +230,9 @@ export const LEASE_TTL_MS = env.LEASE_TTL_MS;
 export const ADMISSION_CONCURRENCY = env.ADMISSION_CONCURRENCY;
 export const ADMISSION_TIMEOUT_MS = env.ADMISSION_TIMEOUT_MS;
 export const REATTACH_RETRY_DELAY_MS = env.REATTACH_RETRY_DELAY_MS;
+export const TRANSIENT_RETRY_MAX = env.TRANSIENT_RETRY_MAX;
+export const TRANSIENT_RETRY_BASE_MS = env.TRANSIENT_RETRY_BASE_MS;
+export const TRANSIENT_RETRY_MAX_DELAY_MS = env.TRANSIENT_RETRY_MAX_DELAY_MS;
 export const MEMORY_ENABLED = env.MEMORY_ENABLED;
 export const MEMORY_DB_PATH = env.MEMORY_DB_PATH;
 export const MEMORY_EMBEDDINGS_URL = env.MEMORY_EMBEDDINGS_URL;

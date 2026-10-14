@@ -50,6 +50,20 @@ The agent's **parent** is told automatically: a notice that its child needs a de
 inbox, the same way a [`notifyOn`](/docs/alineod/concepts/coordination#notifyon) notification is. A coordinator
 agent can therefore retry or stop its own failing workers without you.
 
+## Transient provider failures
+
+A turn that ends on a model provider's `429` or `5xx` is not the agent's fault. Before it looks at `onFailure`,
+alineod re-sends the same prompt after a backoff, up to `ALINEOD_TRANSIENT_RETRY_MAX` times (default `3`). The wait
+starts at `ALINEOD_TRANSIENT_RETRY_BASE_MS` (default 2 seconds), doubles each time, carries up to 25% jitter, and is
+capped by `ALINEOD_TRANSIENT_RETRY_MAX_DELAY_MS`. Each one emits `agent.turn_retried`.
+
+These retries do not count toward the circuit breaker and do not use `maxRetries`. When they run out, the failure is
+recorded as an ordinary failed turn and `onFailure` applies as above. Set `ALINEOD_TRANSIENT_RETRY_MAX=0` to turn
+them off.
+
+Only `MODEL_RATE_LIMITED` and `MODEL_UNAVAILABLE` are retried this way. alineod reads them from the provider's error
+text, so a provider that words its errors in a way alineod does not recognise is not retried.
+
 ## The circuit breaker
 
 Independently of `onFailure`, an agent that fails `maxConsecutiveFailures` turns in a row (default `3`) is held in
@@ -61,6 +75,7 @@ count resets on any turn that succeeds.
 
 | Event                      | When                                                                                            |
 | -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `agent.turn_retried`       | A transient provider failure is being re-sent after a backoff. Not a supervision failure.       |
 | `agent.turn_failed`        | Every failed turn, with `error` and `consecutiveFailures` — before the policy decides anything. |
 | `agent.state_changed`      | `to: "blocked"`, with `reason`: `ask`, `retries-exhausted`, or `circuit-tripped`.               |
 | `agent.supervision_needed` | The agent is waiting on a decision. Same `reason`, plus the `error`.                            |
