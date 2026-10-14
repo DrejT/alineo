@@ -14,7 +14,6 @@ export default defineConfig({
       "@alineo-labs/logger",
       "@alineo-labs/sandbox",
       "@alineo-labs/sqlite",
-      "@alineo-labs/opensandbox",
       "@opentui/core",
       "zod",
     ],

@@ -14,6 +14,7 @@ import {
 import {
   reconstructBoundCredentials,
   reconstructEgressRules,
+  requireCapability,
   resolveBoundCredential,
 } from "@alineo-labs/core";
 import { OpenSandboxProvider, isValidEgressTarget } from "@alineo-labs/opensandbox";
@@ -204,6 +205,14 @@ export class Sandbox {
     });
   }
 
+  /**
+   * The sandbox provider this client runs on. For a caller that needs something the client
+   * does not wrap, such as listing sandboxes the ledger never recorded.
+   */
+  get provider(): SandboxProvider {
+    return this._provider;
+  }
+
   /** Lazily initialises the adapter on first use. Concurrent callers share the same promise. */
   private _ensureConnected(): Promise<void> {
     this._connectPromise ??= this._adapter.connect?.() ?? Promise.resolve();
@@ -229,6 +238,9 @@ export class Sandbox {
    */
   async sandbox(opts: SandboxOptions): Promise<SandboxHandle> {
     assertValidNetworkPolicy(opts.networkPolicy);
+    // Refused here, before a container exists, when the provider says it cannot enforce it.
+    if (opts.networkPolicy?.egress?.length) requireCapability(this._provider, "egress");
+    if (opts.credentialProxy) requireCapability(this._provider, "credentials");
     await this._ensureConnected();
     await this._acquireSlot();
 

@@ -499,6 +499,64 @@ describe("Sandbox.resume() resourceId/teamId threading", () => {
   });
 });
 
+describe("capabilities are checked before a sandbox is created", () => {
+  const withDescriptor = (capabilities: Record<string, unknown>) =>
+    makeFakeControl({ descriptor: { id: "opensandbox", label: "x", capabilities } });
+
+  it("refuses a networkPolicy on a provider that cannot enforce egress", async () => {
+    const client = makeClient(makeAdapter());
+    const fake = withDescriptor({ egress: false });
+    internals(client)._provider = fake;
+
+    await expect(
+      client.sandbox({
+        image: "node:22",
+        resources: { cpu: "500m", memory: "256Mi" },
+        networkPolicy: {
+          defaultAction: "deny",
+          egress: [{ action: "allow", target: "example.com" }],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_UNSUPPORTED", details: { capability: "egress" } });
+    expect(fake.createSandbox).not.toHaveBeenCalled();
+  });
+
+  it("refuses credentialProxy on a provider that cannot inject credentials", async () => {
+    const client = makeClient(makeAdapter());
+    const fake = withDescriptor({ credentials: false });
+    internals(client)._provider = fake;
+
+    await expect(
+      client.sandbox({
+        image: "node:22",
+        resources: { cpu: "500m", memory: "256Mi" },
+        credentialProxy: true,
+        networkPolicy: { defaultAction: "deny", egress: [] },
+      }),
+    ).rejects.toMatchObject({
+      code: "CAPABILITY_UNSUPPORTED",
+      details: { capability: "credentials" },
+    });
+    expect(fake.createSandbox).not.toHaveBeenCalled();
+  });
+
+  it("goes ahead when the capability is unverified", async () => {
+    const client = makeClient(makeAdapter());
+    internals(client)._provider = withDescriptor({ egress: "unverified" });
+
+    await expect(
+      client.sandbox({
+        image: "node:22",
+        resources: { cpu: "500m", memory: "256Mi" },
+        networkPolicy: {
+          defaultAction: "deny",
+          egress: [{ action: "allow", target: "example.com" }],
+        },
+      }),
+    ).resolves.toBeDefined();
+  });
+});
+
 describe("provider identity on the ledger", () => {
   it("stamps the provider on every sandbox.created it writes", async () => {
     const adapter = makeAdapter();

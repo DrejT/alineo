@@ -6,6 +6,7 @@ import {
   resolveBoundCredential,
   type CredentialResolver,
 } from "../credentials";
+import { requireCapability } from "./capabilities";
 import type { SandboxInternal } from "./internal";
 import type { SandboxHandle } from "./sandbox";
 
@@ -22,6 +23,7 @@ export function listCheckpoints(sb: SandboxInternal): Promise<CheckpointInfo[]> 
  * `close()` remains valid on a paused sandbox.
  */
 export async function pause(sb: SandboxInternal): Promise<void> {
+  requireCapability(sb.deps.provider, "pause", sb.sandboxId);
   await sb.deps.provider.pauseSandbox(sb.sandboxId);
   sb.setPaused(true);
   // Same dangling-connection concern as close() — the paused container can't respond
@@ -57,6 +59,7 @@ export async function resume(sb: SandboxInternal): Promise<void> {
  * the latest checkpoint, or pass the returned ID to `Sandbox.restoreSnapshot()`.
  */
 export async function checkpoint(sb: SandboxInternal, name?: string): Promise<string> {
+  requireCapability(sb.deps.provider, "snapshot", sb.sandboxId);
   const snap = await sb.deps.provider.createSnapshot(sb.sandboxId);
   await sb.waitForSnapshot(snap.id);
   await sb.emit(LedgerEvent.CheckpointCreated, -1, { snapshotId: snap.id, name });

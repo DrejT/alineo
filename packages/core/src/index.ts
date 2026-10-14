@@ -26,7 +26,13 @@ export { resolveBoundCredential, reconstructBoundCredentials } from "./credentia
 export { reconstructEgressRules } from "./egress";
 export type { ReconstructedEgress } from "./egress";
 
-export { SandboxHandle, BashSession, resolveExecChannel, composeHooks } from "./sandbox/index";
+export {
+  SandboxHandle,
+  BashSession,
+  resolveExecChannel,
+  requireCapability,
+  composeHooks,
+} from "./sandbox/index";
 export type {
   ExecOptions,
   ExecCodeOptions,
