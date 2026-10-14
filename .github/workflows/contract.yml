@@ -10,6 +10,10 @@ name: Provider contract
 # the first run as the test of this file.
 
 on:
+  # Temporary: a workflow that only has `workflow_dispatch` cannot be dispatched until its file is
+  # on the default branch. This runs it from the feature branch. Remove it when that lands.
+  push:
+    branches: [sandbox-adapter]
   workflow_dispatch:
     inputs:
       execd_image:
