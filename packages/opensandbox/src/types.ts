@@ -154,7 +154,15 @@ export interface SSEEvent {
   type: SSEEventType;
   text?: string;
   results?: Record<string, string>;
-  error?: { name?: string; message: string; evalue?: string };
+  error?: {
+    name?: string;
+    message: string;
+    evalue?: string;
+    /** execd's error class, e.g. `CommandExecError`. Present on a command that did not exit 0. */
+    ename?: string;
+    /** For a command: `["exit status 3"]`, or `["signal: killed"]` when it was killed. */
+    traceback?: string[];
+  };
   execution_count?: number;
   execution_time?: number;
   timestamp: number;

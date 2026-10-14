@@ -25,10 +25,28 @@ export interface ExecResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  /** How long the command ran, in milliseconds, measured by the client. */
+  durationMs?: number;
+  /** True when the command was ended by a signal (a timeout, a `kill`, the OOM killer). */
+  killed?: boolean;
+  /** The signal that ended it, as the server reported it (`"killed"`). Set with `killed`. */
+  signal?: string;
+  /**
+   * True when the command was killed after running for as long as `timeoutMs` allowed. A
+   * timeout and a kill from inside the sandbox look the same on the wire (both are
+   * `signal: killed`, exit code -1), so this is inferred from the elapsed time.
+   */
+  timedOut?: boolean;
 }
 
 export type ExecDriver =
-  | { type: "stream"; gen: AsyncGenerator<SSEEvent>; onDone: (r: ExecResult) => Promise<void> }
+  | {
+      type: "stream";
+      gen: AsyncGenerator<SSEEvent>;
+      onDone: (r: ExecResult) => Promise<void>;
+      /** The `timeoutMs` the command was started with, so a timeout can be told from a kill. */
+      timeoutMs?: number;
+    }
   | { type: "replay"; result: ExecResult }
   | {
       type: "pty";
@@ -90,7 +108,7 @@ export class ExecHandle implements PromiseLike<ExecResult> {
       this._promise = this._drainPty(driver);
       this._promise.catch(() => {});
     } else {
-      this._promise = this._drain(driver.gen, driver.onDone);
+      this._promise = this._drain(driver.gen, driver.onDone, driver.timeoutMs);
       this._promise.catch(() => {});
     }
   }
@@ -132,9 +150,12 @@ export class ExecHandle implements PromiseLike<ExecResult> {
   private async _drain(
     gen: AsyncGenerator<SSEEvent>,
     onDone: (r: ExecResult) => Promise<void>,
+    timeoutMs?: number,
   ): Promise<ExecResult> {
     const stderr: string[] = [];
     let exitCode = 0;
+    let signal: string | undefined;
+    const startedAt = Date.now();
     try {
       for await (const ev of gen) {
         if (ev.type === SSEEventType.Stdout && ev.text) {
@@ -148,6 +169,12 @@ export class ExecHandle implements PromiseLike<ExecResult> {
           const code = Number(ev.error.evalue);
           if (!isNaN(code)) exitCode = code;
         }
+        // `["signal: killed"]` is how execd reports a command a signal ended. An exit code
+        // carries no such line, so its presence is the whole test.
+        for (const line of ev.error?.traceback ?? []) {
+          const match = /^signal: (.+)$/.exec(line);
+          if (match) signal = match[1];
+        }
       }
     } catch (err) {
       this._err = err;
@@ -158,10 +185,21 @@ export class ExecHandle implements PromiseLike<ExecResult> {
       this._notify();
     }
 
+    const durationMs = Date.now() - startedAt;
     const result: ExecResult = {
       stdout: joinOutputEvents(this._chunks),
       stderr: joinOutputEvents(stderr),
       exitCode,
+      durationMs,
+      ...(signal !== undefined
+        ? {
+            killed: true,
+            signal,
+            // The server enforces the limit and the client clock includes the round trip, so
+            // allow some slack before calling a kill a timeout.
+            timedOut: timeoutMs !== undefined && durationMs >= timeoutMs - 250,
+          }
+        : {}),
     };
     await onDone(result);
     return result;

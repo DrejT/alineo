@@ -256,9 +256,15 @@ export class SandboxCore implements SandboxInternal {
     // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
     async function* stream(): AsyncGenerator<SSEEvent> {
-      const execClient = await self.getExecClient();
+      opts.signal?.throwIfAborted();
+      const baseClient = await self.getExecClient();
       await self.emit(LedgerEvent.ExecStart, seq, { cmd, seq });
       self.deps.hooks?.onExecStart?.(self.sandboxId, seq, cmd);
+      // Aborting ends the request. It does not end the process in the sandbox, so ask execd to
+      // interrupt it too. Best effort: the caller is already gone, and it only has one signal.
+      const execClient = opts.signal ? baseClient.withSignal(opts.signal) : baseClient;
+      const interrupt = () => void baseClient.interruptCommand().catch(() => {});
+      opts.signal?.addEventListener("abort", interrupt, { once: true });
       // base64-encode so newlines/special chars survive the JSON boundary
       const sh = opts.shell ?? self.deps.shell ?? "/bin/sh";
       const command = `echo ${Buffer.from(cmd).toString("base64")} | base64 -d | ${sh}`;
@@ -271,13 +277,15 @@ export class SandboxCore implements SandboxInternal {
         await self.emit(LedgerEvent.ExecEvent, seq, { seq, ...ev });
         yield ev;
       }
+      opts.signal?.removeEventListener("abort", interrupt);
     }
 
     return new ExecHandle({
       type: "stream",
       gen: stream(),
+      timeoutMs: opts.timeoutMs,
       onDone: async (result) => {
-        await self.emit(LedgerEvent.ExecComplete, seq, { exitCode: result.exitCode, seq });
+        await self.emit(LedgerEvent.ExecComplete, seq, execCompletedPayload(result, seq));
         self.deps.hooks?.onExecComplete?.(self.sandboxId, seq, result);
         if (opts.strict !== false && result.exitCode !== 0) {
           throw new CommandError(result.exitCode, cmd, self.sandboxId);
@@ -532,4 +540,18 @@ export class SandboxCore implements SandboxInternal {
     this.openSessionClosers.add(closeSession);
     return new BashSession(sessionId, execInSession, closeSession);
   }
+}
+
+/**
+ * What `exec.completed` records. The optional fields appear only when they say something, so a
+ * row for an ordinary command is the same as it was before they existed.
+ */
+function execCompletedPayload(result: ExecResult, seq: number) {
+  return {
+    exitCode: result.exitCode,
+    seq,
+    ...(result.durationMs !== undefined ? { durationMs: result.durationMs } : {}),
+    ...(result.killed ? { killed: true, signal: result.signal } : {}),
+    ...(result.timedOut ? { timedOut: true } : {}),
+  };
 }

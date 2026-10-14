@@ -13,6 +13,12 @@ export interface ExecOptions {
   /** Abort the command after this many milliseconds. */
   timeoutMs?: number;
   /**
+   * Abort the command. On abort the call rejects with the signal's reason (an `AbortError` by
+   * default) and the command is interrupted in the sandbox, best effort. A signal that is already
+   * aborted rejects before anything is sent.
+   */
+  signal?: AbortSignal;
+  /**
    * Throw `CommandError` if the command exits with a non-zero code.
    * Defaults to `true`.
    */

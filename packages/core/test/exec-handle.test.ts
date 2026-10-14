@@ -225,3 +225,84 @@ describe("line endings dropped by execd before 1.1.1", () => {
     expect(joinOutputEvents([])).toBe("");
   });
 });
+
+function killedBy(signal: string): SSEEvent {
+  return {
+    type: SSEEventType.Error,
+    error: {
+      message: "",
+      ename: "CommandExecError",
+      evalue: "-1",
+      traceback: [`signal: ${signal}`],
+    },
+    timestamp: 0,
+  };
+}
+
+describe("how a command ended", () => {
+  it("reports a duration for every command", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("ok\n"), error(0)]),
+      onDone: async () => {},
+    });
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    expect(result).not.toHaveProperty("killed");
+    expect(result).not.toHaveProperty("timedOut");
+  });
+
+  it("does not call a plain non-zero exit a kill", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([
+        {
+          type: SSEEventType.Error,
+          error: {
+            message: "",
+            ename: "CommandExecError",
+            evalue: "3",
+            traceback: ["exit status 3"],
+          },
+          timestamp: 0,
+        },
+      ]),
+      onDone: async () => {},
+    });
+    expect(result.exitCode).toBe(3);
+    expect(result).not.toHaveProperty("killed");
+  });
+
+  it("reports a signal kill, and not a timeout when it came long before the limit", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([killedBy("killed")]),
+      timeoutMs: 60_000,
+      onDone: async () => {},
+    });
+    expect(result).toMatchObject({ killed: true, signal: "killed", timedOut: false, exitCode: -1 });
+  });
+
+  it("calls a kill after the limit a timeout", async () => {
+    // eslint-disable-next-line typescript/require-await -- an async generator by signature
+    async function* slowThenKilled(): AsyncGenerator<SSEEvent> {
+      await new Promise((r) => setTimeout(r, 60));
+      yield killedBy("killed");
+    }
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: slowThenKilled(),
+      timeoutMs: 50,
+      onDone: async () => {},
+    });
+    expect(result).toMatchObject({ killed: true, signal: "killed", timedOut: true });
+  });
+
+  it("never reports a timeout for a command with no limit", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([killedBy("killed")]),
+      onDone: async () => {},
+    });
+    expect(result.timedOut).toBe(false);
+  });
+});

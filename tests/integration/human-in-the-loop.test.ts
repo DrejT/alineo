@@ -31,7 +31,9 @@ afterAll(async () => {
   for (const a of agents) await a.close();
 });
 
-async function load(spec: Record<string, unknown>): Promise<{ agent: Alineo; adapter: SQLiteAdapter }> {
+async function load(
+  spec: Record<string, unknown>,
+): Promise<{ agent: Alineo; adapter: SQLiteAdapter }> {
   const adapter = new SQLiteAdapter(":memory:");
   const agent = await Alineo.start(spec, { adapter });
   agents.push(agent);
@@ -40,138 +42,114 @@ async function load(spec: Record<string, unknown>): Promise<{ agent: Alineo; ada
 
 const runExact = (cmd: string) => `Run this exact shell command and nothing else: ${cmd}`;
 
-test(
-  "gated tool call emits permission_request; reject with feedback blocks the write",
-  async () => {
-    const { agent } = await load({
-      ...BASE,
-      name: "hitl-ask",
-      permissions: { default: "ask", rules: [{ tool: "read", action: "allow" }] },
-    });
+test("gated tool call emits permission_request; reject with feedback blocks the write", async () => {
+  const { agent } = await load({
+    ...BASE,
+    name: "hitl-ask",
+    permissions: { default: "ask", rules: [{ tool: "read", action: "allow" }] },
+  });
 
-    const seen: AgentEvent["type"][] = [];
-    for await (const ev of agent.prompt(runExact("echo permission-test > /tmp/hitl.txt"))) {
-      seen.push(ev.type);
-      if (ev.type === "permission_request") {
-        expect(ev.tool).toBe("bash");
-        expect(ev.requestId).toBeTruthy();
-        await agent.resolvePermission(ev.requestId, {
-          kind: "reject",
-          feedback: "Do not write that file.",
-        });
-      }
+  const seen: AgentEvent["type"][] = [];
+  for await (const ev of agent.prompt(runExact("echo permission-test > /tmp/hitl.txt"))) {
+    seen.push(ev.type);
+    if (ev.type === "permission_request") {
+      expect(ev.tool).toBe("bash");
+      expect(ev.requestId).toBeTruthy();
+      await agent.resolvePermission(ev.requestId, {
+        kind: "reject",
+        feedback: "Do not write that file.",
+      });
     }
+  }
 
-    expect(seen).toContain("permission_request");
-    expect(seen).toContain("permission_resolved");
+  expect(seen).toContain("permission_request");
+  expect(seen).toContain("permission_resolved");
 
-    const { stdout } = await agent.sandbox.exec("cat /tmp/hitl.txt 2>/dev/null || echo MISSING");
-    expect(stdout.trim()).toBe("MISSING");
-  },
-  600_000,
-);
+  const { stdout } = await agent.sandbox.exec("cat /tmp/hitl.txt 2>/dev/null || echo MISSING");
+  expect(stdout.trim()).toBe("MISSING");
+}, 600_000);
 
-test(
-  "allow-once lets the call through",
-  async () => {
-    const { agent } = await load({ ...BASE, name: "hitl-allow", permissions: "ask" });
+test("allow-once lets the call through", async () => {
+  const { agent } = await load({ ...BASE, name: "hitl-allow", permissions: "ask" });
 
-    for await (const ev of agent.prompt(runExact("echo approved > /tmp/hitl-ok.txt"))) {
-      if (ev.type === "permission_request") {
-        await agent.resolvePermission(ev.requestId, { kind: "once" });
-      }
+  for await (const ev of agent.prompt(runExact("echo approved > /tmp/hitl-ok.txt"))) {
+    if (ev.type === "permission_request") {
+      await agent.resolvePermission(ev.requestId, { kind: "once" });
     }
+  }
 
-    const { stdout } = await agent.sandbox.exec("cat /tmp/hitl-ok.txt");
-    expect(stdout.trim()).toBe("approved");
-  },
-  600_000,
-);
+  const { stdout } = await agent.sandbox.exec("cat /tmp/hitl-ok.txt");
+  expect(stdout.trim()).toBe("approved");
+}, 600_000);
 
-test(
-  "classify: a read-only bash command runs without a prompt",
-  async () => {
-    const { agent } = await load({
-      ...BASE,
-      name: "hitl-classify",
-      permissions: { default: "ask", rules: [{ tool: "bash", action: "classify" }] },
-    });
+test("classify: a read-only bash command runs without a prompt", async () => {
+  const { agent } = await load({
+    ...BASE,
+    name: "hitl-classify",
+    permissions: { default: "ask", rules: [{ tool: "bash", action: "classify" }] },
+  });
 
-    const seen: AgentEvent["type"][] = [];
-    for await (const ev of agent.prompt(runExact("cat /etc/os-release"))) {
-      seen.push(ev.type);
-      if (ev.type === "permission_request") {
-        await agent.resolvePermission(ev.requestId, { kind: "reject" });
-      }
+  const seen: AgentEvent["type"][] = [];
+  for await (const ev of agent.prompt(runExact("cat /etc/os-release"))) {
+    seen.push(ev.type);
+    if (ev.type === "permission_request") {
+      await agent.resolvePermission(ev.requestId, { kind: "reject" });
     }
-    expect(seen).not.toContain("permission_request");
-  },
-  600_000,
-);
+  }
+  expect(seen).not.toContain("permission_request");
+}, 600_000);
 
-test(
-  "onPermission handler auto-resolves, and the ledger records every decision",
-  async () => {
-    const { agent, adapter } = await load({ ...BASE, name: "hitl-onperm", permissions: "ask" });
+test("onPermission handler auto-resolves, and the ledger records every decision", async () => {
+  const { agent, adapter } = await load({ ...BASE, name: "hitl-onperm", permissions: "ask" });
 
-    const requests: PermissionRequest[] = [];
-    for await (const _ of agent.prompt(runExact("echo via-handler > /tmp/hitl-h.txt"), {
-      onPermission: (req) => {
-        requests.push(req);
-        return { kind: "once" };
-      },
-    })) {
-      void _;
+  const requests: PermissionRequest[] = [];
+  for await (const _ of agent.prompt(runExact("echo via-handler > /tmp/hitl-h.txt"), {
+    onPermission: (req) => {
+      requests.push(req);
+      return { kind: "once" };
+    },
+  })) {
+    void _;
+  }
+
+  expect(requests.length).toBeGreaterThan(0);
+  const { stdout } = await agent.sandbox.exec("cat /tmp/hitl-h.txt");
+  expect(stdout.trim()).toBe("via-handler");
+  expect(await agent.listPendingPermissions()).toHaveLength(0);
+
+  const events = await adapter.readAll(agent.name, agent.sandboxId);
+  const kinds = events.map((e) => e.event);
+  expect(kinds).toContain("permission.requested");
+  expect(kinds).toContain("permission_resolved");
+}, 600_000);
+
+test('permissions: "readonly" removes write/bash from the toolset', async () => {
+  const { agent } = await load({ ...BASE, name: "hitl-readonly", permissions: "readonly" });
+
+  const seen: AgentEvent["type"][] = [];
+  for await (const ev of agent.prompt(
+    "Create a file /tmp/ro.txt containing the word hello. If you cannot, say CANNOT.",
+  )) {
+    seen.push(ev.type);
+    if (ev.type === "permission_request") {
+      await agent.resolvePermission(ev.requestId, { kind: "reject" });
     }
+  }
 
-    expect(requests.length).toBeGreaterThan(0);
-    const { stdout } = await agent.sandbox.exec("cat /tmp/hitl-h.txt");
-    expect(stdout.trim()).toBe("via-handler");
-    expect(await agent.listPendingPermissions()).toHaveLength(0);
+  const { stdout } = await agent.sandbox.exec("cat /tmp/ro.txt 2>/dev/null || echo MISSING");
+  expect(stdout.trim()).toBe("MISSING");
+  expect(seen).not.toContain("permission_request");
+}, 600_000);
 
-    const events = await adapter.readAll(agent.name, agent.sandboxId);
-    const kinds = events.map((e) => e.event);
-    expect(kinds).toContain("permission.requested");
-    expect(kinds).toContain("permission_resolved");
-  },
-  600_000,
-);
+test("no permissions field → never emits permission_request (back-compat)", async () => {
+  const { agent } = await load({ ...BASE, name: "hitl-auto" });
 
-test(
-  'permissions: "readonly" removes write/bash from the toolset',
-  async () => {
-    const { agent } = await load({ ...BASE, name: "hitl-readonly", permissions: "readonly" });
+  const seen: AgentEvent["type"][] = [];
+  for await (const ev of agent.prompt(runExact("echo auto > /tmp/hitl-auto.txt"))) {
+    seen.push(ev.type);
+  }
 
-    const seen: AgentEvent["type"][] = [];
-    for await (const ev of agent.prompt(
-      "Create a file /tmp/ro.txt containing the word hello. If you cannot, say CANNOT.",
-    )) {
-      seen.push(ev.type);
-      if (ev.type === "permission_request") {
-        await agent.resolvePermission(ev.requestId, { kind: "reject" });
-      }
-    }
-
-    const { stdout } = await agent.sandbox.exec("cat /tmp/ro.txt 2>/dev/null || echo MISSING");
-    expect(stdout.trim()).toBe("MISSING");
-    expect(seen).not.toContain("permission_request");
-  },
-  600_000,
-);
-
-test(
-  "no permissions field → never emits permission_request (back-compat)",
-  async () => {
-    const { agent } = await load({ ...BASE, name: "hitl-auto" });
-
-    const seen: AgentEvent["type"][] = [];
-    for await (const ev of agent.prompt(runExact("echo auto > /tmp/hitl-auto.txt"))) {
-      seen.push(ev.type);
-    }
-
-    expect(seen).not.toContain("permission_request");
-    const { stdout } = await agent.sandbox.exec("cat /tmp/hitl-auto.txt");
-    expect(stdout.trim()).toBe("auto");
-  },
-  600_000,
-);
+  expect(seen).not.toContain("permission_request");
+  const { stdout } = await agent.sandbox.exec("cat /tmp/hitl-auto.txt");
+  expect(stdout.trim()).toBe("auto");
+}, 600_000);

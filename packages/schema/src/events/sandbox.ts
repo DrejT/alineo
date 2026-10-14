@@ -92,6 +92,14 @@ export const ExecCompleted = defineEvent({
     exitCode: z.number().int().optional(),
     stdout: z.string().optional(),
     stderr: z.string().optional(),
+    /** How long the command ran, in milliseconds, as the client measured it. */
+    durationMs: z.number().int().optional(),
+    /** Present and true when a signal ended the command. */
+    killed: z.boolean().optional(),
+    /** The signal, as the server reported it. Set with `killed`. */
+    signal: z.string().optional(),
+    /** Present and true when the command was killed after running for `timeoutMs`. */
+    timedOut: z.boolean().optional(),
   }),
 });
 

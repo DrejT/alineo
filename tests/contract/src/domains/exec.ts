@@ -69,6 +69,52 @@ export function execDomain(binding: ProviderBinding): void {
         expect(Date.now() - started).toBeLessThan(20_000);
         // A timed-out command did not succeed. The provider may report 124, 137, or -1.
         expect(r.exitCode).not.toBe(0);
+        expect(r.killed).toBe(true);
+        expect(r.timedOut).toBe(true);
+        expect(r.durationMs).toBeGreaterThanOrEqual(1500);
+      });
+    });
+
+    test("a command that kills itself is not reported as a timeout", async () => {
+      await withSandbox(binding, "exec-self-kill", async (sb) => {
+        const r = await sb.exec("kill -9 $$", { timeoutMs: 60_000, strict: false });
+        // The wrapper's inner shell dies, so execd sees exit status 137 (128 + 9), not a signal.
+        // Either way it did not run out its limit.
+        expect(r.exitCode).not.toBe(0);
+        expect(r.timedOut).not.toBe(true);
+      });
+    });
+
+    test("an AbortSignal ends the call, and the command is interrupted", async () => {
+      await withSandbox(binding, "exec-abort", async (sb) => {
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(), 1000);
+
+        const started = Date.now();
+        const err = await Promise.resolve(
+          sb.exec("sleep 60", { signal: controller.signal, strict: false }),
+        ).catch((e: unknown) => e);
+
+        expect(err).toBeInstanceOf(Error);
+        expect((err as Error).name).toBe("AbortError");
+        expect(Date.now() - started).toBeLessThan(15_000);
+
+        // The sandbox is still usable, and the sleep is gone.
+        const after = await sb.exec("pgrep -f 'sleep 60' >/dev/null && echo running || echo gone", {
+          strict: false,
+        });
+        expect(after.stdout.trim()).toBe("gone");
+      });
+    });
+
+    test("an already-aborted signal rejects before anything runs", async () => {
+      await withSandbox(binding, "exec-pre-aborted", async (sb) => {
+        const controller = new AbortController();
+        controller.abort();
+        const err = await Promise.resolve(
+          sb.exec("echo should-not-run", { signal: controller.signal }),
+        ).catch((e: unknown) => e);
+        expect((err as Error).name).toBe("AbortError");
       });
     });
   });
