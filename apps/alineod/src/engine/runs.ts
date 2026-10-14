@@ -17,7 +17,7 @@ import { emit } from "./emit";
 import { driveTurn } from "./stream";
 import { withInbox } from "./notify";
 import { acquireAdmission } from "./admission";
-import { errorFields } from "../util";
+import { providerOf, errorFields } from "../util";
 
 export interface CreateRunResult {
   runId: string;
@@ -84,7 +84,10 @@ export async function provisionRoot(
       maxAgents: body.budget?.maxAgents,
     });
     register(rootAgentId, agent);
-    emit(runId, rootAgentId, "agent.provisioned", { sandboxId: agent.sandboxId });
+    emit(runId, rootAgentId, "agent.provisioned", {
+      sandboxId: agent.sandboxId,
+      provider: providerOf(agent),
+    });
 
     if (body.prompt) void driveTurn(rootAgentId, withInbox(rootAgentId, body.prompt));
   } catch (err) {

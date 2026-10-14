@@ -26,7 +26,7 @@ import { driveTurn, setState } from "./stream";
 import { registerNotify, withInbox } from "./notify";
 import { isNotRunningError, waitUntilNotPaused } from "./hold";
 import { acquireAdmission } from "./admission";
-import { errorFields, errorMessage, sleep } from "../util";
+import { providerOf, errorFields, errorMessage, sleep } from "../util";
 import {
   normalizeWait,
   validateWait,
@@ -203,7 +203,10 @@ export async function provisionChild(
     }
 
     register(childId, child);
-    emit(runId, childId, "agent.provisioned", { sandboxId: child.sandboxId });
+    emit(runId, childId, "agent.provisioned", {
+      sandboxId: child.sandboxId,
+      provider: providerOf(child),
+    });
 
     if (wait && waited) await injectInputs(child, wait, waited);
 

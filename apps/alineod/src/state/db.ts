@@ -146,6 +146,7 @@ for (const alter of [
   "ALTER TABLE agents ADD COLUMN paused_from TEXT",
   "ALTER TABLE agents ADD COLUMN paused_by TEXT",
   "ALTER TABLE agents ADD COLUMN released_at INTEGER",
+  "ALTER TABLE agents ADD COLUMN provider TEXT",
   "ALTER TABLE runs ADD COLUMN closing_at INTEGER",
 ]) {
   try {

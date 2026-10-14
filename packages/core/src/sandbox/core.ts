@@ -2,7 +2,7 @@ import { type ExecClient, PtyClient, SnapshotState, SandboxState } from "@alineo
 import type { SSEEvent, CodeLanguage, CodeContext } from "@alineo-labs/opensandbox";
 import { SandboxError, CommandError } from "../errors";
 import type { LedgerEntry } from "../ledger";
-import { LedgerEvent } from "../ledger";
+import { DEFAULT_PROVIDER_ID, LedgerEvent } from "../ledger";
 import {
   ExecHandle,
   InteractiveExecHandle,
@@ -23,6 +23,11 @@ import { BashSession } from "./bash-session";
  */
 export class SandboxCore implements SandboxInternal {
   readonly sandboxId: string;
+
+  /** The sandbox provider that owns this sandbox. See `SandboxDeps.providerId`. */
+  get provider(): string {
+    return this.deps.providerId ?? DEFAULT_PROVIDER_ID;
+  }
   readonly name: string;
   readonly deps: SandboxDeps;
   /** Cached exec results for replay mode (populated by `Sandbox.resume()`). */

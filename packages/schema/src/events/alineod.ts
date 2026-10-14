@@ -84,7 +84,15 @@ export const AgentProvisioned = defineEvent({
   version: 1,
   description:
     "The sandbox exists and the bridge is up — backfills what `agent.spawned` could not know yet.",
-  schema: z.object({ agentId: z.string().nullable(), sandboxId: z.string() }),
+  schema: z.object({
+    agentId: z.string().nullable(),
+    sandboxId: z.string(),
+    /**
+     * The sandbox provider that owns `sandboxId`. Absent on events written before this field
+     * existed, which all came from OpenSandbox.
+     */
+    provider: z.string().optional(),
+  }),
 });
 
 export const AgentStateChanged = defineEvent({

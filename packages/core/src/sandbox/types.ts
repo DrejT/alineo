@@ -109,4 +109,9 @@ export interface SandboxDeps {
   ) => Promise<SandboxHandle>;
   /** Route execd and proxy calls through the OpenSandbox server. Required when the server runs in Docker. */
   useServerProxy?: boolean;
+  /**
+   * The sandbox provider that owns this sandbox. Set by the client that created the handle.
+   * Absent means OpenSandbox, the only provider there was.
+   */
+  providerId?: string;
 }

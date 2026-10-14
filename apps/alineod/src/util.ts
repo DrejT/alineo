@@ -54,3 +54,13 @@ export function errorFields(err: unknown): { error: string; errorCode?: ErrorCod
   const errorCode = errorCodeOf(err) ?? errorCodeFromText(error);
   return errorCode ? { error, errorCode } : { error };
 }
+
+/**
+ * The sandbox provider that owns an agent's sandbox, for the `agent.provisioned` event.
+ *
+ * Read off the handle, which the client that created it stamped. Optional chaining because a
+ * test double or an older `alineo` build may not carry it, and an absent value means OpenSandbox.
+ */
+export function providerOf(agent: { sandbox?: { provider?: string } }): string | undefined {
+  return agent.sandbox?.provider;
+}

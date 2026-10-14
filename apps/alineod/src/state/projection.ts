@@ -6,6 +6,7 @@
  * they stay a pure function of the ledger and `rebuild()` can throw them away and refold.
  */
 import { db, readAllLedger, forgetIdempotentCommandsFor, type LedgerRow } from "./db";
+import { DEFAULT_PROVIDER_ID } from "alineo";
 import type { AgentView } from "../schema";
 
 // ── writers (ledger-driven only) ─────────────────────────────────────────────
@@ -49,7 +50,7 @@ const settleInbox = db.query(
 );
 
 const setAgentSandbox = db.query(
-  `UPDATE agents SET sandbox_id = $sandboxId WHERE agent_id = $agentId`,
+  `UPDATE agents SET sandbox_id = $sandboxId, provider = $provider WHERE agent_id = $agentId`,
 );
 
 const endAgentRow = db.query(
@@ -142,7 +143,12 @@ export function apply(row: LedgerRow): void {
       }
       break;
     case "agent.provisioned":
-      setAgentSandbox.run({ $agentId: row.agent_id, $sandboxId: p.sandboxId as string });
+      setAgentSandbox.run({
+        $agentId: row.agent_id,
+        $sandboxId: p.sandboxId as string,
+        // Events written before provider ids existed record none, and all came from OpenSandbox.
+        $provider: (p.provider as string | undefined) ?? DEFAULT_PROVIDER_ID,
+      });
       break;
     case "handle.settled":
       settleHandleRow.run({
@@ -252,6 +258,7 @@ const rowToView = (r: AgentRow): AgentView => ({
   state: r.state,
   specName: r.spec_name,
   sandboxId: r.sandbox_id,
+  provider: r.sandbox_id ? (r.provider ?? DEFAULT_PROVIDER_ID) : null,
   createdAt: r.created_at,
   endedAt: r.ended_at,
   outcome: r.outcome,
@@ -268,6 +275,7 @@ export interface AgentRow {
   spec_name: string;
   spec_json: string;
   sandbox_id: string | null;
+  provider: string | null;
   spawn_budget: number | null;
   max_agents_budget: number | null;
   wait_for: string | null;

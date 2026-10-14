@@ -509,6 +509,17 @@ describe("provider identity on the ledger", () => {
     expect(createdPayload(adapter)).toMatchObject({ provider: "opensandbox" });
   });
 
+  it("exposes the provider on the handle", async () => {
+    const client = makeClient(makeAdapter());
+    internals(client)._control = makeFakeControl();
+
+    const sb = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+    });
+    expect(sb.provider).toBe("opensandbox");
+  });
+
   it("stamps the provider on a sandbox created by resume() too", async () => {
     const adapter = makeAdapter();
     (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([

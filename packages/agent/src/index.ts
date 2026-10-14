@@ -46,5 +46,6 @@ export {
   CHECKPOINT_ROOT,
 } from "./checkpoint";
 export { isSandboxGone } from "./sandbox-gone";
+export { DEFAULT_PROVIDER_ID } from "@alineo-labs/core";
 export type { LatestCheckpoint } from "./restore";
 export { findLatestCheckpoint, restoreCheckpoint } from "./restore";

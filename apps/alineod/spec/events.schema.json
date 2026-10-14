@@ -181,6 +181,9 @@
         "sandboxId": {
           "type": "string"
         },
+        "provider": {
+          "type": "string"
+        },
         "event": {
           "type": "string",
           "enum": [

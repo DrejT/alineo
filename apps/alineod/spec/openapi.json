@@ -496,6 +496,11 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "provider": {
+                            "nullable": true,
+                            "description": "The sandbox provider that owns sandboxId, or null before the agent has a sandbox. Absent in the ledger means OpenSandbox.",
+                            "type": "string"
+                          },
                           "createdAt": {
                             "type": "number"
                           },
@@ -522,6 +527,7 @@
                           "state",
                           "specName",
                           "sandboxId",
+                          "provider",
                           "createdAt",
                           "endedAt",
                           "outcome",
@@ -1155,6 +1161,11 @@
                       "nullable": true,
                       "type": "string"
                     },
+                    "provider": {
+                      "nullable": true,
+                      "description": "The sandbox provider that owns sandboxId, or null before the agent has a sandbox. Absent in the ledger means OpenSandbox.",
+                      "type": "string"
+                    },
                     "createdAt": {
                       "type": "number"
                     },
@@ -1182,6 +1193,7 @@
                     "state",
                     "specName",
                     "sandboxId",
+                    "provider",
                     "createdAt",
                     "endedAt",
                     "outcome",

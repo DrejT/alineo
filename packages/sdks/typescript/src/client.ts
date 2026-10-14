@@ -275,6 +275,7 @@ export class Sandbox {
 
       const sb = new SandboxHandle(sandboxId, name, {
         control: this._control,
+        providerId: this._providerId,
         adapter: this._adapter,
         sink: this._sink,
         credentialBroker: this._credentialBroker,
@@ -528,6 +529,7 @@ export class Sandbox {
         name,
         {
           control: this._control,
+          providerId: this._providerId,
           adapter: this._adapter,
           sink: this._sink,
           credentialBroker: this._credentialBroker,
@@ -649,6 +651,7 @@ export class Sandbox {
     const resources = opts?.resources;
     const handle = new SandboxHandle(sandboxId, name, {
       control: this._control,
+      providerId: this._providerId,
       adapter: this._adapter,
       sink: this._sink,
       credentialBroker: this._credentialBroker,
@@ -757,6 +760,7 @@ export class Sandbox {
       });
       return new SandboxHandle(newId, name, {
         control: this._control,
+        providerId: this._providerId,
         adapter: this._adapter,
         sink: this._sink,
         credentialBroker: this._credentialBroker,
@@ -982,6 +986,7 @@ export class Sandbox {
 
       const sb = new SandboxHandle(newId, sessionName, {
         control: this._control,
+        providerId: this._providerId,
         adapter: this._adapter,
         sink: this._sink,
         credentialBroker: this._credentialBroker,
@@ -1079,6 +1084,7 @@ export class Sandbox {
 
       return new SandboxHandle(newId, sessionName, {
         control: this._control,
+        providerId: this._providerId,
         adapter: this._adapter,
         sink: this._sink,
         credentialBroker: this._credentialBroker,

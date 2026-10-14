@@ -160,3 +160,25 @@ describe("DELETE /runs/:runId", () => {
     expect((await call("DELETE", "/runs/r_missing")).status).toBe(404);
   });
 });
+
+describe("provider in the agent view", () => {
+  test("a provisioned agent reports the provider that owns its sandbox", async () => {
+    const { rootAgentId } = await startRun({ prompt: "go" });
+
+    const view = await call("GET", `/agents/${rootAgentId}`);
+    expect(view.status).toBe(200);
+    // The fake handle carries no provider, so this is the default for an event with none.
+    expect(view.body).toMatchObject({ provider: "opensandbox" });
+    expect(view.body.sandboxId).toEqual(expect.any(String));
+  });
+
+  test("appears in the run tree too", async () => {
+    const { runId, rootAgentId } = await startRun({ prompt: "go" });
+
+    const tree = await call("GET", `/runs/${runId}`);
+    const root = (tree.body.agents as Array<{ agentId: string; provider: string | null }>).find(
+      (a) => a.agentId === rootAgentId,
+    );
+    expect(root?.provider).toBe("opensandbox");
+  });
+});
