@@ -726,6 +726,21 @@
         "vitest": "5.0.0",
       },
     },
+    "tests/contract": {
+      "name": "@alineo-labs/contract-tests",
+      "version": "0.0.0",
+      "dependencies": {
+        "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/errors": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "1.4.2",
+        "bun-types": "1.4.2",
+        "typescript": "6.0.3",
+      },
+    },
     "tests/integration": {
       "name": "@alineo-labs/integration-tests",
       "version": "0.0.17",
@@ -772,6 +787,8 @@
     "@alineo-labs/cli-shared": ["@alineo-labs/cli-shared@workspace:packages/cli-shared"],
 
     "@alineo-labs/config-shared": ["@alineo-labs/config-shared@workspace:packages/config-shared"],
+
+    "@alineo-labs/contract-tests": ["@alineo-labs/contract-tests@workspace:tests/contract"],
 
     "@alineo-labs/core": ["@alineo-labs/core@workspace:packages/core"],
 

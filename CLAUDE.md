@@ -93,6 +93,22 @@ because `packLocalPackagesForGlobalInstall` only rewrites `workspace:*` deps tha
 same batch, so anything left out comes from npm at exactly the version being avoided.
 `tests/integration/local-cli.test.ts` is the check that the swap works.
 
+### Provider contract tests
+
+`tests/contract` is what a sandbox provider must do for alineo to run on it: lifecycle, exec
+(stdout, stderr, exit codes, newlines, stdin, timeouts), files (text, binary, 5 MB), snapshot and
+fork (a file written to each of nine paths survives), and endpoint (an HTTP server and an SSE
+stream across a silent gap). It goes through the public SDK, so the same suite is bound to another
+provider by one small file (`opensandbox.contract.test.ts` is the template).
+
+```bash
+bun run test:contract                 # needs a live OpenSandbox, like the integration tests
+OPEN_SANDBOX_RUNTIME=gvisor bun run test:contract   # marks /tmp as a known snapshot loss
+```
+
+Run it before changing the `execd_image` or server image pin in
+`packages/cli-shared/src/config.ts`. It is what showed `v1.0.22` strips newlines from stdout.
+
 ### Which NVIDIA model to pin
 
 Answering `/v1/chat/completions` is not the bar. A reasoning model that streams nothing while
