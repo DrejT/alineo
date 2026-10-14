@@ -1,8 +1,13 @@
-import { type ExecClient, PtyClient, SnapshotState, SandboxState } from "@alineo-labs/opensandbox";
-import type { SSEEvent, CodeLanguage, CodeContext } from "@alineo-labs/opensandbox";
+import type {
+  CodeContext,
+  CodeLanguage,
+  ExecChannel,
+  ExecEvent,
+  PtyChannel,
+} from "@alineo-labs/provider";
 import { SandboxError, CommandError } from "../errors";
 import type { LedgerEntry } from "../ledger";
-import { DEFAULT_PROVIDER_ID, LedgerEvent } from "../ledger";
+import { LedgerEvent } from "../ledger";
 import {
   ExecHandle,
   InteractiveExecHandle,
@@ -12,7 +17,7 @@ import {
 } from "../exec-handle";
 import type { SandboxDeps, ExecOptions, ExecCodeOptions, PendingInteractiveExec } from "./types";
 import type { SandboxInternal } from "./internal";
-import { resolveExecClient } from "./resolve";
+import { resolveExecChannel } from "./resolve";
 import { BashSession } from "./bash-session";
 
 /**
@@ -24,9 +29,9 @@ import { BashSession } from "./bash-session";
 export class SandboxCore implements SandboxInternal {
   readonly sandboxId: string;
 
-  /** The sandbox provider that owns this sandbox. See `SandboxDeps.providerId`. */
+  /** The id of the sandbox provider that owns this sandbox (`"opensandbox"`). */
   get provider(): string {
-    return this.deps.providerId ?? DEFAULT_PROVIDER_ID;
+    return this.deps.provider.id;
   }
   readonly name: string;
   readonly deps: SandboxDeps;
@@ -36,7 +41,7 @@ export class SandboxCore implements SandboxInternal {
   readonly pendingInteractive: Map<number, PendingInteractiveExec>;
   readonly openSessionClosers = new Set<() => Promise<void>>();
 
-  private _execClient: ExecClient | null = null;
+  private _execClient: ExecChannel | null = null;
   private _seq = 0;
   private _closed = false;
   private _paused = false;
@@ -97,23 +102,19 @@ export class SandboxCore implements SandboxInternal {
     return ++this._seq;
   }
 
-  async getExecClient(): Promise<ExecClient> {
+  async getExecClient(): Promise<ExecChannel> {
     if (this._paused)
       throw new SandboxError(
         "sandbox is paused — call resume() first",
         this.sandboxId,
         "SANDBOX_PAUSED",
       );
-    this._execClient ??= await resolveExecClient(
-      this.deps.control,
-      this.sandboxId,
-      this.deps.useServerProxy,
-    );
+    this._execClient ??= await resolveExecChannel(this.deps.provider, this.sandboxId);
     return this._execClient;
   }
 
-  /** Resolve a fresh `PtyClient` for a new interactive session. Reuses `getExecClient()`'s readiness wait. */
-  async resolvePtyClient(): Promise<PtyClient> {
+  /** Resolve a fresh terminal channel for a new interactive session. Reuses `getExecClient()`'s readiness wait. */
+  async resolvePtyClient(): Promise<PtyChannel> {
     if (this._paused)
       throw new SandboxError(
         "sandbox is paused — call resume() first",
@@ -121,10 +122,15 @@ export class SandboxCore implements SandboxInternal {
         "SANDBOX_PAUSED",
       );
     await this.getExecClient(); // ensures execd is up and polling has already succeeded
-    const ep = await this.deps.control.getEndpoint(this.sandboxId, 44772, this.deps.useServerProxy);
-    const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
-    const token = ep.headers?.["X-EXECD-ACCESS-TOKEN"] ?? "";
-    return new PtyClient({ baseUrl, accessToken: token });
+    if (!this.deps.provider.connectPty) {
+      throw new SandboxError(
+        `The ${this.deps.provider.id} provider has no interactive terminal`,
+        this.sandboxId,
+        "CAPABILITY_UNSUPPORTED",
+        { details: { capability: "pty", provider: this.deps.provider.id } },
+      );
+    }
+    return this.deps.provider.connectPty(this.sandboxId);
   }
 
   async waitForRunning(timeoutMs = 120_000): Promise<void> {
@@ -133,11 +139,11 @@ export class SandboxCore implements SandboxInternal {
     // one fixed-interval tick, so a flat 1s poll was pure waste in the common case.
     let delay = 100;
     while (Date.now() < deadline) {
-      const s = await this.deps.control.getSandbox(this.sandboxId);
-      if (s.status.state === SandboxState.Running) return;
-      if (s.status.state === SandboxState.Failed || s.status.state === SandboxState.Terminated) {
+      const s = await this.deps.provider.getSandbox(this.sandboxId);
+      if (s.phase === "running") return;
+      if (s.phase === "failed" || s.phase === "terminated") {
         throw new SandboxError(
-          `SandboxHandle entered ${s.status.state}: ${s.status.message ?? ""}`,
+          `SandboxHandle entered ${s.state ?? s.phase}: ${s.message ?? ""}`,
           this.sandboxId,
           "SANDBOX_START_FAILED",
         );
@@ -157,9 +163,9 @@ export class SandboxCore implements SandboxInternal {
     // See waitForRunning — same rationale, capped at the original 2s interval.
     let delay = 100;
     while (Date.now() < deadline) {
-      const snap = await this.deps.control.getSnapshot(snapshotId);
-      if (snap.state === SnapshotState.Ready) return;
-      if (snap.state === SnapshotState.Failed) {
+      const snap = await this.deps.provider.getSnapshot(snapshotId);
+      if (snap.phase === "ready") return;
+      if (snap.phase === "failed") {
         throw new SandboxError(`Snapshot ${snapshotId} failed`, this.sandboxId, "SNAPSHOT_FAILED");
       }
       await new Promise<void>((r) => setTimeout(r, delay));
@@ -255,7 +261,7 @@ export class SandboxCore implements SandboxInternal {
 
     // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
-    async function* stream(): AsyncGenerator<SSEEvent> {
+    async function* stream(): AsyncGenerator<ExecEvent> {
       opts.signal?.throwIfAborted();
       const baseClient = await self.getExecClient();
       await self.emit(LedgerEvent.ExecStart, seq, { cmd, seq });
@@ -326,7 +332,7 @@ export class SandboxCore implements SandboxInternal {
     // Resolves only after the PTY is connected and (if resuming) recorded stdin has
     // been fully replayed — guarantees new caller writes queued below never jump ahead
     // of the replay.
-    const ptyPromise: Promise<PtyClient> = (async () => {
+    const ptyPromise: Promise<PtyChannel> = (async () => {
       await execStartLogged;
       const pty = await self.resolvePtyClient();
 
@@ -458,7 +464,7 @@ export class SandboxCore implements SandboxInternal {
 
     // eslint-disable-next-line typescript/no-this-alias -- arrow functions can't be generators, and stream() below must be a generator, so this is the only way it can reach outer `this`
     const self = this;
-    async function* stream(): AsyncGenerator<SSEEvent> {
+    async function* stream(): AsyncGenerator<ExecEvent> {
       const execClient = await self.getExecClient();
       await self.emit(LedgerEvent.ExecStart, seq, { code, seq });
       for await (const ev of execClient.executeCode({ code, context: opts.context })) {
@@ -508,7 +514,7 @@ export class SandboxCore implements SandboxInternal {
       cmdOpts?: { cwd?: string; timeoutMs?: number },
     ): ExecHandle => {
       const seq = ++self._seq;
-      async function* stream(): AsyncGenerator<SSEEvent> {
+      async function* stream(): AsyncGenerator<ExecEvent> {
         await self.emit(LedgerEvent.ExecStart, seq, { cmd: command, seq, sessionId });
         self.deps.hooks?.onExecStart?.(self.sandboxId, seq, command);
         for await (const ev of ec.runInSession(sessionId, {

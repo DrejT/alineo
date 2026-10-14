@@ -1,4 +1,15 @@
-import type { ControlClient } from "@alineo-labs/opensandbox";
+/**
+ * What the vault needs from a sandbox provider: where a port inside the sandbox can be reached.
+ * A `SandboxProvider` satisfies it, so does OpenSandbox's own `ControlClient`, and a test can
+ * pass an object literal.
+ */
+export interface EndpointSource {
+  getEndpoint(
+    sandboxId: string,
+    port: number,
+    useServerProxy?: boolean,
+  ): Promise<{ endpoint: string; headers?: Record<string, string> }>;
+}
 
 /** Thrown for a non-2xx response from the egress sidecar's Credential Vault API. */
 export class VaultClientError extends Error {
@@ -125,7 +136,7 @@ export interface MutationRequest {
 export class VaultClient {
   private static readonly PORT = 18080;
 
-  constructor(private readonly control: ControlClient) {}
+  constructor(private readonly control: EndpointSource) {}
 
   private async request<T>(
     sandboxId: string,

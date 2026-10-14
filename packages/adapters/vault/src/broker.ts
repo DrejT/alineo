@@ -1,8 +1,8 @@
 import type { CredentialBroker, CredentialBinding } from "@alineo-labs/core";
-import type { ControlClient } from "@alineo-labs/opensandbox";
 import {
   VaultClient,
   VaultClientError,
+  type EndpointSource,
   type WireAuth,
   type WireBinding,
   type WireCredential,
@@ -94,7 +94,7 @@ export class OpenSandboxCredentialBroker implements CredentialBroker {
   private readonly vault: VaultClient;
 
   constructor(
-    control: ControlClient,
+    control: EndpointSource,
     private readonly useServerProxy?: boolean,
   ) {
     this.vault = new VaultClient(control);

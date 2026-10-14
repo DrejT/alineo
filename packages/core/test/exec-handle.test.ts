@@ -1,26 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { ExecHandle, joinOutputEvents, lineEndingsStripped } from "../src/exec-handle.ts";
-import { SSEEventType } from "@alineo-labs/opensandbox";
-import type { SSEEvent } from "@alineo-labs/opensandbox";
+import type { ExecEvent } from "@alineo-labs/provider";
 
-function makeStream(events: SSEEvent[]): AsyncGenerator<SSEEvent> {
+function makeStream(events: ExecEvent[]): AsyncGenerator<ExecEvent> {
   // eslint-disable-next-line typescript/require-await -- must be an async generator to match the return type; nothing here needs to await
   return (async function* () {
     for (const ev of events) yield ev;
   })();
 }
 
-function stdout(text: string): SSEEvent {
-  return { type: SSEEventType.Stdout, text, timestamp: 0 };
+function stdout(text: string): ExecEvent {
+  return { type: "stdout", text, timestamp: 0 };
 }
 
-function stderr(text: string): SSEEvent {
-  return { type: SSEEventType.Stderr, text, timestamp: 0 };
+function stderr(text: string): ExecEvent {
+  return { type: "stderr", text, timestamp: 0 };
 }
 
-function error(exitCode: number): SSEEvent {
+function error(exitCode: number): ExecEvent {
   return {
-    type: SSEEventType.Error,
+    type: "error",
     error: { message: "exit", evalue: String(exitCode) },
     timestamp: 0,
   };
@@ -226,9 +225,9 @@ describe("line endings dropped by execd before 1.1.1", () => {
   });
 });
 
-function killedBy(signal: string): SSEEvent {
+function killedBy(signal: string): ExecEvent {
   return {
-    type: SSEEventType.Error,
+    type: "error",
     error: {
       message: "",
       ename: "CommandExecError",
@@ -256,7 +255,7 @@ describe("how a command ended", () => {
       type: "stream",
       gen: makeStream([
         {
-          type: SSEEventType.Error,
+          type: "error",
           error: {
             message: "",
             ename: "CommandExecError",
@@ -284,7 +283,7 @@ describe("how a command ended", () => {
 
   it("calls a kill after the limit a timeout", async () => {
     // eslint-disable-next-line typescript/require-await -- an async generator by signature
-    async function* slowThenKilled(): AsyncGenerator<SSEEvent> {
+    async function* slowThenKilled(): AsyncGenerator<ExecEvent> {
       await new Promise((r) => setTimeout(r, 60));
       yield killedBy("killed");
     }

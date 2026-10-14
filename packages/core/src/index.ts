@@ -26,7 +26,7 @@ export { resolveBoundCredential, reconstructBoundCredentials } from "./credentia
 export { reconstructEgressRules } from "./egress";
 export type { ReconstructedEgress } from "./egress";
 
-export { SandboxHandle, BashSession, resolveExecClient, composeHooks } from "./sandbox/index";
+export { SandboxHandle, BashSession, resolveExecChannel, composeHooks } from "./sandbox/index";
 export type {
   ExecOptions,
   ExecCodeOptions,
@@ -35,7 +35,7 @@ export type {
   PendingInteractiveExec,
   ComposeHooksOptions,
 } from "./sandbox/index";
-export type { FileInfo, DiagnosticLog, DiagnosticEvent, Metrics } from "@alineo-labs/opensandbox";
+export type { FileInfo, DiagnosticLog, DiagnosticEvent, Metrics } from "@alineo-labs/provider";
 
 export { ExecHandle, InteractiveExecHandle } from "./exec-handle";
 export type { ExecResult, PtyControls, AttachableSource } from "./exec-handle";

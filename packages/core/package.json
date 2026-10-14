@@ -31,7 +31,7 @@
   "dependencies": {
     "@alineo-labs/errors": "workspace:*",
     "@alineo-labs/logger": "workspace:*",
-    "@alineo-labs/opensandbox": "workspace:*",
+    "@alineo-labs/provider": "workspace:*",
     "@alineo-labs/schema": "workspace:*"
   },
   "devDependencies": {

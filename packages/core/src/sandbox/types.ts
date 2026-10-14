@@ -1,5 +1,5 @@
 import type { LedgerEnvelope } from "@alineo-labs/schema/types";
-import type { ControlClient, NetworkPolicy, CodeLanguage } from "@alineo-labs/opensandbox";
+import type { CodeLanguage, NetworkPolicy, SandboxProvider } from "@alineo-labs/provider";
 import type { IStorageAdapter } from "../ledger";
 import type { ExecResult } from "../exec-handle";
 import type { CredentialBinding, CredentialBroker } from "../credentials";
@@ -71,7 +71,8 @@ export interface SandboxHooks {
 
 /** Internal dependencies injected by `Sandbox`. */
 export interface SandboxDeps {
-  control: ControlClient;
+  /** The sandbox provider that owns this sandbox. */
+  provider: SandboxProvider;
   adapter: IStorageAdapter;
   /**
    * Receives a `LedgerEnvelope` for every event this sandbox emits, beside the ledger write.
@@ -113,11 +114,4 @@ export interface SandboxDeps {
       teamId?: string;
     },
   ) => Promise<SandboxHandle>;
-  /** Route execd and proxy calls through the OpenSandbox server. Required when the server runs in Docker. */
-  useServerProxy?: boolean;
-  /**
-   * The sandbox provider that owns this sandbox. Set by the client that created the handle.
-   * Absent means OpenSandbox, the only provider there was.
-   */
-  providerId?: string;
 }

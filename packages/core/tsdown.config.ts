@@ -7,5 +7,5 @@ export default defineConfig({
   outDir: "dist",
   platform: "node",
   clean: true,
-  deps: { neverBundle: ["@alineo-labs/logger", "@alineo-labs/opensandbox"] },
+  deps: { neverBundle: ["@alineo-labs/errors", "@alineo-labs/logger", "@alineo-labs/provider"] },
 });

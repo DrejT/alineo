@@ -8,7 +8,7 @@ import type {
   CredentialResolver,
 } from "@alineo-labs/core";
 import { SandboxStatus } from "@alineo-labs/core";
-import type { NetworkPolicy } from "@alineo-labs/opensandbox";
+import type { NetworkPolicy, SandboxProvider } from "@alineo-labs/provider";
 
 export { SandboxStatus };
 
@@ -45,10 +45,18 @@ function codeForStatus(status: number): ErrorCode {
 
 /** Options for constructing a {@link Sandbox} client. */
 export interface SandboxClientOptions {
-  /** Base URL of your OpenSandbox server (e.g. `http://localhost:8080`). */
-  baseUrl: string;
+  /**
+   * Base URL of your OpenSandbox server (e.g. `http://localhost:8080`). Required unless
+   * `provider` is given.
+   */
+  baseUrl?: string;
   /** OpenSandbox API key. Pass an empty string for local dev with no auth. */
   apiKey?: string;
+  /**
+   * The sandbox provider to run on. Leave it out to use OpenSandbox at `baseUrl`, which is what
+   * `apiKey` and `useServerProxy` configure. They do not apply to a provider you pass.
+   */
+  provider?: SandboxProvider;
   /**
    * Storage adapter for persisting sandbox events.
    *
@@ -84,7 +92,7 @@ export interface SandboxClientOptions {
    * Broker for `sb.credentials.*` — registers credentials with, and resolves endpoints
    * against, whatever backend actually injects them. Defaults to
    * `OpenSandboxCredentialBroker` (from `@alineo-labs/vault`), wired to this client's own
-   * `ControlClient`/`useServerProxy`, if omitted. Only relevant for sandboxes created with
+   * provider and `useServerProxy`, if omitted. Only relevant for sandboxes created with
    * `credentialProxy: true`.
    */
   credentialBroker?: CredentialBroker;

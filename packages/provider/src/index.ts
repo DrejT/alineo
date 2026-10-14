@@ -4,6 +4,7 @@ export type {
   CreateSandboxRequest,
   CreateSessionRequest,
   CreateSessionResponse,
+  CredentialProxyConfig,
   DiagnosticEvent,
   DiagnosticLog,
   EgressChannel,

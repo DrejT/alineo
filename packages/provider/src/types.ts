@@ -71,6 +71,11 @@ export interface NetworkPolicy {
   egress: NetworkRule[];
 }
 
+/** Opts a sandbox into credential injection that keeps the value outside the guest. */
+export interface CredentialProxyConfig {
+  enabled: boolean;
+}
+
 export interface CreateSandboxRequest {
   image?: ImageSpec;
   /** Create from a snapshot instead of an image. */
@@ -83,7 +88,7 @@ export interface CreateSandboxRequest {
   metadata?: Record<string, string>;
   secureAccess?: boolean;
   networkPolicy?: NetworkPolicy;
-  credentialProxy?: { enabled: boolean };
+  credentialProxy?: CredentialProxyConfig;
 }
 
 // ── snapshot ─────────────────────────────────────────────────────────────────

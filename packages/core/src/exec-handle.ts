@@ -1,5 +1,4 @@
-import { SSEEventType } from "@alineo-labs/opensandbox";
-import type { SSEEvent } from "@alineo-labs/opensandbox";
+import type { ExecEvent } from "@alineo-labs/provider";
 
 /**
  * True when a stream of output events was split into lines by a server that dropped the line
@@ -42,7 +41,7 @@ export interface ExecResult {
 export type ExecDriver =
   | {
       type: "stream";
-      gen: AsyncGenerator<SSEEvent>;
+      gen: AsyncGenerator<ExecEvent>;
       onDone: (r: ExecResult) => Promise<void>;
       /** The `timeoutMs` the command was started with, so a timeout can be told from a kill. */
       timeoutMs?: number;
@@ -148,7 +147,7 @@ export class ExecHandle implements PromiseLike<ExecResult> {
   }
 
   private async _drain(
-    gen: AsyncGenerator<SSEEvent>,
+    gen: AsyncGenerator<ExecEvent>,
     onDone: (r: ExecResult) => Promise<void>,
     timeoutMs?: number,
   ): Promise<ExecResult> {
@@ -158,14 +157,14 @@ export class ExecHandle implements PromiseLike<ExecResult> {
     const startedAt = Date.now();
     try {
       for await (const ev of gen) {
-        if (ev.type === SSEEventType.Stdout && ev.text) {
+        if (ev.type === "stdout" && ev.text) {
           this._chunks.push(ev.text);
           this._notify();
         }
-        if (ev.type === SSEEventType.Stderr && ev.text) {
+        if (ev.type === "stderr" && ev.text) {
           stderr.push(ev.text);
         }
-        if (ev.type === SSEEventType.Error && ev.error?.evalue !== undefined) {
+        if (ev.type === "error" && ev.error?.evalue !== undefined) {
           const code = Number(ev.error.evalue);
           if (!isNaN(code)) exitCode = code;
         }

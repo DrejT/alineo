@@ -1,55 +1,28 @@
-import { ExecClient } from "@alineo-labs/opensandbox";
-import type { ControlClient } from "@alineo-labs/opensandbox";
+import { errorCodeOf } from "@alineo-labs/errors";
+import type { ExecChannel, SandboxProvider } from "@alineo-labs/provider";
 import { ExecConnectionError } from "../errors";
 
 /**
- * Resolve an ExecClient for a sandbox. Calls getEndpoint once (each call
- * returns a different ephemeral proxy port) then polls listContexts until
- * execd is ready to accept connections.
+ * A channel to run commands in a sandbox, from its provider.
  *
- * Defaults give ~80s of total patience (retries=45, capped at 2s/attempt), not the ~11s this
- * had before (retries=15, capped at 1s/attempt). Bumped after a live `alineo spawn` failure
- * (issue #32): a child forked while its parent sandbox was busy running a real Chrome session
- * took ~35s just to reach `Running`, then immediately exhausted the old ~11s execd-readiness
- * budget before the exec daemon inside it had actually started accepting connections. An
- * isolated repro of the identical fork (same snapshot, but from an idle parent with no
- * concurrent browser load) reached execd-ready in under 400ms -- the parent's own host-resource
- * contention at fork time, not snapshot size, is what actually eats the budget. This can't be
- * fixed by scheduling around it from here, so it's addressed by simply affording much more
- * patience before giving up.
+ * The provider owns the wait: it resolves once the sandbox accepts a connection, and rejects with
+ * `EXEC_NOT_READY` when it never does. That failure is re-thrown as `ExecConnectionError`, with
+ * the cause, the attempt count, and the wait the provider recorded, because that class is the
+ * one callers have been catching and it extends `WorkflowError`.
  */
-export async function resolveExecClient(
-  control: ControlClient,
+export async function resolveExecChannel(
+  provider: SandboxProvider,
   sandboxId: string,
-  useServerProxy?: boolean,
-  retries = 45,
-  delayMs = 2_000,
-): Promise<ExecClient> {
-  const ep = await control.getEndpoint(sandboxId, 44772, useServerProxy);
-  const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
-  const token = ep.headers?.["X-EXECD-ACCESS-TOKEN"] ?? "";
-  const client = new ExecClient({ baseUrl, accessToken: token });
-  // Starts fast and backs off to delayMs — execd is usually ready well under one
-  // fixed-interval tick, so a flat wait here was pure waste in the common case.
-  let delay = Math.min(100, delayMs);
-  const startedAt = Date.now();
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      await client.listContexts();
-      return client;
-    } catch (err) {
-      // Keep the last probe error. Without it the failure says only that execd was not ready,
-      // and the cause (connection refused, 502 from the proxy, a bad token) is gone.
-      if (attempt === retries) {
-        throw new ExecConnectionError(sandboxId, {
-          cause: err,
-          attempts: attempt + 1,
-          waitedMs: Date.now() - startedAt,
-        });
-      }
-      await new Promise<void>((r) => setTimeout(r, delay));
-      delay = Math.min(delay * 1.5, delayMs);
-    }
+): Promise<ExecChannel> {
+  try {
+    return await provider.connectExec(sandboxId);
+  } catch (err) {
+    if (errorCodeOf(err) !== "EXEC_NOT_READY") throw err;
+    const details = (err as { details?: { attempts?: number; waitedMs?: number } }).details;
+    throw new ExecConnectionError(sandboxId, {
+      cause: (err as { cause?: unknown }).cause ?? err,
+      attempts: details?.attempts,
+      waitedMs: details?.waitedMs,
+    });
   }
-  throw new Error("unreachable");
 }

@@ -159,6 +159,38 @@ describe("OpenSandboxProvider.connectExec", () => {
     expect(calls).toBe(3);
   });
 
+  it("is patient by default: 40 failed probes are not too many (issue #32)", async () => {
+    // The old budget was about 11 s over 16 attempts. A fork taken from a parent running a real
+    // Chrome session needed about 35 s to reach Running and then used all of it. Fake timers run
+    // the real backoff math without the wait.
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(() => {
+          calls++;
+          if (calls < 40) return Promise.reject(new Error("ECONNREFUSED"));
+          return Promise.resolve({ ok: true, status: 200, json: async () => [] });
+        }),
+      );
+      const provider = new OpenSandboxProvider({
+        baseUrl: "http://x",
+        control: controlWith({
+          getEndpoint: vi.fn().mockResolvedValue({ endpoint: "http://localhost:44772" }),
+        }),
+      });
+
+      const pending = provider.connectExec("sb-1");
+      await vi.runAllTimersAsync();
+
+      await expect(pending).resolves.toBeDefined();
+      expect(calls).toBe(40);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("gives up with EXEC_NOT_READY and says what it saw", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.5")));
 

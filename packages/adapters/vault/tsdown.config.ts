@@ -7,5 +7,5 @@ export default defineConfig({
   outDir: "dist",
   platform: "node",
   clean: true,
-  deps: { neverBundle: ["@alineo-labs/core", "@alineo-labs/opensandbox"] },
+  deps: { neverBundle: ["@alineo-labs/core"] },
 });
