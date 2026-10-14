@@ -24,6 +24,7 @@
     "@alineo-labs/otel",
     "@alineo-labs/postgres",
     "@alineo-labs/postgres-memory",
+    "@alineo-labs/provider",
     "@alineo-labs/sandbox",
     "@alineo-labs/schema",
     "@alineo-labs/sqlite",

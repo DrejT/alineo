@@ -6,6 +6,7 @@
     "packages/core",
     "packages/opensandbox",
     "packages/errors",
+    "packages/provider",
     "packages/logger",
     "packages/config-shared",
     "packages/schema",

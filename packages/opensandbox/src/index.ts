@@ -3,6 +3,8 @@ export { EgressClient, EgressClientError } from "./egress";
 export type { EgressPolicyStatus } from "./egress";
 export { isValidEgressTarget } from "./egress-target";
 export { ExecClient } from "./exec";
+export { OpenSandboxProvider, phaseOf, snapshotPhaseOf } from "./provider";
+export type { OpenSandboxProviderOptions } from "./provider";
 export { PtyClient } from "./pty";
 export type { PtyOutputListener, PtyExitListener } from "./pty";
 export { SandboxState, SnapshotState, SSEEventType, CodeLanguage } from "./types";
