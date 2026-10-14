@@ -162,6 +162,14 @@ export const ERROR_CODES = {
     httpStatus: 503,
     summary: "The sandbox provider answered with a server error (5xx).",
   },
+  PROVIDER_MISMATCH: {
+    category: "config",
+    retryable: false,
+    httpStatus: 409,
+    summary:
+      "The session was created on a different sandbox provider than the one this client is configured for.",
+    hint: "Point the client at the provider that created the session. Its sandbox id means nothing elsewhere.",
+  },
   PROVIDER_ERROR: {
     category: "internal",
     retryable: false,

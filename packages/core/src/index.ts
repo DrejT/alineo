@@ -1,4 +1,4 @@
-export { LedgerEvent, SandboxStatus } from "./ledger";
+export { DEFAULT_PROVIDER_ID, LedgerEvent, SandboxStatus } from "./ledger";
 export type {
   LedgerEntry,
   IStorageAdapter,

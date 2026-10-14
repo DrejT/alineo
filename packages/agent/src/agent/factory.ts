@@ -1,6 +1,11 @@
 import { Sandbox } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
-import { LedgerEvent, type IStorageAdapter, type SandboxHandle } from "@alineo-labs/core";
+import {
+  DEFAULT_PROVIDER_ID,
+  LedgerEvent,
+  type IStorageAdapter,
+  type SandboxHandle,
+} from "@alineo-labs/core";
 import { getLogger, type Logger } from "@alineo-labs/logger";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { resolveProjectConfig, type AlineoAgentConfig } from "../config";
@@ -237,6 +242,7 @@ export async function loadAgent(
       await store.save({
         specName: spec.name,
         setupHash,
+        provider: DEFAULT_PROVIDER_ID,
         snapshotId,
         createdAt: Date.now(),
       });

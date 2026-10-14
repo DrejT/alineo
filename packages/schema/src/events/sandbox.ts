@@ -24,6 +24,12 @@ export const SandboxCreated = defineEvent({
     teamId: z.string().optional(),
     /** Set when this session came from `sb.fork()`; absent for a top-level `client.sandbox()`. */
     parentSandboxId: z.string().optional(),
+    /**
+     * The sandbox provider that owns `sandboxId`. Absent on rows written before this field
+     * existed, and an absent value means `"opensandbox"` (the only provider there was). Readers
+     * apply that default; there is no migration.
+     */
+    provider: z.string().optional(),
   }),
 });
 

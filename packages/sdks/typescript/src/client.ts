@@ -1,4 +1,5 @@
 import {
+  DEFAULT_PROVIDER_ID,
   SandboxHandle,
   LedgerEvent,
   type IStorageAdapter,
@@ -132,6 +133,8 @@ export class Sandbox {
   private _connectPromise: Promise<void> | null = null;
   private _adapterClosed = false;
   private readonly _envBuilds = new Map<string, Promise<string>>();
+  /** The sandbox provider this client talks to. OpenSandbox is the only one today. */
+  private readonly _providerId = DEFAULT_PROVIDER_ID;
 
   /**
    * The five `sandbox.created` writes below do not go through `SandboxCore.emit()` — the
@@ -142,6 +145,14 @@ export class Sandbox {
    * must not delay, or fail, the write it is exporting.
    */
   private async _append(entry: LedgerEntry): Promise<void> {
+    // Every sandbox this client creates is owned by one provider. Record which, on the one
+    // event that names the sandbox, so a later resume can tell whose sandbox id it holds.
+    if (entry.event === LedgerEvent.SandboxCreated) {
+      const payload = (entry.payload ?? {}) as Record<string, unknown>;
+      if (payload.provider === undefined) {
+        entry = { ...entry, payload: { ...payload, provider: this._providerId } };
+      }
+    }
     if (this._sink) {
       try {
         this._sink({
@@ -333,6 +344,21 @@ export class Sandbox {
     resolveCredential?: CredentialResolver,
   ): Promise<SandboxHandle> {
     const entries = await this._adapter.readAll(name, sandboxId);
+
+    // The sandbox id and its snapshots mean something only to the provider that made them.
+    // Say so here, instead of letting the wrong server answer with a bare 404.
+    const created = entries.find((e) => e.event === LedgerEvent.SandboxCreated);
+    const owner =
+      (created?.payload as { provider?: string } | undefined)?.provider ?? DEFAULT_PROVIDER_ID;
+    if (owner !== this._providerId) {
+      throw new SandboxClientError(
+        `Session ${sandboxId} was created on the "${owner}" provider, but this client is ` +
+          `configured for "${this._providerId}".`,
+        409,
+        "PROVIDER_MISMATCH",
+        { details: { sandboxId, provider: owner, configured: this._providerId } },
+      );
+    }
 
     let checkpointIdx: number;
     if (tag) {

@@ -1,3 +1,10 @@
+/**
+ * The provider a ledger row belongs to when it records none. Rows written before provider ids
+ * existed all came from OpenSandbox, so an absent `provider` means this. Readers apply it on
+ * read; nothing in the ledger is migrated.
+ */
+export const DEFAULT_PROVIDER_ID = "opensandbox";
+
 /** Status of a sandbox session derived from its ledger events. */
 export enum SandboxStatus {
   Running = "running",
@@ -51,6 +58,12 @@ export interface SandboxDetails {
    * `episodicRecall`) walk a fork lineage rather than only seeing one flat session.
    */
   parentSandboxId?: string;
+  /**
+   * The sandbox provider that owns `sandboxId` (`"opensandbox"`). Always set by the official
+   * adapters, which apply {@link DEFAULT_PROVIDER_ID} to rows that recorded none. Optional in
+   * the type so a third-party `IStorageAdapter` written before this field still compiles.
+   */
+  provider?: string;
 }
 
 /** Options for filtering session listings. */
@@ -66,6 +79,8 @@ export interface ListSandboxOptions {
   resourceId?: string;
   /** Return only sessions scoped to this team — see `SandboxDetails.teamId`. */
   teamId?: string;
+  /** Return only sessions owned by this sandbox provider — see `SandboxDetails.provider`. */
+  provider?: string;
 }
 
 /** Events emitted during execution and stored in the ledger. */

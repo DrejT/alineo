@@ -499,6 +499,133 @@ describe("Sandbox.resume() resourceId/teamId threading", () => {
   });
 });
 
+describe("provider identity on the ledger", () => {
+  it("stamps the provider on every sandbox.created it writes", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    internals(client)._control = makeFakeControl();
+
+    await client.sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } });
+    expect(createdPayload(adapter)).toMatchObject({ provider: "opensandbox" });
+  });
+
+  it("stamps the provider on a sandbox created by resume() too", async () => {
+    const adapter = makeAdapter();
+    (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        name: "ci",
+        sandboxId: "orig",
+        status: SandboxStatus.Completed,
+        startedAt: 1,
+        execCount: 0,
+      },
+    ]);
+    (adapter.readAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        ts: 1,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.created",
+        payload: {},
+      },
+      {
+        ts: 2,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.checkpoint_created",
+        payload: { snapshotId: "snap-1" },
+      },
+    ]);
+    const client = makeClient(adapter);
+    internals(client)._control = makeFakeControl();
+
+    await client.resume("orig");
+    expect(createdPayload(adapter)).toMatchObject({ provider: "opensandbox" });
+  });
+
+  it("resumes a session whose sandbox.created recorded no provider (written before the field)", async () => {
+    const adapter = makeAdapter();
+    (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        name: "ci",
+        sandboxId: "orig",
+        status: SandboxStatus.Completed,
+        startedAt: 1,
+        execCount: 0,
+      },
+    ]);
+    (adapter.readAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        ts: 1,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.created",
+        payload: {},
+      },
+      {
+        ts: 2,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.checkpoint_created",
+        payload: { snapshotId: "snap-1" },
+      },
+    ]);
+    const client = makeClient(adapter);
+    internals(client)._control = makeFakeControl();
+
+    await expect(client.resume("orig")).resolves.toBeDefined();
+  });
+
+  it("refuses to resume a session another provider created, with PROVIDER_MISMATCH", async () => {
+    const adapter = makeAdapter();
+    (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        name: "ci",
+        sandboxId: "orig",
+        status: SandboxStatus.Completed,
+        startedAt: 1,
+        execCount: 0,
+      },
+    ]);
+    (adapter.readAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        ts: 1,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.created",
+        payload: { provider: "e2b" },
+      },
+      {
+        ts: 2,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.checkpoint_created",
+        payload: { snapshotId: "snap-1" },
+      },
+    ]);
+    const client = makeClient(adapter);
+    const control = makeFakeControl();
+    internals(client)._control = control;
+
+    const err = await client.resume("orig").catch((e: unknown) => e);
+
+    expect(err).toMatchObject({
+      code: "PROVIDER_MISMATCH",
+      status: 409,
+      details: { provider: "e2b", configured: "opensandbox" },
+    });
+    // It stopped before it asked the wrong server for anything.
+    expect(control.createSandbox).not.toHaveBeenCalled();
+    expect(control.getSandbox).not.toHaveBeenCalled();
+  });
+});
+
 describe("Sandbox.restoreSnapshot() resourceId/teamId threading", () => {
   it("includes resourceId/teamId in the ledger payload and the fork closure", async () => {
     const adapter = makeAdapter();
