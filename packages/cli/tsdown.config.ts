@@ -10,6 +10,7 @@ export default defineConfig({
   deps: {
     neverBundle: [
       "alineo",
+      "@alineo-labs/errors",
       "@alineo-labs/logger",
       "@alineo-labs/sandbox",
       "@alineo-labs/sqlite",

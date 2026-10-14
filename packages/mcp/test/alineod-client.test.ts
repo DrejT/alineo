@@ -47,6 +47,42 @@ describe("AlineodClient requests", () => {
     expect((err as Error).message).toBe("no run r1");
   });
 
+  it("keeps a known error code from the response body", async () => {
+    const fetchImpl = stubFetch(
+      async () =>
+        new Response(JSON.stringify({ error: "agent is not live", code: "SANDBOX_NOT_RUNNING" }), {
+          status: 409,
+        }),
+    );
+    const client = new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl });
+
+    const err = (await expectRejects(client.getRun("r1"))) as AlineodError;
+    expect(err.code).toBe("SANDBOX_NOT_RUNNING");
+    expect(err.status).toBe(409);
+  });
+
+  it("drops a code this build does not know, instead of passing it off as an ErrorCode", async () => {
+    const fetchImpl = stubFetch(
+      async () =>
+        new Response(JSON.stringify({ error: "x", code: "SOME_FUTURE_CODE" }), { status: 500 }),
+    );
+    const client = new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl });
+
+    const err = (await expectRejects(client.getRun("r1"))) as AlineodError;
+    expect(err.code).toBeUndefined();
+    expect(err.message).toBe("x");
+  });
+
+  it("an error body with no code has no code", async () => {
+    const fetchImpl = stubFetch(
+      async () => new Response(JSON.stringify({ error: "no run r1" }), { status: 404 }),
+    );
+    const client = new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl });
+
+    const err = (await expectRejects(client.getRun("r1"))) as AlineodError;
+    expect(err.code).toBeUndefined();
+  });
+
   it("wraps a network failure in a helpful AlineodError", async () => {
     const fetchImpl = stubFetch(async () => {
       throw new Error("ECONNREFUSED");

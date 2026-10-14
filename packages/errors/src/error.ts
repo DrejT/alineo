@@ -81,6 +81,28 @@ export function errorCodeOf(value: unknown): ErrorCode | undefined {
 }
 
 /**
+ * A best-effort code for a failure that arrives only as text, such as a model provider's error
+ * as the agent bridge reports it (`429 {"status":429,"title":"Too Many Requests"}`).
+ *
+ * Returns `undefined` when nothing matches, which is the common case and not an error. Use it
+ * only where no structured error exists. A heuristic on text can be wrong, so callers must treat
+ * the result as a hint for retry and reporting, never as proof.
+ */
+export function errorCodeFromText(text: string): ErrorCode | undefined {
+  // A 429 is a number on its own, not part of a longer one (an id, a port, a byte count).
+  if (/(?<![\w.])429(?![\w.])/.test(text) || /too many requests|rate.?limit/i.test(text)) {
+    return "MODEL_RATE_LIMITED";
+  }
+  if (
+    /(?<![\w.])50[234](?![\w.])/.test(text) ||
+    /service unavailable|overloaded|bad gateway|gateway time-?out/i.test(text)
+  ) {
+    return "MODEL_UNAVAILABLE";
+  }
+  return undefined;
+}
+
+/**
  * Whether retrying the same call may help. `undefined` when the value carries no known code,
  * so a caller can fall back to its own default instead of treating "unknown" as "no".
  */

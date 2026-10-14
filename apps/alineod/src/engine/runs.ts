@@ -17,7 +17,7 @@ import { emit } from "./emit";
 import { driveTurn } from "./stream";
 import { withInbox } from "./notify";
 import { acquireAdmission } from "./admission";
-import { errorMessage } from "../util";
+import { errorFields } from "../util";
 
 export interface CreateRunResult {
   runId: string;
@@ -88,11 +88,10 @@ export async function provisionRoot(
 
     if (body.prompt) void driveTurn(rootAgentId, withInbox(rootAgentId, body.prompt));
   } catch (err) {
-    const message = errorMessage(err);
     emit(runId, rootAgentId, "agent.ended", {
       outcome: "failed",
       endedAt: Date.now(),
-      error: message,
+      ...errorFields(err),
     });
   } finally {
     admission.release();

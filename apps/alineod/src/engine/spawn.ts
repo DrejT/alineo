@@ -26,7 +26,7 @@ import { driveTurn, setState } from "./stream";
 import { registerNotify, withInbox } from "./notify";
 import { isNotRunningError, waitUntilNotPaused } from "./hold";
 import { acquireAdmission } from "./admission";
-import { errorMessage, sleep } from "../util";
+import { errorFields, errorMessage, sleep } from "../util";
 import {
   normalizeWait,
   validateWait,
@@ -228,7 +228,11 @@ export async function provisionChild(
       emit(runId, parentAgentId, "budget.denied", { dimension, remaining: 0 });
       outcome = "budget-exceeded";
     }
-    emit(runId, childId, "agent.ended", { outcome, endedAt: Date.now(), error: message });
+    emit(runId, childId, "agent.ended", {
+      outcome,
+      endedAt: Date.now(),
+      ...errorFields(err),
+    });
   }
 }
 

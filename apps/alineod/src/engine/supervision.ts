@@ -9,6 +9,8 @@
  * it directly (e.g. re-invoking `driveTurn` itself) specifically to avoid a circular import:
  * stream.ts owns `driveTurn`, so the caller re-invokes it, not this module.
  */
+import { errorCodeFromText } from "@alineo-labs/errors";
+import type { ErrorCode } from "@alineo-labs/errors";
 import { getAgentRow, type AgentRow } from "../state/projection";
 import { recordConsecutiveFailure, recordTurnRetry } from "../state/db";
 import { emit } from "./emit";
@@ -42,13 +44,21 @@ const DEFAULT_MAX_CONSECUTIVE_FAILURES = 3;
 export function resolveTurnFailure(
   runId: string,
   agentId: string,
-  opts: { error: string; resultRef: string | null; retryMessage: string | null },
+  opts: {
+    error: string;
+    /** A code the caller already has, from a thrown error. Else it is classified from `error`. */
+    errorCode?: ErrorCode;
+    resultRef: string | null;
+    retryMessage: string | null;
+  },
 ): FailureResolution {
   const row = getAgentRow(agentId);
   if (!row) return { action: "settled" }; // agent gone — nothing left to decide for
 
   const consecutiveFailures = recordConsecutiveFailure(agentId);
-  emit(runId, agentId, "agent.turn_failed", { error: opts.error, consecutiveFailures });
+  const errorCode = opts.errorCode ?? errorCodeFromText(opts.error);
+  const code = errorCode ? { errorCode } : {};
+  emit(runId, agentId, "agent.turn_failed", { error: opts.error, ...code, consecutiveFailures });
 
   const spec = JSON.parse(row.spec_json) as FailurePolicySpec;
   const maxConsecutiveFailures = spec.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES;
@@ -61,7 +71,7 @@ export function resolveTurnFailure(
   // The circuit breaker overrides onFailure entirely, regardless of remaining retry budget —
   // it doesn't care how the failures are being triggered, only that they keep happening.
   if (consecutiveFailures >= maxConsecutiveFailures) {
-    block(runId, row, "circuit-tripped", opts.error);
+    block(runId, row, "circuit-tripped", opts.error, errorCode);
     return { action: "blocked", reason: "circuit-tripped" };
   }
 
@@ -71,6 +81,7 @@ export function resolveTurnFailure(
       outcome: "failed",
       endedAt: Date.now(),
       error: opts.error,
+      ...code,
     });
     return { action: "settled" };
   }
@@ -79,23 +90,33 @@ export function resolveTurnFailure(
     if (spec.maxRetries === undefined || !opts.retryMessage) {
       // Misconfigured (retry declared with no budget) or nothing to retry with — the safe
       // fallback is a hold an operator can resolve, not a silent no-op or an unbounded loop.
-      block(runId, row, "ask", opts.error);
+      block(runId, row, "ask", opts.error, errorCode);
       return { action: "blocked", reason: "ask" };
     }
     const turnRetryCount = recordTurnRetry(agentId);
     if (turnRetryCount <= spec.maxRetries) {
       return { action: "retry", message: opts.retryMessage };
     }
-    block(runId, row, "retries-exhausted", opts.error);
+    block(runId, row, "retries-exhausted", opts.error, errorCode);
     return { action: "blocked", reason: "retries-exhausted" };
   }
 
   // onFailure === "ask" (the default) — no auto-retry, hold immediately.
-  block(runId, row, "ask", opts.error);
+  block(runId, row, "ask", opts.error, errorCode);
   return { action: "blocked", reason: "ask" };
 }
 
-function block(runId: string, row: AgentRow, reason: SupervisionReason, error: string): void {
+function block(
+  runId: string,
+  row: AgentRow,
+  reason: SupervisionReason,
+  error: string,
+  errorCode?: ErrorCode,
+): void {
   emit(runId, row.agent_id, "agent.state_changed", { from: row.state, to: "blocked", reason });
-  emit(runId, row.agent_id, "agent.supervision_needed", { reason, error });
+  emit(runId, row.agent_id, "agent.supervision_needed", {
+    reason,
+    error,
+    ...(errorCode ? { errorCode } : {}),
+  });
 }

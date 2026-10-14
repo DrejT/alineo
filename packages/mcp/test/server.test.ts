@@ -95,6 +95,25 @@ describe("alineo-mcp server", () => {
     }
   });
 
+  it("names the error code in the tool result when alineod sent one", async () => {
+    const fetchImpl = stubFetch(
+      async () =>
+        new Response(JSON.stringify({ error: "agent is not live", code: "SANDBOX_NOT_RUNNING" }), {
+          status: 409,
+        }),
+    );
+    const { client, close } = await connectedClient(fetchImpl);
+    try {
+      const result = await client.callTool({ name: "run_get", arguments: { runId: "r1" } });
+      expect(result.isError).toBe(true);
+      const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
+      expect(text).toContain("409, SANDBOX_NOT_RUNNING");
+      expect(text).toContain("agent is not live");
+    } finally {
+      await close();
+    }
+  });
+
   it("flags a tool call missing a required argument before it reaches the handler", async () => {
     const fetchImpl = stubFetch(async () => new Response(null, { status: 204 }));
     const { client, close } = await connectedClient(fetchImpl);

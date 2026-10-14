@@ -319,6 +319,9 @@
         "error": {
           "type": "string"
         },
+        "errorCode": {
+          "type": "string"
+        },
         "event": {
           "type": "string",
           "enum": [
@@ -734,6 +737,9 @@
         "error": {
           "type": "string"
         },
+        "errorCode": {
+          "type": "string"
+        },
         "consecutiveFailures": {
           "type": "integer",
           "minimum": -9007199254740991,
@@ -790,6 +796,9 @@
           ]
         },
         "error": {
+          "type": "string"
+        },
+        "errorCode": {
           "type": "string"
         },
         "event": {

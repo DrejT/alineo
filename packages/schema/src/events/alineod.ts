@@ -138,6 +138,8 @@ export const AgentEnded = defineEvent({
     outcome: z.string(),
     endedAt: z.number(),
     error: z.string().optional(),
+    /** A stable `ErrorCode` for `error`, when one is known. See `@alineo-labs/errors`. */
+    errorCode: z.string().optional(),
   }),
 });
 
@@ -293,6 +295,8 @@ export const AgentTurnFailed = defineEvent({
   schema: z.object({
     agentId: z.string().nullable(),
     error: z.string(),
+    /** A stable `ErrorCode` for `error`, when one is known. See `@alineo-labs/errors`. */
+    errorCode: z.string().optional(),
     consecutiveFailures: z.number().int(),
   }),
 });
@@ -323,5 +327,7 @@ export const AgentSupervisionNeeded = defineEvent({
     agentId: z.string().nullable(),
     reason: z.enum(["ask", "retries-exhausted", "circuit-tripped"]),
     error: z.string(),
+    /** A stable `ErrorCode` for `error`, when one is known. See `@alineo-labs/errors`. */
+    errorCode: z.string().optional(),
   }),
 });

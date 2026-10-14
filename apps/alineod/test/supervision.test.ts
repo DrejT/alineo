@@ -187,3 +187,44 @@ describe("automatic parent notification — not opt-in via notifyOn", () => {
     expect(inbox).toMatchObject({ about_agent_id: child.agentId, outcome: "ask" });
   });
 });
+
+describe("errorCode on failure events", () => {
+  test("a 429 turn failure records MODEL_RATE_LIMITED on turn_failed and ended", async () => {
+    fakeSdk.nextTurn = { text: null, error: '429 {"status":429,"title":"Too Many Requests"}' };
+    const { runId, rootAgentId } = await startRun({ prompt: "go" });
+    await endedView(rootAgentId);
+
+    const all = events(runId);
+    expect(all.find((e) => e.event === "agent.turn_failed")).toMatchObject({
+      errorCode: "MODEL_RATE_LIMITED",
+    });
+    expect(all.find((e) => e.event === "agent.ended")).toMatchObject({
+      outcome: "failed",
+      errorCode: "MODEL_RATE_LIMITED",
+    });
+  });
+
+  test("a held agent's supervision_needed carries the same code", async () => {
+    fakeSdk.nextTurn = { text: null, error: "503 Service Unavailable" };
+    const { runId, rootAgentId } = await startRun({
+      spec: spec("root", { onFailure: "ask" }),
+      prompt: "go",
+    });
+    await until(() => getAgentRow(rootAgentId)?.state === "blocked", "agent to block");
+
+    expect(events(runId).find((e) => e.event === "agent.supervision_needed")).toMatchObject({
+      reason: "ask",
+      errorCode: "MODEL_UNAVAILABLE",
+    });
+  });
+
+  test("a failure with no recognisable signal records no errorCode", async () => {
+    fakeSdk.nextTurn = { text: null, error: "boom" };
+    const { runId, rootAgentId } = await startRun({ prompt: "go" });
+    await endedView(rootAgentId);
+
+    const failed = events(runId).find((e) => e.event === "agent.turn_failed");
+    expect(failed).toMatchObject({ error: "boom" });
+    expect(failed).not.toHaveProperty("errorCode");
+  });
+});

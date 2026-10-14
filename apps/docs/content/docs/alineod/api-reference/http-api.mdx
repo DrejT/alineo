@@ -5,6 +5,9 @@ description: Every alineod route — runs, agents, control actions, and results.
 
 Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors are returned as
 `{ "error": "<message>" }` with an appropriate status; an invalid body is `400` and names each failing field.
+When the failure has a stable error code, the body also carries it as `code`
+(`{ "error": "<message>", "code": "SANDBOX_NOT_RUNNING" }`). Branch on `code`, not on the message text.
+A body without `code` means no code applies.
 
 | Method   | Path                             | Description                                                                                                                                              |
 | -------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |

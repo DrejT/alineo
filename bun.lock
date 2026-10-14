@@ -19,6 +19,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@alineo-labs/config-shared": "workspace:*",
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/ledger": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/memory": "workspace:*",
@@ -521,6 +522,7 @@
         "alineo": "./dist/index.mjs",
       },
       "dependencies": {
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
@@ -626,6 +628,7 @@
         "alineo-mcp": "./dist/index.mjs",
       },
       "dependencies": {
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/schema": "workspace:*",
         "@modelcontextprotocol/server": "^2.0.0",
         "alineo": "workspace:*",

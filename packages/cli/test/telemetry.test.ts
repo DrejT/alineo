@@ -1,3 +1,4 @@
+import { AlineoError } from "@alineo-labs/errors";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -182,6 +183,27 @@ describe("withTelemetry", () => {
     const sent = JSON.parse(capturedBody ?? "{}") as CliTelemetryEvent;
     expect(sent.outcome).toBe("error");
     expect(sent.errorClass).toBe("Error");
+  });
+
+  it("reports the alineo error code, not the class name, when the error has one", async () => {
+    await writeTelemetryConfig({ enabled: true, anonymousId: "x", notifiedAt: Date.now() });
+    let capturedBody: string | undefined;
+    globalThis.fetch = stubFetch((_url, init) => {
+      capturedBody = init?.body as string;
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+
+    // eslint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- see comment on the earlier .resolves. usage above
+    await expect(
+      // eslint-disable-next-line typescript/require-await -- run must return a Promise per withTelemetry's signature; nothing here needs to await
+      withTelemetry("spawn", [], async () => {
+        throw new AlineoError("EXEC_NOT_READY", "execd not ready for sandbox sb-1");
+      }),
+    ).rejects.toThrow("execd not ready");
+
+    const sent = JSON.parse(capturedBody ?? "{}") as CliTelemetryEvent;
+    expect(sent.outcome).toBe("error");
+    expect(sent.errorClass).toBe("EXEC_NOT_READY");
   });
 
   it("only reports allowlisted flags for the given command, dropping everything else", async () => {

@@ -17,6 +17,7 @@ import { restartBridge } from "./sdk";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
 import { resolveTurnFailure } from "./supervision";
+import { errorCodeOf } from "@alineo-labs/errors";
 import { errorMessage, sleep, withTimeout } from "../util";
 import { getAgentRow, getHandle } from "../state/projection";
 import { resetFailureCounters } from "../state/db";
@@ -200,6 +201,7 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     if (!partial) {
       const decision = resolveTurnFailure(runId, agentId, {
         error: errMessage,
+        errorCode: errorCodeOf(err),
         resultRef: null,
         retryMessage: message,
       });

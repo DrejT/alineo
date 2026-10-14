@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AlineoError,
   ERROR_CODES,
+  errorCodeFromText,
   errorCodeOf,
   isAlineoError,
   isErrorCode,
@@ -132,5 +133,35 @@ describe("isErrorCode", () => {
   it("rejects inherited property names", () => {
     expect(isErrorCode("toString")).toBe(false);
     expect(isErrorCode("constructor")).toBe(false);
+  });
+});
+
+describe("errorCodeFromText", () => {
+  it("recognises the 429 text the Pi bridge reports", () => {
+    expect(errorCodeFromText('429 {"status":429,"title":"Too Many Requests"}')).toBe(
+      "MODEL_RATE_LIMITED",
+    );
+  });
+
+  it("recognises rate limit wording without a number", () => {
+    expect(errorCodeFromText("Rate limit exceeded, retry later")).toBe("MODEL_RATE_LIMITED");
+    expect(errorCodeFromText("rate-limited by provider")).toBe("MODEL_RATE_LIMITED");
+  });
+
+  it("recognises overload and 5xx", () => {
+    expect(errorCodeFromText("503 Service Unavailable")).toBe("MODEL_UNAVAILABLE");
+    expect(errorCodeFromText("the model is overloaded")).toBe("MODEL_UNAVAILABLE");
+    expect(errorCodeFromText("502 bad gateway")).toBe("MODEL_UNAVAILABLE");
+  });
+
+  it("does not match 429 or 503 inside a longer number", () => {
+    expect(errorCodeFromText("read 14290 bytes")).toBeUndefined();
+    expect(errorCodeFromText("listening on :5030")).toBeUndefined();
+    expect(errorCodeFromText("version 1.4.29")).toBeUndefined();
+  });
+
+  it("returns undefined for text with no signal", () => {
+    expect(errorCodeFromText("catch-up: no retrievable result")).toBeUndefined();
+    expect(errorCodeFromText("")).toBeUndefined();
   });
 });

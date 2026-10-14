@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { errorMessage } from "../src/util";
+import { AlineoError } from "@alineo-labs/errors";
+import { errorFields, errorMessage } from "../src/util";
 
 /** What OpenSandbox's client throws: the raw response body as `message`. */
 const body = (o: unknown) => new Error(JSON.stringify(o));
@@ -32,5 +33,37 @@ describe("errorMessage", () => {
   test("a non-Error is stringified", () => {
     expect(errorMessage("plain string")).toBe("plain string");
     expect(errorMessage(undefined)).toBe("undefined");
+  });
+});
+
+describe("errorFields", () => {
+  test("reads the code off an AlineoError", () => {
+    expect(errorFields(new AlineoError("EXEC_NOT_READY", "execd not ready"))).toEqual({
+      error: "execd not ready",
+      errorCode: "EXEC_NOT_READY",
+    });
+  });
+
+  test("finds a code down the cause chain", () => {
+    const wrapped = new Error("provision failed", {
+      cause: new AlineoError("SANDBOX_START_TIMEOUT", "no Running"),
+    });
+    expect(errorFields(wrapped)).toEqual({
+      error: "provision failed",
+      errorCode: "SANDBOX_START_TIMEOUT",
+    });
+  });
+
+  test("classifies a failure that arrives only as text", () => {
+    expect(errorFields(new Error('429 {"status":429}'))).toEqual({
+      error: '429 {"status":429}',
+      errorCode: "MODEL_RATE_LIMITED",
+    });
+  });
+
+  test("leaves errorCode out when nothing matches", () => {
+    expect(errorFields(new Error("bridge did not answer"))).toEqual({
+      error: "bridge did not answer",
+    });
   });
 });

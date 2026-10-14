@@ -4,6 +4,7 @@
  * opt-out. Wired in at the single dispatch choke point in index.ts, not per-command -- every
  * command file in commands/ stays untouched.
  */
+import { errorCodeOf } from "@alineo-labs/errors";
 import { join } from "node:path";
 import { serverConfigDir } from "@alineo-labs/cli-shared";
 
@@ -162,7 +163,14 @@ async function extractSpecProvider(
   }
 }
 
+/**
+ * What the telemetry event calls a failure. The stable alineo code when the error carries one
+ * (`EXEC_NOT_READY`), so failures group by cause and survive a class rename or minification.
+ * Otherwise the class name, as before. Never a message: those can hold paths and ids.
+ */
 function errorClassOf(err: unknown): string {
+  const code = errorCodeOf(err);
+  if (code) return code;
   return err instanceof Error ? err.constructor.name : "UnknownError";
 }
 

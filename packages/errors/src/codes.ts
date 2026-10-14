@@ -168,6 +168,20 @@ export const ERROR_CODES = {
     httpStatus: 502,
     summary: "The sandbox provider rejected the request with an error that has no better code.",
   },
+  MODEL_RATE_LIMITED: {
+    category: "transient",
+    retryable: true,
+    httpStatus: 429,
+    summary: "The model provider rate-limited the request (429) and ended the turn.",
+    hint: "Back off and retry the turn, or lower how many agents prompt at once.",
+  },
+  MODEL_UNAVAILABLE: {
+    category: "transient",
+    retryable: true,
+    httpStatus: 503,
+    summary: "The model provider was overloaded or unavailable (5xx) and ended the turn.",
+    hint: "Retry the turn after a short wait.",
+  },
   PROMPT_TIMEOUT: {
     category: "transient",
     retryable: true,
