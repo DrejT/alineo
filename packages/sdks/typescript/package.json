@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@alineo-labs/core": "workspace:*",
+    "@alineo-labs/errors": "workspace:*",
     "@alineo-labs/opensandbox": "workspace:*",
     "@alineo-labs/schema": "workspace:*",
     "@alineo-labs/vault": "workspace:*"

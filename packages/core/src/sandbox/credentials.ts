@@ -10,6 +10,8 @@ function requireBroker(sb: SandboxInternal) {
       "No CredentialBroker configured — pass credentialProxy: true to client.sandbox() " +
         "(and ensure the OpenSandbox server has egress.image configured) to use sb.credentials.*",
       sb.sandboxId,
+      "CAPABILITY_UNSUPPORTED",
+      { details: { capability: "credentials" } },
     );
   }
   return broker;

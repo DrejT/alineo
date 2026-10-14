@@ -47,3 +47,6 @@ export {
   CommandError,
   StepTimeoutError,
 } from "./errors";
+export type { ExecConnectionFailure } from "./errors";
+export { AlineoError, errorCodeOf, isRetryable } from "@alineo-labs/errors";
+export type { ErrorCode } from "@alineo-labs/errors";

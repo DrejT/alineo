@@ -1,3 +1,5 @@
+import { AlineoError } from "@alineo-labs/errors";
+import type { ErrorCode } from "@alineo-labs/errors";
 import type { SnapshotState } from "./types";
 import type {
   Sandbox,
@@ -28,34 +30,72 @@ function flattenSnapshot(raw: RawSnapshot): Snapshot {
   };
 }
 
-export class OpenSandboxError extends Error {
+/**
+ * Which alineo code an OpenSandbox response stands for.
+ *
+ * `upstreamCode` is OpenSandbox's own code (`DOCKER::SANDBOX_NOT_FOUND`), which says what the
+ * server meant. The status and the route say what it means to alineo. A 404 on a sandbox route
+ * is a missing sandbox even when the body carries no code.
+ */
+function codeForResponse(
+  status: number,
+  upstreamCode: string | undefined,
+  path?: string,
+): ErrorCode {
+  if (upstreamCode?.endsWith("SANDBOX_NOT_FOUND")) return "SANDBOX_NOT_FOUND";
+  if (status === 404 && path !== undefined && /^\/v1\/sandboxes\/[^/]+\/?(\?.*)?$/.test(path)) {
+    return "SANDBOX_NOT_FOUND";
+  }
+  if (status === 401 || status === 403) return "PROVIDER_AUTH";
+  if (status === 429) return "PROVIDER_RATE_LIMITED";
+  if (status >= 500) return "PROVIDER_UNAVAILABLE";
+  return "PROVIDER_ERROR";
+}
+
+/**
+ * A non-2xx answer from the OpenSandbox server.
+ *
+ * `code` is the alineo code ({@link AlineoError}). OpenSandbox's own code, when the response
+ * carried one, is `upstreamCode`.
+ */
+export class OpenSandboxError extends AlineoError {
   constructor(
     message: string,
     public readonly status: number,
     /** OpenSandbox's error code, e.g. `DOCKER::SANDBOX_NOT_FOUND`, when the response carried one. */
-    public readonly code?: string,
+    public readonly upstreamCode?: string,
+    code?: ErrorCode,
+    path?: string,
   ) {
-    super(message);
+    super(code ?? codeForResponse(status, upstreamCode, path), message, {
+      details: { status, ...(upstreamCode ? { upstreamCode } : {}) },
+    });
     this.name = "OpenSandboxError";
   }
 }
 
 /**
  * OpenSandbox answers an error with a JSON body, `{"code": "...", "message": "..."}`. Put the
- * sentence in `message` (with the code after it), keep the code on `.code`, and fall back to the
- * raw text when the body isn't that shape.
+ * sentence in `message` (with the code after it), keep the code on `.upstreamCode`, and fall back
+ * to the raw text when the body isn't that shape.
  */
-function errorFromBody(text: string, status: number): OpenSandboxError {
+function errorFromBody(text: string, status: number, path?: string): OpenSandboxError {
   try {
     const body = JSON.parse(text) as { code?: unknown; message?: unknown } | null;
     if (typeof body?.message === "string" && body.message) {
-      const code = typeof body.code === "string" && body.code ? body.code : undefined;
-      return new OpenSandboxError(code ? `${body.message} (${code})` : body.message, status, code);
+      const upstream = typeof body.code === "string" && body.code ? body.code : undefined;
+      return new OpenSandboxError(
+        upstream ? `${body.message} (${upstream})` : body.message,
+        status,
+        upstream,
+        undefined,
+        path,
+      );
     }
   } catch {
     // not JSON: use the raw text below
   }
-  return new OpenSandboxError(text || "OpenSandbox API error", status);
+  return new OpenSandboxError(text || "OpenSandbox API error", status, undefined, undefined, path);
 }
 
 export class ControlClient {
@@ -86,7 +126,7 @@ export class ControlClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw errorFromBody(text, res.status);
+      throw errorFromBody(text, res.status, path);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;

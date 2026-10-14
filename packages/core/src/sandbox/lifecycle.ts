@@ -105,7 +105,12 @@ export async function fork(
   },
 ): Promise<SandboxHandle> {
   if (!sb.deps.fork)
-    throw new SandboxError("fork() is not supported on this sandbox", sb.sandboxId);
+    throw new SandboxError(
+      "fork() is not supported on this sandbox",
+      sb.sandboxId,
+      "CAPABILITY_UNSUPPORTED",
+      { details: { capability: "fork" } },
+    );
   const snap = await sb.deps.control.createSnapshot(sb.sandboxId);
   await sb.waitForSnapshot(snap.id);
   await sb.emit(LedgerEvent.CheckpointCreated, -1, { snapshotId: snap.id, name: tag });

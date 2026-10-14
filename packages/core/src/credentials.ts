@@ -109,6 +109,8 @@ export async function resolveBoundCredential(
         : ` (source: ${source?.type ?? "unknown"})`) +
       ` — pass a resolveCredential callback that returns a value for it.`,
     sandboxId,
+    "CREDENTIAL_UNRESOLVED",
+    { details: { credential: name } },
   );
 }
 

@@ -15,6 +15,7 @@
     "alineo-cli",
     "alineo-mcp",
     "@alineo-labs/core",
+    "@alineo-labs/errors",
     "@alineo-labs/flue",
     "@alineo-labs/ledger",
     "@alineo-labs/logger",

@@ -345,11 +345,16 @@ export class Sandbox {
         throw new SandboxClientError(
           `No checkpoint with tag '${tag}' found for session ${sandboxId}`,
           404,
+          "CHECKPOINT_NOT_FOUND",
         );
     } else {
       checkpointIdx = entries.map((e) => e.event).lastIndexOf(LedgerEvent.CheckpointCreated);
       if (checkpointIdx === -1)
-        throw new SandboxClientError(`No checkpoint found for session ${sandboxId}`, 404);
+        throw new SandboxClientError(
+          `No checkpoint found for session ${sandboxId}`,
+          404,
+          "CHECKPOINT_NOT_FOUND",
+        );
     }
 
     const { snapshotId } = entries[checkpointIdx].payload as { snapshotId: string };
@@ -608,6 +613,10 @@ export class Sandbox {
         `SandboxHandle ${sandboxId} is ${state} — can only connect to Running sandboxes` +
           (paused ? " (pass allowPaused to connect to a Paused one)" : ""),
         409,
+        paused ? "SANDBOX_PAUSED" : "SANDBOX_NOT_RUNNING",
+        // `state` is how a caller tells a sandbox that is gone (Terminated, Failed) from one
+        // that is only not up yet. See `isSandboxGone` in the agent package.
+        { details: { sandboxId, state } },
       );
     }
     await this._acquireSlot();
@@ -1083,6 +1092,8 @@ export class Sandbox {
         throw new SandboxClientError(
           `SandboxHandle ${sandboxId} entered state ${s.status.state}: ${s.status.message ?? ""}`,
           500,
+          "SANDBOX_START_FAILED",
+          { details: { sandboxId, state: s.status.state } },
         );
       }
       await new Promise<void>((r) => setTimeout(r, delay));
@@ -1091,6 +1102,8 @@ export class Sandbox {
     throw new SandboxClientError(
       `SandboxHandle ${sandboxId} did not reach Running within ${timeoutMs}ms`,
       408,
+      "SANDBOX_START_TIMEOUT",
+      { details: { sandboxId, timeoutMs } },
     );
   }
 

@@ -487,6 +487,7 @@
       "version": "0.7.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/memory": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
@@ -565,10 +566,21 @@
       "name": "@alineo-labs/core",
       "version": "0.5.0",
       "dependencies": {
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
         "@alineo-labs/schema": "workspace:*",
       },
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "tsdown": "0.23.0",
+        "typescript": "6.0.3",
+        "vitest": "5.0.0",
+      },
+    },
+    "packages/errors": {
+      "name": "@alineo-labs/errors",
+      "version": "0.0.0",
       "devDependencies": {
         "bun-types": "1.4.2",
         "tsdown": "0.23.0",
@@ -658,6 +670,9 @@
     "packages/opensandbox": {
       "name": "@alineo-labs/opensandbox",
       "version": "0.3.2",
+      "dependencies": {
+        "@alineo-labs/errors": "workspace:*",
+      },
       "devDependencies": {
         "bun-types": "1.4.2",
         "tsdown": "0.23.0",
@@ -683,6 +698,7 @@
       "version": "0.5.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
         "@alineo-labs/schema": "workspace:*",
         "@alineo-labs/vault": "workspace:*",
@@ -757,6 +773,8 @@
     "@alineo-labs/core": ["@alineo-labs/core@workspace:packages/core"],
 
     "@alineo-labs/docs-mcp": ["@alineo-labs/docs-mcp@workspace:apps/docs-mcp"],
+
+    "@alineo-labs/errors": ["@alineo-labs/errors@workspace:packages/errors"],
 
     "@alineo-labs/flue": ["@alineo-labs/flue@workspace:packages/adapters/flue"],
 

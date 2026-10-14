@@ -32,12 +32,21 @@ export async function resolveExecClient(
   // Starts fast and backs off to delayMs — execd is usually ready well under one
   // fixed-interval tick, so a flat wait here was pure waste in the common case.
   let delay = Math.min(100, delayMs);
+  const startedAt = Date.now();
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       await client.listContexts();
       return client;
-    } catch {
-      if (attempt === retries) throw new ExecConnectionError(sandboxId);
+    } catch (err) {
+      // Keep the last probe error. Without it the failure says only that execd was not ready,
+      // and the cause (connection refused, 502 from the proxy, a bad token) is gone.
+      if (attempt === retries) {
+        throw new ExecConnectionError(sandboxId, {
+          cause: err,
+          attempts: attempt + 1,
+          waitedMs: Date.now() - startedAt,
+        });
+      }
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, delayMs);
     }

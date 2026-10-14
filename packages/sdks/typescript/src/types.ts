@@ -1,3 +1,5 @@
+import { AlineoError } from "@alineo-labs/errors";
+import type { AlineoErrorOptions, ErrorCode } from "@alineo-labs/errors";
 import type { LedgerEnvelope } from "@alineo-labs/schema/types";
 import type {
   IStorageAdapter,
@@ -18,14 +20,27 @@ export { SandboxStatus };
  * `OpenSandboxError` from `@alineo-labs/opensandbox`, which is never rethrown as a
  * `SandboxClientError`.
  */
-export class SandboxClientError extends Error {
+export class SandboxClientError extends AlineoError {
   constructor(
     message: string,
     public readonly status: number,
+    code: ErrorCode = codeForStatus(status),
+    options?: AlineoErrorOptions,
   ) {
-    super(message);
+    super(code, message, { ...options, details: { status, ...options?.details } });
     this.name = "SandboxClientError";
   }
+}
+
+/**
+ * The code for a status when the throw site did not choose one. Call sites that know better
+ * (a missing session, a sandbox that is not Running) pass their own.
+ */
+function codeForStatus(status: number): ErrorCode {
+  if (status === 408) return "SANDBOX_START_TIMEOUT";
+  if (status === 404) return "SESSION_NOT_FOUND";
+  if (status === 400) return "INVALID_ARGUMENT";
+  return "INTERNAL";
 }
 
 /** Options for constructing a {@link Sandbox} client. */

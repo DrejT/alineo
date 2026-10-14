@@ -94,7 +94,11 @@ export class SandboxCore implements SandboxInternal {
 
   async getExecClient(): Promise<ExecClient> {
     if (this._paused)
-      throw new SandboxError("sandbox is paused — call resume() first", this.sandboxId);
+      throw new SandboxError(
+        "sandbox is paused — call resume() first",
+        this.sandboxId,
+        "SANDBOX_PAUSED",
+      );
     this._execClient ??= await resolveExecClient(
       this.deps.control,
       this.sandboxId,
@@ -106,7 +110,11 @@ export class SandboxCore implements SandboxInternal {
   /** Resolve a fresh `PtyClient` for a new interactive session. Reuses `getExecClient()`'s readiness wait. */
   async resolvePtyClient(): Promise<PtyClient> {
     if (this._paused)
-      throw new SandboxError("sandbox is paused — call resume() first", this.sandboxId);
+      throw new SandboxError(
+        "sandbox is paused — call resume() first",
+        this.sandboxId,
+        "SANDBOX_PAUSED",
+      );
     await this.getExecClient(); // ensures execd is up and polling has already succeeded
     const ep = await this.deps.control.getEndpoint(this.sandboxId, 44772, this.deps.useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
@@ -126,6 +134,7 @@ export class SandboxCore implements SandboxInternal {
         throw new SandboxError(
           `SandboxHandle entered ${s.status.state}: ${s.status.message ?? ""}`,
           this.sandboxId,
+          "SANDBOX_START_FAILED",
         );
       }
       await new Promise<void>((r) => setTimeout(r, delay));
@@ -134,6 +143,7 @@ export class SandboxCore implements SandboxInternal {
     throw new SandboxError(
       `SandboxHandle did not reach Running within ${timeoutMs}ms`,
       this.sandboxId,
+      "SANDBOX_START_TIMEOUT",
     );
   }
 
@@ -145,7 +155,7 @@ export class SandboxCore implements SandboxInternal {
       const snap = await this.deps.control.getSnapshot(snapshotId);
       if (snap.state === SnapshotState.Ready) return;
       if (snap.state === SnapshotState.Failed) {
-        throw new SandboxError(`Snapshot ${snapshotId} failed`, this.sandboxId);
+        throw new SandboxError(`Snapshot ${snapshotId} failed`, this.sandboxId, "SNAPSHOT_FAILED");
       }
       await new Promise<void>((r) => setTimeout(r, delay));
       delay = Math.min(delay * 1.5, 2_000);
@@ -153,6 +163,7 @@ export class SandboxCore implements SandboxInternal {
     throw new SandboxError(
       `Snapshot ${snapshotId} did not become ready within ${timeoutMs}ms`,
       this.sandboxId,
+      "SNAPSHOT_TIMEOUT",
     );
   }
 

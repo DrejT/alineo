@@ -45,6 +45,35 @@ describe("resolveExecClient", () => {
     );
   });
 
+  it("keeps the last probe error, the attempt count and the wait on the failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.5")));
+
+    const err = await resolveExecClient(makeControl(), "sb-9", undefined, 2, 5).catch(
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(ExecConnectionError);
+    const failure = err as ExecConnectionError;
+    expect(failure.code).toBe("EXEC_NOT_READY");
+    expect(failure.retryable).toBe(true);
+    expect(failure.sandboxId).toBe("sb-9");
+    // retries = 2 means 3 probes in total (the first plus two retries).
+    expect(failure.attempts).toBe(3);
+    expect(failure.waitedMs).toBeGreaterThanOrEqual(0);
+    expect((failure.cause as Error).message).toBe("connect ECONNREFUSED 10.0.0.5");
+    // The message keeps its old leading text so anything matching on it still works.
+    expect(failure.message).toMatch(/^execd not ready for sandbox sb-9 after 3 attempts over \d+s/);
+    expect(failure.message).toContain("Last error: connect ECONNREFUSED 10.0.0.5");
+    expect(failure.hint).toContain("execd_image");
+  });
+
+  it("is still a plain message when nothing about the probe is known", () => {
+    const err = new ExecConnectionError("sb-1");
+    expect(err.message).toBe("execd not ready for sandbox sb-1");
+    expect(err.code).toBe("EXEC_NOT_READY");
+    expect(err.attempts).toBeUndefined();
+  });
+
   it("affords substantially more patience than before issue #32 (the old ~11s/16-attempt budget)", async () => {
     // Fake timers fast-forward every setTimeout the retry loop schedules instantly, so this
     // exercises the REAL default retry math (up to 45 real retries with real backoff) without
