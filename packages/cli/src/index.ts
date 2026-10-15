@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { installLoggerFromEnv } from "@alineo-labs/logger";
 import { commands } from "./commands/registry.js";
+import { formatError } from "./format-error.js";
 import type { CliCommand } from "./commands/types.js";
 import { recordTuiLaunch, withTelemetry } from "./telemetry.js";
 
@@ -79,6 +80,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+  console.error(formatError(err));
   process.exit(1);
 });

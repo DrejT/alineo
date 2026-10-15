@@ -126,6 +126,22 @@ describe("error codes in the response body", () => {
   test("an unhandled AlineoError is still a 500 and says which code", async () => {
     const res = toErrorResponse(new AlineoError("SANDBOX_NOT_FOUND", "gone"));
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "gone", code: "SANDBOX_NOT_FOUND" });
+    // SANDBOX_NOT_FOUND has a default hint, which now travels with the code.
+    expect(await res.json()).toEqual({
+      error: "gone",
+      code: "SANDBOX_NOT_FOUND",
+      hint: expect.any(String),
+    });
+  });
+
+  test("an unhandled AlineoError sends its hint, so a client can say what to do next", async () => {
+    const res = toErrorResponse(
+      new AlineoError("EXEC_NOT_READY", "execd not ready", { hint: "check execd_image" }),
+    );
+    expect(await res.json()).toEqual({
+      error: "execd not ready",
+      code: "EXEC_NOT_READY",
+      hint: "check execd_image",
+    });
   });
 });

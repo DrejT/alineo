@@ -92,5 +92,13 @@ export function toErrorResponse(
   // An unhandled failure that still carries an alineo code (a sandbox that vanished mid-request,
   // say) tells the client which, but it stays a 500: it is not the client's doing.
   const code = errorCodeOf(err);
-  return Response.json({ error: message, ...(code ? { code } : {}) }, { status: 500 });
+  const hint = (err as { hint?: unknown } | null)?.hint;
+  return Response.json(
+    {
+      error: message,
+      ...(code ? { code } : {}),
+      ...(code && typeof hint === "string" && hint.length > 0 ? { hint } : {}),
+    },
+    { status: 500 },
+  );
 }

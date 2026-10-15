@@ -95,6 +95,30 @@ describe("alineo-mcp server", () => {
     }
   });
 
+  it("adds the hint to the tool result when alineod sent one", async () => {
+    const fetchImpl = stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: "execd not ready",
+            code: "EXEC_NOT_READY",
+            hint: "check execd_image",
+          }),
+          { status: 500 },
+        ),
+    );
+    const { client, close } = await connectedClient(fetchImpl);
+    try {
+      const result = await client.callTool({ name: "run_get", arguments: { runId: "r1" } });
+      const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
+      expect(text).toBe(
+        "alineod error (500, EXEC_NOT_READY): execd not ready\nHint: check execd_image",
+      );
+    } finally {
+      await close();
+    }
+  });
+
   it("names the error code in the tool result when alineod sent one", async () => {
     const fetchImpl = stubFetch(
       async () =>

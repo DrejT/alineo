@@ -23,6 +23,8 @@ export class AlineodError extends Error {
     message: string,
     /** The stable error code alineod sent beside the message, when it sent a known one. */
     readonly code?: ErrorCode,
+    /** What to do next, when alineod sent it beside the code. */
+    readonly hint?: string,
   ) {
     super(message);
     this.name = "AlineodError";
@@ -130,11 +132,16 @@ export class AlineodClient {
     const data = text.length > 0 ? (JSON.parse(text) as unknown) : undefined;
 
     if (!res.ok) {
-      const body = data as { error?: string; code?: unknown } | undefined;
+      const body = data as { error?: string; code?: unknown; hint?: unknown } | undefined;
       const message = body?.error ?? res.statusText;
       // Only a code this build knows. A newer alineod may send one this client has not heard of,
       // and passing it through as an ErrorCode would be a claim this side cannot back.
-      throw new AlineodError(res.status, message, isErrorCode(body?.code) ? body.code : undefined);
+      throw new AlineodError(
+        res.status,
+        message,
+        isErrorCode(body?.code) ? body.code : undefined,
+        typeof body?.hint === "string" ? body.hint : undefined,
+      );
     }
     return data as T;
   }

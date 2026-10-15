@@ -20,7 +20,8 @@ function ok(data: unknown): ToolResult {
 function fail(err: unknown): ToolResult {
   const message =
     err instanceof AlineodError
-      ? `alineod error (${err.status || "network"}${err.code ? `, ${err.code}` : ""}): ${err.message}`
+      ? `alineod error (${err.status || "network"}${err.code ? `, ${err.code}` : ""}): ${err.message}` +
+        (err.hint ? `\nHint: ${err.hint}` : "")
       : err instanceof Error
         ? err.message
         : String(err);
