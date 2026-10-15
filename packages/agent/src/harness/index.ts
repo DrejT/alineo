@@ -6,3 +6,5 @@ export type { HarnessSandbox } from "./sandbox";
 export type { HarnessAdapter, TurnInput } from "./adapter";
 export type { HarnessRegistry } from "./registry";
 export { createHarness, registeredHarnesses, requireHarnessCapability } from "./registry";
+export type { FakeScenario } from "./fake";
+export { FakeHarness } from "./fake";

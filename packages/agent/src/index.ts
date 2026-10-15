@@ -58,6 +58,7 @@ export type {
   HarnessSandbox,
   HarnessRegistry,
   TurnInput,
+  FakeScenario,
 } from "./harness";
 export {
   PI_CAPABILITIES,
@@ -65,4 +66,5 @@ export {
   createHarness,
   registeredHarnesses,
   requireHarnessCapability,
+  FakeHarness,
 } from "./harness";

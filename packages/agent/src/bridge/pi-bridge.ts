@@ -830,6 +830,12 @@ createServer((req, res) => {
         return;
 
       case "/steer":
+        // Steering injects into the turn that is running. With none running, Pi would queue the
+        // message for whatever turn comes next, out of order. Refuse instead.
+        if (!state.active) {
+          respond(res, 409, { ok: false, error: "no turn in progress" });
+          return;
+        }
         rpcWithAck({ id: "s" + Date.now(), type: "steer", message: data.message || "" }, res);
         return;
 
