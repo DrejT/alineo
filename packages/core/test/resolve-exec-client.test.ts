@@ -3,9 +3,10 @@ import { AlineoError } from "@alineo-labs/errors";
 import type { ExecChannel } from "@alineo-labs/provider";
 import { resolveExecChannel } from "../src/sandbox/resolve.ts";
 import { ExecConnectionError, WorkflowError } from "../src/errors.ts";
+import { stubChannel } from "./channel-stub.ts";
 import { stubProvider } from "./provider-stub.ts";
 
-const channel = { executeCommand: vi.fn() } as unknown as ExecChannel;
+const channel: ExecChannel = stubChannel();
 
 describe("resolveExecChannel", () => {
   it("returns the channel the provider connected", async () => {

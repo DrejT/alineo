@@ -62,7 +62,8 @@ describe("requireCapability", () => {
   });
 
   it("does not second-guess a provider with no descriptor", () => {
-    const bare = { id: "x" } as unknown as SandboxProvider;
+    // A test double usually has an id and nothing else. `never` stands in for "absent".
+    const bare = stubProvider({ descriptor: undefined as never });
     expect(() => requireCapability(bare, "snapshot")).not.toThrow();
   });
 

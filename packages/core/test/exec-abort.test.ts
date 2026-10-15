@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ExecChannel, ExecEvent } from "@alineo-labs/provider";
 import { SandboxHandle } from "../src/sandbox/index.ts";
 import type { IStorageAdapter } from "../src/ledger.ts";
+import { stubChannel } from "./channel-stub.ts";
 import { stubProvider } from "./provider-stub.ts";
 
 function adapter(): IStorageAdapter {
@@ -27,7 +28,7 @@ const exit0: ExecEvent = { type: "error", error: { evalue: "0" }, timestamp: 0 }
 /** A channel whose command streams `events`, optionally throwing partway, and records interrupts. */
 function channelWith(events: ExecEvent[], failAfter?: number) {
   const interruptCommand = vi.fn().mockResolvedValue(undefined);
-  const channel: ExecChannel = {
+  const channel: ExecChannel = stubChannel({
     withSignal: () => channel,
     // eslint-disable-next-line typescript/require-await -- an async generator by signature
     executeCommand: async function* () {
@@ -38,7 +39,7 @@ function channelWith(events: ExecEvent[], failAfter?: number) {
       }
     },
     interruptCommand,
-  } as unknown as ExecChannel;
+  });
   return { channel, interruptCommand };
 }
 

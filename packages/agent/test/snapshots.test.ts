@@ -38,7 +38,8 @@ describe("AgentSnapshotStore provider scoping", () => {
 
   it("saves an OpenSandbox record under the legacy key", async () => {
     await store.save({ specName: "root", setupHash: "h1", snapshotId: "s1", createdAt: 1 });
-    expect(Object.keys(JSON.parse(readFileSync(path, "utf-8")))).toEqual(["root:h1"]);
+    const saved = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+    expect(Object.keys(saved)).toEqual(["root:h1"]);
   });
 
   it("does not return one provider's snapshot to another", async () => {
