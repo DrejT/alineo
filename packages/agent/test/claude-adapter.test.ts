@@ -1,7 +1,9 @@
-import { afterAll, describe, expect, it } from "bun:test";
+import { afterAll, describe, expect, it, setDefaultTimeout } from "bun:test";
 import type { HarnessEvent } from "../src/harness";
 import { startClaudeBridge, stopClaudeBridges } from "./fixtures/claude-bridge-harness";
 
+// Each test starts a node process, which is slow when the whole suite runs at once.
+setDefaultTimeout(20_000);
 afterAll(stopClaudeBridges);
 
 async function collect(it: AsyncIterable<HarnessEvent>): Promise<HarnessEvent[]> {

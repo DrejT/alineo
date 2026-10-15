@@ -9,7 +9,14 @@ const dir = mkdtempSync(join(tmpdir(), "alineo-claude-"));
 const bridgeSrc = fileURLToPath(new URL("../../dist/claude-bridge.cjs", import.meta.url));
 const stubSdk = fileURLToPath(new URL("./stub-claude-sdk.mjs", import.meta.url));
 const procs: Array<ReturnType<typeof Bun.spawn>> = [];
-let nextPort = 3900 + Math.floor(Math.random() * 400);
+
+/** A port nothing is listening on. Two test files can run in one process, so a fixed range collides. */
+function freePort(): number {
+  const server = Bun.serve({ port: 0, fetch: () => new Response("") });
+  const port = server.port;
+  void server.stop(true);
+  return port;
+}
 
 /** Stop every bridge started and remove the temp files. Call from `afterAll`. */
 export function stopClaudeBridges(): void {
@@ -33,7 +40,7 @@ export async function startClaudeBridge(
 ): Promise<ClaudeCodeAdapter> {
   // A test file's `afterAll` removes the directory, and the next file reuses this module.
   mkdirSync(dir, { recursive: true });
-  const port = nextPort++;
+  const port = freePort();
   const bridgePath = join(dir, `bridge-${port}.cjs`);
   writeFileSync(bridgePath, await Bun.file(bridgeSrc).text());
   const configPath = join(dir, `claude-${port}.json`);
