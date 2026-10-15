@@ -30,6 +30,16 @@ function flattenSnapshot(raw: RawSnapshot): Snapshot {
   };
 }
 
+/** True for `/v1/sandboxes/<id>`, with an optional trailing slash or query string. */
+function isSandboxRoute(path: string): boolean {
+  const queryAt = path.indexOf("?");
+  const route = queryAt === -1 ? path : path.slice(0, queryAt);
+  const prefix = "/v1/sandboxes/";
+  if (!route.startsWith(prefix)) return false;
+  const id = route.endsWith("/") ? route.slice(prefix.length, -1) : route.slice(prefix.length);
+  return id.length > 0 && !id.includes("/");
+}
+
 /**
  * Which alineo code an OpenSandbox response stands for.
  *
@@ -43,9 +53,7 @@ function codeForResponse(
   path?: string,
 ): ErrorCode {
   if (upstreamCode?.endsWith("SANDBOX_NOT_FOUND")) return "SANDBOX_NOT_FOUND";
-  if (status === 404 && path !== undefined && /^\/v1\/sandboxes\/[^/]+\/?(\?.*)?$/.test(path)) {
-    return "SANDBOX_NOT_FOUND";
-  }
+  if (status === 404 && path !== undefined && isSandboxRoute(path)) return "SANDBOX_NOT_FOUND";
   if (status === 401 || status === 403) return "PROVIDER_AUTH";
   if (status === 429) return "PROVIDER_RATE_LIMITED";
   if (status >= 500) return "PROVIDER_UNAVAILABLE";
