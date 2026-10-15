@@ -102,14 +102,19 @@ export class SandboxCore implements SandboxInternal {
     return ++this._seq;
   }
 
-  async getExecClient(): Promise<ExecChannel> {
+  /**
+   * The channel to this sandbox's `execd`, connecting if there is none yet. `signal` stops the
+   * wait for a sandbox that is slow to accept a connection. It does not close a channel that was
+   * already connected.
+   */
+  async getExecClient(signal?: AbortSignal): Promise<ExecChannel> {
     if (this._paused)
       throw new SandboxError(
         "sandbox is paused — call resume() first",
         this.sandboxId,
         "SANDBOX_PAUSED",
       );
-    this._execClient ??= await resolveExecChannel(this.deps.provider, this.sandboxId);
+    this._execClient ??= await resolveExecChannel(this.deps.provider, this.sandboxId, { signal });
     return this._execClient;
   }
 
@@ -263,27 +268,33 @@ export class SandboxCore implements SandboxInternal {
     const self = this;
     async function* stream(): AsyncGenerator<ExecEvent> {
       opts.signal?.throwIfAborted();
-      const baseClient = await self.getExecClient();
+      const baseClient = await self.getExecClient(opts.signal);
       await self.emit(LedgerEvent.ExecStart, seq, { cmd, seq });
       self.deps.hooks?.onExecStart?.(self.sandboxId, seq, cmd);
       // Aborting ends the request. It does not end the process in the sandbox, so ask execd to
       // interrupt it too. Best effort: the caller is already gone, and it only has one signal.
       const execClient = opts.signal ? baseClient.withSignal(opts.signal) : baseClient;
+      // `interruptCommand()` names no command: it interrupts whichever one the channel is
+      // running. So this listener must not outlive THIS command. If the consumer stops early,
+      // or an emit throws, a later abort would otherwise kill an unrelated command.
       const interrupt = () => void baseClient.interruptCommand().catch(() => {});
       opts.signal?.addEventListener("abort", interrupt, { once: true });
-      // base64-encode so newlines/special chars survive the JSON boundary
-      const sh = opts.shell ?? self.deps.shell ?? "/bin/sh";
-      const command = `echo ${Buffer.from(cmd).toString("base64")} | base64 -d | ${sh}`;
-      for await (const ev of execClient.executeCommand({
-        command,
-        cwd: opts.cwd,
-        envs: opts.env,
-        timeout: opts.timeoutMs,
-      })) {
-        await self.emit(LedgerEvent.ExecEvent, seq, { seq, ...ev });
-        yield ev;
+      try {
+        // base64-encode so newlines/special chars survive the JSON boundary
+        const sh = opts.shell ?? self.deps.shell ?? "/bin/sh";
+        const command = `echo ${Buffer.from(cmd).toString("base64")} | base64 -d | ${sh}`;
+        for await (const ev of execClient.executeCommand({
+          command,
+          cwd: opts.cwd,
+          envs: opts.env,
+          timeout: opts.timeoutMs,
+        })) {
+          await self.emit(LedgerEvent.ExecEvent, seq, { seq, ...ev });
+          yield ev;
+        }
+      } finally {
+        opts.signal?.removeEventListener("abort", interrupt);
       }
-      opts.signal?.removeEventListener("abort", interrupt);
     }
 
     return new ExecHandle({

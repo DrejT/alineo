@@ -11,7 +11,8 @@ types it speaks in. `@alineo-labs/opensandbox` gains `OpenSandboxProvider`, whic
   `connectExec`, and optionally `connectPty` and `egress`.
 - States are `SandboxState`, a plain string union, not a provider's enum. A state a provider cannot place is
   `provisioning`, never `running`.
-- `connectExec` resolves once the sandbox accepts a connection, and rejects with
+- `connectExec(sandboxId, { signal })` resolves once the sandbox accepts a connection, stops waiting
+  when the signal aborts, and rejects with
   `EXEC_NOT_READY`, with the attempt count and the wait in `details`, when it never does.
 - `SandboxProviderDescriptor` declares what a provider can do as plain data.
 

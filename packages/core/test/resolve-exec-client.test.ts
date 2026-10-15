@@ -12,7 +12,16 @@ describe("resolveExecChannel", () => {
     const provider = stubProvider({ connectExec: vi.fn().mockResolvedValue(channel) });
 
     expect(await resolveExecChannel(provider, "sb-1")).toBe(channel);
-    expect(provider.connectExec).toHaveBeenCalledWith("sb-1");
+    expect(provider.connectExec).toHaveBeenCalledWith("sb-1", {});
+  });
+
+  it("passes the caller's signal on, so a slow connect can be abandoned", async () => {
+    const provider = stubProvider({ connectExec: vi.fn().mockResolvedValue(channel) });
+    const signal = new AbortController().signal;
+
+    await resolveExecChannel(provider, "sb-1", { signal });
+
+    expect(provider.connectExec).toHaveBeenCalledWith("sb-1", { signal });
   });
 
   it("re-throws EXEC_NOT_READY as ExecConnectionError, keeping the cause and the numbers", async () => {

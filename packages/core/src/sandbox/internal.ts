@@ -15,7 +15,7 @@ export interface SandboxInternal {
   readonly name: string;
   readonly deps: SandboxDeps;
   readonly openSessionClosers: Set<() => Promise<void>>;
-  getExecClient(): Promise<ExecChannel>;
+  getExecClient(signal?: AbortSignal): Promise<ExecChannel>;
   emit(event: LedgerEvent, stepIndex: number, payload?: unknown): Promise<void>;
   waitForRunning(timeoutMs?: number): Promise<void>;
   waitForSnapshot(snapshotId: string, timeoutMs?: number): Promise<void>;

@@ -96,6 +96,31 @@ describe("a provider that cannot, asked to", () => {
     expect(pauseSandbox).not.toHaveBeenCalled();
   });
 
+  it("fork() is refused before any snapshot is requested", async () => {
+    const provider = providerWith({ snapshot: false });
+    const createSnapshot = vi.fn();
+    provider.createSnapshot = createSnapshot;
+    const fork = vi.fn();
+    const sb = new SandboxHandle("sb-1", "t", { provider, adapter: adapter(), fork });
+
+    await expect(sb.fork()).rejects.toMatchObject({
+      code: "CAPABILITY_UNSUPPORTED",
+      details: { capability: "snapshot" },
+    });
+    expect(createSnapshot).not.toHaveBeenCalled();
+    expect(fork).not.toHaveBeenCalled();
+  });
+
+  it("resume() is refused before the provider is asked", async () => {
+    const provider = providerWith({ pause: false });
+    const resumeSandbox = vi.fn();
+    provider.resumeSandbox = resumeSandbox;
+    const sb = new SandboxHandle("sb-1", "t", { provider, adapter: adapter() });
+
+    await expect(sb.resume()).rejects.toMatchObject({ code: "CAPABILITY_UNSUPPORTED" });
+    expect(resumeSandbox).not.toHaveBeenCalled();
+  });
+
   it("an egress change is refused, naming egress", async () => {
     const provider = providerWith({ egress: false });
     const sb = new SandboxHandle("sb-1", "t", { provider, adapter: adapter() });

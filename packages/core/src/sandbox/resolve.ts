@@ -13,9 +13,10 @@ import { ExecConnectionError } from "../errors";
 export async function resolveExecChannel(
   provider: SandboxProvider,
   sandboxId: string,
+  options: { signal?: AbortSignal } = {},
 ): Promise<ExecChannel> {
   try {
-    return await provider.connectExec(sandboxId);
+    return await provider.connectExec(sandboxId, options);
   } catch (err) {
     if (errorCodeOf(err) !== "EXEC_NOT_READY") throw err;
     const details = (err as { details?: { attempts?: number; waitedMs?: number } }).details;

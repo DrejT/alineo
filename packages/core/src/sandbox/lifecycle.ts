@@ -44,6 +44,7 @@ export async function pause(sb: SandboxInternal): Promise<void> {
  * Polls until the sandbox reports Running before returning.
  */
 export async function resume(sb: SandboxInternal): Promise<void> {
+  requireCapability(sb.deps.provider, "pause", sb.sandboxId);
   await sb.deps.provider.resumeSandbox(sb.sandboxId);
   sb.setPaused(false);
   await sb.waitForRunning();
@@ -114,6 +115,7 @@ export async function fork(
       "CAPABILITY_UNSUPPORTED",
       { details: { capability: "fork" } },
     );
+  requireCapability(sb.deps.provider, "snapshot", sb.sandboxId);
   const snap = await sb.deps.provider.createSnapshot(sb.sandboxId);
   await sb.waitForSnapshot(snap.id);
   await sb.emit(LedgerEvent.CheckpointCreated, -1, { snapshotId: snap.id, name: tag });

@@ -83,8 +83,11 @@ export interface SandboxProvider {
    * A channel to run commands and move files in the sandbox. Resolves once the sandbox accepts a
    * connection. Rejects with `EXEC_NOT_READY` (and `details.attempts`, `details.waitedMs`) when
    * it never does.
+   *
+   * `signal` stops the wait: the call rejects with the signal's reason instead of probing for
+   * the rest of its budget (about 80 seconds on OpenSandbox).
    */
-  connectExec(sandboxId: string): Promise<ExecChannel>;
+  connectExec(sandboxId: string, options?: { signal?: AbortSignal }): Promise<ExecChannel>;
 
   /** A fresh terminal channel. Present only when `descriptor.capabilities.pty` is not `false`. */
   connectPty?(sandboxId: string): Promise<PtyChannel>;
