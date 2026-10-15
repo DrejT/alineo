@@ -193,6 +193,32 @@ describe("OpenSandboxProvider.connectExec", () => {
     }
   });
 
+  it("stops waiting when the signal aborts, instead of probing out its budget", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+    const controller = new AbortController();
+    // A long budget: without the signal this would take minutes.
+    const provider = providerWithEndpoint({ retries: 1000, delayMs: 10_000 });
+
+    const started = Date.now();
+    const pending = provider.connectExec("sb-1", { signal: controller.signal });
+    setTimeout(() => controller.abort(new Error("caller gave up")), 50);
+
+    await expect(pending).rejects.toThrow("caller gave up");
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
+  it("rejects at once with an already-aborted signal", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      providerWithEndpoint().connectExec("sb-1", { signal: controller.signal }),
+    ).rejects.toBeDefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("gives up with EXEC_NOT_READY and says what it saw", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.5")));
 

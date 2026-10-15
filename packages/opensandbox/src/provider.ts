@@ -15,6 +15,7 @@ import type {
 import { ControlClient } from "./control";
 import { EgressClient } from "./egress";
 import { ExecClient } from "./exec";
+import { withLineEndingRepair } from "./line-endings";
 import { PtyClient } from "./pty";
 import { SandboxState, SnapshotState } from "./types";
 import type { Sandbox, Snapshot } from "./types";
@@ -49,7 +50,13 @@ export function stateOf(native: SandboxState | string): State {
   }
 }
 
-/** The OpenSandbox state a state filter means. The inverse of {@link stateOf}, for list filters. */
+/**
+ * The OpenSandbox state a state filter means. The inverse of {@link stateOf}, for list filters.
+ *
+ * Not a true inverse: `stateOf` also maps `Unknown` and any state it has not heard of to
+ * `provisioning`, and this maps `provisioning` to `Pending` only. A `provisioning` filter
+ * therefore misses sandboxes the adapter would report as provisioning from an unrecognised state.
+ */
 function nativeStateOf(state: State): SandboxState {
   switch (state) {
     case "running":
@@ -219,7 +226,12 @@ export class OpenSandboxProvider implements SandboxProvider {
    * readiness budget (issue #32). The probe starts fast and backs off to `delayMs`, since
    * `execd` is usually ready within one tick.
    */
-  async connectExec(sandboxId: string): Promise<ExecChannel> {
+  async connectExec(
+    sandboxId: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ExecChannel> {
+    const { signal } = options;
+    signal?.throwIfAborted();
     const ep = await this.control.getEndpoint(sandboxId, EXECD_PORT, this.useServerProxy);
     const baseUrl = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
     const token = ep.headers?.["X-EXECD-ACCESS-TOKEN"] ?? "";
@@ -228,9 +240,10 @@ export class OpenSandboxProvider implements SandboxProvider {
     let delay = Math.min(100, this.delayMs);
     const startedAt = Date.now();
     for (let attempt = 0; attempt <= this.retries; attempt++) {
+      signal?.throwIfAborted();
       try {
         await client.listContexts();
-        return client;
+        return withLineEndingRepair(client);
       } catch (err) {
         if (attempt === this.retries) {
           const attempts = attempt + 1;
@@ -242,7 +255,7 @@ export class OpenSandboxProvider implements SandboxProvider {
             { cause: err, details: { sandboxId, attempts, waitedMs } },
           );
         }
-        await new Promise<void>((r) => setTimeout(r, delay));
+        await abortableDelay(delay, signal);
         delay = Math.min(delay * 1.5, this.delayMs);
       }
     }
@@ -255,4 +268,23 @@ export class OpenSandboxProvider implements SandboxProvider {
     const token = ep.headers?.["X-EXECD-ACCESS-TOKEN"] ?? "";
     return new PtyClient({ baseUrl, accessToken: token });
   }
+}
+
+/** Wait `ms`, or reject with the signal's reason as soon as it aborts. */
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (!signal) {
+      setTimeout(resolve, ms);
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
