@@ -12,12 +12,9 @@ import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { resolveProjectConfig, type AlineoAgentConfig } from "../config";
 import { resourceRefOf } from "@alineo-labs/schema";
 import { validateAgentSpec, type AgentSpec } from "../schema";
-import {
-  PiAdapter,
-  resolveEnv,
-  extractCredentialBindings,
-  parseShellExports,
-} from "../adapters/pi";
+import type { PiAdapter } from "../adapters/pi";
+import { createHarness } from "../harness";
+import { resolveEnv, extractCredentialBindings, parseShellExports } from "../adapters/pi";
 import { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "../snapshots";
 import { isSandboxGone } from "../sandbox-gone";
 import { findLatestCheckpoint, restoreCheckpoint } from "../restore";
@@ -168,7 +165,7 @@ export async function loadAgent(
   const store = new AgentSnapshotStore(snapshotsPath(config.adapterPath));
   const setupHash = computeSetupHash(spec);
 
-  const adapter = new PiAdapter();
+  const adapter = createHarness(spec.harness);
   let sb: SandboxHandle | undefined;
   let fromSnapshot = false;
 
@@ -443,7 +440,7 @@ export async function resumeAgent(
     strict: false,
   });
 
-  const adapter = new PiAdapter();
+  const adapter = createHarness(spec.harness);
   resolvedEnv.ALINEO_SANDBOX_ID = sandboxId;
   await adapter.configure(sb, spec, resolvedEnv, { resume: true });
 
@@ -597,7 +594,7 @@ export async function reattachAgent(
   // actually still there; a short timeout because there's nothing to wait out (it either
   // answers immediately or the bridge process is gone and the caller should fall back to
   // `Alineo.resume()`).
-  const adapter = new PiAdapter();
+  const adapter = createHarness(spec.harness);
   await adapter.reattachBridge(sb);
   const t2 = Date.now();
   // `skipReadyCheck`: the caller knows the bridge can't answer right now (a paused sandbox's
@@ -661,7 +658,7 @@ export async function attachAgent(
     sandbox: sb,
     spec: stubSpec,
     env,
-    adapter: new PiAdapter(),
+    adapter: createHarness(stubSpec.harness),
     fromSnapshot: false,
     runId,
   };
@@ -720,7 +717,7 @@ export async function spawnChild(
   });
   log.info("fork ready", { elapsed: elapsed(t0), sandboxId: forkedSb.sandboxId });
 
-  const adapter = new PiAdapter();
+  const adapter = createHarness(childSpec.harness);
   try {
     for (const { name, value, binding, source } of childCredentialBindings) {
       await forkedSb.credentials.set(name, value, binding, source);

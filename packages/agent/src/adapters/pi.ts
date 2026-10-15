@@ -1,13 +1,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type {
-  SandboxHandle,
-  CredentialBinding,
-  CredentialSource,
-  ExecOptions,
-  ExecResult,
-} from "@alineo-labs/core";
+import type { CredentialBinding, CredentialSource } from "@alineo-labs/core";
 import { BridgeDisconnectedError, PromptTimeoutError } from "../errors";
+import type { HarnessAdapter, TurnInput } from "../harness/adapter";
+import { PI_CAPABILITIES } from "../harness/capabilities";
+import type { HarnessEvent } from "../harness/events";
+import { fromPiEvent } from "../harness/pi-events";
+import type { HarnessSandbox } from "../harness/sandbox";
 import { normalizePermissions } from "../permissions";
 import type { AgentSpec, CredentialEnvBinding } from "../schema";
 import type { PendingPermission, PermissionDecision } from "../types";
@@ -23,13 +22,8 @@ import type {
   ThinkingLevel,
 } from "../types";
 
-/** The subset of `SandboxHandle` that `PiAdapter` calls. `exec` only needs to be awaitable, so
- * callers (and tests) don't have to supply a full `ExecHandle`. */
-export interface PiSandbox {
-  exec(cmd: string, opts?: ExecOptions): PromiseLike<ExecResult>;
-  proxy: SandboxHandle["proxy"];
-  writeFile: SandboxHandle["writeFile"];
-}
+/** The subset of `SandboxHandle` that `PiAdapter` calls. Kept as an alias of `HarnessSandbox`. */
+export type PiSandbox = HarnessSandbox;
 
 // The in-sandbox bridge and the Pi permission-gate extension. Both are typed TypeScript under
 // `src/bridge/`, built by tsdown (see tsdown.config.ts) to one self-contained file each, and read
@@ -141,7 +135,11 @@ export function parseShellExports(content: string): Record<string, string> {
   return result;
 }
 
-export class PiAdapter {
+export class PiAdapter implements HarnessAdapter {
+  readonly id = "pi";
+  readonly capabilities = PI_CAPABILITIES;
+  /** Set by `abort()`, cleared when a turn starts. Tells `runTurn` why a stream ended early. */
+  private abortRequested = false;
   private _bridgeUrl: string | null = null;
   /**
    * Controllers for prompt/bash streams `sseStream` deliberately left open (its early
@@ -253,7 +251,7 @@ export class PiAdapter {
    * on it — the container can be alive while the bridge process inside it isn't (e.g. it
    * crashed independently), and this method alone can't tell the difference.
    */
-  async reattachBridge(sb: SandboxHandle): Promise<void> {
+  async reattachBridge(sb: Pick<HarnessSandbox, "proxy">): Promise<void> {
     const { url } = await sb.proxy(3001);
     this._bridgeUrl = url;
   }
@@ -273,6 +271,59 @@ export class PiAdapter {
       await new Promise<void>((r) => setTimeout(r, 500));
     }
     throw new Error(`alineo-bridge did not become ready within ${timeoutMs / 1_000}s`);
+  }
+
+  // --- HarnessAdapter ---
+
+  start(sb: HarnessSandbox, opts?: { unsetVars?: string[] }): Promise<void> {
+    return this.startBridge(sb, opts?.unsetVars);
+  }
+
+  reattach(sb: Pick<HarnessSandbox, "proxy">): Promise<void> {
+    return this.reattachBridge(sb);
+  }
+
+  dispose(): void {
+    this.disposeConnections();
+  }
+
+  private wasAborted(): boolean {
+    return this.abortRequested;
+  }
+
+  /**
+   * One turn as harness events, ending in exactly one `done`. A failure (the bridge sends an
+   * error frame, the stream times out or drops) becomes an `error` event then `done`: it
+   * does not throw. A stream that ends with no `agent_end` is `aborted` when `abort()` was
+   * called, and `error` when it was not.
+   */
+  async *runTurn(input: TurnInput): AsyncGenerator<HarnessEvent> {
+    this.abortRequested = false;
+    let finished = false;
+    try {
+      const stream = this.prompt(input.message, { inactivityTimeoutMs: input.inactivityTimeoutMs });
+      for await (const ev of stream) {
+        for (const out of fromPiEvent(ev)) {
+          if (out.type === "done") finished = true;
+          yield out;
+        }
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      yield { type: "error", message, raw: e };
+      yield { type: "done", reason: "error" };
+      return;
+    }
+    if (!finished) {
+      // Read through a method: the write at the top of this generator would otherwise make
+      // the compiler treat the flag as still `false` after the awaits above.
+      if (this.wasAborted()) {
+        yield { type: "done", reason: "aborted" };
+      } else {
+        yield { type: "error", message: "the turn ended without a result" };
+        yield { type: "done", reason: "error" };
+      }
+    }
   }
 
   // --- streaming ---
@@ -309,6 +360,7 @@ export class PiAdapter {
   }
 
   async abort(): Promise<void> {
+    this.abortRequested = true;
     await rpcPost(this.bridgeUrl, "/abort");
   }
 

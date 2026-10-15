@@ -54,5 +54,15 @@ export type {
   HarnessEventBody,
   HarnessCapabilities,
   HarnessCapability,
+  HarnessAdapter,
+  HarnessSandbox,
+  HarnessRegistry,
+  TurnInput,
 } from "./harness";
-export { PI_CAPABILITIES, fromPiEvent } from "./harness";
+export {
+  PI_CAPABILITIES,
+  fromPiEvent,
+  createHarness,
+  registeredHarnesses,
+  requireHarnessCapability,
+} from "./harness";
