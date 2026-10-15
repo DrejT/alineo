@@ -138,6 +138,7 @@ describe("alineo-mcp server local spec tools", () => {
     process.chdir(tempDir);
     // Keeps readConfig() off its global-fallback branch (~/.config/alineo) — see specs.test.ts.
     await writeConfig({
+      provider: "opensandbox",
       serverUrl: "http://127.0.0.1:8080",
       useServerProxy: true,
       apiKey: "",

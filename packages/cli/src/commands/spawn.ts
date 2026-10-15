@@ -1,4 +1,4 @@
-import { Sandbox, SandboxStatus } from "@alineo-labs/sandbox";
+import { clientFromConfig, SandboxStatus } from "@alineo-labs/sandbox";
 import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "@alineo-labs/cli-shared";
@@ -45,12 +45,7 @@ export async function spawn(
 
   let selfSandboxId = process.env.ALINEO_SANDBOX_ID;
   if (!selfSandboxId) {
-    const client = new Sandbox({
-      baseUrl: config.serverUrl,
-      apiKey: config.apiKey,
-      adapter,
-      useServerProxy: config.useServerProxy,
-    });
+    const client = clientFromConfig(config, { adapter });
     const sessions = await client.sandboxes.list({ status: SandboxStatus.Running });
     const session = sessions.find((s) => s.name === parent);
     if (!session) {

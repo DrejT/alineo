@@ -1,4 +1,4 @@
-import { Sandbox } from "@alineo-labs/sandbox";
+import { clientFromConfig } from "@alineo-labs/sandbox";
 import { Alineo } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "@alineo-labs/cli-shared";
@@ -43,12 +43,7 @@ export async function steer(
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
 
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter });
   const sessions = await client.sandboxes.list();
   const displayName = sessions.find((s) => s.sandboxId === sandboxId)?.name ?? sandboxId;
 

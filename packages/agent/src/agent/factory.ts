@@ -1,7 +1,8 @@
-import { Sandbox } from "@alineo-labs/sandbox";
+import { clientFromConfig } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
 import {
   DEFAULT_PROVIDER_ID,
+  requireCapability,
   LedgerEvent,
   type IStorageAdapter,
   type SandboxHandle,
@@ -136,6 +137,14 @@ export async function loadAgent(
         }
       : undefined;
 
+  const client = clientFromConfig(config, { adapter: opts.adapter });
+
+  // Refuse before the listener starts, so a provider that cannot enforce egress does not leave
+  // one running behind a create that is about to be refused.
+  if (heldCredentials.length > 0 && opts.onEgressRequest) {
+    requireCapability(client.provider, "egress");
+  }
+
   // Start the listener before creating the sandbox — its URL goes into the sidecar env.
   // `gate.bind(sb)` attaches the handle once it exists.
   const egressGate =
@@ -155,13 +164,6 @@ export async function loadAgent(
     await egressGate.start();
     egressEnv.OPENSANDBOX_EGRESS_DENY_WEBHOOK = egressGate.webhookUrl;
   }
-
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter: opts.adapter,
-    useServerProxy: config.useServerProxy,
-  });
 
   const store = new AgentSnapshotStore(snapshotsPath(config.adapterPath));
   const setupHash = computeSetupHash(spec);
@@ -374,12 +376,7 @@ export async function resumeAgent(
   const t0 = Date.now();
   const config = resolveProjectConfig(opts.config);
 
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter: opts.adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter: opts.adapter });
 
   // Three-way fallback, in order of preference: an already-parsed object (no I/O at all) >
   // an explicit path (one read) > guessing the path from the ledger's own record of this
@@ -537,12 +534,7 @@ export async function reattachAgent(
   const t0 = Date.now();
   const config = resolveProjectConfig(opts.config);
 
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter: opts.adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter: opts.adapter });
 
   // Same three-way spec fallback as resumeAgent() — see its comment for why.
   let spec: AgentSpec;
@@ -636,12 +628,7 @@ export async function attachAgent(
   },
 ): Promise<AgentConstructorArgs> {
   const config = resolveProjectConfig(opts.config);
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter: opts.adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter: opts.adapter });
   const resources = opts.resources ?? config.defaults.resources;
   const sb = await client.connect(sandboxId, opts.name, { resources });
   let envFile: string;

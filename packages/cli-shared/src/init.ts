@@ -340,6 +340,7 @@ async function ensureServerDataDir(): Promise<void> {
 async function ensureProjectConfig(log: Log): Promise<void> {
   if (!existsSync(configPath())) {
     await writeConfig({
+      provider: "opensandbox",
       serverUrl: SERVER_URL,
       useServerProxy: true,
       apiKey: "",

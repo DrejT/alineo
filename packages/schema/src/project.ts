@@ -17,6 +17,12 @@ import { z } from "zod";
 
 const ProjectConfigObject = z.object({
   /**
+   * Which sandbox provider to run on. Only `"opensandbox"` exists today, and it is what a file
+   * without this key means, so every config written before the key existed keeps working.
+   * `serverUrl`, `apiKey` and `useServerProxy` below are that provider's settings.
+   */
+  provider: z.string().min(1).default("opensandbox"),
+  /**
    * 127.0.0.1, not "localhost" — some hosts resolve "localhost" to ::1 first, and OpenSandbox
    * typically only listens on IPv4.
    */

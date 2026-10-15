@@ -164,6 +164,7 @@ describe("readConfig", () => {
 
   it("round-trips through writeConfig", async () => {
     await writeConfig({
+      provider: "opensandbox",
       serverUrl: "http://example.test:8080",
       useServerProxy: false,
       apiKey: "secret",
