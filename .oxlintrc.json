@@ -70,6 +70,7 @@
         "**/test/**",
         "**/*.test.ts",
         "**/pi-bridge.ts",
+        "**/claude-bridge.ts",
         "**/pi-permission-gate.ts",
         "examples/**",
         "cookbooks/**",
@@ -116,7 +117,7 @@
       }
     },
     {
-      "files": ["**/pi-bridge.ts", "**/pi-permission-gate.ts"],
+      "files": ["**/pi-bridge.ts", "**/claude-bridge.ts", "**/pi-permission-gate.ts"],
       "rules": {
         "typescript/no-unsafe-assignment": "off",
         "typescript/no-unsafe-call": "off",

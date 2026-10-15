@@ -17,8 +17,11 @@ export type HarnessEvent = HarnessEventBody & {
 };
 
 export type HarnessEventBody =
-  /** The run began. Pi: `agent_start`. */
-  | { type: "run_start" }
+  /**
+   * The run began. Pi: `agent_start`. `sessionRef` is the id to resume this conversation
+   * with, when the harness has one.
+   */
+  | { type: "run_start"; sessionRef?: string }
   /** A chunk of assistant prose. */
   | { type: "text"; text: string }
   /** A chunk of the model's reasoning, for harnesses that expose it. */

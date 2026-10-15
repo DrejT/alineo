@@ -126,6 +126,7 @@ export function defineHarnessContract(binding: HarnessBinding): void {
         const a = await adapterFor({ kind: "text", text: "x" });
         expect(typeof a.steer === "function").toBe(a.capabilities.steer);
         expect(typeof a.followUp === "function").toBe(a.capabilities.followUp);
+        expect(typeof a.forkAt === "function").toBe(a.capabilities.fork);
         for (const [cap, want] of Object.entries(binding.expectedCapabilities ?? {})) {
           expect(a.capabilities[cap as HarnessCapability], cap).toBe(want);
         }

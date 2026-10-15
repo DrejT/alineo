@@ -163,6 +163,12 @@ export class PiAdapter extends BridgeHarness<AgentEvent> implements HarnessAdapt
     return this.start(sb, { unsetVars });
   }
 
+  /** `fork(entryId)` in the harness-neutral shape. Pi switches its own session in place. */
+  async forkAt(messageId: string): Promise<{ sessionRef: string | null }> {
+    await this.fork(messageId);
+    return { sessionRef: null };
+  }
+
   /** `reattach()` under its older name. */
   reattachBridge(sb: Pick<HarnessSandbox, "proxy">): Promise<void> {
     return this.reattach(sb);
@@ -369,4 +375,3 @@ export class PiAdapter extends BridgeHarness<AgentEvent> implements HarnessAdapt
 }
 
 // --- HTTP helpers ---
-

@@ -123,7 +123,10 @@ export abstract class BridgeHarness<E extends { type?: string; requestId?: strin
   }
 
   async listPendingPermissions(): Promise<PendingPermission[]> {
-    const r = await rpcGet<{ pending: PendingPermission[] }>(this.bridgeUrl, "/pending-permissions");
+    const r = await rpcGet<{ pending: PendingPermission[] }>(
+      this.bridgeUrl,
+      "/pending-permissions",
+    );
     return r.pending;
   }
 
@@ -133,7 +136,11 @@ export abstract class BridgeHarness<E extends { type?: string; requestId?: strin
   }
 }
 
-export async function rpcPost<T = null>(bridgeUrl: string, path: string, body: unknown = {}): Promise<T> {
+export async function rpcPost<T = null>(
+  bridgeUrl: string,
+  path: string,
+  body: unknown = {},
+): Promise<T> {
   const res = await fetch(`${bridgeUrl}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

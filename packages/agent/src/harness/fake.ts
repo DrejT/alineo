@@ -43,6 +43,7 @@ export class FakeHarness implements HarnessAdapter {
 
   steer?: (message: string) => Promise<void>;
   followUp?: (message: string) => Promise<void>;
+  forkAt?: (messageId: string) => Promise<{ sessionRef: string | null }>;
 
   private turnActive = false;
   private release: (() => void) | null = null;
@@ -61,6 +62,12 @@ export class FakeHarness implements HarnessAdapter {
         if (!this.turnActive) return Promise.reject(new Error("no turn in progress"));
         this.received.push(message);
         return Promise.resolve();
+      };
+    }
+    if (this.capabilities.fork) {
+      this.forkAt = (messageId) => {
+        this.received.push(`fork:${messageId}`);
+        return Promise.resolve({ sessionRef: `fake-fork-of-${messageId}` });
       };
     }
     if (this.capabilities.followUp) {
