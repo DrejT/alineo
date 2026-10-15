@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const DEFAULT_DESCRIPTION =
-  "Sandboxes as objects. Spawn live containers, run code, checkpoint state — from TypeScript.";
+  "A control plane for swarms of sandboxed agents. Fork, pause, steer, checkpoint, and replay them, with a durable audit ledger.";
 
 export function createMetadata(override: Metadata): Metadata {
   return {
