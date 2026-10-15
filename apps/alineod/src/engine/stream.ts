@@ -16,7 +16,7 @@ import { get } from "./registry";
 import { restartBridge } from "./sdk";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
-import { recordTurnSuccess, resolveTurnFailure } from "./supervision";
+import { forgetTransientRetries, recordTurnSuccess, resolveTurnFailure } from "./supervision";
 import { errorCodeOf } from "@alineo-labs/errors";
 import { errorMessage, sleep, withTimeout } from "../util";
 import { getAgentRow, getHandle } from "../state/projection";
@@ -74,6 +74,8 @@ const driving = new Set<string>();
 const catchingUp = new Set<string>();
 /** Agents waiting out a transient-retry backoff. Counts as an active turn. */
 const backingOff = new Set<string>();
+/** The timers behind `backingOff`, so a stop can cancel them. */
+const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /** True while alineod is following a turn on this agent, by stream or by polling. */
 export function isTurnActive(agentId: string): boolean {
@@ -93,6 +95,8 @@ export function forgetAllTurnTrackingForFaultInjection(): void {
   driving.clear();
   catchingUp.clear();
   backingOff.clear();
+  for (const timer of retryTimers.values()) clearTimeout(timer);
+  retryTimers.clear();
 }
 
 /**
@@ -134,10 +138,31 @@ function deferRetry(agentId: string, message: string, delayMs = 0): void {
   // Backing off: the agent is still mid-turn from a caller's point of view, so a prompt that
   // arrives now must queue behind this retry, not start a second turn beside it.
   backingOff.add(agentId);
-  setTimeout(() => {
+  const timer = setTimeout(() => {
+    retryTimers.delete(agentId);
     backingOff.delete(agentId);
+    // Stopped, or ended some other way, while it waited: nothing is left to retry.
+    const row = getAgentRow(agentId);
+    if (!row || row.ended_at !== null) {
+      forgetTransientRetries(agentId);
+      return;
+    }
     void driveTurn(agentId, message);
   }, delayMs);
+  retryTimers.set(agentId, timer);
+}
+
+/**
+ * End a transient-retry backoff that is still waiting: the operator stopped the agent, or its run
+ * closed. Without this the timer would fire up to `ALINEOD_TRANSIENT_RETRY_MAX_DELAY_MS` later and
+ * re-send a prompt to an agent nobody wants any more. Safe to call when nothing is waiting.
+ */
+export function cancelBackoff(agentId: string): void {
+  const timer = retryTimers.get(agentId);
+  if (timer !== undefined) clearTimeout(timer);
+  retryTimers.delete(agentId);
+  backingOff.delete(agentId);
+  forgetTransientRetries(agentId);
 }
 
 /** Runs in the background — callers do not await this. */

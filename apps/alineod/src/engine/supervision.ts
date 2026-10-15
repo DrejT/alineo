@@ -155,6 +155,11 @@ export function transientDelayMs(attempt: number, random: () => number = Math.ra
   return Math.round(raw * (0.75 + random() * 0.5));
 }
 
+/** Forget an agent's transient-retry count: it ended, or its backoff was cancelled. */
+export function forgetTransientRetries(agentId: string): void {
+  transientAttempts.delete(agentId);
+}
+
 /** A turn succeeded: clear the supervision counters and the transient-retry count. */
 export function recordTurnSuccess(agentId: string): void {
   resetFailureCounters(agentId);

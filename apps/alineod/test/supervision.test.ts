@@ -8,6 +8,7 @@ import { getAgentRow, getHandle, inboxOf } from "../src/state/projection";
 import { getSupervisionCounters } from "../src/state/db";
 import { transientDelayMs } from "../src/engine/supervision";
 import { call, deferred, events, spawnChild, spec, startRun, until } from "./helpers";
+import { onEmit } from "../src/engine/emit";
 import { fakeSdk } from "./fakes";
 
 afterEach(() => fakeSdk.reset());
@@ -314,5 +315,37 @@ describe("transientDelayMs", () => {
   test("jitter stays within 25% either way", () => {
     expect(transientDelayMs(2, () => 0)).toBe(15); // 20 * 0.75
     expect(transientDelayMs(2, () => 0.999999)).toBeLessThanOrEqual(25); // 20 * 1.25
+  });
+});
+
+describe("a stop during a transient-retry backoff", () => {
+  const rateLimited = '429 {"status":429,"title":"Too Many Requests"}';
+  let armed = false;
+
+  // Registered once: `onEmit` has no way to remove a listener, so it is switched by `armed`.
+  onEmit((_runId, agentId, event) => {
+    if (armed && agentId && event === "agent.turn_retried") {
+      armed = false;
+      // Fires inside the emit, so the stop runs before the backoff timer can: the retry has been
+      // announced and its timer set, and nothing has had a chance to tick yet.
+      void call("POST", `/agents/${agentId}/stop`, {});
+    }
+  });
+
+  // What stops the re-send is that a stopped agent is forgotten by the registry, so `driveTurn`
+  // finds nothing to prompt. `cancelBackoff` makes that explicit and frees the retry count.
+  test("the retry never fires and the agent stays stopped", async () => {
+    fakeSdk.nextTurn = { error: rateLimited };
+    // No prompt at creation, so the agent is in hand before the turn that fails.
+    const { rootAgentId, root: agent } = await startRun();
+    armed = true;
+    expect((await call("POST", `/agents/${rootAgentId}/prompt`, { text: "go" })).status).toBe(202);
+    await until(() => getAgentRow(rootAgentId)?.state === "aborted", "agent to be stopped");
+    const promptsAtStop = agent.prompts.length;
+
+    await Bun.sleep(150); // several times the whole backoff the test config allows
+
+    expect(agent.prompts.length).toBe(promptsAtStop);
+    expect(getAgentRow(rootAgentId)).toMatchObject({ state: "aborted" });
   });
 });
