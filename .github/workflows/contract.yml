@@ -6,14 +6,12 @@ name: Provider contract
 # live server (the unit tests use fakes, and a fake does not strip a newline the way execd v1.0.22
 # did).
 #
-# Not yet run in CI: the steps below reproduce what was run by hand on a developer machine. Treat
-# the first run as the test of this file.
+# First run on GitHub (2026-10-14, run 38623136995, from the sandbox-adapter branch): 23 of 23
+# passed in 42 s, job total 1 min 48 s, on opensandbox/execd:release-1.1.1. A workflow with only
+# `workflow_dispatch` cannot be dispatched until its file is on the default branch, so that run used
+# a temporary push trigger, which is gone. To re-run before it lands, add one back.
 
 on:
-  # Temporary: a workflow that only has `workflow_dispatch` cannot be dispatched until its file is
-  # on the default branch. This runs it from the feature branch. Remove it when that lands.
-  push:
-    branches: [sandbox-adapter]
   workflow_dispatch:
     inputs:
       execd_image:
