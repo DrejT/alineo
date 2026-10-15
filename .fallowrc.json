@@ -5,7 +5,7 @@
     "apps/alineod/test/fault/write-burst-worker.ts",
     "examples/pi-agent/test-*.ts",
     "packages/*/pi-extension/*.ts",
-    "packages/agent/src/adapters/pi-permission-gate.js",
+    "packages/agent/src/bridge/*.ts",
     "scripts/*.ts"
   ],
   "dynamicallyLoaded": ["packages/cli/src/commands/*.ts"],

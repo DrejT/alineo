@@ -5,17 +5,17 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 /**
- * Drives the real pi-bridge.js against a stub `pi` process — covers the permission
+ * Drives the built bridge (`dist/pi-bridge.cjs`, from `src/bridge/pi-bridge.ts`) against a stub `pi` process — covers the permission
  * hold/route/resolve protocol, batch-clear, and `/pending-permissions` without a sandbox.
  */
 
 const dir = mkdtempSync(join(tmpdir(), "alineo-bridge-"));
 const PORT = 3100 + Math.floor(Math.random() * 800);
 const BASE = `http://127.0.0.1:${PORT}`;
-const bridgeSrc = fileURLToPath(new URL("../src/adapters/pi-bridge.js", import.meta.url));
-const gatePath = fileURLToPath(new URL("../src/adapters/pi-permission-gate.js", import.meta.url));
-// The package is `"type": "module"` but pi-bridge.js is CJS (it runs from the sandbox root,
-// outside any package.json). Copy it to a `.cjs` so `node` treats it as CJS here too.
+// The bridge and the gate are built artifacts: run `bun run build` in packages/agent first.
+const bridgeSrc = fileURLToPath(new URL("../dist/pi-bridge.cjs", import.meta.url));
+const gatePath = fileURLToPath(new URL("../dist/pi-permission-gate.mjs", import.meta.url));
+// Run a copy named `bridge.cjs`, so `node` treats it as CJS as it does in the sandbox root.
 const bridgePath = join(mkdtempSync(join(tmpdir(), "alineo-bridge-bin-")), "bridge.cjs");
 copyFileSync(bridgeSrc, bridgePath);
 

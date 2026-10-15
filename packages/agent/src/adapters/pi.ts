@@ -31,28 +31,31 @@ export interface PiSandbox {
   writeFile: SandboxHandle["writeFile"];
 }
 
-// Node.js CJS bridge script — written into the sandbox at /alineo-bridge.js and run with `node`.
-// Wraps `pi --mode rpc` in an HTTP server so the host can communicate bidirectionally
-// without needing interactive stdin support from the sandbox exec API.
-//
-// Lives in pi-bridge.js as a real file (lint/format-checked on its own) rather than a
-// template-literal string, and is read relative to this module's own location — works
-// identically in dev (src/adapters/) and in the published package, where tsdown's `copy`
-// config places it alongside dist/index.mjs (see tsdown.config.ts). A bundler-native text
-// import (`with { type: "text" }` / `?raw`) would be cleaner but neither is understood by
-// rolldown, the bundler tsdown uses for this package's actual publish build.
-const BRIDGE_SCRIPT = readFileSync(
-  fileURLToPath(new URL("./pi-bridge.js", import.meta.url)),
-  "utf8",
-);
+// The in-sandbox bridge and the Pi permission-gate extension. Both are typed TypeScript under
+// `src/bridge/`, built by tsdown (see tsdown.config.ts) to one self-contained file each, and read
+// at runtime rather than imported: they run in the sandbox with plain `node`, outside any package.
+// Resolved beside this module first (the published package, where index.mjs sits in dist/), then
+// in the package's own `dist/` (running from `src/` in dev and tests). Read lazily, so importing
+// this module does not need a build.
+function readBuilt(name: string): string {
+  const candidates = [
+    new URL(`./${name}`, import.meta.url),
+    new URL(`../../dist/${name}`, import.meta.url),
+  ];
+  for (const url of candidates) {
+    try {
+      return readFileSync(fileURLToPath(url), "utf8");
+    } catch {
+      // try the next location
+    }
+  }
+  throw new Error(`alineo: ${name} not found. Run \`bun run build\` in packages/agent.`);
+}
 
-// The permission-gate Pi extension — same copy-alongside-dist mechanism as BRIDGE_SCRIPT
-// (see tsdown.config.ts). Written into the sandbox at /alineo-permission-gate.js and loaded
-// by Pi via `-e` only when the spec sets `permissions` (see pi-bridge.js's buildPiArgs).
-const PERMISSION_GATE_SCRIPT = readFileSync(
-  fileURLToPath(new URL("./pi-permission-gate.js", import.meta.url)),
-  "utf8",
-);
+/** Node CJS bridge script: written to `/alineo-bridge.js` and run with `node`. */
+const bridgeScript = (): string => readBuilt("pi-bridge.cjs");
+/** The permission-gate extension: written to `/alineo-permission-gate.js`, loaded by Pi via `-e`. */
+const permissionGateScript = (): string => readBuilt("pi-permission-gate.mjs");
 
 export function toShellExports(env: Record<string, string>): string {
   return (
@@ -172,7 +175,7 @@ export class PiAdapter {
    * documents — see that method's comment). Those connections sit ESTABLISHED, keeping
    * Bun's event loop alive indefinitely, until something force-closes them -- unlike
    * execd's exec/code streams (see `ExecClient.disposeConnections()`), the bridge's own
-   * `: ping` heartbeat (every 3s, see pi-bridge.js) means there's no bounded server-side
+   * `: ping` heartbeat (every 3s, see bridge/pi-bridge.ts) means there's no bounded server-side
    * timeout to eventually resolve a dangling one on its own. Call this once the agent is
    * being torn down anyway (from `agent.close()`) instead of leaving the process to hang
    * forever on whichever stream's `[DONE]` arrived last.
@@ -218,8 +221,8 @@ export class PiAdapter {
     if (permissions) piConfig.permissions = permissions;
     await sb.writeFile("/etc/alineo-pi.json", JSON.stringify(piConfig));
     await sb.writeFile("/etc/alineo-env", toShellExports(resolvedEnv));
-    await sb.writeFile("/alineo-bridge.js", BRIDGE_SCRIPT);
-    if (permissions) await sb.writeFile("/alineo-permission-gate.js", PERMISSION_GATE_SCRIPT);
+    await sb.writeFile("/alineo-bridge.js", bridgeScript());
+    if (permissions) await sb.writeFile("/alineo-permission-gate.js", permissionGateScript());
   }
 
   /**
@@ -479,7 +482,7 @@ async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
 
 /**
  * How long to tolerate zero real `AgentEvent`s before treating the stream as stuck. The
- * bridge's own `: ping` keep-alive (every 3s, see pi-bridge.js's `startHeartbeat`) exists only
+ * bridge's own `: ping` keep-alive (every 3s, see bridge/pi-bridge.ts's `startHeartbeat`) exists only
  * to defeat OpenSandbox's proxy idle-timeout -- it keeps `reader.read()` resolving regardless
  * of whether Pi itself is making progress, so this can't just be "no read() in N seconds". The
  * timer below is instead reset only when a real event is parsed and yielded (or `[DONE]`

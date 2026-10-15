@@ -69,8 +69,8 @@
         "packages/cli/**",
         "**/test/**",
         "**/*.test.ts",
-        "**/pi-bridge.js",
-        "**/pi-permission-gate.js",
+        "**/pi-bridge.ts",
+        "**/pi-permission-gate.ts",
         "examples/**",
         "cookbooks/**",
         "scripts/**"
@@ -116,7 +116,7 @@
       }
     },
     {
-      "files": ["**/pi-bridge.js", "**/pi-permission-gate.js"],
+      "files": ["**/pi-bridge.ts", "**/pi-permission-gate.ts"],
       "rules": {
         "typescript/no-unsafe-assignment": "off",
         "typescript/no-unsafe-call": "off",

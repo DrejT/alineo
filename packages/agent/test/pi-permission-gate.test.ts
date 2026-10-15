@@ -15,10 +15,8 @@ type GateResult = { block: true; reason: string } | undefined;
 let gate: (pi: unknown) => void;
 
 beforeAll(async () => {
-  // `: string` so TS doesn't try to resolve a declaration file for the plain-.js extension.
-  const modPath: string = "../src/adapters/pi-permission-gate.js";
-  const mod = (await import(modPath)) as { default: (pi: unknown) => void };
-  gate = mod.default;
+  const mod = await import("../src/bridge/pi-permission-gate.ts");
+  gate = mod.default as (pi: unknown) => void;
 });
 afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
