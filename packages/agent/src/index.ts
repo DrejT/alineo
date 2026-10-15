@@ -49,3 +49,10 @@ export { isSandboxGone } from "./sandbox-gone";
 export { DEFAULT_PROVIDER_ID } from "@alineo-labs/core";
 export type { LatestCheckpoint } from "./restore";
 export { findLatestCheckpoint, restoreCheckpoint } from "./restore";
+export type {
+  HarnessEvent,
+  HarnessEventBody,
+  HarnessCapabilities,
+  HarnessCapability,
+} from "./harness";
+export { PI_CAPABILITIES, fromPiEvent } from "./harness";
