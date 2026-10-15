@@ -12,6 +12,12 @@ export interface TurnInput {
    * count. Unset means the adapter's default.
    */
   inactivityTimeoutMs?: number;
+  /**
+   * Send `message` into the turn that is running, or queue it, instead of starting a turn.
+   * Needs the matching capability (`steer` or `followUp`). The returned stream ends with
+   * `done` once the harness has accepted the message.
+   */
+  streamingBehavior?: "steer" | "followUp";
 }
 
 /**

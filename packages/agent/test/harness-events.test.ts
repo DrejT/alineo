@@ -83,13 +83,18 @@ describe("fromPiEvent", () => {
     });
   });
 
-  it("drops a text_delta: the bridge sends the same text as its own text event", () => {
+  it("keeps a text_delta as a vendor event: the text itself arrives as its own text event", () => {
     const ev: AgentEvent = {
       type: "message_update",
       message: {},
       delta: { type: "text_delta", delta: "hi" },
     };
-    expect(fromPiEvent(ev)).toEqual([]);
+    expect(fromPiEvent(ev)[0]).toMatchObject({
+      type: "vendor",
+      harness: "pi",
+      name: "message_update",
+      raw: ev,
+    });
   });
 
   it("gives the message id when Pi has one, and null when it has none", () => {

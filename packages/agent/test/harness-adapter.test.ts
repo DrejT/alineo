@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { PiAdapter } from "../src/adapters/pi";
 import {
   createHarness,
+  FakeHarness,
   registeredHarnesses,
   requireHarnessCapability,
   type HarnessEvent,
@@ -103,11 +104,19 @@ describe("PiAdapter as a HarnessAdapter", () => {
     expect(evs.at(-1)).toMatchObject({ type: "done", reason: "aborted" });
   });
 
-  it("does not report a silent end as success", async () => {
+  it("reads a stream that ends with no result as aborted, never as completed", async () => {
     bridge([frame({ type: "agent_start" })]);
     const evs = await collect((await started()).runTurn({ message: "x" }));
     expect(doneCount(evs)).toBe(1);
-    expect(evs.at(-1)).toMatchObject({ type: "done", reason: "error" });
+    expect(evs.at(-1)).toMatchObject({ type: "done", reason: "aborted" });
+  });
+
+  it("completes a streamingBehavior message once it is accepted", async () => {
+    bridge([]);
+    const evs = await collect(
+      (await started()).runTurn({ message: "go left", streamingBehavior: "steer" }),
+    );
+    expect(evs).toEqual([{ type: "done", reason: "completed" }]);
   });
 });
 
@@ -145,6 +154,28 @@ describe("requireHarnessCapability", () => {
     } catch (e) {
       expect(e).toMatchObject({ code: "CAPABILITY_UNSUPPORTED" });
       expect((e as Error).message).toBe("The x harness does not support steer");
+    }
+  });
+});
+
+describe("Alineo.harness() and the Pi-only guard", () => {
+  // The Alineo class has a private constructor and needs a live sandbox; the guard it
+  // relies on is `pi()`, which takes anything with an `adapter`.
+  it("pi() hands back a PiAdapter and refuses any other harness, naming both", async () => {
+    const { pi } = await import("../src/agent/pi");
+    const real = createHarness("pi");
+    expect(pi({ adapter: real }, "exportHtml")).toBe(real);
+
+    const other = new FakeHarness({ kind: "text", text: "x" });
+    try {
+      pi({ adapter: other }, "exportHtml");
+      throw new Error("did not throw");
+    } catch (e) {
+      expect(e).toMatchObject({
+        code: "CAPABILITY_UNSUPPORTED",
+        details: { operation: "exportHtml", harness: "fake" },
+      });
+      expect((e as Error).message).toBe("The fake harness does not support exportHtml");
     }
   });
 });

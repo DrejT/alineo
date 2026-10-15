@@ -12,8 +12,7 @@ import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { resolveProjectConfig, type AlineoAgentConfig } from "../config";
 import { resourceRefOf } from "@alineo-labs/schema";
 import { validateAgentSpec, type AgentSpec } from "../schema";
-import type { PiAdapter } from "../adapters/pi";
-import { createHarness } from "../harness";
+import { createHarness, type HarnessAdapter } from "../harness";
 import { resolveEnv, extractCredentialBindings, parseShellExports } from "../adapters/pi";
 import { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "../snapshots";
 import { isSandboxGone } from "../sandbox-gone";
@@ -51,7 +50,7 @@ export interface AgentConstructorArgs {
   sandbox: SandboxHandle;
   spec: AgentSpec;
   env: Record<string, string>;
-  adapter: PiAdapter;
+  adapter: HarnessAdapter;
   fromSnapshot: boolean;
   /** Run-correlation ID for this agent's sandbox — see `SandboxDetails.runId`. */
   runId: string;
@@ -276,7 +275,7 @@ export async function loadAgent(
 
     log.info("starting bridge");
     const t4 = Date.now();
-    await adapter.startBridge(sb);
+    await adapter.start(sb);
     await adapter.waitReady();
     log.info("bridge ready", { elapsed: elapsed(t4) });
   } catch (err) {
@@ -338,7 +337,7 @@ async function restoreFromCheckpoint(
     });
     await restoreCheckpoint(fresh.sandbox, latest.snapshotRef);
     await fresh.adapter.configure(fresh.sandbox, spec, fresh.env, { resume: true });
-    await fresh.adapter.startBridge(fresh.sandbox);
+    await fresh.adapter.start(fresh.sandbox);
     await fresh.adapter.waitReady();
     return fresh;
   } catch (err) {
@@ -446,7 +445,7 @@ export async function resumeAgent(
 
   log.info("starting bridge");
   const t2 = Date.now();
-  await adapter.startBridge(sb);
+  await adapter.start(sb);
   await adapter.waitReady();
   log.info("bridge ready", { elapsed: elapsed(t2) });
 
@@ -595,7 +594,7 @@ export async function reattachAgent(
   // answers immediately or the bridge process is gone and the caller should fall back to
   // `Alineo.resume()`).
   const adapter = createHarness(spec.harness);
-  await adapter.reattachBridge(sb);
+  await adapter.reattach(sb);
   const t2 = Date.now();
   // `skipReadyCheck`: the caller knows the bridge can't answer right now (a paused sandbox's
   // container is frozen) and will check it itself once it can — e.g. after `sandbox.resume()`.
@@ -728,7 +727,7 @@ export async function spawnChild(
 
     log.info("starting bridge");
     const t1 = Date.now();
-    await adapter.startBridge(forkedSb, Object.keys(self.env));
+    await adapter.start(forkedSb, { unsetVars: Object.keys(self.env) });
     await adapter.waitReady();
     log.info("bridge ready", { elapsed: elapsed(t1) });
   } catch (err) {

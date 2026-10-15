@@ -138,8 +138,6 @@ export function parseShellExports(content: string): Record<string, string> {
 export class PiAdapter implements HarnessAdapter {
   readonly id = "pi";
   readonly capabilities = PI_CAPABILITIES;
-  /** Set by `abort()`, cleared when a turn starts. Tells `runTurn` why a stream ended early. */
-  private abortRequested = false;
   private _bridgeUrl: string | null = null;
   /**
    * Controllers for prompt/bash streams `sseStream` deliberately left open (its early
@@ -287,21 +285,22 @@ export class PiAdapter implements HarnessAdapter {
     this.disposeConnections();
   }
 
-  private wasAborted(): boolean {
-    return this.abortRequested;
-  }
-
   /**
    * One turn as harness events, ending in exactly one `done`. A failure (the bridge sends an
    * error frame, the stream times out or drops) becomes an `error` event then `done`: it
-   * does not throw. A stream that ends with no `agent_end` is `aborted` when `abort()` was
-   * called, and `error` when it was not.
+   * does not throw, and the `error` event's `raw` is the original error.
+   *
+   * A stream that ends with no `agent_end` is `aborted`. The bridge ends a stream that way
+   * only when someone called `/abort`, from this process or another. A message sent with
+   * `streamingBehavior` also ends with no `agent_end`: that is `completed`.
    */
   async *runTurn(input: TurnInput): AsyncGenerator<HarnessEvent> {
-    this.abortRequested = false;
     let finished = false;
     try {
-      const stream = this.prompt(input.message, { inactivityTimeoutMs: input.inactivityTimeoutMs });
+      const stream = this.prompt(input.message, {
+        streamingBehavior: input.streamingBehavior,
+        inactivityTimeoutMs: input.inactivityTimeoutMs,
+      });
       for await (const ev of stream) {
         for (const out of fromPiEvent(ev)) {
           if (out.type === "done") finished = true;
@@ -315,14 +314,7 @@ export class PiAdapter implements HarnessAdapter {
       return;
     }
     if (!finished) {
-      // Read through a method: the write at the top of this generator would otherwise make
-      // the compiler treat the flag as still `false` after the awaits above.
-      if (this.wasAborted()) {
-        yield { type: "done", reason: "aborted" };
-      } else {
-        yield { type: "error", message: "the turn ended without a result" };
-        yield { type: "done", reason: "error" };
-      }
+      yield { type: "done", reason: input.streamingBehavior ? "completed" : "aborted" };
     }
   }
 
@@ -360,7 +352,6 @@ export class PiAdapter implements HarnessAdapter {
   }
 
   async abort(): Promise<void> {
-    this.abortRequested = true;
     await rpcPost(this.bridgeUrl, "/abort");
   }
 

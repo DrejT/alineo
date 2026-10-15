@@ -18,9 +18,11 @@ function messageIdOf(message: unknown): string | null {
 /**
  * Map one event of Pi's bridge stream to harness events. Zero, one or more come back.
  *
- * Every returned event carries the Pi event as `raw`. Nothing is dropped except one
- * thing: a `text_delta` inside `message_update`. The bridge sends the same text again as
- * its own `text` event, and mapping both would show the text twice.
+ * Every Pi event maps to exactly one harness event, and that event carries the Pi event as
+ * `raw`. Nothing is dropped. A `thinking_delta` inside `message_update` is `reasoning`.
+ * Every other `message_update` delta (text, tool-call, and so on) is a `vendor` event
+ * named `message_update`: the text of a `text_delta` already arrives as its own `text`
+ * event, so a neutral consumer ignores the vendor one.
  *
  * `agent_end` becomes `done`. The bridge ends a turn with `agent_end`. The error path
  * (a bridge `{error}` frame, a timeout, an abort) is not an event on this stream. The
@@ -51,7 +53,7 @@ export function fromPiEvent(ev: AgentEvent): HarnessEvent[] {
           return [{ type: "reasoning", text: d.delta, raw }];
         }
       }
-      return [];
+      return [{ type: "vendor", harness: "pi", name: "message_update", data: ev, raw }];
     }
     case "tool_start":
       return [

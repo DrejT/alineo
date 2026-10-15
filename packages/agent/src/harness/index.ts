@@ -8,3 +8,4 @@ export type { HarnessRegistry } from "./registry";
 export { createHarness, registeredHarnesses, requireHarnessCapability } from "./registry";
 export type { FakeScenario } from "./fake";
 export { FakeHarness } from "./fake";
+export { toAgentEvent, legacyStream } from "./legacy";
