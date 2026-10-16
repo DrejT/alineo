@@ -121,9 +121,10 @@ container.
 
 - A turn that finished while alineod was down is recorded when alineod comes back — its result is the agent's
   final message, but the individual stream events from the gap are not in the ledger.
-- A checkpoint covers `/root` only (the agent's home directory and Pi's session file), minus package caches. Files
-  elsewhere, such as a `/workspace` directory, are not restored. Only what a spec's `setup` steps wrote there comes
-  back, because the fresh container starts from the setup snapshot.
+- A checkpoint covers `/root` and `/workspace` (when it exists), minus package caches and the `node_modules`
+  directories inside `/workspace`. The agent installs those again after a restore. Files anywhere else are not
+  restored. Only what a spec's `setup` steps wrote there comes back, because the fresh container starts from the
+  setup snapshot.
 - A restore with no checkpoint (the spec does not set `"checkpoint": true`, or no turn finished yet) returns a blank
   session. The [`agent.restored`](/docs/alineod/api-reference/events) event has `checkpointTurn: null` in that case.
 - An agent whose spec has `approval: "hold"` credential bindings is not restored from a gone container yet.

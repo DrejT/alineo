@@ -38,6 +38,10 @@ const SPEC = {
 
 const MARKER = "/root/work/marker.txt";
 const SESSION = "/root/.pi/agent/sessions/restore-test.jsonl";
+const WORKSPACE_FILE = "/workspace/app/src/index.ts";
+const WORKSPACE_DEP = "/workspace/app/node_modules/pkg/index.js";
+const ROOT_DEP = "/root/work/node_modules/pkg/index.js";
+const WORKSPACE_TEXT = `workspace-${crypto.randomUUID()}`;
 const MARKER_TEXT = `marker-${crypto.randomUUID()}`;
 const SESSION_TEXT = `{"type":"session","id":"${crypto.randomUUID()}"}`;
 
@@ -70,6 +74,14 @@ describe("restore from a turn checkpoint after the container is removed", () => 
     await agent.sandbox.exec(`mkdir -p /root/work "$(dirname ${SESSION})"`);
     await agent.sandbox.writeFile(MARKER, MARKER_TEXT);
     await agent.sandbox.writeFile(SESSION, SESSION_TEXT);
+    // /workspace is where most specs work. Its source comes back. Its node_modules does not, but a
+    // node_modules under /root does, because there it can hold Pi's own packages.
+    await agent.sandbox.exec(
+      "mkdir -p /workspace/app/src /workspace/app/node_modules/pkg /root/work/node_modules/pkg",
+    );
+    await agent.sandbox.writeFile(WORKSPACE_FILE, WORKSPACE_TEXT);
+    await agent.sandbox.writeFile(WORKSPACE_DEP, "dep");
+    await agent.sandbox.writeFile(ROOT_DEP, "dep");
 
     await takeCheckpoint(agent.sandbox, checkpointsPath(LEDGER), { turn: 1 });
     removeContainer(originalId);
@@ -89,6 +101,17 @@ describe("restore from a turn checkpoint after the container is removed", () => 
   test("files under /root come back, including the Pi session file", async () => {
     expect((await restored.sandbox.readFile(MARKER)).trim()).toBe(MARKER_TEXT);
     expect((await restored.sandbox.readFile(SESSION)).trim()).toBe(SESSION_TEXT);
+  }, 30_000);
+
+  test("files under /workspace come back, without its node_modules", async () => {
+    expect((await restored.sandbox.readFile(WORKSPACE_FILE)).trim()).toBe(WORKSPACE_TEXT);
+    const dep = await restored.sandbox.exec(`test -e ${WORKSPACE_DEP}`, { strict: false });
+    expect(dep.exitCode).not.toBe(0);
+  }, 30_000);
+
+  test("a node_modules under /root is kept", async () => {
+    const dep = await restored.sandbox.exec(`test -e ${ROOT_DEP}`, { strict: false });
+    expect(dep.exitCode).toBe(0);
   }, 30_000);
 
   test("the bridge is running on the restored session", async () => {

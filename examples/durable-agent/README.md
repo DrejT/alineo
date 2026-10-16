@@ -20,7 +20,7 @@ bun start
 ## What it does
 
 1. Starts a Pi agent and runs a turn that writes `/root/work/note.txt`.
-2. Calls `takeCheckpoint()`. This tars `/root` (the workspace and Pi's session file) to disk.
+2. Calls `takeCheckpoint()`. This tars `/root` (Pi's session file) and `/workspace` to disk.
 3. Removes the container with `docker rm -f`.
 4. Calls `Alineo.resume()`. It finds the sandbox gone, provisions a fresh one from the cached
    setup snapshot, and restores the checkpoint. `agent.restore` is `{ checkpointTurn: 1 }`.
@@ -34,8 +34,9 @@ it restores the agent at boot and records `agent.restored` with the turn it rest
 
 ## What a checkpoint covers
 
-- **Covered:** everything under `/root`, except package caches (`.npm`, `.cache`, and similar).
-- **Not covered:** files outside `/root`, and a turn that was still running when the container
+- **Covered:** everything under `/root` except package caches (`.npm`, `.cache`, and similar), and
+  `/workspace` when it exists, except its `node_modules` directories. Install those again after a restore.
+- **Not covered:** files anywhere else, and a turn that was still running when the container
   was lost. Side effects of that turn may happen again if it is retried.
 - **Where it lives:** a file on the host that runs the agent. Losing that disk loses the
   checkpoint.
