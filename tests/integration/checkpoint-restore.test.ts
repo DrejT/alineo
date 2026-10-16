@@ -82,6 +82,10 @@ describe("restore from a turn checkpoint after the container is removed", () => 
     expect(restored.sandboxId).not.toBe(originalId);
   });
 
+  test("it reports the turn it was restored from", () => {
+    expect(restored.restore).toEqual({ checkpointTurn: 1 });
+  });
+
   test("files under /root come back, including the Pi session file", async () => {
     expect((await restored.sandbox.readFile(MARKER)).trim()).toBe(MARKER_TEXT);
     expect((await restored.sandbox.readFile(SESSION)).trim()).toBe(SESSION_TEXT);
@@ -99,7 +103,7 @@ describe("restore from a turn checkpoint after the container is removed", () => 
 });
 
 describe("restore with no checkpoint", () => {
-  test("comes back blank, on a different container (H3 will assert the signal for this)", async () => {
+  test("comes back blank, on a different container, and says so", async () => {
     const agent = await Alineo.start({ ...SPEC, name: "checkpoint-restore-blank" }, { adapter });
     live.push(agent);
     const originalId = agent.sandboxId;
@@ -113,6 +117,7 @@ describe("restore with no checkpoint", () => {
     live.push(restored);
 
     expect(restored.sandboxId).not.toBe(originalId);
+    expect(restored.restore).toEqual({ checkpointTurn: null });
     const { exitCode } = await restored.sandbox.exec(`test -f ${MARKER}`, { strict: false });
     expect(exitCode).not.toBe(0);
   }, 600_000);

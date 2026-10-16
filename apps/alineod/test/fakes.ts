@@ -61,6 +61,8 @@ export class FakeAgent {
   memory?: Memory;
   readonly resourceId: string;
   readonly teamId: string | undefined;
+  /** Like the real `Alineo.restore`: set by a test standing in for a restore-from-checkpoint. */
+  restore?: { checkpointTurn: number | null };
 
   readonly prompts: string[] = [];
   readonly steered: string[] = [];
