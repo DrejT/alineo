@@ -5,6 +5,7 @@
   "description": "A Pi agent whose write/exec tool calls pause for operator approval. Demonstrates AgentSpec.permissions, the classify action, prompt({ onPermission }), listPendingPermissions(), and the ledger audit trail.",
   "author": "alineo",
   "harness": "pi",
+  "harnessVersion": "1.2.0",
   "provider": "nvidia",
   "model": "nvidia/nemotron-3-super-120b-a12b",
   "packages": ["git", "python3"],

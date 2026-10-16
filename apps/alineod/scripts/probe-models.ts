@@ -31,6 +31,7 @@ for (const model of models) {
     const spec = {
       name: `probe-${model.split("/")[1]!.slice(0, 24)}-${i}`,
       harness: "pi",
+      harnessVersion: "1.2.0",
       provider: "nvidia",
       model,
       env: { NVIDIA_API_KEY: process.env.NVIDIA_API_KEY },

@@ -5,6 +5,7 @@
   "description": "Clones a repo, decides how to split a task across it, and forks child agents (via alineo spawn) that each work on one slice from the exact same checked-out commit.",
   "author": "alineo",
   "harness": "pi",
+  "harnessVersion": "1.2.0",
   "provider": "nvidia",
   "model": "nvidia/nemotron-3-super-120b-a12b",
   "packages": ["git"],
