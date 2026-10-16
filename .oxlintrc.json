@@ -61,7 +61,7 @@
     "typescript/prefer-nullish-coalescing": "warn",
     "typescript/prefer-optional-chain": "warn"
   },
-  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.d.ts"],
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.d.ts", "**/test/fixtures/*.mjs"],
   "overrides": [
     {
       "files": [
@@ -71,6 +71,7 @@
         "**/*.test.ts",
         "**/pi-bridge.ts",
         "**/claude-bridge.ts",
+        "**/codex-bridge.ts",
         "**/pi-permission-gate.ts",
         "examples/**",
         "cookbooks/**",
@@ -117,7 +118,7 @@
       }
     },
     {
-      "files": ["**/pi-bridge.ts", "**/claude-bridge.ts", "**/pi-permission-gate.ts"],
+      "files": ["**/pi-bridge.ts", "**/claude-bridge.ts", "**/codex-bridge.ts", "**/pi-permission-gate.ts"],
       "rules": {
         "typescript/no-unsafe-assignment": "off",
         "typescript/no-unsafe-call": "off",

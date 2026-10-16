@@ -68,3 +68,5 @@ export {
   requireHarnessCapability,
   FakeHarness,
 } from "./harness";
+export { ClaudeCodeAdapter, CLAUDE_CODE_CAPABILITIES } from "./adapters/claude-code";
+export { CodexAdapter, CODEX_CAPABILITIES } from "./adapters/codex";

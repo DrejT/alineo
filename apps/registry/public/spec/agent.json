@@ -33,8 +33,8 @@
       "description": "Tags for discovery. Informational only."
     },
     "harness": {
-      "enum": ["pi", "claude-code"],
-      "description": "Agent-loop driver to run inside the sandbox: \"pi\", or \"claude-code\" (Claude Agent SDK)."
+      "enum": ["pi", "claude-code", "codex"],
+      "description": "Agent-loop driver to run inside the sandbox: \"pi\", \"claude-code\" (Claude Agent SDK), or \"codex\" (codex app-server)."
     },
     "harnessVersion": {
       "type": "string",

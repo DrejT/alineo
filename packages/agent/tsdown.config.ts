@@ -41,6 +41,15 @@ export default defineConfig([
     deps: { alwaysBundle: [/.*/] },
   },
   {
+    entry: { "codex-bridge": "src/bridge/codex-bridge.ts" },
+    format: ["cjs"],
+    platform: "node",
+    outDir: "dist",
+    clean: false,
+    dts: false,
+    deps: { alwaysBundle: [/.*/] },
+  },
+  {
     entry: { "pi-permission-gate": "src/bridge/pi-permission-gate.ts" },
     format: ["esm"],
     platform: "node",

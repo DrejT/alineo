@@ -101,18 +101,18 @@ export interface AgentSpec {
   author?: string;
   categories?: string[];
   /**
-   * Agent-loop driver to run inside the sandbox: `"pi"` or `"claude-code"`.
+   * Agent-loop driver to run inside the sandbox: `"pi"`, `"claude-code"` or `"codex"`.
    *
    * Not `cli`: that said the driver *is* a CLI, which is true of Pi and accidental in
    * general. `claude-code` runs through the Claude Agent SDK, so `cli: "claude-code"` would
    * have read as a category error.
    */
-  harness: "pi" | "claude-code";
+  harness: "pi" | "claude-code" | "codex";
   /**
    * npm version specifier for the harness, e.g. `"1.2.3"`, `"^1.2.0"`, or a
    * dist-tag like `"latest"`. Passed directly to
    * `npm install -g <harness package>@<harnessVersion>`: Pi's package for `"pi"`, the Claude
-   * Agent SDK for `"claude-code"`. When
+   * Agent SDK for `"claude-code"`, `@openai/codex` for `"codex"`. When
    * omitted, `install()` runs the bare package name and npm resolves
    * whatever it considers latest. Included in the setup-hash cache key, so
    * changing it forces a fresh snapshot rebuild.
@@ -342,11 +342,11 @@ export const AgentSpecSchema = z
     description: z.string().optional(),
     author: z.string().optional(),
     categories: z.array(z.string()).optional(),
-    harness: z.enum(["pi", "claude-code"], {
+    harness: z.enum(["pi", "claude-code", "codex"], {
       error: (issue) =>
         issue.input === undefined
-          ? "Agent spec must have a 'harness' field. Supported values: pi, claude-code"
-          : `Unsupported harness: '${describeValue(issue.input)}'. Supported values: pi, claude-code`,
+          ? "Agent spec must have a 'harness' field. Supported values: pi, claude-code, codex"
+          : `Unsupported harness: '${describeValue(issue.input)}'. Supported values: pi, claude-code, codex`,
     }),
     harnessVersion: z.string().optional(),
     provider: z.string().optional(),

@@ -44,6 +44,7 @@ export class FakeHarness implements HarnessAdapter {
   steer?: (message: string) => Promise<void>;
   followUp?: (message: string) => Promise<void>;
   forkAt?: (messageId: string) => Promise<{ sessionRef: string | null }>;
+  compact?: (instructions?: string) => Promise<unknown>;
 
   private turnActive = false;
   private release: (() => void) | null = null;
@@ -62,6 +63,12 @@ export class FakeHarness implements HarnessAdapter {
         if (!this.turnActive) return Promise.reject(new Error("no turn in progress"));
         this.received.push(message);
         return Promise.resolve();
+      };
+    }
+    if (this.capabilities.compact) {
+      this.compact = () => {
+        this.received.push("compact");
+        return Promise.resolve({});
       };
     }
     if (this.capabilities.fork) {

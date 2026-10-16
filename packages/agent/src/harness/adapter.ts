@@ -29,7 +29,7 @@ export interface TurnInput {
  * Contract:
  * - A turn yields exactly one `done` event, last, including after `abort()` and after a
  *   failure. A failure is an `error` event then `done`. `runTurn` does not throw for it.
- * - `steer`, `followUp` and `forkAt` exist only when the matching capability is `true`. Calling
+ * - `steer`, `followUp`, `compact` and `forkAt` exist only when the matching capability is `true`. Calling
  *   `steer` between turns throws. It never queues for the next turn.
  * - A capability declared `false` is never called. Use `requireHarnessCapability()`.
  *
@@ -72,6 +72,11 @@ export interface HarnessAdapter {
   /** Queue a message for after the running turn. Present iff `capabilities.followUp`. */
   followUp?(message: string): Promise<void>;
 
+  /**
+   * Compact the context now. Present iff `capabilities.compact`. `instructions` steers what
+   * the summary keeps, where the harness takes them. The result is harness-specific.
+   */
+  compact?(instructions?: string): Promise<unknown>;
   /**
    * Continue from an earlier point as a new session, by the `messageId` of a `message_start`.
    * Present iff `capabilities.fork`. The id must come from this adapter's own events: a

@@ -1,5 +1,6 @@
 import { WorkflowError } from "@alineo-labs/core";
 import { ClaudeCodeAdapter } from "../adapters/claude-code";
+import { CodexAdapter } from "../adapters/codex";
 import { PiAdapter } from "../adapters/pi";
 import type { HarnessAdapter } from "./adapter";
 import type { HarnessCapability } from "./capabilities";
@@ -13,11 +14,13 @@ import type { HarnessCapability } from "./capabilities";
 export interface HarnessRegistry {
   pi: PiAdapter;
   "claude-code": ClaudeCodeAdapter;
+  codex: CodexAdapter;
 }
 
 const constructors: { [K in keyof HarnessRegistry]: () => HarnessRegistry[K] } = {
   pi: () => new PiAdapter(),
   "claude-code": () => new ClaudeCodeAdapter(),
+  codex: () => new CodexAdapter(),
 };
 
 /** The ids `createHarness()` accepts. */

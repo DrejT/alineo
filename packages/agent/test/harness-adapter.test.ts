@@ -124,7 +124,7 @@ describe("harness registry", () => {
   it("creates a PiAdapter for pi, a new one each time", () => {
     expect(createHarness("pi")).toBeInstanceOf(PiAdapter);
     expect(createHarness("pi")).not.toBe(createHarness("pi"));
-    expect(registeredHarnesses()).toEqual(["pi", "claude-code"]);
+    expect(registeredHarnesses()).toEqual(["pi", "claude-code", "codex"]);
   });
 
   it("refuses an unregistered id with SPEC_INVALID", () => {

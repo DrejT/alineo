@@ -15,6 +15,7 @@ function freePort(): number {
   const server = Bun.serve({ port: 0, fetch: () => new Response("") });
   const port = server.port;
   void server.stop(true);
+  if (port === undefined) throw new Error("could not find a free port");
   return port;
 }
 
@@ -77,6 +78,6 @@ export async function startClaudeBridge(
   };
   const adapter = new ClaudeCodeAdapter();
   await adapter.reattach(sandbox);
-  await adapter.waitReady(10_000);
+  await adapter.waitReady(30_000);
   return adapter;
 }
