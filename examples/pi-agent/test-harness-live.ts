@@ -7,12 +7,15 @@
  *
  * Run:  bun examples/pi-agent/test-harness-live.ts
  * Needs: OpenSandbox running and NVIDIA_API_KEY in the environment.
+ * Optional: PI_VERSION=1.2.0 to pin the Pi release.
  * Prints one PASS or FAIL line per case. Exits 1 if any case fails.
  */
 import { Alineo, type AgentEvent, type HarnessEvent } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const spec = (await Bun.file("./agents/hello-agent.json").json()) as Record<string, unknown>;
+// PI_VERSION pins the Pi release, with the `harness: { id, version }` spelling.
+if (process.env.PI_VERSION) spec.harness = { id: "pi", version: process.env.PI_VERSION };
 const results: Array<{ name: string; ok: boolean; note: string }> = [];
 
 async function check(name: string, fn: () => Promise<string | void>): Promise<void> {
