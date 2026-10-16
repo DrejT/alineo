@@ -111,6 +111,7 @@ describe("agents with a sandbox", () => {
     const oldSandbox = container(runId);
     const id = seed({ runId, sandbox: oldSandbox });
     const newSandbox = container(runId);
+    newSandbox.restore = { checkpointTurn: 3 };
     fakeSdk.reattachOntoNewSandbox.set(oldSandbox.sandboxId, newSandbox);
 
     await rehydrate();
@@ -121,6 +122,14 @@ describe("agents with a sandbox", () => {
     expect(
       events(runId).findLast((e) => e.event === "agent.provisioned" && e.agentId === id),
     ).toMatchObject({ sandboxId: newSandbox.sandboxId });
+    // The restore says what the agent came back with, after `provisioned` moved the sandbox id.
+    const restored = events(runId).findLast(
+      (e) => e.event === "agent.restored" && e.agentId === id,
+    );
+    expect(restored).toMatchObject({ oldSandboxId: oldSandbox.sandboxId, checkpointTurn: 3 });
+    expect(restored!.seq).toBeGreaterThan(
+      events(runId).findLast((e) => e.event === "agent.provisioned" && e.agentId === id)!.seq,
+    );
   });
 
   test("resume onto a fresh sandbox (container gone entirely) updates the persisted sandboxId", async () => {
@@ -143,6 +152,35 @@ describe("agents with a sandbox", () => {
     expect(
       events(runId).findLast((e) => e.event === "agent.provisioned" && e.agentId === id),
     ).toMatchObject({ sandboxId: newSandbox.sandboxId });
+  });
+
+  test("a restore with no checkpoint is reported as blank, not as a restore from a turn", async () => {
+    // Alineo.resume() returns an agent on a fresh container with `restore.checkpointTurn: null`
+    // when the old sandbox had no checkpoint. Before agent.restored this looked identical to a
+    // good restore in the event stream.
+    const runId = newRunId();
+    const oldSandbox = container(runId);
+    const id = seed({ runId, sandbox: oldSandbox });
+    fakeSdk.reattachFails.add(oldSandbox.sandboxId);
+    const newSandbox = container(runId);
+    newSandbox.restore = { checkpointTurn: null };
+    fakeSdk.resumeOntoNewSandbox.set(oldSandbox.sandboxId, newSandbox);
+
+    await rehydrate();
+
+    expect(
+      events(runId).findLast((e) => e.event === "agent.restored" && e.agentId === id),
+    ).toMatchObject({ oldSandboxId: oldSandbox.sandboxId, checkpointTurn: null });
+  });
+
+  test("a reattach to the same sandbox emits no agent.restored", async () => {
+    const runId = newRunId();
+    const sandbox = container(runId);
+    const id = seed({ runId, sandbox });
+
+    await rehydrate();
+
+    expect(events(runId).some((e) => e.event === "agent.restored" && e.agentId === id)).toBe(false);
   });
 
   test("resume onto a fresh sandbox re-materializes waitFor inputs the checkpoint never captured", async () => {

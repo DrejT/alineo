@@ -46,6 +46,19 @@ describe("checkpointsPath", () => {
 });
 
 describe("takeCheckpoint", () => {
+  it("also tars /workspace when it exists, leaving node_modules out of it only", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const { sb, execCalls } = fakeSandbox();
+
+    await takeCheckpoint(sb, dir, { turn: 1 });
+
+    expect(execCalls[0]).toContain("[ -d /workspace ] && echo workspace");
+    expect(execCalls[0]).toContain("--exclude=workspace/node_modules");
+    expect(execCalls[0]).toContain("--exclude=workspace/*/node_modules");
+    // Not a blanket exclude: under /root, node_modules can hold Pi's own packages.
+    expect(execCalls[0]).not.toContain("--exclude=*/node_modules");
+  });
+
   it("tars CHECKPOINT_ROOT with the default excludes, writes bytes to disk, and emits AgentCheckpointed only after the write", async () => {
     const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
     const { sb, execCalls, emitted } = fakeSandbox();

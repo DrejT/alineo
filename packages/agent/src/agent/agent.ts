@@ -121,6 +121,12 @@ export class Alineo {
    * Stopped by `close()`.
    */
   readonly egressGate?: EgressApprovalGate;
+  /**
+   * Set when `resume()` or `reattach()` found the sandbox gone and returned an agent on a fresh
+   * one. `checkpointTurn` is the turn it was restored from, or `null` when there was no
+   * checkpoint and the session is blank. Absent on every other agent.
+   */
+  readonly restore?: factory.AgentRestore;
 
   private constructor(
     sandbox: SandboxHandle,
@@ -130,6 +136,7 @@ export class Alineo {
     fromSnapshot: boolean,
     runId: string,
     egressGate?: EgressApprovalGate,
+    restore?: factory.AgentRestore,
   ) {
     this.sandbox = sandbox;
     this.sandboxId = sandbox.sandboxId;
@@ -141,6 +148,7 @@ export class Alineo {
     this.fromSnapshot = fromSnapshot;
     this.runId = runId;
     this.egressGate = egressGate;
+    this.restore = restore;
   }
 
   /** Egress requests currently awaiting a decision (see `AgentSpec.env` `approval: "hold"`). */
@@ -267,7 +275,16 @@ export class Alineo {
     },
   ): Promise<Alineo> {
     const r = await factory.resumeAgent(sandboxId, opts);
-    const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    const agent = new Alineo(
+      r.sandbox,
+      r.spec,
+      r.env,
+      r.adapter,
+      r.fromSnapshot,
+      r.runId,
+      undefined,
+      r.restore,
+    );
     agent.memory = opts.memory;
     return agent;
   }
@@ -325,7 +342,16 @@ export class Alineo {
     },
   ): Promise<Alineo> {
     const r = await factory.reattachAgent(sandboxId, opts);
-    const agent = new Alineo(r.sandbox, r.spec, r.env, r.adapter, r.fromSnapshot, r.runId);
+    const agent = new Alineo(
+      r.sandbox,
+      r.spec,
+      r.env,
+      r.adapter,
+      r.fromSnapshot,
+      r.runId,
+      undefined,
+      r.restore,
+    );
     agent.memory = opts.memory;
     return agent;
   }

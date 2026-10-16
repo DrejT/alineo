@@ -202,6 +202,37 @@
           "nullable": true,
           "type": "string"
         },
+        "oldSandboxId": {
+          "type": "string"
+        },
+        "checkpointTurn": {
+          "nullable": true,
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.restored"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "oldSandboxId",
+        "checkpointTurn",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
         "from": {
           "type": "string"
         },
