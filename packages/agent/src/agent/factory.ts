@@ -56,6 +56,16 @@ export interface AgentConstructorArgs {
   runId: string;
   /** Started when the spec has `approval: "hold"` bindings; stopped by `agent.close()`. */
   egressGate?: EgressApprovalGate;
+  /**
+   * Set only when the sandbox was gone and a fresh one replaced it (`restoreFromCheckpoint`).
+   * `checkpointTurn` is the turn restored from, or `null` when there was no checkpoint and the
+   * agent came back blank.
+   */
+  restore?: AgentRestore;
+}
+
+export interface AgentRestore {
+  checkpointTurn: number | null;
 }
 
 /**
@@ -326,7 +336,7 @@ async function restoreFromCheckpoint(
     log.warn("no checkpoint found for this agent — continuing with a blank session", {
       originalSandboxId,
     });
-    return fresh;
+    return { ...fresh, restore: { checkpointTurn: null } };
   }
   log.info("restoring checkpoint", { turn: latest.turn, sandboxId: fresh.sandbox.sandboxId });
   try {
@@ -339,7 +349,7 @@ async function restoreFromCheckpoint(
     await fresh.adapter.configure(fresh.sandbox, spec, fresh.env, { resume: true });
     await fresh.adapter.start(fresh.sandbox);
     await fresh.adapter.waitReady();
-    return fresh;
+    return { ...fresh, restore: { checkpointTurn: latest.turn } };
   } catch (err) {
     // Found live on my-vps, 2026-10-04: without this, a failure here (loadAgent() already
     // succeeded, so `fresh.sandbox` is a real, running container) left that container running

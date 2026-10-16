@@ -248,6 +248,14 @@
         "@alineo-labs/sqlite": "workspace:*",
       },
     },
+    "examples/durable-agent": {
+      "name": "alineo-example-durable-agent",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/sqlite": "workspace:*",
+        "alineo": "workspace:*",
+      },
+    },
     "examples/environments": {
       "name": "alineo-example-environments",
       "version": "0.0.17",
@@ -2062,6 +2070,8 @@
     "alineo-example-control-flow": ["alineo-example-control-flow@workspace:examples/control-flow"],
 
     "alineo-example-credential-injection": ["alineo-example-credential-injection@workspace:examples/credential-injection"],
+
+    "alineo-example-durable-agent": ["alineo-example-durable-agent@workspace:examples/durable-agent"],
 
     "alineo-example-environments": ["alineo-example-environments@workspace:examples/environments"],
 

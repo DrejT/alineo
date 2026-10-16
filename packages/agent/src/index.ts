@@ -45,6 +45,7 @@ export type { AgentSnapshotRecord } from "./snapshots";
 export { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "./snapshots";
 export { PromptTimeoutError, BridgeDisconnectedError, AgentSpecValidationError } from "./errors";
 export type { CheckpointRecord } from "./checkpoint";
+export type { AgentRestore } from "./agent/factory";
 export {
   takeCheckpoint,
   checkpointsPath,

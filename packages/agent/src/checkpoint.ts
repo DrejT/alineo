@@ -46,6 +46,23 @@ const DEFAULT_CHECKPOINT_EXCLUDE_GLOBS = ["__pycache__", ".pytest_cache"];
 export const CHECKPOINT_ROOT = "root";
 
 /**
+ * `/workspace` is the working directory most specs and cookbooks use, and it sits outside
+ * `/root`, so a checkpoint of `/root` alone restored the Pi conversation but not the files the
+ * agent had worked on (confirmed live, 2026-10-16). It is tarred too when it exists. Measured
+ * cost: a cloned repo is 3.5 MB and 0.5 s. A web app's `node_modules` is nearly all of the cost
+ * (20 MB and 5 s for 417 packages, against 0.1 MB and 0.03 s without), so dependency
+ * directories are left out of this path only. Under `/root` they can hold Pi's own packages, so
+ * they stay in.
+ */
+export const CHECKPOINT_WORKSPACE = "workspace";
+
+/** Left out of `CHECKPOINT_WORKSPACE`. The agent installs these again after a restore. */
+export const DEFAULT_WORKSPACE_EXCLUDES = [
+  `${CHECKPOINT_WORKSPACE}/node_modules`,
+  `${CHECKPOINT_WORKSPACE}/*/node_modules`,
+];
+
+/**
  * durability-roadmap M3, 3.5: restore (3.3) only ever reads the *latest* checkpoint — an older
  * one is slack for debugging/manual rollback, not a live requirement. 3 was decided without
  * real usage data to justify more (measured sizes are sub-30MB, typically far less once the
@@ -116,12 +133,17 @@ export async function takeCheckpoint(
   const excludeArgs = [
     ...DEFAULT_CHECKPOINT_EXCLUDES.map((p) => `--exclude=${CHECKPOINT_ROOT}/${p}`),
     ...DEFAULT_CHECKPOINT_EXCLUDE_GLOBS.map((p) => `--exclude=*/${p}`),
+    ...DEFAULT_WORKSPACE_EXCLUDES.map((p) => `--exclude=${p}`),
     ...(opts.excludeGlobs ?? []).map((p) => `--exclude=${p}`),
   ];
   try {
     // Default strict:true — a nonzero exit throws CommandError, which this function
     // deliberately lets propagate (see this module's doc comment on failure handling).
-    await sb.exec(`tar czf ${tmpTarPath} -C / ${excludeArgs.join(" ")} ${CHECKPOINT_ROOT}`);
+    // `/workspace` only when it exists: tar fails on a missing path, and most specs have none.
+    await sb.exec(
+      `tar czf ${tmpTarPath} -C / ${excludeArgs.join(" ")} ${CHECKPOINT_ROOT} ` +
+        `$([ -d /${CHECKPOINT_WORKSPACE} ] && echo ${CHECKPOINT_WORKSPACE})`,
+    );
     const bytes = await sb.readFileBytes(tmpTarPath);
     const createdAt = Date.now();
     const dir = join(checkpointsDir, sb.sandboxId);

@@ -95,6 +95,21 @@ export const AgentProvisioned = defineEvent({
   }),
 });
 
+export const AgentRestored = defineEvent({
+  type: "agent.restored",
+  durable: true,
+  version: 1,
+  description:
+    "The agent's sandbox was gone, so a fresh one replaced it. `checkpointTurn` is the turn " +
+    "its workspace and session were restored from, or `null` when it had no checkpoint and " +
+    "came back blank. Follows `agent.provisioned`, which carries the new `sandboxId`.",
+  schema: z.object({
+    agentId: z.string().nullable(),
+    oldSandboxId: z.string(),
+    checkpointTurn: z.number().int().nullable(),
+  }),
+});
+
 export const AgentStateChanged = defineEvent({
   type: "agent.state_changed",
   durable: true,

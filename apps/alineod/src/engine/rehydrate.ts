@@ -104,6 +104,12 @@ async function onContainerRestored(
     sandboxId: agent.sandboxId,
     provider: providerOf(agent),
   });
+  // `provisioned` moves the persisted sandbox_id. `restored` says what the agent came back with:
+  // a checkpoint turn, or `null` for a blank session. Without it the two cases look the same.
+  emit(a.run_id, a.agent_id, "agent.restored", {
+    oldSandboxId: a.sandbox_id!,
+    checkpointTurn: agent.restore?.checkpointTurn ?? null,
+  });
   log.info(`${verb} — container was gone, restored onto a new one`, {
     agentId: a.agent_id,
     oldSandboxId: a.sandbox_id,

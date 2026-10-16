@@ -78,7 +78,8 @@ Each rung is tried only if the one before it failed:
 
 Restore is part of both reattach and resume, so it runs whichever rung finds the container missing. The agent's
 recorded `sandboxId` is updated to the new container (`agent.provisioned` again), so the next boot builds on it
-rather than restoring the same checkpoint twice.
+rather than restoring the same checkpoint twice. `agent.restored` follows, and says which turn the agent came back
+with.
 
 An agent whose spec doesn't set `"checkpoint": true` has no turn checkpoint to restore. It still gets a fresh
 container, with a blank session — it keeps its place in the tree, but not its conversation.
@@ -112,12 +113,20 @@ curl -N localhost:4600/runs/r_3f9a1c20/events -H 'Last-Event-ID: 128'
 
 `apps/alineod/scripts/swarm-reattach-test.py` drives a multi-agent run, and is used to kill and restart alineod
 mid-run and check that every agent — including a gather still waiting on its workers — completes. Restore has been
-checked the same way against a real deployment: checkpoint a turn, `docker rm -f` the agent's container, restart
-alineod, and confirm the same Pi session continues on the new container.
+checked the same way against a real deployment, and by `tests/integration/alineod-container-loss.test.ts`: checkpoint a
+turn, `docker rm -f` the agent's container, restart alineod, and confirm the same Pi session continues on the new
+container.
 
 ## Limits
 
 - A turn that finished while alineod was down is recorded when alineod comes back — its result is the agent's
   final message, but the individual stream events from the gap are not in the ledger.
+- A checkpoint covers `/root` and `/workspace` (when it exists), minus package caches and the `node_modules`
+  directories inside `/workspace`. The agent installs those again after a restore. Files anywhere else are not
+  restored. Only what a spec's `setup` steps wrote there comes back, because the fresh container starts from the
+  setup snapshot.
+- A restore with no checkpoint (the spec does not set `"checkpoint": true`, or no turn finished yet) returns a blank
+  session. The [`agent.restored`](/docs/alineod/api-reference/events) event has `checkpointTurn: null` in that case.
+- An agent whose spec has `approval: "hold"` credential bindings is not restored from a gone container yet.
 - Restore depends on the turn checkpoints and the SDK ledger still being on disk. Losing alineod's data directory
   is outside what it survives — see [the durability contract](/docs/alineod/concepts/durability-contract).
