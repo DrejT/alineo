@@ -5,6 +5,7 @@
   "description": "Generic child spec for `alineo spawn`. No alineo install, no alineo.config.json, no spawnDepth: it can never itself call back into alineo, and Agent.spawn() force-sets its ALINEO_SPAWN_DEPTH to 0 regardless of what's here — a structural guarantee, not a convention.",
   "author": "alineo",
   "harness": "pi",
+  "harnessVersion": "1.2.0",
   "provider": "nvidia",
   "model": "nvidia/nemotron-3-super-120b-a12b",
   "env": {

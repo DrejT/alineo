@@ -11,6 +11,7 @@ curl -s localhost:4600/runs -H 'content-type: application/json' -d '{
   "spec": {
     "name": "lead",
     "harness": "pi",
+    "harnessVersion": "1.2.0",
     "provider": "nvidia",
     "model": "nvidia/nemotron-3-super-120b-a12b",
     "env": { "NVIDIA_API_KEY": "${NVIDIA_API_KEY}" },

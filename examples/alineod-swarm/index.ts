@@ -19,6 +19,7 @@ function agentSpec(name: string, budget: { spawnDepth?: number; maxAgents?: numb
   return {
     name,
     harness: "pi",
+    harnessVersion: "1.2.0",
     provider: "nvidia",
     model: "nvidia/nemotron-3-super-120b-a12b",
     // Resolved from alineod's own environment — the key never travels in the request.

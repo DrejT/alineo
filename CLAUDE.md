@@ -93,6 +93,16 @@ because `packLocalPackagesForGlobalInstall` only rewrites `workspace:*` deps tha
 same batch, so anything left out comes from npm at exactly the version being avoided.
 `tests/integration/local-cli.test.ts` is the check that the swap works.
 
+### Pin the Pi version in every NVIDIA spec
+
+A spec with no `harnessVersion` installs the latest Pi when its sandbox is built. Pi 1.3.0
+(2026-10-15) resolves `nvidia/nemotron-3-super-120b-a12b` to the bare id
+`nemotron-3-super-120b-a12b`, which the NVIDIA API answers with `404 page not found`. Pi reports
+the 404 as an empty assistant message with `stopReason: "error"`, so the turn ends in about 150 ms
+looking like it finished. `1.2.0` is the last release known to work. Every spec and snippet that
+runs on NVIDIA sets `"harnessVersion": "1.2.0"`. Check the next Pi release against
+`examples/pi-agent/test-harness-live.ts` (`PI_VERSION=<version>`) before moving the pin.
+
 ### Which NVIDIA model to pin
 
 Answering `/v1/chat/completions` is not the bar. A reasoning model that streams nothing while
