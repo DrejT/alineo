@@ -11,10 +11,16 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.checkpointed"]
+          "enum": [
+            "agent.checkpointed"
+          ]
         }
       },
-      "required": ["turn", "snapshotRef", "event"],
+      "required": [
+        "turn",
+        "snapshotRef",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -26,14 +32,23 @@
         "closeWhen": {
           "default": "explicit",
           "type": "string",
-          "enum": ["explicit", "quiescent"]
+          "enum": [
+            "explicit",
+            "quiescent"
+          ]
         },
         "event": {
           "type": "string",
-          "enum": ["run.started"]
+          "enum": [
+            "run.started"
+          ]
         }
       },
-      "required": ["runId", "closeWhen", "event"],
+      "required": [
+        "runId",
+        "closeWhen",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -45,14 +60,23 @@
         },
         "reason": {
           "type": "string",
-          "enum": ["explicit", "quiescent"]
+          "enum": [
+            "explicit",
+            "quiescent"
+          ]
         },
         "event": {
           "type": "string",
-          "enum": ["run.closed"]
+          "enum": [
+            "run.closed"
+          ]
         }
       },
-      "required": ["agentId", "reason", "event"],
+      "required": [
+        "agentId",
+        "reason",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -72,10 +96,17 @@
         },
         "event": {
           "type": "string",
-          "enum": ["run.quiescent"]
+          "enum": [
+            "run.quiescent"
+          ]
         }
       },
-      "required": ["agentId", "memberCount", "asOf", "event"],
+      "required": [
+        "agentId",
+        "memberCount",
+        "asOf",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -123,7 +154,9 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.spawned"]
+          "enum": [
+            "agent.spawned"
+          ]
         }
       },
       "required": [
@@ -153,10 +186,16 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.provisioned"]
+          "enum": [
+            "agent.provisioned"
+          ]
         }
       },
-      "required": ["agentId", "sandboxId", "event"],
+      "required": [
+        "agentId",
+        "sandboxId",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -178,14 +217,24 @@
         "pausedBy": {
           "description": "On a transition to paused: whether this agent was the target, or was reached by a subtree pause.",
           "type": "string",
-          "enum": ["operator", "cascade"]
+          "enum": [
+            "operator",
+            "cascade"
+          ]
         },
         "event": {
           "type": "string",
-          "enum": ["agent.state_changed"]
+          "enum": [
+            "agent.state_changed"
+          ]
         }
       },
-      "required": ["agentId", "from", "to", "event"],
+      "required": [
+        "agentId",
+        "from",
+        "to",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -200,7 +249,10 @@
         },
         "scope": {
           "type": "string",
-          "enum": ["agent", "subtree"]
+          "enum": [
+            "agent",
+            "subtree"
+          ]
         },
         "roster": {
           "type": "array",
@@ -210,14 +262,24 @@
         },
         "deliveredAs": {
           "type": "string",
-          "enum": ["steer", "turn", "queued"]
+          "enum": [
+            "steer",
+            "turn",
+            "queued"
+          ]
         },
         "event": {
           "type": "string",
-          "enum": ["agent.steered"]
+          "enum": [
+            "agent.steered"
+          ]
         }
       },
-      "required": ["agentId", "message", "event"],
+      "required": [
+        "agentId",
+        "message",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -232,10 +294,16 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.released"]
+          "enum": [
+            "agent.released"
+          ]
         }
       },
-      "required": ["agentId", "reason", "event"],
+      "required": [
+        "agentId",
+        "reason",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -259,10 +327,17 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.ended"]
+          "enum": [
+            "agent.ended"
+          ]
         }
       },
-      "required": ["agentId", "outcome", "endedAt", "event"],
+      "required": [
+        "agentId",
+        "outcome",
+        "endedAt",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -281,10 +356,17 @@
         },
         "event": {
           "type": "string",
-          "enum": ["handle.settled"]
+          "enum": [
+            "handle.settled"
+          ]
         }
       },
-      "required": ["agentId", "outcome", "resultRef", "event"],
+      "required": [
+        "agentId",
+        "outcome",
+        "resultRef",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -296,11 +378,20 @@
         },
         "mode": {
           "type": "string",
-          "enum": ["all", "any", "quorum"]
+          "enum": [
+            "all",
+            "any",
+            "quorum"
+          ]
         },
         "outcome": {
           "type": "string",
-          "enum": ["satisfied", "partial", "deadline", "depfail"]
+          "enum": [
+            "satisfied",
+            "partial",
+            "deadline",
+            "depfail"
+          ]
         },
         "selected": {
           "type": "array",
@@ -321,7 +412,10 @@
                 "type": "string"
               }
             },
-            "required": ["agentId", "outcome"],
+            "required": [
+              "agentId",
+              "outcome"
+            ],
             "additionalProperties": false
           }
         },
@@ -333,10 +427,20 @@
         },
         "event": {
           "type": "string",
-          "enum": ["wait.resolved"]
+          "enum": [
+            "wait.resolved"
+          ]
         }
       },
-      "required": ["agentId", "mode", "outcome", "selected", "settled", "pending", "event"],
+      "required": [
+        "agentId",
+        "mode",
+        "outcome",
+        "selected",
+        "settled",
+        "pending",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -351,10 +455,16 @@
         },
         "event": {
           "type": "string",
-          "enum": ["wait.blocked"]
+          "enum": [
+            "wait.blocked"
+          ]
         }
       },
-      "required": ["agentId", "blockedOn", "event"],
+      "required": [
+        "agentId",
+        "blockedOn",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -375,10 +485,17 @@
         },
         "event": {
           "type": "string",
-          "enum": ["notify.registered"]
+          "enum": [
+            "notify.registered"
+          ]
         }
       },
-      "required": ["agentId", "on", "wake", "event"],
+      "required": [
+        "agentId",
+        "on",
+        "wake",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -390,7 +507,11 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["notification", "steer", "supervision"]
+          "enum": [
+            "notification",
+            "steer",
+            "supervision"
+          ]
         },
         "aboutAgentId": {
           "nullable": true,
@@ -420,10 +541,16 @@
         },
         "event": {
           "type": "string",
-          "enum": ["inbox.queued"]
+          "enum": [
+            "inbox.queued"
+          ]
         }
       },
-      "required": ["agentId", "kind", "event"],
+      "required": [
+        "agentId",
+        "kind",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -443,14 +570,25 @@
         },
         "as": {
           "type": "string",
-          "enum": ["steer", "turn", "prompt"]
+          "enum": [
+            "steer",
+            "turn",
+            "prompt"
+          ]
         },
         "event": {
           "type": "string",
-          "enum": ["inbox.delivered"]
+          "enum": [
+            "inbox.delivered"
+          ]
         }
       },
-      "required": ["agentId", "seqs", "as", "event"],
+      "required": [
+        "agentId",
+        "seqs",
+        "as",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -473,10 +611,17 @@
         },
         "event": {
           "type": "string",
-          "enum": ["inbox.dropped"]
+          "enum": [
+            "inbox.dropped"
+          ]
         }
       },
-      "required": ["agentId", "seqs", "reason", "event"],
+      "required": [
+        "agentId",
+        "seqs",
+        "reason",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -488,7 +633,10 @@
         },
         "dimension": {
           "type": "string",
-          "enum": ["spawnDepth", "maxAgents"]
+          "enum": [
+            "spawnDepth",
+            "maxAgents"
+          ]
         },
         "remaining": {
           "type": "integer",
@@ -497,10 +645,17 @@
         },
         "event": {
           "type": "string",
-          "enum": ["budget.denied"]
+          "enum": [
+            "budget.denied"
+          ]
         }
       },
-      "required": ["agentId", "dimension", "remaining", "event"],
+      "required": [
+        "agentId",
+        "dimension",
+        "remaining",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -517,10 +672,16 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.admission_queued"]
+          "enum": [
+            "agent.admission_queued"
+          ]
         }
       },
-      "required": ["agentId", "capacity", "event"],
+      "required": [
+        "agentId",
+        "capacity",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -532,10 +693,15 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.admission_granted"]
+          "enum": [
+            "agent.admission_granted"
+          ]
         }
       },
-      "required": ["agentId", "event"],
+      "required": [
+        "agentId",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -552,10 +718,16 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.admission_timeout"]
+          "enum": [
+            "agent.admission_timeout"
+          ]
         }
       },
-      "required": ["agentId", "waitedMs", "event"],
+      "required": [
+        "agentId",
+        "waitedMs",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -578,10 +750,17 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.turn_failed"]
+          "enum": [
+            "agent.turn_failed"
+          ]
         }
       },
-      "required": ["agentId", "error", "consecutiveFailures", "event"],
+      "required": [
+        "agentId",
+        "error",
+        "consecutiveFailures",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -614,10 +793,20 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.turn_retried"]
+          "enum": [
+            "agent.turn_retried"
+          ]
         }
       },
-      "required": ["agentId", "error", "errorCode", "attempt", "maxAttempts", "delayMs", "event"],
+      "required": [
+        "agentId",
+        "error",
+        "errorCode",
+        "attempt",
+        "maxAttempts",
+        "delayMs",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -629,10 +818,15 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.turn_interrupted"]
+          "enum": [
+            "agent.turn_interrupted"
+          ]
         }
       },
-      "required": ["agentId", "event"],
+      "required": [
+        "agentId",
+        "event"
+      ],
       "additionalProperties": false
     },
     {
@@ -644,7 +838,11 @@
         },
         "reason": {
           "type": "string",
-          "enum": ["ask", "retries-exhausted", "circuit-tripped"]
+          "enum": [
+            "ask",
+            "retries-exhausted",
+            "circuit-tripped"
+          ]
         },
         "error": {
           "type": "string"
@@ -654,10 +852,17 @@
         },
         "event": {
           "type": "string",
-          "enum": ["agent.supervision_needed"]
+          "enum": [
+            "agent.supervision_needed"
+          ]
         }
       },
-      "required": ["agentId", "reason", "error", "event"],
+      "required": [
+        "agentId",
+        "reason",
+        "error",
+        "event"
+      ],
       "additionalProperties": false
     }
   ]
