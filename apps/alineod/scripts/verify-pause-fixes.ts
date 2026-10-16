@@ -119,6 +119,7 @@ function spec(name: string, extra: Json = {}): Json {
   return {
     name: `${name}-${RUN_TAG}`,
     harness: "pi",
+    harnessVersion: "1.2.0",
     provider: "nvidia",
     model: MODEL,
     env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },

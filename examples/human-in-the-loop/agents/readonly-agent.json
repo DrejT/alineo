@@ -5,6 +5,7 @@
   "description": "permissions: \"readonly\" — the gate strips write/edit/bash from the model's toolset entirely (via Pi setActiveTools), so it can inspect a repo but cannot change it.",
   "author": "alineo",
   "harness": "pi",
+  "harnessVersion": "1.2.0",
   "provider": "nvidia",
   "model": "nvidia/nemotron-3-super-120b-a12b",
   "packages": ["git"],

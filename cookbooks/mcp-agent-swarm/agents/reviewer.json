@@ -5,6 +5,7 @@
   "description": "Reviews one concern of a repository already checked out in its (forked) sandbox.",
   "author": "alineo",
   "harness": "pi",
+  "harnessVersion": "1.2.0",
   "provider": "nvidia",
   "model": "nvidia/nemotron-3-super-120b-a12b",
   "env": {

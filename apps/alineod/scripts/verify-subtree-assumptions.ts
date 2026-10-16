@@ -35,6 +35,7 @@ function spec(name: string) {
   return {
     name,
     harness: "pi",
+    harnessVersion: "1.2.0",
     provider: "nvidia",
     model: MODEL,
     env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
