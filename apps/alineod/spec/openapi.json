@@ -54,9 +54,25 @@
                         }
                       },
                       "harness": {
-                        "type": "string",
-                        "enum": [
-                          "pi"
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": ["pi", "claude-code", "codex"]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "enum": ["pi", "claude-code", "codex"]
+                              },
+                              "version": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["id"],
+                            "additionalProperties": false
+                          }
                         ]
                       },
                       "harnessVersion": {
@@ -66,8 +82,26 @@
                         "type": "string"
                       },
                       "model": {
-                        "type": "string",
-                        "minLength": 1
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": ["id"],
+                            "additionalProperties": false
+                          }
+                        ]
                       },
                       "packages": {
                         "type": "array",
@@ -101,18 +135,13 @@
                                       "properties": {
                                         "type": {
                                           "type": "string",
-                                          "enum": [
-                                            "header"
-                                          ]
+                                          "enum": ["header"]
                                         },
                                         "name": {
                                           "type": "string"
                                         }
                                       },
-                                      "required": [
-                                        "type",
-                                        "name"
-                                      ],
+                                      "required": ["type", "name"],
                                       "additionalProperties": false
                                     },
                                     {
@@ -120,9 +149,7 @@
                                       "properties": {
                                         "type": {
                                           "type": "string",
-                                          "enum": [
-                                            "substitution"
-                                          ]
+                                          "enum": ["substitution"]
                                         },
                                         "placeholder": {
                                           "type": "string"
@@ -132,36 +159,21 @@
                                           "type": "array",
                                           "items": {
                                             "type": "string",
-                                            "enum": [
-                                              "path",
-                                              "query",
-                                              "header",
-                                              "body"
-                                            ]
+                                            "enum": ["path", "query", "header", "body"]
                                           }
                                         }
                                       },
-                                      "required": [
-                                        "type",
-                                        "placeholder",
-                                        "in"
-                                      ],
+                                      "required": ["type", "placeholder", "in"],
                                       "additionalProperties": false
                                     }
                                   ]
                                 },
                                 "approval": {
                                   "type": "string",
-                                  "enum": [
-                                    "hold"
-                                  ]
+                                  "enum": ["hold"]
                                 }
                               },
-                              "required": [
-                                "credential",
-                                "host",
-                                "injection"
-                              ],
+                              "required": ["credential", "host", "injection"],
                               "additionalProperties": {}
                             }
                           ]
@@ -180,10 +192,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "cpu",
-                          "memory"
-                        ],
+                        "required": ["cpu", "memory"],
                         "additionalProperties": false
                       },
                       "metadata": {
@@ -213,10 +222,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "name",
-                            "run"
-                          ],
+                          "required": ["name", "run"],
                           "additionalProperties": {}
                         }
                       },
@@ -240,24 +246,14 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "enum": [
-                              "auto",
-                              "ask",
-                              "readonly"
-                            ]
+                            "enum": ["auto", "ask", "readonly"]
                           },
                           {
                             "type": "object",
                             "properties": {
                               "default": {
                                 "type": "string",
-                                "enum": [
-                                  "allow",
-                                  "ask",
-                                  "deny",
-                                  "rate_limit",
-                                  "classify"
-                                ]
+                                "enum": ["allow", "ask", "deny", "rate_limit", "classify"]
                               },
                               "rules": {
                                 "type": "array",
@@ -272,13 +268,7 @@
                                     },
                                     "action": {
                                       "type": "string",
-                                      "enum": [
-                                        "allow",
-                                        "ask",
-                                        "deny",
-                                        "rate_limit",
-                                        "classify"
-                                      ]
+                                      "enum": ["allow", "ask", "deny", "rate_limit", "classify"]
                                     },
                                     "limit": {
                                       "type": "object",
@@ -296,17 +286,11 @@
                                           "maximum": 9007199254740991
                                         }
                                       },
-                                      "required": [
-                                        "count",
-                                        "windowMs"
-                                      ],
+                                      "required": ["count", "windowMs"],
                                       "additionalProperties": false
                                     }
                                   },
-                                  "required": [
-                                    "tool",
-                                    "action"
-                                  ],
+                                  "required": ["tool", "action"],
                                   "additionalProperties": {}
                                 }
                               },
@@ -329,11 +313,7 @@
                       },
                       "onFailure": {
                         "type": "string",
-                        "enum": [
-                          "ask",
-                          "retry",
-                          "fail"
-                        ]
+                        "enum": ["ask", "retry", "fail"]
                       },
                       "maxRetries": {
                         "type": "integer",
@@ -349,11 +329,7 @@
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "name",
-                      "harness",
-                      "model"
-                    ],
+                    "required": ["name", "harness", "model"],
                     "additionalProperties": {}
                   },
                   "prompt": {
@@ -380,17 +356,11 @@
                   "closeWhen": {
                     "default": "explicit",
                     "type": "string",
-                    "enum": [
-                      "explicit",
-                      "quiescent"
-                    ],
+                    "enum": ["explicit", "quiescent"],
                     "description": "\"explicit\" (default): the run stays open until a client deletes it. \"quiescent\": the run closes itself the moment every agent in it is terminal and has nothing left to deliver."
                   }
                 },
-                "required": [
-                  "spec",
-                  "closeWhen"
-                ],
+                "required": ["spec", "closeWhen"],
                 "additionalProperties": false
               }
             }
@@ -415,11 +385,7 @@
                       "description": "Always \"provisioning\" at return time (the route is async) — poll for the real state."
                     }
                   },
-                  "required": [
-                    "runId",
-                    "rootAgentId",
-                    "state"
-                  ],
+                  "required": ["runId", "rootAgentId", "state"],
                   "additionalProperties": false
                 }
               }
@@ -542,29 +508,16 @@
                     },
                     "closeWhen": {
                       "type": "string",
-                      "enum": [
-                        "explicit",
-                        "quiescent"
-                      ],
+                      "enum": ["explicit", "quiescent"],
                       "description": "\"explicit\" (default): the run stays open until a client deletes it. \"quiescent\": the run closes itself the moment every agent in it is terminal and has nothing left to deliver."
                     },
                     "state": {
                       "type": "string",
-                      "enum": [
-                        "open",
-                        "closed"
-                      ],
+                      "enum": ["open", "closed"],
                       "description": "\"closed\": a client deleted it, or it reached quiescence under closeWhen: \"quiescent\"."
                     }
                   },
-                  "required": [
-                    "runId",
-                    "rootAgentId",
-                    "agents",
-                    "asOf",
-                    "closeWhen",
-                    "state"
-                  ],
+                  "required": ["runId", "rootAgentId", "agents", "asOf", "closeWhen", "state"],
                   "additionalProperties": false
                 }
               }
@@ -666,9 +619,25 @@
                         }
                       },
                       "harness": {
-                        "type": "string",
-                        "enum": [
-                          "pi"
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": ["pi", "claude-code", "codex"]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "enum": ["pi", "claude-code", "codex"]
+                              },
+                              "version": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["id"],
+                            "additionalProperties": false
+                          }
                         ]
                       },
                       "harnessVersion": {
@@ -678,8 +647,26 @@
                         "type": "string"
                       },
                       "model": {
-                        "type": "string",
-                        "minLength": 1
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": ["id"],
+                            "additionalProperties": false
+                          }
+                        ]
                       },
                       "packages": {
                         "type": "array",
@@ -713,18 +700,13 @@
                                       "properties": {
                                         "type": {
                                           "type": "string",
-                                          "enum": [
-                                            "header"
-                                          ]
+                                          "enum": ["header"]
                                         },
                                         "name": {
                                           "type": "string"
                                         }
                                       },
-                                      "required": [
-                                        "type",
-                                        "name"
-                                      ],
+                                      "required": ["type", "name"],
                                       "additionalProperties": false
                                     },
                                     {
@@ -732,9 +714,7 @@
                                       "properties": {
                                         "type": {
                                           "type": "string",
-                                          "enum": [
-                                            "substitution"
-                                          ]
+                                          "enum": ["substitution"]
                                         },
                                         "placeholder": {
                                           "type": "string"
@@ -744,36 +724,21 @@
                                           "type": "array",
                                           "items": {
                                             "type": "string",
-                                            "enum": [
-                                              "path",
-                                              "query",
-                                              "header",
-                                              "body"
-                                            ]
+                                            "enum": ["path", "query", "header", "body"]
                                           }
                                         }
                                       },
-                                      "required": [
-                                        "type",
-                                        "placeholder",
-                                        "in"
-                                      ],
+                                      "required": ["type", "placeholder", "in"],
                                       "additionalProperties": false
                                     }
                                   ]
                                 },
                                 "approval": {
                                   "type": "string",
-                                  "enum": [
-                                    "hold"
-                                  ]
+                                  "enum": ["hold"]
                                 }
                               },
-                              "required": [
-                                "credential",
-                                "host",
-                                "injection"
-                              ],
+                              "required": ["credential", "host", "injection"],
                               "additionalProperties": {}
                             }
                           ]
@@ -792,10 +757,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "cpu",
-                          "memory"
-                        ],
+                        "required": ["cpu", "memory"],
                         "additionalProperties": false
                       },
                       "metadata": {
@@ -825,10 +787,7 @@
                               "type": "string"
                             }
                           },
-                          "required": [
-                            "name",
-                            "run"
-                          ],
+                          "required": ["name", "run"],
                           "additionalProperties": {}
                         }
                       },
@@ -852,24 +811,14 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "enum": [
-                              "auto",
-                              "ask",
-                              "readonly"
-                            ]
+                            "enum": ["auto", "ask", "readonly"]
                           },
                           {
                             "type": "object",
                             "properties": {
                               "default": {
                                 "type": "string",
-                                "enum": [
-                                  "allow",
-                                  "ask",
-                                  "deny",
-                                  "rate_limit",
-                                  "classify"
-                                ]
+                                "enum": ["allow", "ask", "deny", "rate_limit", "classify"]
                               },
                               "rules": {
                                 "type": "array",
@@ -884,13 +833,7 @@
                                     },
                                     "action": {
                                       "type": "string",
-                                      "enum": [
-                                        "allow",
-                                        "ask",
-                                        "deny",
-                                        "rate_limit",
-                                        "classify"
-                                      ]
+                                      "enum": ["allow", "ask", "deny", "rate_limit", "classify"]
                                     },
                                     "limit": {
                                       "type": "object",
@@ -908,17 +851,11 @@
                                           "maximum": 9007199254740991
                                         }
                                       },
-                                      "required": [
-                                        "count",
-                                        "windowMs"
-                                      ],
+                                      "required": ["count", "windowMs"],
                                       "additionalProperties": false
                                     }
                                   },
-                                  "required": [
-                                    "tool",
-                                    "action"
-                                  ],
+                                  "required": ["tool", "action"],
                                   "additionalProperties": {}
                                 }
                               },
@@ -941,11 +878,7 @@
                       },
                       "onFailure": {
                         "type": "string",
-                        "enum": [
-                          "ask",
-                          "retry",
-                          "fail"
-                        ]
+                        "enum": ["ask", "retry", "fail"]
                       },
                       "maxRetries": {
                         "type": "integer",
@@ -961,11 +894,7 @@
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "name",
-                      "harness",
-                      "model"
-                    ],
+                    "required": ["name", "harness", "model"],
                     "additionalProperties": {}
                   },
                   "parentAgentId": {
@@ -992,12 +921,7 @@
                           },
                           "mode": {
                             "type": "string",
-                            "enum": [
-                              "settled",
-                              "all",
-                              "any",
-                              "quorum"
-                            ],
+                            "enum": ["settled", "all", "any", "quorum"],
                             "description": "settled: every agent terminal, any outcome · all: every agent succeeded · any: the first to settle · quorum: k successes."
                           },
                           "k": {
@@ -1010,10 +934,7 @@
                           "onDepFailure": {
                             "description": "all / quorum: what a failed dependency (or an unreachable quorum) does. Default fail.",
                             "type": "string",
-                            "enum": [
-                              "fail",
-                              "proceed"
-                            ]
+                            "enum": ["fail", "proceed"]
                           },
                           "deadlineSec": {
                             "type": "number",
@@ -1023,15 +944,10 @@
                           "onDeadline": {
                             "description": "At the deadline: proceed with whatever settled (partial), or fail. Default proceed.",
                             "type": "string",
-                            "enum": [
-                              "proceed",
-                              "fail"
-                            ]
+                            "enum": ["proceed", "fail"]
                           }
                         },
-                        "required": [
-                          "agents"
-                        ],
+                        "required": ["agents"],
                         "additionalProperties": false
                       }
                     ]
@@ -1068,10 +984,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "spec",
-                  "parentAgentId"
-                ],
+                "required": ["spec", "parentAgentId"],
                 "additionalProperties": false
               }
             }
@@ -1093,10 +1006,7 @@
                       "description": "\"spawning\" if waitFor is set, else \"provisioning\" — poll for the real state."
                     }
                   },
-                  "required": [
-                    "agentId",
-                    "state"
-                  ],
+                  "required": ["agentId", "state"],
                   "additionalProperties": false
                 }
               }
@@ -1234,9 +1144,7 @@
                     "minLength": 1
                   }
                 },
-                "required": [
-                  "text"
-                ],
+                "required": ["text"],
                 "additionalProperties": false
               }
             }
@@ -1280,20 +1188,14 @@
                     "default": "agent",
                     "description": "\"subtree\": deliver ONE message to this agent — your text plus a roster of its direct children — so it re-plans and redirects each child itself. Never a broadcast.",
                     "type": "string",
-                    "enum": [
-                      "agent",
-                      "subtree"
-                    ]
+                    "enum": ["agent", "subtree"]
                   },
                   "idempotencyKey": {
                     "description": "A retried delivery with the same key is not delivered twice, and returns the same acknowledgement. scope: \"agent\" only — a subtree steer does not support per-request idempotency.",
                     "type": "string"
                   }
                 },
-                "required": [
-                  "message",
-                  "scope"
-                ],
+                "required": ["message", "scope"],
                 "additionalProperties": false,
                 "description": "Injected into the agent's current turn (research/swarm-control.md §8)."
               }
@@ -1310,11 +1212,7 @@
                   "properties": {
                     "deliveredAs": {
                       "type": "string",
-                      "enum": [
-                        "steer",
-                        "turn",
-                        "queued"
-                      ],
+                      "enum": ["steer", "turn", "queued"],
                       "description": "steer: into its running turn · turn: a new turn (it was idle) · queued: it's paused; delivered on resume"
                     },
                     "roster": {
@@ -1340,21 +1238,12 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "agentId",
-                          "sandboxId",
-                          "specName",
-                          "state",
-                          "outcome"
-                        ],
+                        "required": ["agentId", "sandboxId", "specName", "state", "outcome"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "deliveredAs",
-                    "roster"
-                  ],
+                  "required": ["deliveredAs", "roster"],
                   "additionalProperties": false
                 }
               }
@@ -1400,19 +1289,14 @@
                     "default": "agent",
                     "description": "\"agent\" (default): the named agent only. \"subtree\": the agent and every descendant — pause parents-first, resume children-first.",
                     "type": "string",
-                    "enum": [
-                      "agent",
-                      "subtree"
-                    ]
+                    "enum": ["agent", "subtree"]
                   },
                   "idempotencyKey": {
                     "description": "A retried request with the same key returns the original response instead of acting twice. scope: \"agent\" only — a subtree op does not support per-request idempotency.",
                     "type": "string"
                   }
                 },
-                "required": [
-                  "scope"
-                ],
+                "required": ["scope"],
                 "additionalProperties": false
               }
             }
@@ -1440,28 +1324,18 @@
                           },
                           "outcome": {
                             "type": "string",
-                            "enum": [
-                              "applied",
-                              "skipped",
-                              "failed"
-                            ]
+                            "enum": ["applied", "skipped", "failed"]
                           },
                           "reason": {
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "agentId",
-                          "outcome"
-                        ],
+                        "required": ["agentId", "outcome"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "asOf",
-                    "results"
-                  ],
+                  "required": ["asOf", "results"],
                   "additionalProperties": false,
                   "description": "Best-effort, per member: one member failing doesn't undo or block the rest."
                 }
@@ -1509,19 +1383,14 @@
                     "default": "agent",
                     "description": "\"agent\" (default): the named agent only. \"subtree\": the agent and every descendant — pause parents-first, resume children-first.",
                     "type": "string",
-                    "enum": [
-                      "agent",
-                      "subtree"
-                    ]
+                    "enum": ["agent", "subtree"]
                   },
                   "idempotencyKey": {
                     "description": "A retried request with the same key returns the original response instead of acting twice. scope: \"agent\" only — a subtree op does not support per-request idempotency.",
                     "type": "string"
                   }
                 },
-                "required": [
-                  "scope"
-                ],
+                "required": ["scope"],
                 "additionalProperties": false
               }
             }
@@ -1549,28 +1418,18 @@
                           },
                           "outcome": {
                             "type": "string",
-                            "enum": [
-                              "applied",
-                              "skipped",
-                              "failed"
-                            ]
+                            "enum": ["applied", "skipped", "failed"]
                           },
                           "reason": {
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "agentId",
-                          "outcome"
-                        ],
+                        "required": ["agentId", "outcome"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "asOf",
-                    "results"
-                  ],
+                  "required": ["asOf", "results"],
                   "additionalProperties": false,
                   "description": "Best-effort, per member: one member failing doesn't undo or block the rest."
                 }
@@ -1618,29 +1477,20 @@
                   "mode": {
                     "default": "abort",
                     "type": "string",
-                    "enum": [
-                      "abort",
-                      "drain"
-                    ]
+                    "enum": ["abort", "drain"]
                   },
                   "scope": {
                     "default": "agent",
                     "description": "\"subtree\": the agent and every descendant, leaves first, with one result per member.",
                     "type": "string",
-                    "enum": [
-                      "agent",
-                      "subtree"
-                    ]
+                    "enum": ["agent", "subtree"]
                   },
                   "idempotencyKey": {
                     "description": "A retried request with the same key returns the original response instead of acting twice. scope: \"agent\" only — a subtree op does not support per-request idempotency.",
                     "type": "string"
                   }
                 },
-                "required": [
-                  "mode",
-                  "scope"
-                ],
+                "required": ["mode", "scope"],
                 "additionalProperties": false
               }
             }
@@ -1668,28 +1518,18 @@
                           },
                           "outcome": {
                             "type": "string",
-                            "enum": [
-                              "applied",
-                              "skipped",
-                              "failed"
-                            ]
+                            "enum": ["applied", "skipped", "failed"]
                           },
                           "reason": {
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "agentId",
-                          "outcome"
-                        ],
+                        "required": ["agentId", "outcome"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "asOf",
-                    "results"
-                  ],
+                  "required": ["asOf", "results"],
                   "additionalProperties": false,
                   "description": "Best-effort, per member: one member failing doesn't undo or block the rest."
                 }
@@ -1720,9 +1560,7 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": [
-                "subtree"
-              ]
+              "enum": ["subtree"]
             }
           },
           {
@@ -1772,12 +1610,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "agentId",
-                          "state",
-                          "outcome",
-                          "resultRef"
-                        ],
+                        "required": ["agentId", "state", "outcome", "resultRef"],
                         "additionalProperties": false
                       }
                     },
@@ -1788,13 +1621,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "rootAgentId",
-                    "quiescent",
-                    "asOf",
-                    "members",
-                    "blockedOnPaused"
-                  ],
+                  "required": ["rootAgentId", "quiescent", "asOf", "members", "blockedOnPaused"],
                   "additionalProperties": false
                 }
               }
@@ -1841,12 +1668,7 @@
                   },
                   "mode": {
                     "type": "string",
-                    "enum": [
-                      "settled",
-                      "all",
-                      "any",
-                      "quorum"
-                    ],
+                    "enum": ["settled", "all", "any", "quorum"],
                     "description": "settled: every agent terminal, any outcome · all: every agent succeeded · any: the first to settle · quorum: k successes."
                   },
                   "k": {
@@ -1857,10 +1679,7 @@
                   },
                   "onDepFailure": {
                     "type": "string",
-                    "enum": [
-                      "fail",
-                      "proceed"
-                    ]
+                    "enum": ["fail", "proceed"]
                   },
                   "wait": {
                     "description": "Seconds to hold the request (capped server-side).",
@@ -1883,12 +1702,7 @@
                   "properties": {
                     "outcome": {
                       "type": "string",
-                      "enum": [
-                        "satisfied",
-                        "partial",
-                        "depfail",
-                        "pending"
-                      ]
+                      "enum": ["satisfied", "partial", "depfail", "pending"]
                     },
                     "selected": {
                       "type": "array",
@@ -1909,10 +1723,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "agentId",
-                          "outcome"
-                        ],
+                        "required": ["agentId", "outcome"],
                         "additionalProperties": false
                       }
                     },
@@ -1923,12 +1734,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "outcome",
-                    "selected",
-                    "settled",
-                    "pending"
-                  ],
+                  "required": ["outcome", "selected", "settled", "pending"],
                   "additionalProperties": false
                 }
               }
@@ -1974,9 +1780,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "agents"
-                ],
+                "required": ["agents"],
                 "additionalProperties": false
               }
             }
@@ -2097,9 +1901,7 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "resourceId"
-                      ],
+                      "required": ["resourceId"],
                       "additionalProperties": false,
                       "description": "The scope every memory call below is keyed by: the agent spec's `resourceId` (default: its `name`) and `teamId`. Memory outlives the sandbox, so it stays readable after the agent ends."
                     },
@@ -2117,12 +1919,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "agentId",
-                    "resourceRef",
-                    "semantic",
-                    "working"
-                  ],
+                  "required": ["agentId", "resourceRef", "semantic", "working"],
                   "additionalProperties": false
                 }
               }
@@ -2176,10 +1973,7 @@
                     },
                     "value": {}
                   },
-                  "required": [
-                    "key",
-                    "value"
-                  ],
+                  "required": ["key", "value"],
                   "additionalProperties": false
                 }
               }
@@ -2228,9 +2022,7 @@
                 "properties": {
                   "value": {}
                 },
-                "required": [
-                  "value"
-                ],
+                "required": ["value"],
                 "additionalProperties": false
               }
             }
@@ -2249,10 +2041,7 @@
                     },
                     "value": {}
                   },
-                  "required": [
-                    "key",
-                    "value"
-                  ],
+                  "required": ["key", "value"],
                   "additionalProperties": false
                 }
               }
@@ -2349,16 +2138,11 @@
                         "maximum": 9007199254740991
                       }
                     },
-                    "required": [
-                      "sandboxId",
-                      "entryIndex"
-                    ],
+                    "required": ["sandboxId", "entryIndex"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "content"
-                ],
+                "required": ["content"],
                 "additionalProperties": false
               }
             }
@@ -2467,10 +2251,7 @@
                                 "maximum": 9007199254740991
                               }
                             },
-                            "required": [
-                              "sandboxId",
-                              "entryIndex"
-                            ],
+                            "required": ["sandboxId", "entryIndex"],
                             "additionalProperties": false
                           },
                           "verified": {
@@ -2481,18 +2262,12 @@
                             "type": "number"
                           }
                         },
-                        "required": [
-                          "content"
-                        ],
+                        "required": ["content"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "agentId",
-                    "query",
-                    "facts"
-                  ],
+                  "required": ["agentId", "query", "facts"],
                   "additionalProperties": false
                 }
               }
@@ -2579,11 +2354,7 @@
                       "maximum": 9007199254740991
                     }
                   },
-                  "required": [
-                    "removed",
-                    "remaining",
-                    "summarized"
-                  ],
+                  "required": ["removed", "remaining", "summarized"],
                   "additionalProperties": false
                 }
               }
@@ -2620,9 +2391,7 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "1"
-              ]
+              "enum": ["1"]
             },
             "description": "Don't shorten long text; include the model's thinking."
           }
@@ -2664,18 +2433,13 @@
                                   "properties": {
                                     "role": {
                                       "type": "string",
-                                      "enum": [
-                                        "user"
-                                      ]
+                                      "enum": ["user"]
                                     },
                                     "text": {
                                       "type": "string"
                                     }
                                   },
-                                  "required": [
-                                    "role",
-                                    "text"
-                                  ],
+                                  "required": ["role", "text"],
                                   "additionalProperties": false
                                 },
                                 {
@@ -2683,9 +2447,7 @@
                                   "properties": {
                                     "role": {
                                       "type": "string",
-                                      "enum": [
-                                        "assistant"
-                                      ]
+                                      "enum": ["assistant"]
                                     },
                                     "text": {
                                       "type": "string"
@@ -2700,10 +2462,7 @@
                                           },
                                           "arguments": {}
                                         },
-                                        "required": [
-                                          "name",
-                                          "arguments"
-                                        ],
+                                        "required": ["name", "arguments"],
                                         "additionalProperties": false
                                       }
                                     },
@@ -2734,9 +2493,7 @@
                                   "properties": {
                                     "role": {
                                       "type": "string",
-                                      "enum": [
-                                        "tool"
-                                      ]
+                                      "enum": ["tool"]
                                     },
                                     "toolName": {
                                       "type": "string"
@@ -2748,31 +2505,19 @@
                                       "type": "boolean"
                                     }
                                   },
-                                  "required": [
-                                    "role",
-                                    "toolName",
-                                    "text",
-                                    "isError"
-                                  ],
+                                  "required": ["role", "toolName", "text", "isError"],
                                   "additionalProperties": false
                                 }
                               ]
                             }
                           }
                         },
-                        "required": [
-                          "seq",
-                          "ts",
-                          "messages"
-                        ],
+                        "required": ["seq", "ts", "messages"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "agentId",
-                    "turns"
-                  ],
+                  "required": ["agentId", "turns"],
                   "additionalProperties": false
                 }
               }
@@ -2821,10 +2566,7 @@
                     },
                     "state": {
                       "type": "string",
-                      "enum": [
-                        "pending",
-                        "settled"
-                      ]
+                      "enum": ["pending", "settled"]
                     },
                     "outcome": {
                       "nullable": true,
@@ -2840,13 +2582,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "agentId",
-                    "state",
-                    "outcome",
-                    "resultRef",
-                    "result"
-                  ],
+                  "required": ["agentId", "state", "outcome", "resultRef", "result"],
                   "additionalProperties": false
                 }
               }
@@ -2864,10 +2600,7 @@
                     },
                     "state": {
                       "type": "string",
-                      "enum": [
-                        "pending",
-                        "settled"
-                      ]
+                      "enum": ["pending", "settled"]
                     },
                     "outcome": {
                       "nullable": true,
@@ -2883,13 +2616,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "agentId",
-                    "state",
-                    "outcome",
-                    "resultRef",
-                    "result"
-                  ],
+                  "required": ["agentId", "state", "outcome", "resultRef", "result"],
                   "additionalProperties": false
                 }
               }

@@ -320,6 +320,88 @@ const PermissionPolicySchema = z
 
 const PermissionsSchema = z.union([z.enum(["auto", "ask", "readonly"]), PermissionPolicySchema]);
 
+/** The harnesses an agent can run on. */
+export type HarnessId = "pi" | "claude-code" | "codex";
+
+/**
+ * A harness with its version pinned, as an object. `"pi"` and `{ id: "pi" }` mean the same.
+ * `version` is what the top-level `harnessVersion` was.
+ */
+export interface HarnessRef {
+  id: HarnessId;
+  /** npm version specifier for the harness package, e.g. `"1.2.3"` or `"latest"`. */
+  version?: string;
+}
+
+/**
+ * A model with the provider that serves it, as an object. `"gpt-5-codex"` and
+ * `{ id: "gpt-5-codex" }` mean the same. `provider` is what the top-level `provider` was.
+ */
+export interface ModelRef {
+  /** For Pi, passed as `--provider`. The other harnesses have one native provider. */
+  provider?: string;
+  id: string;
+}
+
+/**
+ * What an author may write. Same as {@link AgentSpec}, except `harness` and `model` may each be
+ * an object that carries its own version or provider. `validateAgentSpec()` turns this into
+ * an `AgentSpec`, which is what the runtime reads.
+ *
+ * The top-level `provider` and `harnessVersion` still work and are deprecated: they say which
+ * harness or model they belong to only by sitting next to it.
+ */
+export interface AgentSpecInput extends Omit<AgentSpec, "harness" | "model"> {
+  harness: HarnessId | HarnessRef;
+  model: string | ModelRef;
+}
+
+/** The provider a non-Pi harness runs on. A spec that names another one is wrong. */
+const NATIVE_PROVIDER: Partial<Record<HarnessId, string>> = {
+  "claude-code": "anthropic",
+  codex: "openai",
+};
+
+/** Turn an authored spec into the flat shape the runtime reads. Run it on a validated spec. */
+export function normalizeAgentSpec(input: AgentSpecInput): AgentSpec {
+  const { harness, model, ...rest } = input;
+  const harnessId = typeof harness === "string" ? harness : harness.id;
+  const harnessVersion =
+    (typeof harness === "string" ? undefined : harness.version) ?? input.harnessVersion;
+  const modelId = typeof model === "string" ? model : model.id;
+  const provider = (typeof model === "string" ? undefined : model.provider) ?? input.provider;
+  const out: AgentSpec = { ...rest, harness: harnessId, model: modelId };
+  if (harnessVersion !== undefined) out.harnessVersion = harnessVersion;
+  else delete out.harnessVersion;
+  if (provider !== undefined) out.provider = provider;
+  else delete out.provider;
+  return out;
+}
+
+/** The deprecated top-level fields a spec still uses, and what replaces each. */
+export function deprecatedSpecFields(
+  input: Pick<AgentSpecInput, "provider" | "harnessVersion">,
+): Array<{ field: string; use: string }> {
+  const out: Array<{ field: string; use: string }> = [];
+  if (input.provider !== undefined) out.push({ field: "provider", use: "model.provider" });
+  if (input.harnessVersion !== undefined) {
+    out.push({ field: "harnessVersion", use: "harness.version" });
+  }
+  return out;
+}
+
+/** The harness id inside `{ id }`, so an error names `cursor` and not `{"id":"cursor"}`. */
+function harnessIdOf(input: unknown): unknown {
+  return typeof input === "object" && input !== null && "id" in input ? input.id : input;
+}
+
+const HarnessIdSchema = z.enum(["pi", "claude-code", "codex"], {
+  error: (issue) =>
+    issue.input === undefined
+      ? "Agent spec must have a 'harness' field. Supported values: pi, claude-code, codex"
+      : `Unsupported harness: '${describeValue(harnessIdOf(issue.input))}'. Supported values: pi, claude-code, codex`,
+});
+
 const nonNegativeIntSpecField = (fieldName: string) =>
   z
     .number({ error: `Agent spec '${fieldName}' must be a non-negative integer if set` })
@@ -342,22 +424,34 @@ export const AgentSpecSchema = z
     description: z.string().optional(),
     author: z.string().optional(),
     categories: z.array(z.string()).optional(),
-    harness: z.enum(["pi", "claude-code", "codex"], {
-      error: (issue) =>
-        issue.input === undefined
-          ? "Agent spec must have a 'harness' field. Supported values: pi, claude-code, codex"
-          : `Unsupported harness: '${describeValue(issue.input)}'. Supported values: pi, claude-code, codex`,
-    }),
+    harness: z.union(
+      [HarnessIdSchema, z.object({ id: HarnessIdSchema, version: z.string().optional() })],
+      {
+        error: (issue) =>
+          issue.input === undefined
+            ? "Agent spec must have a 'harness' field. Supported values: pi, claude-code, codex"
+            : `Unsupported harness: '${describeValue(harnessIdOf(issue.input))}'. Supported values: pi, claude-code, codex`,
+      },
+    ),
     harnessVersion: z.string().optional(),
     provider: z.string().optional(),
-    model: z
-      .string({
+    model: z.union(
+      [
+        z
+          .string()
+          .min(1, "Agent spec must have a 'model' string — name the model this agent runs on"),
+        z.object({
+          provider: z.string().optional(),
+          id: z.string().min(1, "Agent spec 'model.id' must name the model this agent runs on"),
+        }),
+      ],
+      {
         error: (issue) =>
           issue.input === undefined
             ? "Agent spec must have a 'model' string — name the model this agent runs on"
-            : "Agent spec 'model' must be a string",
-      })
-      .min(1, "Agent spec must have a 'model' string — name the model this agent runs on"),
+            : "Agent spec 'model' must be a string, or an object with an 'id'",
+      },
+    ),
     packages: z.array(z.string()).optional(),
     env: z.record(z.string(), z.union([z.string(), CredentialEnvBindingSchema])).optional(),
     resources: z
@@ -383,4 +477,42 @@ export const AgentSpecSchema = z
   // Unknown keys pass through untouched rather than being stripped or rejected — matches the
   // old hand-rolled validator's behavior (it only ever checked a few fields and cast the rest
   // through) and keeps forward-compat with spec fields introduced by a newer alineo version.
-  .loose();
+  .loose()
+  .superRefine((spec, ctx) => {
+    const harnessId = typeof spec.harness === "string" ? spec.harness : spec.harness.id;
+    const nested = typeof spec.harness === "string" ? undefined : spec.harness.version;
+    if (
+      nested !== undefined &&
+      spec.harnessVersion !== undefined &&
+      nested !== spec.harnessVersion
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["harnessVersion"],
+        message: `'harnessVersion' (${spec.harnessVersion}) conflicts with 'harness.version' (${nested}). Set only 'harness.version'.`,
+      });
+    }
+    const modelProvider = typeof spec.model === "string" ? undefined : spec.model.provider;
+    if (
+      modelProvider !== undefined &&
+      spec.provider !== undefined &&
+      modelProvider !== spec.provider
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["provider"],
+        message: `'provider' (${spec.provider}) conflicts with 'model.provider' (${modelProvider}). Set only 'model.provider'.`,
+      });
+    }
+    // The other harnesses run on one provider each. Pi was the only one that read this field,
+    // so for them a stray value would be ignored without a word.
+    const provider = modelProvider ?? spec.provider;
+    const native = NATIVE_PROVIDER[harnessId];
+    if (native !== undefined && provider !== undefined && provider !== native) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["model", "provider"],
+        message: `The ${harnessId} harness runs on ${native} models, but the provider is '${provider}'. Remove the provider, or use the pi harness.`,
+      });
+    }
+  });

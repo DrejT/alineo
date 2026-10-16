@@ -1,7 +1,7 @@
 import { readdirSync, existsSync } from "fs";
 import { join } from "path";
 import { readConfig } from "@alineo-labs/cli-shared";
-import type { AgentSpec } from "../schema.js";
+import type { AgentSpecInput } from "../schema.js";
 import type { CliCommand } from "./types.js";
 
 export async function list(): Promise<void> {
@@ -27,9 +27,10 @@ export async function list(): Promise<void> {
 
   for (const file of files) {
     try {
-      const spec = (await Bun.file(join(dir, file)).json()) as Partial<AgentSpec>;
+      const spec = (await Bun.file(join(dir, file)).json()) as Partial<AgentSpecInput>;
       const name = (spec.name ?? file.replace(/\.json$/, "")).slice(0, 19);
-      const harness = (spec.harness ?? "?").slice(0, 7);
+      const harnessId = typeof spec.harness === "object" ? spec.harness.id : spec.harness;
+      const harness = (harnessId ?? "?").slice(0, 7);
       const desc = spec.description ?? spec.title ?? "";
       console.log([name.padEnd(cols[0]), harness.padEnd(cols[1]), desc].join("  "));
     } catch {

@@ -8,7 +8,14 @@ export type {
   EgressApprovalGateOptions,
   HeldCredential,
 } from "./agent";
-export type { AgentSpec, SetupStep } from "./schema";
+export type {
+  AgentSpec,
+  AgentSpecInput,
+  HarnessId,
+  HarnessRef,
+  ModelRef,
+  SetupStep,
+} from "./schema";
 export { validateAgentSpec } from "./schema";
 export type {
   PermissionMode,
