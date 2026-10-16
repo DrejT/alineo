@@ -1,13 +1,10 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import type {
-  SandboxHandle,
-  CredentialBinding,
-  CredentialSource,
-  ExecOptions,
-  ExecResult,
-} from "@alineo-labs/core";
-import { BridgeDisconnectedError, PromptTimeoutError } from "../errors";
+import type { CredentialBinding, CredentialSource } from "@alineo-labs/core";
+import type { HarnessAdapter, TurnInput } from "../harness/adapter";
+import { PI_CAPABILITIES } from "../harness/capabilities";
+import type { HarnessEvent } from "../harness/events";
+import { fromPiEvent } from "../harness/pi-events";
+import type { HarnessSandbox } from "../harness/sandbox";
+import { BridgeHarness, readBuiltScript, rpcGet, rpcPost } from "../harness/bridge";
 import { normalizePermissions } from "../permissions";
 import type { AgentSpec, CredentialEnvBinding } from "../schema";
 import type { PendingPermission, PermissionDecision } from "../types";
@@ -23,36 +20,13 @@ import type {
   ThinkingLevel,
 } from "../types";
 
-/** The subset of `SandboxHandle` that `PiAdapter` calls. `exec` only needs to be awaitable, so
- * callers (and tests) don't have to supply a full `ExecHandle`. */
-export interface PiSandbox {
-  exec(cmd: string, opts?: ExecOptions): PromiseLike<ExecResult>;
-  proxy: SandboxHandle["proxy"];
-  writeFile: SandboxHandle["writeFile"];
-}
+/** The subset of `SandboxHandle` that `PiAdapter` calls. Kept as an alias of `HarnessSandbox`. */
+export type PiSandbox = HarnessSandbox;
 
-// Node.js CJS bridge script — written into the sandbox at /alineo-bridge.js and run with `node`.
-// Wraps `pi --mode rpc` in an HTTP server so the host can communicate bidirectionally
-// without needing interactive stdin support from the sandbox exec API.
-//
-// Lives in pi-bridge.js as a real file (lint/format-checked on its own) rather than a
-// template-literal string, and is read relative to this module's own location — works
-// identically in dev (src/adapters/) and in the published package, where tsdown's `copy`
-// config places it alongside dist/index.mjs (see tsdown.config.ts). A bundler-native text
-// import (`with { type: "text" }` / `?raw`) would be cleaner but neither is understood by
-// rolldown, the bundler tsdown uses for this package's actual publish build.
-const BRIDGE_SCRIPT = readFileSync(
-  fileURLToPath(new URL("./pi-bridge.js", import.meta.url)),
-  "utf8",
-);
-
-// The permission-gate Pi extension — same copy-alongside-dist mechanism as BRIDGE_SCRIPT
-// (see tsdown.config.ts). Written into the sandbox at /alineo-permission-gate.js and loaded
-// by Pi via `-e` only when the spec sets `permissions` (see pi-bridge.js's buildPiArgs).
-const PERMISSION_GATE_SCRIPT = readFileSync(
-  fileURLToPath(new URL("./pi-permission-gate.js", import.meta.url)),
-  "utf8",
-);
+/** Node CJS bridge script: written to `/alineo-bridge.js` and run with `node`. */
+const bridgeScript = (): string => readBuiltScript("pi-bridge.cjs");
+/** The permission-gate extension: written to `/alineo-permission-gate.js`, loaded by Pi via `-e`. */
+const permissionGateScript = (): string => readBuiltScript("pi-permission-gate.mjs");
 
 export function toShellExports(env: Record<string, string>): string {
   return (
@@ -138,50 +112,10 @@ export function parseShellExports(content: string): Record<string, string> {
   return result;
 }
 
-export class PiAdapter {
-  private _bridgeUrl: string | null = null;
-  /**
-   * Controllers for prompt/bash streams `sseStream` deliberately left open (its early
-   * return on `[DONE]`, to dodge the same OpenSandbox proxy behavior `ExecClient.parseSSE`
-   * documents — see that method's comment). `AbortController.abort()`, not
-   * `reader.cancel()`: Bun's `fetch()` tears down the underlying connection (and unrefs the
-   * poll keeping the event loop alive) reliably on an abort signal, but was observed to
-   * leave the socket referenced after `reader.cancel()` alone on this bridge's specific
-   * long-lived, heartbeat-pinged connections (unlike execd's exec/code streams, which
-   * self-resolve within execd's own bounded post-completion sleep either way — see
-   * disposeConnections() below).
-   *
-   * Known limitation: this reliably lets a process exit after exactly one prompt()/bash()
-   * call per agent lifetime (verified). A script making two or more such calls before
-   * close() can still hang even though every controller here does abort cleanly on the
-   * client side -- root cause traced to the same class of bug as
-   * opensandbox-group/OpenSandbox#1277 (execd's chunked-SSE termination confusing the
-   * OpenSandbox control server's own proxy relay, which is what `bridgeUrl` is proxied
-   * through). Tracked in our own #189; not fixable from this file alone.
-   */
-  private pendingStreams = new Set<AbortController>();
-
-  private get bridgeUrl(): string {
-    if (!this._bridgeUrl) throw new Error("PiAdapter: bridge not started");
-    return this._bridgeUrl;
-  }
-
-  /**
-   * Force-close any prompt/bash streams `sseStream` deliberately left open (its early
-   * return on `[DONE]`, to dodge the same OpenSandbox proxy behavior `ExecClient.parseSSE`
-   * documents — see that method's comment). Those connections sit ESTABLISHED, keeping
-   * Bun's event loop alive indefinitely, until something force-closes them -- unlike
-   * execd's exec/code streams (see `ExecClient.disposeConnections()`), the bridge's own
-   * `: ping` heartbeat (every 3s, see pi-bridge.js) means there's no bounded server-side
-   * timeout to eventually resolve a dangling one on its own. Call this once the agent is
-   * being torn down anyway (from `agent.close()`) instead of leaving the process to hang
-   * forever on whichever stream's `[DONE]` arrived last.
-   */
-  disposeConnections(): void {
-    for (const controller of this.pendingStreams) controller.abort();
-    this.pendingStreams.clear();
-  }
-
+export class PiAdapter extends BridgeHarness<AgentEvent> implements HarnessAdapter {
+  readonly id = "pi";
+  readonly capabilities = PI_CAPABILITIES;
+  protected readonly bridgeScriptPath = "/alineo-bridge.js";
   /** Install Pi CLI and any spec packages. Slow — result is captured by checkpoint(). */
   async install(sb: PiSandbox, spec: AgentSpec): Promise<void> {
     const pkgs = [...new Set(spec.packages ?? [])].filter(
@@ -218,58 +152,64 @@ export class PiAdapter {
     if (permissions) piConfig.permissions = permissions;
     await sb.writeFile("/etc/alineo-pi.json", JSON.stringify(piConfig));
     await sb.writeFile("/etc/alineo-env", toShellExports(resolvedEnv));
-    await sb.writeFile("/alineo-bridge.js", BRIDGE_SCRIPT);
-    if (permissions) await sb.writeFile("/alineo-permission-gate.js", PERMISSION_GATE_SCRIPT);
+    await sb.writeFile("/alineo-bridge.js", bridgeScript());
+    if (permissions) await sb.writeFile("/alineo-permission-gate.js", permissionGateScript());
+  }
+
+  // --- HarnessAdapter (the bridge plumbing is in BridgeHarness) ---
+
+  /** `start()` under its older name. */
+  startBridge(sb: PiSandbox, unsetVars?: string[]): Promise<void> {
+    return this.start(sb, { unsetVars });
+  }
+
+  /** `fork(entryId)` in the harness-neutral shape. Pi switches its own session in place. */
+  async forkAt(messageId: string): Promise<{ sessionRef: string | null }> {
+    await this.fork(messageId);
+    return { sessionRef: null };
+  }
+
+  /** `reattach()` under its older name. */
+  reattachBridge(sb: Pick<HarnessSandbox, "proxy">): Promise<void> {
+    return this.reattach(sb);
+  }
+
+  /** `dispose()` under its older name. */
+  disposeConnections(): void {
+    this.dispose();
   }
 
   /**
-   * Start the bridge. `unsetVars`, when given, is prefixed as `unset A B C; ` on the
-   * *same* exec command that starts `node` — required for `Alineo.spawn()`'s forked
-   * sandboxes, where the container's OS-level env still carries whatever the parent
-   * had baked into it at snapshot time (`env` passed to `createSandbox` at fork time
-   * has no effect on this — verified live, see `plans/alineo-rlm-substrate.md`). A
-   * plain `sb.exec("unset ...")` beforehand would not work: `unset` only clears the
-   * shell session it runs in, and each `exec()` call is its own session — it has to
-   * be part of the exact command that spawns the bridge process so the bridge (and
-   * everything it in turn spawns, including Pi itself) inherits the already-clean env.
-   */
-  async startBridge(sb: PiSandbox, unsetVars?: string[]): Promise<void> {
-    const prefix = unsetVars && unsetVars.length > 0 ? `unset ${unsetVars.join(" ")}; ` : "";
-    await sb.exec(`${prefix}node /alineo-bridge.js &`);
-    const { url } = await sb.proxy(3001);
-    this._bridgeUrl = url;
-  }
-
-  /**
-   * Rebind to a bridge that's already running (as opposed to `startBridge()`, which execs a
-   * fresh `node /alineo-bridge.js`). `sb.proxy(port)` is a pure URL lookup against the
-   * sandbox's control plane — it starts nothing — so this has zero effect on the sandbox
-   * itself: no killed process, no dropped in-flight turn, no reset Pi conversation state.
+   * One turn as harness events, ending in exactly one `done`. A failure (the bridge sends an
+   * error frame, the stream times out or drops) becomes an `error` event then `done`: it
+   * does not throw, and the `error` event's `raw` is the original error.
    *
-   * Call `waitReady()` afterwards to confirm the bridge is actually still there before relying
-   * on it — the container can be alive while the bridge process inside it isn't (e.g. it
-   * crashed independently), and this method alone can't tell the difference.
+   * A stream that ends with no `agent_end` is `aborted`. The bridge ends a stream that way
+   * only when someone called `/abort`, from this process or another. A message sent with
+   * `streamingBehavior` also ends with no `agent_end`: that is `completed`.
    */
-  async reattachBridge(sb: SandboxHandle): Promise<void> {
-    const { url } = await sb.proxy(3001);
-    this._bridgeUrl = url;
-  }
-
-  async waitReady(timeoutMs = 30_000): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      try {
-        const res = await fetch(`${this.bridgeUrl}/health`);
-        if (res.ok) {
-          const body = (await res.json()) as { ok: boolean };
-          if (body.ok) return;
+  async *runTurn(input: TurnInput): AsyncGenerator<HarnessEvent> {
+    let finished = false;
+    try {
+      const stream = this.prompt(input.message, {
+        streamingBehavior: input.streamingBehavior,
+        inactivityTimeoutMs: input.inactivityTimeoutMs,
+      });
+      for await (const ev of stream) {
+        for (const out of fromPiEvent(ev)) {
+          if (out.type === "done") finished = true;
+          yield out;
         }
-      } catch {
-        // bridge not reachable yet
       }
-      await new Promise<void>((r) => setTimeout(r, 500));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      yield { type: "error", message, raw: e };
+      yield { type: "done", reason: "error" };
+      return;
     }
-    throw new Error(`alineo-bridge did not become ready within ${timeoutMs / 1_000}s`);
+    if (!finished) {
+      yield { type: "done", reason: input.streamingBehavior ? "completed" : "aborted" };
+    }
   }
 
   // --- streaming ---
@@ -278,17 +218,15 @@ export class PiAdapter {
     message: string,
     opts?: { streamingBehavior?: "steer" | "followUp"; inactivityTimeoutMs?: number },
   ): AgentStream {
-    return sseStream(
-      this.bridgeUrl,
+    return this.stream(
       "/prompt",
       { message, streamingBehavior: opts?.streamingBehavior },
-      this.pendingStreams,
       opts?.inactivityTimeoutMs,
     );
   }
 
   bash(command: string): AgentStream {
-    return sseStream(this.bridgeUrl, "/bash", { command }, this.pendingStreams);
+    return this.stream("/bash", { command });
   }
 
   // --- ack-only commands ---
@@ -303,24 +241,6 @@ export class PiAdapter {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(`steer failed: ${body.error ?? res.status}`);
     }
-  }
-
-  async abort(): Promise<void> {
-    await rpcPost(this.bridgeUrl, "/abort");
-  }
-
-  /** Resolve a pending `permission_request` (see `AgentEvent`'s `permission_request`). */
-  async resolvePermission(requestId: string, decision: PermissionDecision): Promise<void> {
-    await rpcPost(this.bridgeUrl, "/permission-response", { requestId, decision });
-  }
-
-  /** Tool calls currently paused awaiting a human decision. */
-  async listPendingPermissions(): Promise<PendingPermission[]> {
-    const r = await rpcGet<{ pending: PendingPermission[] }>(
-      this.bridgeUrl,
-      "/pending-permissions",
-    );
-    return r.pending;
   }
 
   async followUp(message: string): Promise<void> {
@@ -455,146 +375,3 @@ export class PiAdapter {
 }
 
 // --- HTTP helpers ---
-
-async function rpcPost<T = null>(bridgeUrl: string, path: string, body: unknown = {}): Promise<T> {
-  const res = await fetch(`${bridgeUrl}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(`${path} failed: ${err.error ?? res.status}`);
-  }
-  const payload = (await res.json()) as { ok: boolean; data?: T };
-  return payload.data as T;
-}
-
-async function rpcGet<T>(bridgeUrl: string, path: string): Promise<T> {
-  const res = await fetch(`${bridgeUrl}${path}`);
-  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
-  const payload = (await res.json()) as { ok: boolean; data?: T };
-  return payload.data as T;
-}
-
-/**
- * How long to tolerate zero real `AgentEvent`s before treating the stream as stuck. The
- * bridge's own `: ping` keep-alive (every 3s, see pi-bridge.js's `startHeartbeat`) exists only
- * to defeat OpenSandbox's proxy idle-timeout -- it keeps `reader.read()` resolving regardless
- * of whether Pi itself is making progress, so this can't just be "no read() in N seconds". The
- * timer below is instead reset only when a real event is parsed and yielded (or `[DONE]`
- * arrives), so a connection that's alive-but-silent for this long still times out.
- *
- * 60s (the original default) was too tight for a common, legitimate pattern: Pi's own `bash`
- * tool is not incrementally streamed (see the `bash()` doc comment in session-control.ts), so
- * a single tool call that spins up a whole child sandbox -- e.g. a master session running
- * `alineo spawn` on itself, as in examples/rlm-repo-fanout -- produces zero AgentEvents for as
- * long as that tool call takes, which regularly exceeded 60s (child sandbox provisioning +
- * Pi CLI install alone routinely took 30-150s+ in practice) and tripped this timeout mid-run
- * even though the session was making real progress. Raised to 3 minutes as a still-bounded
- * but realistic ceiling for that pattern; pass `inactivityTimeoutMs` explicitly to `prompt()`
- * for sessions that need something tighter or looser.
- */
-const DEFAULT_INACTIVITY_TIMEOUT_MS = 180_000;
-
-async function* sseStream(
-  bridgeUrl: string,
-  path: string,
-  body: unknown,
-  pendingStreams: Set<AbortController>,
-  inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
-): AgentStream {
-  const controller = new AbortController();
-  const res = await fetch(`${bridgeUrl}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: controller.signal,
-    // Without this, Bun pools this connection for reuse across the next prompt()/bash()
-    // call to the same bridge origin -- a pooled keep-alive socket outlives any individual
-    // request's own abort(), so a second stream on the same connection can keep the
-    // process alive even after both streams' controllers have been aborted.
-    keepalive: false,
-  });
-  if (!res.ok || !res.body) throw new Error(`Bridge ${path} error: ${res.status}`);
-
-  pendingStreams.add(controller);
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  let lastEventAt = Date.now();
-  // A `permission_request` can sit unanswered for as long as a human takes to decide, with
-  // no events flowing meanwhile. While any are outstanding, the inactivity timeout is
-  // suspended — the bridge's own PERMISSION_TIMEOUT_MS is the backstop there.
-  const pendingPermissions = new Set<string>();
-  // Only a genuine server-signalled EOF (`done: true`) counts as reaching the natural end --
-  // both the `[DONE]` early-return below and any thrown error (timeout, malformed payload,
-  // bridge-reported error) leave the connection mid-stream, same as a natural EOF's opposite.
-  let reachedNaturalEnd = false;
-
-  try {
-    while (true) {
-      const awaitingHuman = pendingPermissions.size > 0;
-      const remainingMs = inactivityTimeoutMs - (Date.now() - lastEventAt);
-      if (!awaitingHuman && remainingMs <= 0) {
-        throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
-      }
-
-      const result = await Promise.race([
-        reader.read(),
-        new Promise<"timeout">((resolve) => {
-          setTimeout(
-            () => {
-              resolve("timeout");
-            },
-            awaitingHuman ? inactivityTimeoutMs : Math.max(remainingMs, 1),
-          );
-        }),
-      ]);
-      if (result === "timeout") {
-        if (pendingPermissions.size > 0) {
-          lastEventAt = Date.now(); // reset the clock; a human is still deciding
-          continue;
-        }
-        throw new PromptTimeoutError(inactivityTimeoutMs, bridgeUrl);
-      }
-
-      const { done, value } = result;
-      if (done) {
-        // A raw TCP-level EOF, not the bridge's own `[DONE]` sentinel (that branch below
-        // returns before ever reaching here) -- the connection closed without Pi ever
-        // signalling the turn was actually finished. Indistinguishable from a legitimate
-        // finish at the reader level, so it has to be surfaced explicitly rather than treated
-        // as a silent success (M2.1).
-        reachedNaturalEnd = true;
-        throw new BridgeDisconnectedError(bridgeUrl);
-      }
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split("\n");
-      buf = lines.pop() ?? ""; // split() on a string always yields at least one element
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const payload = line.slice(6).trim();
-        if (payload === "[DONE]") {
-          // Deliberately don't abort the connection here -- same reasoning as ExecClient's
-          // parseSSE (packages/opensandbox/src/exec.ts): tearing down mid-stream through the
-          // bridge's proxied connection can upset the relay. Leave `controller` registered in
-          // pendingStreams for PiAdapter.disposeConnections() to force shut at agent.close()
-          // time instead, once nobody cares if the proxy's relay errors out.
-          return;
-        }
-        const raw = JSON.parse(payload) as AgentEvent & { error?: string };
-        if (raw.error) throw new Error(`Bridge error: ${raw.error}`);
-        if (raw.type === "permission_request") pendingPermissions.add(raw.requestId);
-        else if (raw.type === "permission_resolved") pendingPermissions.delete(raw.requestId);
-        lastEventAt = Date.now();
-        yield raw;
-      }
-    }
-  } finally {
-    if (reachedNaturalEnd) {
-      pendingStreams.delete(controller);
-      reader.releaseLock();
-    }
-  }
-}

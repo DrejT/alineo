@@ -1,5 +1,5 @@
 import type { SandboxHandle } from "@alineo-labs/core";
-import type { PiAdapter } from "../adapters/pi";
+import type { HarnessAdapter } from "../harness";
 import type { EgressApprovalGate } from "./egress-approval";
 
 /**
@@ -9,7 +9,7 @@ import type { EgressApprovalGate } from "./egress-approval";
  * exported interface within the package.
  */
 export interface AgentInternal {
-  readonly adapter: PiAdapter;
+  readonly adapter: HarnessAdapter;
   readonly sandbox: SandboxHandle;
   env: Record<string, string>;
   /** Present when the spec has `approval: "hold"` credential bindings. */

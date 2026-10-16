@@ -8,7 +8,14 @@ export type {
   EgressApprovalGateOptions,
   HeldCredential,
 } from "./agent";
-export type { AgentSpec, SetupStep } from "./schema";
+export type {
+  AgentSpec,
+  AgentSpecInput,
+  HarnessId,
+  HarnessRef,
+  ModelRef,
+  SetupStep,
+} from "./schema";
 export { validateAgentSpec } from "./schema";
 export type {
   PermissionMode,
@@ -49,3 +56,24 @@ export { isSandboxGone } from "./sandbox-gone";
 export { DEFAULT_PROVIDER_ID } from "@alineo-labs/core";
 export type { LatestCheckpoint } from "./restore";
 export { findLatestCheckpoint, restoreCheckpoint } from "./restore";
+export type {
+  HarnessEvent,
+  HarnessEventBody,
+  HarnessCapabilities,
+  HarnessCapability,
+  HarnessAdapter,
+  HarnessSandbox,
+  HarnessRegistry,
+  TurnInput,
+  FakeScenario,
+} from "./harness";
+export {
+  PI_CAPABILITIES,
+  fromPiEvent,
+  createHarness,
+  registeredHarnesses,
+  requireHarnessCapability,
+  FakeHarness,
+} from "./harness";
+export { ClaudeCodeAdapter, CLAUDE_CODE_CAPABILITIES } from "./adapters/claude-code";
+export { CodexAdapter, CODEX_CAPABILITIES } from "./adapters/codex";

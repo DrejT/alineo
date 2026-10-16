@@ -156,8 +156,14 @@ async function extractSpecProvider(
   const specPath = (commandName === "fork" ? argv.slice(1) : argv).find((a) => !a.startsWith("--"));
   if (!specPath) return undefined;
   try {
-    const spec = (await Bun.file(specPath).json()) as { provider?: unknown };
-    return typeof spec.provider === "string" ? spec.provider : undefined;
+    const spec = (await Bun.file(specPath).json()) as { provider?: unknown; model?: unknown };
+    // `model.provider` is where the provider moved to. The top-level field is the old spelling.
+    const nested =
+      typeof spec.model === "object" && spec.model !== null
+        ? (spec.model as { provider?: unknown }).provider
+        : undefined;
+    const provider = nested ?? spec.provider;
+    return typeof provider === "string" ? provider : undefined;
   } catch {
     return undefined;
   }

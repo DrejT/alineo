@@ -23,9 +23,17 @@ export type {
   PermissionRule,
 } from "./permissions";
 
-export { AgentSpecSchema } from "./agent-spec";
+export { AgentSpecSchema, normalizeAgentSpec, deprecatedSpecFields } from "./agent-spec";
 export { resourceRefOf } from "./resource-ref";
-export type { AgentSpec, CredentialEnvBinding, SetupStep } from "./agent-spec";
+export type {
+  AgentSpec,
+  AgentSpecInput,
+  CredentialEnvBinding,
+  HarnessId,
+  HarnessRef,
+  ModelRef,
+  SetupStep,
+} from "./agent-spec";
 
 export {
   PROJECT_CONFIG_SCHEMA_URL,
