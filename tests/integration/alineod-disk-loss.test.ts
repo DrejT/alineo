@@ -131,14 +131,18 @@ function ledgerEvents(root: string, agentId: string) {
 }
 
 let server: Subprocess | undefined;
-async function startServer(root: string): Promise<void> {
+async function startServer(root: string, listenTimeoutMs = 90_000): Promise<void> {
   server = Bun.spawn(["bun", SERVER], {
     cwd: root,
     env: { ...process.env, ...S3, ...dataEnv(root) },
     stdout: "inherit",
     stderr: "inherit",
   });
-  await until(async () => (await api("GET", "/health")).status === 200, "alineod to listen", 90_000);
+  await until(
+    async () => (await api("GET", "/health")).status === 200,
+    "alineod to listen",
+    listenTimeoutMs,
+  );
 }
 
 function script(name: string, root: string, args: string[]) {
@@ -232,7 +236,10 @@ suite("alineod: a swarm survives the loss of the whole machine's disk", () => {
 
     // The new machine: restore into an empty directory, start alineod there.
     script("restore.ts", NEW, ["--from", "backup"]);
-    await startServer(NEW);
+    // alineod listens only after it has reconnected every agent. On a machine with no setup
+    // snapshots each restore first installs the harness (about a minute on a small VPS), so this
+    // wait grows with the number of distinct specs. That is the recovery time the docs describe.
+    await startServer(NEW, 900_000);
   }, 1_200_000);
 
   test("every agent is on a different sandbox", async () => {

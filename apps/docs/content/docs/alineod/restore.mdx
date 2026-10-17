@@ -159,6 +159,10 @@ Agents are restored up to `ALINEOD_REHYDRATE_CONCURRENCY` at a time. On a machin
 agent of each spec goes first, because it installs the harness (about 90 s) and saves the snapshot the rest start
 from. Then the other agents of that spec follow in parallel.
 
+alineod does not answer requests while it does this: it starts listening after every agent is reconnected. Poll
+`GET /health` and expect minutes, not seconds, on a machine with no setup snapshots. On a 1 vCPU, 4 GB VPS the
+harness install took about 65 s per spec.
+
 A rough bound: one setup install per distinct spec, plus (agents ÷ concurrency) × the time to restore one container.
 Measure your own with `apps/alineod/scripts/checkpoint-load.ts`.
 
