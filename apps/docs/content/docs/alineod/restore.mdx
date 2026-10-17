@@ -169,7 +169,7 @@ Measure your own with `apps/alineod/scripts/checkpoint-load.ts`.
 ## What is lost
 
 - The turn that was running when the disk was lost. It is recorded as `agent.turn_interrupted`.
-- Ledger events newer than the replica. Litestream is normally about a second behind.
+- Ledger events newer than the replica. Litestream syncs about once a second. One measured sample (Litestream 0.5.17, 1 vCPU VPS, about 190 durable writes a second, both processes killed at the same instant): 12 of 2,885 acknowledged writes missing, about 60 ms. Treat that as one data point, not a bound.
 - Results written since the last full backup, if you restored the work dir from one.
 - Agents without `"checkpoint": true` come back with a blank session.
 - Agents with `approval: "hold"` credential bindings are not restored from a gone container yet.
