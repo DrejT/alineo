@@ -5,7 +5,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { emit } from "../src/engine/emit";
 import { get } from "../src/engine/registry";
-import { rehydrate } from "../src/engine/rehydrate";
+import { rehydrate, restoreWaves } from "../src/engine/rehydrate";
+import type { AgentRow } from "../src/state/projection";
 import { newAgentId, newRunId } from "../src/ids";
 import { getAgentRow, getHandle } from "../src/state/projection";
 import { call, events, spec, until, wipeState } from "./helpers";
@@ -578,5 +579,47 @@ describe("paused agents", () => {
 
     expect(getAgentRow(id)).toMatchObject({ state: "lost", outcome: "lost" });
     expect(fakeSdk.calls.resume).toEqual([]);
+  });
+});
+
+describe("restoreWaves (M4: bounded parallel restore)", () => {
+  const row = (id: string, specName: string) =>
+    ({ agent_id: id, spec_json: JSON.stringify({ name: specName }) }) as unknown as AgentRow;
+
+  const ids = (waves: AgentRow[][]) => waves.map((w) => w.map((a) => a.agent_id));
+
+  test("a limit of one is a single wave in the given order", () => {
+    const agents = [row("a", "x"), row("b", "y"), row("c", "x")];
+    expect(ids(restoreWaves(agents, 1))).toEqual([["a", "b", "c"]]);
+  });
+
+  test("with more, the first agent of each spec goes first and its siblings after", () => {
+    const agents = [row("a", "x"), row("b", "x"), row("c", "y"), row("d", "x"), row("e", "y")];
+    expect(ids(restoreWaves(agents, 4))).toEqual([
+      ["a", "c"],
+      ["b", "d", "e"],
+    ]);
+  });
+
+  test("agents that all have their own spec need only one wave", () => {
+    const agents = [row("a", "x"), row("b", "y"), row("c", "z")];
+    expect(ids(restoreWaves(agents, 4))).toEqual([["a", "b", "c"]]);
+  });
+
+  test("no agents means no waves", () => {
+    expect(restoreWaves([], 4)).toEqual([]);
+    expect(restoreWaves([], 1)).toEqual([]);
+  });
+
+  test("a spec that does not parse is its own group and does not hold others back", () => {
+    const broken = { agent_id: "bad", spec_json: "{not json" } as unknown as AgentRow;
+    const agents = [broken, row("a", "x"), row("b", "x")];
+    expect(ids(restoreWaves(agents, 4))).toEqual([["bad", "a"], ["b"]]);
+  });
+
+  test("every agent appears exactly once", () => {
+    const agents = Array.from({ length: 25 }, (_, i) => row(`a${i}`, `s${i % 4}`));
+    const flat = restoreWaves(agents, 3).flat();
+    expect(flat.map((a) => a.agent_id).sort()).toEqual(agents.map((a) => a.agent_id).sort());
   });
 });

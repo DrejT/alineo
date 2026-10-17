@@ -24,6 +24,13 @@ process.env.ALINEOD_REATTACH_RETRY_DELAY_MS = "10";
 // admission.test.ts can exercise real contention with just a couple of fake agents.
 process.env.ALINEOD_ADMISSION_CONCURRENCY = "2";
 process.env.ALINEOD_ADMISSION_TIMEOUT_MS = "300";
+// One agent at a time on rehydrate, the order every test was written against. The parallel waves
+// are tested directly through `restoreWaves()` and a limiter, not through this default.
+process.env.ALINEOD_REHYDRATE_CONCURRENCY = "1";
+// Fixed, not derived from the CI runner's core count. With one slot, a checkpoint queues behind the
+// previous turn's and is dropped when a newer turn has started, which the "every turn
+// checkpointed" test is not about.
+process.env.ALINEOD_CHECKPOINT_CONCURRENCY = "8";
 
 const { FakeAlineo } = await import("./fakes");
 // durability-roadmap M3, 3.2: stream.ts imports `checkpointsPath`/`takeCheckpoint` from
@@ -47,4 +54,6 @@ mock.module("alineo", () => ({
   isSandboxGone: real.isSandboxGone,
   findLatestCheckpoint: real.findLatestCheckpoint,
   restoreCheckpoint: real.restoreCheckpoint,
+  S3BlobStore: real.S3BlobStore,
+  MemoryBlobStore: real.MemoryBlobStore,
 }));

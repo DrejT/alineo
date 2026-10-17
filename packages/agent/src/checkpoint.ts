@@ -1,6 +1,10 @@
 import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { LedgerEvent, type SandboxHandle } from "@alineo-labs/core";
+import { getLogger } from "@alineo-labs/logger";
+import type { BlobStore } from "./blob-store";
+
+const log = getLogger("checkpoint");
 
 /**
  * Turn-level checkpointing (durability-roadmap.md M3, 3.2) — deliberately NOT
@@ -70,14 +74,30 @@ export const DEFAULT_WORKSPACE_EXCLUDES = [
  */
 export const DEFAULT_CHECKPOINT_RETENTION = 3;
 
+/**
+ * durability-roadmap M4, 4.1: an off-box blob is deleted only when it is both beyond the retention
+ * count AND at least this old. The ledger can be restored from a replica that trails the live one
+ * by a few seconds, so after a disk loss it may name a checkpoint that is no longer the newest. The
+ * margin keeps that older blob alive long enough to be found. The restore also falls back from a
+ * missing blob to the next older checkpoint, so this is a second line of defence.
+ */
+export const DEFAULT_REMOTE_PRUNE_MIN_AGE_MS = 10 * 60_000;
+
 export interface CheckpointRecord {
   /** Monotonic within this `Alineo` instance's lifetime — an ordinal for humans reading
    * `alineo logs`, not the mechanism restore uses to find the latest one (that's ledger
    * append order, via `AgentCheckpointed` events). Resets to 0 across a resume/reattach — a
    * fresh process starting its own count at 0 again causes no restore-correctness issue. */
   turn: number;
-  /** A path on the host filesystem today (single-node M3 scope). M4 moves this off-box. */
+  /** A path on the host filesystem. Always set: the local copy is kept (M4 decision D5). */
   snapshotRef: string;
+  /**
+   * Where the same tarball lives off the box (M4, 4.1), when a `BlobStore` was given and the
+   * upload worked. `undefined` means this checkpoint exists on the host disk only.
+   */
+  remoteRef?: string;
+  /** Why the upload failed, when a `BlobStore` was given and it did. */
+  uploadError?: string;
   createdAt: number;
 }
 
@@ -109,6 +129,27 @@ async function pruneOldCheckpoints(dir: string, retain: number): Promise<void> {
 }
 
 /**
+ * Delete this sandbox's old off-box checkpoints: all but the newest `retain`, and only those older
+ * than `minAgeMs`. Best-effort like the local prune: a failure is returned to the caller to log and
+ * never thrown, because the checkpoint it follows already succeeded.
+ */
+export async function pruneRemoteCheckpoints(
+  store: BlobStore,
+  sandboxId: string,
+  opts: { retain: number; minAgeMs: number; now?: number },
+): Promise<string[]> {
+  const now = opts.now ?? Date.now();
+  const blobs = await store.list(`${sandboxId}/`);
+  blobs.sort((a, b) => b.lastModified - a.lastModified);
+  const doomed = blobs
+    .slice(opts.retain)
+    .filter((b) => now - b.lastModified >= opts.minAgeMs)
+    .map((b) => b.key);
+  await Promise.all(doomed.map((key) => store.delete(key)));
+  return doomed;
+}
+
+/**
  * Tar `CHECKPOINT_ROOT` (minus the default excludes) inside the sandbox, pull the bytes out
  * byte-safe (`sb.readFileBytes()`, never `readFile()`'s UTF-8 path — a gzip tarball is not
  * valid UTF-8), write them to `checkpointsDir`, and record `AgentCheckpointed` on the sandbox's
@@ -127,7 +168,19 @@ async function pruneOldCheckpoints(dir: string, retain: number): Promise<void> {
 export async function takeCheckpoint(
   sb: SandboxHandle,
   checkpointsDir: string,
-  opts: { turn: number; excludeGlobs?: string[]; retain?: number },
+  opts: {
+    turn: number;
+    excludeGlobs?: string[];
+    retain?: number;
+    /**
+     * Also send the tarball to this store (M4, 4.1). The host copy is still written and still
+     * pruned. A failed upload does not fail the checkpoint: it is recorded as `uploadError` and the
+     * checkpoint stays local-only, which is what M3 did.
+     */
+    blobStore?: BlobStore;
+    /** Override `DEFAULT_REMOTE_PRUNE_MIN_AGE_MS`. */
+    remoteMinAgeMs?: number;
+  },
 ): Promise<CheckpointRecord> {
   const tmpTarPath = `/tmp/alineo-checkpoint-${crypto.randomUUID()}.tar.gz`;
   const excludeArgs = [
@@ -150,13 +203,54 @@ export async function takeCheckpoint(
     await mkdir(dir, { recursive: true });
     const snapshotRef = join(dir, `${opts.turn}-${createdAt}.tar.gz`);
     await writeFile(snapshotRef, bytes);
-    await sb.emit(LedgerEvent.AgentCheckpointed, -1, { turn: opts.turn, snapshotRef });
+
+    // Off-box copy, still before the ledger event: an event never names a blob that is not there.
+    // The key mirrors the local layout (`<sandboxId>/<file>`), so the two are easy to compare.
+    let remoteRef: string | undefined;
+    let uploadError: string | undefined;
+    const retain = opts.retain ?? DEFAULT_CHECKPOINT_RETENTION;
+    if (opts.blobStore) {
+      const key = `${sb.sandboxId}/${opts.turn}-${createdAt}.tar.gz`;
+      try {
+        // From the file just written, not from `bytes`: the store streams a path, so a second
+        // in-memory copy of the tarball is not needed.
+        await opts.blobStore.put(key, snapshotRef);
+        remoteRef = opts.blobStore.refOf(key);
+      } catch (err) {
+        uploadError = err instanceof Error ? err.message : String(err);
+        log.warn("off-box upload failed -- the checkpoint stays on the host disk only", {
+          sandboxId: sb.sandboxId,
+          turn: opts.turn,
+          error: uploadError,
+        });
+      }
+    }
+
+    await sb.emit(LedgerEvent.AgentCheckpointed, -1, {
+      turn: opts.turn,
+      snapshotRef,
+      ...(remoteRef ? { remoteRef } : {}),
+      ...(uploadError ? { uploadError } : {}),
+    });
     try {
-      await pruneOldCheckpoints(dir, opts.retain ?? DEFAULT_CHECKPOINT_RETENTION);
+      await pruneOldCheckpoints(dir, retain);
     } catch {
       /* best-effort cleanup only -- the checkpoint itself already succeeded */
     }
-    return { turn: opts.turn, snapshotRef, createdAt };
+    if (opts.blobStore && remoteRef) {
+      try {
+        await pruneRemoteCheckpoints(opts.blobStore, sb.sandboxId, {
+          retain,
+          minAgeMs: opts.remoteMinAgeMs ?? DEFAULT_REMOTE_PRUNE_MIN_AGE_MS,
+        });
+      } catch (err) {
+        log.warn("off-box checkpoint pruning failed", {
+          sandboxId: sb.sandboxId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { turn: opts.turn, snapshotRef, remoteRef, uploadError, createdAt };
   } finally {
     // Best-effort — the temp file is inside an ephemeral container anyway, and a failure here
     // must never mask the real result (success or the error thrown above).

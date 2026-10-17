@@ -17,11 +17,14 @@ import { restartBridge } from "./sdk";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
 import { resolveTurnFailure } from "./supervision";
-import { errorMessage, sleep, withTimeout } from "../util";
+import { createLimiter, errorMessage, sleep, withTimeout } from "../util";
+import { checkpointBlobStore } from "./offbox";
 import { getAgentRow, getHandle } from "../state/projection";
 import { resetFailureCounters } from "../state/db";
 import {
+  BACKUP_REMOTE_MIN_AGE_MS,
   CATCH_UP_POLL_MS,
+  CHECKPOINT_CONCURRENCY,
   PROMPT_INACTIVITY_TIMEOUT_MS,
   SDK_LEDGER_PATH,
   STATE_PROBE_TIMEOUT_MS,
@@ -40,6 +43,24 @@ const CHECKPOINTS_DIR = checkpointsPath(SDK_LEDGER_PATH);
 const checkpointTurn = new Map<string, number>();
 
 /**
+ * At most `ALINEOD_CHECKPOINT_CONCURRENCY` checkpoints run at once (M4, D8). Each one holds a whole
+ * tarball in memory while it is read out of the sandbox, so twenty agents settling in the same
+ * second would otherwise hold twenty tarballs at once. A burst waits here instead.
+ */
+const checkpointSlot = createLimiter(CHECKPOINT_CONCURRENCY);
+
+/**
+ * Counts every turn alineod starts to follow, per agent. A checkpoint that waited in the queue
+ * compares it with the value it saw when it was scheduled: if it moved, a newer turn is running
+ * and Pi may be writing its session file, so the tarball could be torn. That checkpoint is dropped.
+ * The newer turn takes its own when it settles.
+ */
+const turnsStarted = new Map<string, number>();
+const noteTurnStarted = (agentId: string): void => {
+  turnsStarted.set(agentId, (turnsStarted.get(agentId) ?? 0) + 1);
+};
+
+/**
  * Best-effort, after a turn that **genuinely, cleanly finished** — never on a turn alineod gave
  * up waiting on (even one recorded as a "success" because usable partial text existed; that
  * text existing doesn't mean Pi's session file finished flushing, and checkpointing it risks
@@ -54,15 +75,30 @@ async function maybeCheckpoint(runId: string, agentId: string): Promise<void> {
   if (!row || !agent) return;
   const spec = JSON.parse(row.spec_json) as AgentSpec;
   if (!spec.checkpoint) return;
-  const turn = (checkpointTurn.get(agentId) ?? 0) + 1;
+  const scheduledAt = turnsStarted.get(agentId) ?? 0;
   try {
-    const { snapshotRef } = await takeCheckpoint(agent.sandbox, CHECKPOINTS_DIR, { turn });
-    checkpointTurn.set(agentId, turn);
-    emit(runId, agentId, "agent.checkpointed", { turn, snapshotRef });
+    await checkpointSlot(async () => {
+      if ((turnsStarted.get(agentId) ?? 0) !== scheduledAt) {
+        log.info("checkpoint skipped — a newer turn started while it waited", { agentId });
+        return;
+      }
+      const turn = (checkpointTurn.get(agentId) ?? 0) + 1;
+      const rec = await takeCheckpoint(agent.sandbox, CHECKPOINTS_DIR, {
+        turn,
+        blobStore: checkpointBlobStore,
+        remoteMinAgeMs: BACKUP_REMOTE_MIN_AGE_MS,
+      });
+      checkpointTurn.set(agentId, turn);
+      emit(runId, agentId, "agent.checkpointed", {
+        turn,
+        snapshotRef: rec.snapshotRef,
+        ...(rec.remoteRef ? { remoteRef: rec.remoteRef } : {}),
+        ...(rec.uploadError ? { uploadError: rec.uploadError } : {}),
+      });
+    });
   } catch (err) {
     log.warn("checkpoint failed — the turn's own outcome is unaffected", {
       agentId,
-      turn,
       error: errorMessage(err),
     });
   }
@@ -139,6 +175,7 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
 
   setState(agentId, "running", "prompt");
   driving.add(agentId);
+  noteTurnStarted(agentId);
 
   try {
     let endMessages: unknown;
@@ -284,6 +321,7 @@ export async function catchUpTurn(
   if (!opts.afterStream && getHandle(agentId)?.state === "settled") return;
   if (isTurnActive(agentId) || !get(agentId)) return;
   catchingUp.add(agentId);
+  noteTurnStarted(agentId);
 
   try {
     let activeMs = 0;

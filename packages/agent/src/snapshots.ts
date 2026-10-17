@@ -67,23 +67,41 @@ export class AgentSnapshotStore {
     return data[this._key(specName, setupHash)] ?? null;
   }
 
-  async save(record: AgentSnapshotRecord): Promise<void> {
-    const data = await this._read();
-    // Remove stale records for the same spec (different hash = old packages).
-    for (const k of Object.keys(data)) {
-      if (data[k].specName === record.specName) delete data[k];
-    }
-    data[this._key(record.specName, record.setupHash)] = record;
-    await this._write(data);
+  /**
+   * Writes are read-modify-write on one file. Two at once (several specs finishing their setup
+   * together, as when alineod restores a whole swarm onto a new machine) would each read the old
+   * file and the second write would drop the first record. This chain runs them one at a time.
+   * It guards one process: a second process on the same file is not supported.
+   */
+  private writing: Promise<unknown> = Promise.resolve();
+
+  private serialized<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.writing.then(fn, fn);
+    this.writing = run.catch(() => {});
+    return run;
+  }
+
+  save(record: AgentSnapshotRecord): Promise<void> {
+    return this.serialized(async () => {
+      const data = await this._read();
+      // Remove stale records for the same spec (different hash = old packages).
+      for (const k of Object.keys(data)) {
+        if (data[k].specName === record.specName) delete data[k];
+      }
+      data[this._key(record.specName, record.setupHash)] = record;
+      await this._write(data);
+    });
   }
 
   /** Remove all snapshot records for the given spec name. */
-  async delete(specName: string): Promise<void> {
-    const data = await this._read();
-    for (const k of Object.keys(data)) {
-      if (data[k].specName === specName) delete data[k];
-    }
-    await this._write(data);
+  delete(specName: string): Promise<void> {
+    return this.serialized(async () => {
+      const data = await this._read();
+      for (const k of Object.keys(data)) {
+        if (data[k].specName === specName) delete data[k];
+      }
+      await this._write(data);
+    });
   }
 
   async list(): Promise<AgentSnapshotRecord[]> {
