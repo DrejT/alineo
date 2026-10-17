@@ -6,7 +6,7 @@ import {
   type CliRenderer,
   type SelectOption,
 } from "@opentui/core";
-import { Sandbox } from "@alineo-labs/sandbox";
+import { clientFromConfig } from "@alineo-labs/sandbox";
 import type { SandboxDetails } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "@alineo-labs/cli-shared";
@@ -85,12 +85,7 @@ export function createDashboardView(
     status.content = `stopping ${session.name}...`;
     try {
       const config = await readConfig();
-      const client = new Sandbox({
-        baseUrl: config.serverUrl,
-        apiKey: config.apiKey,
-        adapter: new SQLiteAdapter(config.adapterPath),
-        useServerProxy: config.useServerProxy,
-      });
+      const client = clientFromConfig(config, { adapter: new SQLiteAdapter(config.adapterPath) });
       const sb = await client.connect(session.sandboxId, session.name);
       await sb.close();
       await refresh();

@@ -28,8 +28,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@alineo-labs/core": "workspace:*",
-    "@alineo-labs/opensandbox": "workspace:*"
+    "@alineo-labs/core": "workspace:*"
   },
   "devDependencies": {
     "bun-types": "1.4.2",

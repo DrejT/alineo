@@ -6,10 +6,20 @@
  * working. What stays is what actually does something: validation, and the error it throws.
  */
 import * as z from "zod";
-import { AgentSpecSchema } from "@alineo-labs/schema";
+import { getLogger } from "@alineo-labs/logger";
+import { AgentSpecSchema, deprecatedSpecFields, normalizeAgentSpec } from "@alineo-labs/schema";
+import type { AgentSpecInput } from "@alineo-labs/schema";
 import { AgentSpecValidationError } from "./errors";
 
-export type { AgentSpec, CredentialEnvBinding, SetupStep } from "@alineo-labs/schema";
+export type {
+  AgentSpec,
+  AgentSpecInput,
+  CredentialEnvBinding,
+  HarnessId,
+  HarnessRef,
+  ModelRef,
+  SetupStep,
+} from "@alineo-labs/schema";
 import type { AgentSpec } from "@alineo-labs/schema";
 
 /**
@@ -50,5 +60,16 @@ export function validateAgentSpec(data: unknown): AgentSpec {
       })),
     );
   }
-  return result.data;
+  const input = result.data as AgentSpecInput;
+  const spec = normalizeAgentSpec(input);
+  for (const { field, use } of deprecatedSpecFields(input)) {
+    if (warned.has(`${spec.name}:${field}`)) continue;
+    warned.add(`${spec.name}:${field}`);
+    log.warn(`agent spec "${spec.name}" sets '${field}', which is deprecated. Use '${use}'.`);
+  }
+  return spec;
 }
+
+const log = getLogger("agent");
+/** One warning per spec and field per process, not one per start. */
+const warned = new Set<string>();

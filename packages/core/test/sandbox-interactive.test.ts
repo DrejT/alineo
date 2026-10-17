@@ -4,8 +4,9 @@ import type { SandboxDeps, PendingInteractiveExec } from "../src/sandbox/index.t
 import { LedgerEvent } from "../src/ledger.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import type { ExecResult } from "../src/exec-handle.ts";
-import type { PtyOutputListener, PtyExitListener } from "@alineo-labs/opensandbox";
-import { stubControl } from "./control-stub.ts";
+type PtyOutputListener = (chunk: string) => void;
+type PtyExitListener = (exitCode: number) => void;
+import { stubProvider } from "./provider-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -26,7 +27,7 @@ function makeAdapter(): IStorageAdapter {
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return {
-    control: stubControl({ deleteSandbox: vi.fn().mockResolvedValue(undefined) }),
+    provider: stubProvider({ deleteSandbox: vi.fn().mockResolvedValue(undefined) }),
     adapter,
   };
 }

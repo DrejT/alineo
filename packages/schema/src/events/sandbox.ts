@@ -24,6 +24,12 @@ export const SandboxCreated = defineEvent({
     teamId: z.string().optional(),
     /** Set when this session came from `sb.fork()`; absent for a top-level `client.sandbox()`. */
     parentSandboxId: z.string().optional(),
+    /**
+     * The sandbox provider that owns `sandboxId`. Absent on rows written before this field
+     * existed, and an absent value means `"opensandbox"` (the only provider there was). Readers
+     * apply that default; there is no migration.
+     */
+    provider: z.string().optional(),
   }),
 });
 
@@ -86,6 +92,14 @@ export const ExecCompleted = defineEvent({
     exitCode: z.number().int().optional(),
     stdout: z.string().optional(),
     stderr: z.string().optional(),
+    /** How long the command ran, in milliseconds, as the client measured it. */
+    durationMs: z.number().int().optional(),
+    /** Present and true when a signal ended the command. */
+    killed: z.boolean().optional(),
+    /** The signal, as the server reported it. Set with `killed`. */
+    signal: z.string().optional(),
+    /** Present and true when the command was killed after running for `timeoutMs`. */
+    timedOut: z.boolean().optional(),
   }),
 });
 

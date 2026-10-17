@@ -1,4 +1,4 @@
-import { Sandbox } from "@alineo-labs/sandbox";
+import { clientFromConfig } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "@alineo-labs/cli-shared";
 import type { CliCommand } from "./types.js";
@@ -14,12 +14,7 @@ export async function stop(sandboxId: string): Promise<void> {
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter });
 
   const sb = await client.connect(sandboxId, sandboxId);
   await sb.close();

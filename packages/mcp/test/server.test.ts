@@ -95,6 +95,49 @@ describe("alineo-mcp server", () => {
     }
   });
 
+  it("adds the hint to the tool result when alineod sent one", async () => {
+    const fetchImpl = stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: "execd not ready",
+            code: "EXEC_NOT_READY",
+            hint: "check execd_image",
+          }),
+          { status: 500 },
+        ),
+    );
+    const { client, close } = await connectedClient(fetchImpl);
+    try {
+      const result = await client.callTool({ name: "run_get", arguments: { runId: "r1" } });
+      const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
+      expect(text).toBe(
+        "alineod error (500, EXEC_NOT_READY): execd not ready\nHint: check execd_image",
+      );
+    } finally {
+      await close();
+    }
+  });
+
+  it("names the error code in the tool result when alineod sent one", async () => {
+    const fetchImpl = stubFetch(
+      async () =>
+        new Response(JSON.stringify({ error: "agent is not live", code: "SANDBOX_NOT_RUNNING" }), {
+          status: 409,
+        }),
+    );
+    const { client, close } = await connectedClient(fetchImpl);
+    try {
+      const result = await client.callTool({ name: "run_get", arguments: { runId: "r1" } });
+      expect(result.isError).toBe(true);
+      const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
+      expect(text).toContain("409, SANDBOX_NOT_RUNNING");
+      expect(text).toContain("agent is not live");
+    } finally {
+      await close();
+    }
+  });
+
   it("flags a tool call missing a required argument before it reaches the handler", async () => {
     const fetchImpl = stubFetch(async () => new Response(null, { status: 204 }));
     const { client, close } = await connectedClient(fetchImpl);
@@ -119,6 +162,7 @@ describe("alineo-mcp server local spec tools", () => {
     process.chdir(tempDir);
     // Keeps readConfig() off its global-fallback branch (~/.config/alineo) — see specs.test.ts.
     await writeConfig({
+      provider: "opensandbox",
       serverUrl: "http://127.0.0.1:8080",
       useServerProxy: true,
       apiKey: "",

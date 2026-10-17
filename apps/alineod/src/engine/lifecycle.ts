@@ -21,7 +21,7 @@
  */
 import { get, forget } from "./registry";
 import { emit, onEmit } from "./emit";
-import { setState } from "./stream";
+import { cancelBackoff, setState } from "./stream";
 import {
   getAgentRow,
   getRun,
@@ -59,6 +59,8 @@ export function stopAgent(
       }
 
       setState(agentId, "aborted", `stop:${mode}`);
+      // A retry that is waiting out its backoff must not fire after an operator said stop.
+      cancelBackoff(agentId);
       if (agent) {
         // A frozen bridge can't answer an abort; closing the sandbox is enough.
         if (row.state !== "paused") {
@@ -158,6 +160,7 @@ async function finalizeRun(runId: string, reason: "explicit" | "quiescent"): Pro
 }
 
 async function closeQuietly(agentId: string): Promise<void> {
+  cancelBackoff(agentId);
   const agent = get(agentId);
   if (!agent) return;
   try {

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Sandbox, type SandboxHandle } from "../src/client.ts";
 import { Environment, type EnvironmentSandboxOptions } from "../src/environment.ts";
-import { SandboxState } from "@alineo-labs/opensandbox";
 import {
   LedgerEvent,
   SandboxStatus,
@@ -39,11 +38,11 @@ function makeClient(adapter: IStorageAdapter, opts: { maxConcurrency?: number } 
 
 /**
  * Reaches Sandbox's private concurrency-semaphore internals for the tests below,
- * instead of `as any` at every call site. `_control` is typed `unknown` because
+ * instead of `as any` at every call site. `_provider` is typed `unknown` because
  * tests deliberately swap in a partial fake, not a real ControlClient.
  */
 interface SandboxInternals {
-  _control: unknown;
+  _provider: unknown;
   _activeCount: number;
   _acquireSlot(): Promise<void>;
   _releaseSlot(): void;
@@ -338,8 +337,9 @@ describe("Sandbox._getOrBuildEnvironment concurrency guard", () => {
 
 function makeFakeControl(overrides: Record<string, unknown> = {}) {
   return {
+    id: "opensandbox",
     createSandbox: vi.fn().mockResolvedValue({ id: "new-id" }),
-    getSandbox: vi.fn().mockResolvedValue({ status: { state: SandboxState.Running } }),
+    getSandbox: vi.fn().mockResolvedValue({ id: "x", state: "running", nativeState: "Running" }),
     ...overrides,
   };
 }
@@ -348,7 +348,7 @@ describe("Sandbox.restoreSnapshot() fork wiring", () => {
   it("wires a working fork() closure onto the restored SandboxHandle", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.restoreSnapshot("snap-1", "my-agent", {
       cpu: "500m",
@@ -363,7 +363,7 @@ describe("Sandbox.connect() fork wiring", () => {
   it("does not wire fork() when no resources are given", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.connect("sandbox-1", "my-agent");
 
@@ -373,7 +373,7 @@ describe("Sandbox.connect() fork wiring", () => {
   it("wires a working fork() closure when resources are given", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.connect("sandbox-1", "my-agent", {
       resources: { cpu: "500m", memory: "256Mi" },
@@ -386,8 +386,8 @@ describe("Sandbox.connect() fork wiring", () => {
 describe("Sandbox.connect() paused sandboxes", () => {
   it("refuses a Paused sandbox by default", async () => {
     const client = makeClient(makeAdapter());
-    internals(client)._control = makeFakeControl({
-      getSandbox: vi.fn().mockResolvedValue({ status: { state: SandboxState.Paused } }),
+    internals(client)._provider = makeFakeControl({
+      getSandbox: vi.fn().mockResolvedValue({ id: "x", state: "paused", nativeState: "Paused" }),
     });
 
     await expect(client.connect("sandbox-1", "my-agent")).rejects.toThrow(/allowPaused/);
@@ -395,8 +395,8 @@ describe("Sandbox.connect() paused sandboxes", () => {
 
   it("connects to a Paused sandbox with allowPaused, returning a handle marked paused", async () => {
     const client = makeClient(makeAdapter());
-    internals(client)._control = makeFakeControl({
-      getSandbox: vi.fn().mockResolvedValue({ status: { state: SandboxState.Paused } }),
+    internals(client)._provider = makeFakeControl({
+      getSandbox: vi.fn().mockResolvedValue({ id: "x", state: "paused", nativeState: "Paused" }),
     });
 
     const sb = await client.connect("sandbox-1", "my-agent", { allowPaused: true });
@@ -406,8 +406,10 @@ describe("Sandbox.connect() paused sandboxes", () => {
 
   it("still refuses a sandbox that is neither Running nor Paused, even with allowPaused", async () => {
     const client = makeClient(makeAdapter());
-    internals(client)._control = makeFakeControl({
-      getSandbox: vi.fn().mockResolvedValue({ status: { state: SandboxState.Terminated } }),
+    internals(client)._provider = makeFakeControl({
+      getSandbox: vi
+        .fn()
+        .mockResolvedValue({ id: "x", state: "terminated", nativeState: "Terminated" }),
     });
 
     await expect(client.connect("sandbox-1", "my-agent", { allowPaused: true })).rejects.toThrow(
@@ -417,7 +419,7 @@ describe("Sandbox.connect() paused sandboxes", () => {
 
   it("does not mark a Running sandbox paused", async () => {
     const client = makeClient(makeAdapter());
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.connect("sandbox-1", "my-agent", { allowPaused: true });
 
@@ -445,7 +447,7 @@ describe("Sandbox.sandbox() resourceId/teamId threading", () => {
   it("includes resourceId/teamId in the ledger payload and the fork closure", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.sandbox({
       image: "node:22",
@@ -492,10 +494,206 @@ describe("Sandbox.resume() resourceId/teamId threading", () => {
       },
     ]);
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     await client.resume("orig");
     expect(createdPayload(adapter)).toMatchObject({ resourceId: "user-1", teamId: "acme" });
+  });
+});
+
+describe("capabilities are checked before a sandbox is created", () => {
+  const withDescriptor = (capabilities: Record<string, unknown>) =>
+    makeFakeControl({ descriptor: { id: "opensandbox", label: "x", capabilities } });
+
+  it("refuses a networkPolicy on a provider that cannot enforce egress", async () => {
+    const client = makeClient(makeAdapter());
+    const fake = withDescriptor({ egress: false });
+    internals(client)._provider = fake;
+
+    await expect(
+      client.sandbox({
+        image: "node:22",
+        resources: { cpu: "500m", memory: "256Mi" },
+        networkPolicy: {
+          defaultAction: "deny",
+          egress: [{ action: "allow", target: "example.com" }],
+        },
+      }),
+    ).rejects.toMatchObject({ code: "CAPABILITY_UNSUPPORTED", details: { capability: "egress" } });
+    expect(fake.createSandbox).not.toHaveBeenCalled();
+  });
+
+  it("refuses credentialProxy on a provider that cannot inject credentials", async () => {
+    const client = makeClient(makeAdapter());
+    const fake = withDescriptor({ credentials: false });
+    internals(client)._provider = fake;
+
+    await expect(
+      client.sandbox({
+        image: "node:22",
+        resources: { cpu: "500m", memory: "256Mi" },
+        credentialProxy: true,
+        networkPolicy: { defaultAction: "deny", egress: [] },
+      }),
+    ).rejects.toMatchObject({
+      code: "CAPABILITY_UNSUPPORTED",
+      details: { capability: "credentials" },
+    });
+    expect(fake.createSandbox).not.toHaveBeenCalled();
+  });
+
+  it("goes ahead when the capability is unverified", async () => {
+    const client = makeClient(makeAdapter());
+    internals(client)._provider = withDescriptor({ egress: "unverified" });
+
+    await expect(
+      client.sandbox({
+        image: "node:22",
+        resources: { cpu: "500m", memory: "256Mi" },
+        networkPolicy: {
+          defaultAction: "deny",
+          egress: [{ action: "allow", target: "example.com" }],
+        },
+      }),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe("provider identity on the ledger", () => {
+  it("stamps the provider on every sandbox.created it writes", async () => {
+    const adapter = makeAdapter();
+    const client = makeClient(adapter);
+    internals(client)._provider = makeFakeControl();
+
+    await client.sandbox({ image: "node:22", resources: { cpu: "500m", memory: "256Mi" } });
+    expect(createdPayload(adapter)).toMatchObject({ provider: "opensandbox" });
+  });
+
+  it("exposes the provider on the handle", async () => {
+    const client = makeClient(makeAdapter());
+    internals(client)._provider = makeFakeControl();
+
+    const sb = await client.sandbox({
+      image: "node:22",
+      resources: { cpu: "500m", memory: "256Mi" },
+    });
+    expect(sb.provider).toBe("opensandbox");
+  });
+
+  it("stamps the provider on a sandbox created by resume() too", async () => {
+    const adapter = makeAdapter();
+    (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        name: "ci",
+        sandboxId: "orig",
+        status: SandboxStatus.Completed,
+        startedAt: 1,
+        execCount: 0,
+      },
+    ]);
+    (adapter.readAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        ts: 1,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.created",
+        payload: {},
+      },
+      {
+        ts: 2,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.checkpoint_created",
+        payload: { snapshotId: "snap-1" },
+      },
+    ]);
+    const client = makeClient(adapter);
+    internals(client)._provider = makeFakeControl();
+
+    await client.resume("orig");
+    expect(createdPayload(adapter)).toMatchObject({ provider: "opensandbox" });
+  });
+
+  it("resumes a session whose sandbox.created recorded no provider (written before the field)", async () => {
+    const adapter = makeAdapter();
+    (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        name: "ci",
+        sandboxId: "orig",
+        status: SandboxStatus.Completed,
+        startedAt: 1,
+        execCount: 0,
+      },
+    ]);
+    (adapter.readAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        ts: 1,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.created",
+        payload: {},
+      },
+      {
+        ts: 2,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.checkpoint_created",
+        payload: { snapshotId: "snap-1" },
+      },
+    ]);
+    const client = makeClient(adapter);
+    internals(client)._provider = makeFakeControl();
+
+    await expect(client.resume("orig")).resolves.toBeDefined();
+  });
+
+  it("refuses to resume a session another provider created, with PROVIDER_MISMATCH", async () => {
+    const adapter = makeAdapter();
+    (adapter.listAllSandboxDetails as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        name: "ci",
+        sandboxId: "orig",
+        status: SandboxStatus.Completed,
+        startedAt: 1,
+        execCount: 0,
+      },
+    ]);
+    (adapter.readAll as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        ts: 1,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.created",
+        payload: { provider: "e2b" },
+      },
+      {
+        ts: 2,
+        name: "ci",
+        sandboxId: "orig",
+        stepIndex: -1,
+        event: "sandbox.checkpoint_created",
+        payload: { snapshotId: "snap-1" },
+      },
+    ]);
+    const client = makeClient(adapter);
+    const control = makeFakeControl();
+    internals(client)._provider = control;
+
+    const err = await client.resume("orig").catch((e: unknown) => e);
+
+    expect(err).toMatchObject({
+      code: "PROVIDER_MISMATCH",
+      status: 409,
+      details: { provider: "e2b", configured: "opensandbox" },
+    });
+    // It stopped before it asked the wrong server for anything.
+    expect(control.createSandbox).not.toHaveBeenCalled();
+    expect(control.getSandbox).not.toHaveBeenCalled();
   });
 });
 
@@ -503,7 +701,7 @@ describe("Sandbox.restoreSnapshot() resourceId/teamId threading", () => {
   it("includes resourceId/teamId in the ledger payload and the fork closure", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.restoreSnapshot(
       "snap-1",
@@ -532,7 +730,7 @@ describe("fork closure resourceId/teamId override", () => {
   it("overrides the inherited resourceId/teamId when forkOpts supplies them", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.sandbox({
       image: "node:22",
@@ -556,7 +754,7 @@ describe("fork closure resourceId/teamId override", () => {
   it("still inherits from the parent when forkOpts omits resourceId/teamId", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.sandbox({
       image: "node:22",
@@ -577,7 +775,7 @@ describe("fork closure resourceId/teamId override", () => {
   it("a second-level fork with no override inherits the first fork's identity, not the grandparent's", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const parent = await client.sandbox({
       image: "node:22",
@@ -599,7 +797,7 @@ describe("Sandbox._createFromSnapshot() resourceId/teamId threading (environment
   it("includes resourceId/teamId in the ledger payload — previously always undefined here", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     await internals(client)._createFromSnapshot(
       "snap-1",
@@ -614,7 +812,7 @@ describe("Sandbox._createFromSnapshot() resourceId/teamId threading (environment
   it("wires resourceId/teamId into the fork closure instead of hardcoding undefined", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await internals(client)._createFromSnapshot(
       "snap-1",
@@ -632,7 +830,7 @@ describe("Sandbox._createFromSnapshot() resourceId/teamId threading (environment
   it("leaves resourceId/teamId undefined when extra omits them", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     await internals(client)._createFromSnapshot("snap-1", { cpu: "500m", memory: "256Mi" }, "py");
     const payload = createdPayload(adapter);
@@ -653,7 +851,7 @@ describe("event sinks", () => {
     const adapter = makeAdapter();
     const captured: string[] = [];
     const client = makeClientWithSink(adapter, (e) => captured.push(e.type));
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.sandbox({
       image: "node:22",
@@ -671,7 +869,7 @@ describe("event sinks", () => {
     const client = makeClientWithSink(adapter, () => {
       throw new Error("exporter down");
     });
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
 
     const sb = await client.sandbox({
       image: "node:22",
@@ -684,7 +882,7 @@ describe("event sinks", () => {
   it("works with no sink attached, which is the default", async () => {
     const adapter = makeAdapter();
     const client = makeClient(adapter);
-    internals(client)._control = makeFakeControl();
+    internals(client)._provider = makeFakeControl();
     const sb = await client.sandbox({
       image: "node:22",
       resources: { cpu: "500m", memory: "256Mi" },

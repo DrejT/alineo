@@ -15,6 +15,14 @@ import {
 } from "../src/config.js";
 
 describe("serverConfigContent", () => {
+  it("pins an execd image that keeps newlines in stdout events", () => {
+    // v1.0.22 strips the newline from each stdout event, so `echo one; echo two` came back as
+    // "onetwo". Found by tests/contract; see the comment on EXECD_IMAGE in config.ts.
+    const content = serverConfigContent(EIP);
+    expect(content).toContain('execd_image = "opensandbox/execd:release-1.1.1"');
+    expect(content).not.toContain("v1.0.22");
+  });
+
   const EIP = "http://127.0.0.1:8080";
 
   it("contains [server]", () => {
@@ -156,6 +164,7 @@ describe("readConfig", () => {
 
   it("round-trips through writeConfig", async () => {
     await writeConfig({
+      provider: "opensandbox",
       serverUrl: "http://example.test:8080",
       useServerProxy: false,
       apiKey: "secret",

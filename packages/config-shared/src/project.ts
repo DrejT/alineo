@@ -35,6 +35,7 @@ export function projectConfigFromEnv(
   env: Record<string, string | undefined>,
 ): Record<string, unknown> | undefined {
   const out: Record<string, unknown> = {};
+  if (env.ALINEO_PROVIDER !== undefined) out.provider = env.ALINEO_PROVIDER;
   if (env.ALINEO_SERVER_URL !== undefined) out.serverUrl = env.ALINEO_SERVER_URL;
   if (env.ALINEO_API_KEY !== undefined) out.apiKey = env.ALINEO_API_KEY;
   if (env.ALINEO_USE_SERVER_PROXY !== undefined) {

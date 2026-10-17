@@ -1,4 +1,4 @@
-import type { ExecClient } from "@alineo-labs/opensandbox";
+import type { ExecChannel } from "@alineo-labs/provider";
 import type { LedgerEvent } from "../ledger";
 import type { SandboxDeps } from "./types";
 
@@ -15,7 +15,7 @@ export interface SandboxInternal {
   readonly name: string;
   readonly deps: SandboxDeps;
   readonly openSessionClosers: Set<() => Promise<void>>;
-  getExecClient(): Promise<ExecClient>;
+  getExecClient(signal?: AbortSignal): Promise<ExecChannel>;
   emit(event: LedgerEvent, stepIndex: number, payload?: unknown): Promise<void>;
   waitForRunning(timeoutMs?: number): Promise<void>;
   waitForSnapshot(snapshotId: string, timeoutMs?: number): Promise<void>;

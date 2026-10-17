@@ -1,5 +1,5 @@
 import type { LedgerEnvelope } from "@alineo-labs/schema/types";
-import type { ControlClient, NetworkPolicy, CodeLanguage } from "@alineo-labs/opensandbox";
+import type { CodeLanguage, NetworkPolicy, SandboxProvider } from "@alineo-labs/provider";
 import type { IStorageAdapter } from "../ledger";
 import type { ExecResult } from "../exec-handle";
 import type { CredentialBinding, CredentialBroker } from "../credentials";
@@ -12,6 +12,12 @@ export interface ExecOptions {
   env?: Record<string, string>;
   /** Abort the command after this many milliseconds. */
   timeoutMs?: number;
+  /**
+   * Abort the command. On abort the call rejects with the signal's reason (an `AbortError` by
+   * default) and the command is interrupted in the sandbox, best effort. A signal that is already
+   * aborted rejects before anything is sent.
+   */
+  signal?: AbortSignal;
   /**
    * Throw `CommandError` if the command exits with a non-zero code.
    * Defaults to `true`.
@@ -65,7 +71,8 @@ export interface SandboxHooks {
 
 /** Internal dependencies injected by `Sandbox`. */
 export interface SandboxDeps {
-  control: ControlClient;
+  /** The sandbox provider that owns this sandbox. */
+  provider: SandboxProvider;
   adapter: IStorageAdapter;
   /**
    * Receives a `LedgerEnvelope` for every event this sandbox emits, beside the ledger write.
@@ -107,6 +114,4 @@ export interface SandboxDeps {
       teamId?: string;
     },
   ) => Promise<SandboxHandle>;
-  /** Route execd and proxy calls through the OpenSandbox server. Required when the server runs in Docker. */
-  useServerProxy?: boolean;
 }

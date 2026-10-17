@@ -4,6 +4,7 @@
  * errors (unknown route, unparseable body) used to fall through to a blanket 500.
  */
 import { describe, expect, test } from "bun:test";
+import { AlineoError } from "@alineo-labs/errors";
 import { z } from "zod";
 import { HttpError } from "../src/engine/errors";
 import { parseBody, toErrorResponse } from "../src/routes/http";
@@ -104,5 +105,43 @@ describe("parseBody messages", () => {
     expect(message({ spec: {} })).toStartWith("invalid request body: spec.name: ");
     const two = z.object({ a: z.string(), b: z.string() });
     expect(() => parseBody(two, {})).toThrow(/a: .*; b: /);
+  });
+});
+
+describe("error codes in the response body", () => {
+  test("an HttpError with a code sends it beside the message", async () => {
+    const res = toErrorResponse(new HttpError(409, "agent a_1 is not live", "SANDBOX_NOT_RUNNING"));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "agent a_1 is not live",
+      code: "SANDBOX_NOT_RUNNING",
+    });
+  });
+
+  test("an HttpError with no code keeps the old body exactly", async () => {
+    const res = toErrorResponse(new HttpError(404, "no agent a_1"));
+    expect(await res.json()).toEqual({ error: "no agent a_1" });
+  });
+
+  test("an unhandled AlineoError is still a 500 and says which code", async () => {
+    const res = toErrorResponse(new AlineoError("SANDBOX_NOT_FOUND", "gone"));
+    expect(res.status).toBe(500);
+    // SANDBOX_NOT_FOUND has a default hint, which now travels with the code.
+    expect(await res.json()).toEqual({
+      error: "gone",
+      code: "SANDBOX_NOT_FOUND",
+      hint: expect.any(String),
+    });
+  });
+
+  test("an unhandled AlineoError sends its hint, so a client can say what to do next", async () => {
+    const res = toErrorResponse(
+      new AlineoError("EXEC_NOT_READY", "execd not ready", { hint: "check execd_image" }),
+    );
+    expect(await res.json()).toEqual({
+      error: "execd not ready",
+      code: "EXEC_NOT_READY",
+      hint: "check execd_image",
+    });
   });
 });

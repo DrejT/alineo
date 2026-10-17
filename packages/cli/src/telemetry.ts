@@ -4,6 +4,7 @@
  * opt-out. Wired in at the single dispatch choke point in index.ts, not per-command -- every
  * command file in commands/ stays untouched.
  */
+import { errorCodeOf } from "@alineo-labs/errors";
 import { join } from "node:path";
 import { serverConfigDir } from "@alineo-labs/cli-shared";
 
@@ -155,14 +156,27 @@ async function extractSpecProvider(
   const specPath = (commandName === "fork" ? argv.slice(1) : argv).find((a) => !a.startsWith("--"));
   if (!specPath) return undefined;
   try {
-    const spec = (await Bun.file(specPath).json()) as { provider?: unknown };
-    return typeof spec.provider === "string" ? spec.provider : undefined;
+    const spec = (await Bun.file(specPath).json()) as { provider?: unknown; model?: unknown };
+    // `model.provider` is where the provider moved to. The top-level field is the old spelling.
+    const nested =
+      typeof spec.model === "object" && spec.model !== null
+        ? (spec.model as { provider?: unknown }).provider
+        : undefined;
+    const provider = nested ?? spec.provider;
+    return typeof provider === "string" ? provider : undefined;
   } catch {
     return undefined;
   }
 }
 
+/**
+ * What the telemetry event calls a failure. The stable alineo code when the error carries one
+ * (`EXEC_NOT_READY`), so failures group by cause and survive a class rename or minification.
+ * Otherwise the class name, as before. Never a message: those can hold paths and ids.
+ */
 function errorClassOf(err: unknown): string {
+  const code = errorCodeOf(err);
+  if (code) return code;
   return err instanceof Error ? err.constructor.name : "UnknownError";
 }
 

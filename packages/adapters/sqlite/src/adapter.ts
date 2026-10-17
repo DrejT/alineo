@@ -10,7 +10,7 @@ import type {
   EnvironmentRecord,
   CheckpointInfo,
 } from "@alineo-labs/core";
-import { SandboxStatus } from "@alineo-labs/core";
+import { DEFAULT_PROVIDER_ID, SandboxStatus } from "@alineo-labs/core";
 import { MIGRATION_SQL } from "./migrations";
 import { renameEventsStatement } from "@alineo-labs/ledger";
 
@@ -43,6 +43,7 @@ type AggRow = {
   resource_id: string | null;
   team_id: string | null;
   parent_sandbox_id: string | null;
+  provider: string | null;
 };
 
 const AGG_SQL = (whereClause: string) => `
@@ -57,7 +58,8 @@ const AGG_SQL = (whereClause: string) => `
       MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.runId') END) AS run_id,
       MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.resourceId') END) AS resource_id,
       MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.teamId') END) AS team_id,
-      MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.parentSandboxId') END) AS parent_sandbox_id
+      MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.parentSandboxId') END) AS parent_sandbox_id,
+      MAX(CASE WHEN event = 'sandbox.created' THEN json_extract(payload, '$.provider') END) AS provider
     FROM alineo_events
     ${whereClause}
     GROUP BY name, sandbox_id
@@ -87,6 +89,8 @@ function aggRowToDetails(row: AggRow): SandboxDetails {
     resourceId: row.resource_id ?? undefined,
     teamId: row.team_id ?? undefined,
     parentSandboxId: row.parent_sandbox_id ?? undefined,
+    // Rows written before provider ids existed recorded none, and all came from OpenSandbox.
+    provider: row.provider ?? DEFAULT_PROVIDER_ID,
   };
 }
 
@@ -100,6 +104,7 @@ function applyOpts(details: SandboxDetails[], opts?: ListSandboxOptions): Sandbo
   if (opts?.runId != null) result = result.filter((d) => d.runId === opts.runId);
   if (opts?.resourceId != null) result = result.filter((d) => d.resourceId === opts.resourceId);
   if (opts?.teamId != null) result = result.filter((d) => d.teamId === opts.teamId);
+  if (opts?.provider != null) result = result.filter((d) => d.provider === opts.provider);
   if (opts?.limit != null) result = result.slice(0, opts.limit);
   return result;
 }

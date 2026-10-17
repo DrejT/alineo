@@ -22,6 +22,10 @@
  * (`GET /agents/:id/transcript`, `GET /runs/:id/events`): they were vocabulary in use, just not
  * written down.
  *
+ * `provider` joined with the `SandboxProvider` interface: the thing a sandbox runs on and is
+ * owned by (`sandbox.created` records which one). No event or route is named after it yet; it
+ * is registered so the first one is not a surprise.
+ *
  * `memory` and `fact` joined with alineod's memory routes (`GET /agents/:id/memory`,
  * `POST /agents/:id/facts`): `memory` is an agent's durable working memory, `fact` one item of
  * its semantic memory.
@@ -30,6 +34,7 @@ export const SUBJECTS = [
   "run",
   "agent",
   "sandbox",
+  "provider",
   "session",
   "turn",
   "message",

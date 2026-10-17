@@ -16,6 +16,7 @@ beforeEach(async () => {
   // A project-local alineo.config.json keeps readConfig() from falling through to its
   // global-fallback branch, which would otherwise read/write the real ~/.config/alineo.
   await writeConfig({
+    provider: "opensandbox",
     serverUrl: "http://127.0.0.1:8080",
     useServerProxy: true,
     apiKey: "",

@@ -1,4 +1,4 @@
-import type { NetworkRule } from "@alineo-labs/opensandbox";
+import type { NetworkRule } from "@alineo-labs/provider";
 import { LedgerEvent } from "./ledger";
 import type { LedgerEntry } from "./ledger";
 

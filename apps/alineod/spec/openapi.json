@@ -54,9 +54,35 @@
                         }
                       },
                       "harness": {
-                        "type": "string",
-                        "enum": [
-                          "pi"
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "pi",
+                              "claude-code",
+                              "codex"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "enum": [
+                                  "pi",
+                                  "claude-code",
+                                  "codex"
+                                ]
+                              },
+                              "version": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ],
+                            "additionalProperties": false
+                          }
                         ]
                       },
                       "harnessVersion": {
@@ -66,8 +92,28 @@
                         "type": "string"
                       },
                       "model": {
-                        "type": "string",
-                        "minLength": 1
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
                       },
                       "packages": {
                         "type": "array",
@@ -496,6 +542,11 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "provider": {
+                            "nullable": true,
+                            "description": "The sandbox provider that owns sandboxId, or null before the agent has a sandbox. Absent in the ledger means OpenSandbox.",
+                            "type": "string"
+                          },
                           "createdAt": {
                             "type": "number"
                           },
@@ -522,6 +573,7 @@
                           "state",
                           "specName",
                           "sandboxId",
+                          "provider",
                           "createdAt",
                           "endedAt",
                           "outcome",
@@ -660,9 +712,35 @@
                         }
                       },
                       "harness": {
-                        "type": "string",
-                        "enum": [
-                          "pi"
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "pi",
+                              "claude-code",
+                              "codex"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "enum": [
+                                  "pi",
+                                  "claude-code",
+                                  "codex"
+                                ]
+                              },
+                              "version": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ],
+                            "additionalProperties": false
+                          }
                         ]
                       },
                       "harnessVersion": {
@@ -672,8 +750,28 @@
                         "type": "string"
                       },
                       "model": {
-                        "type": "string",
-                        "minLength": 1
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
                       },
                       "packages": {
                         "type": "array",
@@ -1155,6 +1253,11 @@
                       "nullable": true,
                       "type": "string"
                     },
+                    "provider": {
+                      "nullable": true,
+                      "description": "The sandbox provider that owns sandboxId, or null before the agent has a sandbox. Absent in the ledger means OpenSandbox.",
+                      "type": "string"
+                    },
                     "createdAt": {
                       "type": "number"
                     },
@@ -1182,6 +1285,7 @@
                     "state",
                     "specName",
                     "sandboxId",
+                    "provider",
                     "createdAt",
                     "endedAt",
                     "outcome",

@@ -19,6 +19,8 @@ export class PromptTimeoutError extends WorkflowError {
     super(
       `Prompt produced no activity for ${timeoutMs / 1000}s (bridge ${bridgeUrl}) -- ` +
         `the underlying agent process may be stuck`,
+      "PROMPT_TIMEOUT",
+      { details: { timeoutMs } },
     );
     this.name = "PromptTimeoutError";
   }
@@ -39,6 +41,7 @@ export class BridgeDisconnectedError extends WorkflowError {
     super(
       `Bridge connection closed (${bridgeUrl}) before signalling the turn was done -- ` +
         `the underlying agent process likely died`,
+      "BRIDGE_DISCONNECTED",
     );
     this.name = "BridgeDisconnectedError";
   }
@@ -56,7 +59,7 @@ export class AgentSpecValidationError extends WorkflowError {
     message: string,
     public readonly issues: readonly Pick<z.core.$ZodIssue, "path" | "message" | "code">[],
   ) {
-    super(message);
+    super(message, "SPEC_INVALID");
     this.name = "AgentSpecValidationError";
   }
 }

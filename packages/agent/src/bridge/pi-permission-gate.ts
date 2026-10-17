@@ -7,19 +7,37 @@
  *   - on `session_start`, applies `restrictToTools` / `disabledTools` via Pi's
  *     `setActiveTools` so the model never sees a tool it may not use;
  *   - on every `tool_call`, decides allow / deny / rate-limit / classify / ask. An "ask"
- *     call blocks on `ctx.ui.select()` with a marker-prefixed title that `pi-bridge.js`
+ *     call blocks on `ctx.ui.select()` with a marker-prefixed title that `pi-bridge.ts`
  *     recognizes, holds open, and forwards to the host as a `permission_request` — resolved
  *     by a matching POST to `/permission-response`.
  *
  * The matcher here mirrors `packages/agent/src/permissions.ts` (kept in sync by hand — a
  * jiti-loaded extension can't import from the published `alineo` package it sits beside;
- * same tradeoff pi-bridge.js already makes). `test/permissions.test.ts` covers the TS copy;
+ * same tradeoff pi-bridge.ts already makes). `test/permissions.test.ts` covers the TS copy;
  * `test/pi-permission-gate.test.ts` covers this one.
  */
 import { readFileSync } from "node:fs";
+import type { GateAction, GatePolicy, GateRule } from "./wire.ts";
+
+/** The slice of Pi's extension API the gate calls. */
+interface PiExtensionApi {
+  on(event: string, handler: (...args: never[]) => unknown): void;
+  setActiveTools?: (tools: string[]) => void;
+  getActiveTools?: () => unknown;
+}
+
+interface ToolCallEvent {
+  toolName: string;
+  input?: unknown;
+}
+
+interface GateContext {
+  hasUI?: boolean;
+  ui: { select(title: string, options: string[]): Promise<string | null | undefined> };
+}
 
 const CONFIG_FILE = process.env.ALINEO_PI_CONFIG || "/etc/alineo-pi.json";
-/** Title prefix pi-bridge.js keys on to route a select() dialog to the host instead of auto-cancelling. */
+/** Title prefix pi-bridge.ts keys on to route a select() dialog to the host instead of auto-cancelling. */
 const MARKER = "ALINEO_PERM ";
 
 /** Mirror of `permissions.ts` SAFE_BASH_COMMANDS. */
@@ -99,10 +117,11 @@ const SAFE_GIT_SUBCOMMANDS = new Set([
   "count-objects",
 ]);
 
-/** @returns {{default: string, rules: Array, disabledTools: string[], restrictToTools: string[]} | null} */
-function loadPolicy() {
+function loadPolicy(): GatePolicy | null {
   try {
-    const cfg = JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
+    const cfg = JSON.parse(readFileSync(CONFIG_FILE, "utf8")) as {
+      permissions?: Partial<GatePolicy> | null;
+    } | null;
     const p = cfg && cfg.permissions;
     if (!p || typeof p !== "object") return null;
     return {
@@ -120,19 +139,20 @@ const WRAPPER_COMMANDS = new Set(["env", "command", "nice", "stdbuf", "time"]);
 
 // Linear scan for a file output redirection — no regex (ReDoS-safe). A `>` next to `&`
 // (`2>&1`, `>&2`), preceded by a digit (`2>`), or preceded by `&` is an fd op, not a write.
-function hasOutputRedirect(seg) {
+function hasOutputRedirect(seg: string): boolean {
   for (let i = 0; i < seg.length; i++) {
     if (seg[i] !== ">") continue;
     const next = seg[i + 1];
     const prev = seg[i - 1];
-    if (next === "&" || prev === "&" || (prev >= "0" && prev <= "9")) continue;
+    if (next === "&" || prev === "&" || (prev !== undefined && prev >= "0" && prev <= "9"))
+      continue;
     return true;
   }
   return false;
 }
 
 /** Mirror of `permissions.ts` isReadOnlyBashCommand. */
-function isReadOnlyBashCommand(command) {
+function isReadOnlyBashCommand(command: string): boolean {
   const segments = String(command)
     .split(/&&|\|\||[;\n|]/)
     .map((s) => s.trim())
@@ -157,8 +177,9 @@ function isReadOnlyBashCommand(command) {
 }
 
 /** Tool-specific target string, pulled from Pi's typed `event.input`. */
-function targetOf(toolName, input) {
-  if (!input || typeof input !== "object") return "";
+function targetOf(toolName: string, rawInput: unknown): string {
+  if (!rawInput || typeof rawInput !== "object") return "";
+  const input = rawInput as Record<string, unknown>;
   switch (toolName) {
     case "bash":
     case "powershell":
@@ -181,7 +202,7 @@ function targetOf(toolName, input) {
   }
 }
 
-function globToRegExp(glob) {
+function globToRegExp(glob: string): RegExp {
   const body = String(glob)
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     .replace(/\*/g, ".*")
@@ -189,7 +210,7 @@ function globToRegExp(glob) {
   return new RegExp(`^${body}$`, "s");
 }
 
-function ruleMatches(rule, toolName, target) {
+function ruleMatches(rule: GateRule, toolName: string, target: string): boolean {
   if (!globToRegExp(rule.tool).test(toolName)) return false;
   if (
     rule.pattern !== undefined &&
@@ -201,9 +222,13 @@ function ruleMatches(rule, toolName, target) {
   return true;
 }
 
-function evaluate(policy, toolName, target) {
-  if (policy.disabledTools.indexOf(toolName) !== -1) return { action: "deny" };
-  let match;
+function evaluate(
+  policy: GatePolicy,
+  toolName: string,
+  target: string,
+): { action: GateAction; rule: GateRule | undefined } {
+  if (policy.disabledTools.indexOf(toolName) !== -1) return { action: "deny", rule: undefined };
+  let match: GateRule | undefined;
   for (const rule of policy.rules) {
     if (ruleMatches(rule, toolName, target)) match = rule;
   }
@@ -215,8 +240,8 @@ function evaluate(policy, toolName, target) {
 }
 
 /** Rolling-window rate limiter, keyed per rule. */
-const rateHits = new Map();
-function underLimit(rule, key) {
+const rateHits = new Map<string, number[]>();
+function underLimit(rule: GateRule | undefined, key: string): boolean {
   if (!rule || !rule.limit) return true;
   const now = Date.now();
   const windowStart = now - rule.limit.windowMs;
@@ -235,12 +260,13 @@ function underLimit(rule, key) {
  * visible toolset. Best-effort: `setActiveTools` may not exist on older Pi — the
  * `tool_call` deny backstop still covers `disabledTools` in that case.
  */
-function applyToolset(pi, policy) {
+function applyToolset(pi: PiExtensionApi, policy: GatePolicy): void {
   if (typeof pi.setActiveTools !== "function" || typeof pi.getActiveTools !== "function") {
     return;
   }
-  let active = pi.getActiveTools();
-  if (!Array.isArray(active)) return;
+  const current = pi.getActiveTools();
+  if (!Array.isArray(current)) return;
+  let active = current as string[];
   if (policy.restrictToTools.length > 0) {
     active = active.filter((t) => policy.restrictToTools.indexOf(t) !== -1);
   }
@@ -252,7 +278,7 @@ function applyToolset(pi, policy) {
   } catch {}
 }
 
-export default function (pi) {
+export default function (pi: PiExtensionApi): void {
   const policy = loadPolicy();
   if (!policy) return; // shouldn't happen — the extension is only loaded when a policy exists
 
@@ -269,9 +295,9 @@ export default function (pi) {
   }
 
   /** Session-scoped "always allow" memory, keyed tool + target. */
-  const alwaysAllow = new Set();
+  const alwaysAllow = new Set<string>();
 
-  pi.on("tool_call", async (event, ctx) => {
+  pi.on("tool_call", async (event: ToolCallEvent, ctx: GateContext) => {
     const toolName = event.toolName;
     const target = targetOf(toolName, event.input);
     const key = `${toolName} ${target}`;
@@ -306,7 +332,7 @@ export default function (pi) {
 
     const title =
       MARKER + JSON.stringify({ tool: toolName, target, title: `Run ${toolName}: ${target}` });
-    let raw;
+    let raw: string | null | undefined;
     try {
       raw = await ctx.ui.select(title, ["decide"]);
     } catch {
@@ -316,9 +342,9 @@ export default function (pi) {
       return { block: true, reason: "Approval request was cancelled or timed out." };
     }
 
-    let decision;
+    let decision: { verdict?: string; scope?: string; feedback?: string };
     try {
-      decision = JSON.parse(raw);
+      decision = JSON.parse(raw) as typeof decision;
     } catch {
       decision = { verdict: "reject" };
     }

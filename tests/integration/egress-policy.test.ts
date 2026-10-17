@@ -81,7 +81,10 @@ test("a malformed networkPolicy target is rejected locally, before any server ca
     newClient().sandbox({
       image: IMAGE,
       resources: RESOURCES,
-      networkPolicy: { defaultAction: "deny", egress: [{ action: "allow", target: "http://nope" }] },
+      networkPolicy: {
+        defaultAction: "deny",
+        egress: [{ action: "allow", target: "http://nope" }],
+      },
     }),
   ).rejects.toThrow(/Invalid networkPolicy egress target/);
 }, 15_000);
@@ -266,7 +269,10 @@ test("EgressApprovalGate: a held host stays denied — and the credential is nev
 }, 90_000);
 
 test("EgressApprovalGate: allow-once opens the host + injects, then endTurn() reverses both (C2)", async () => {
-  const gate = new EgressApprovalGate({ heldCredentials: heldCred("SECRET-ONCE"), handler: () => "allow-once" });
+  const gate = new EgressApprovalGate({
+    heldCredentials: heldCred("SECRET-ONCE"),
+    handler: () => "allow-once",
+  });
   await gate.start();
   const sb = await heldSandbox();
   gate.bind(sb);
@@ -291,7 +297,10 @@ test("EgressApprovalGate: allow-once opens the host + injects, then endTurn() re
 }, 120_000);
 
 test("the real deny webhook drives an allow-always approval end-to-end: host reachable + credential injected (C2)", async () => {
-  const gate = new EgressApprovalGate({ heldCredentials: heldCred("SECRET-ALWAYS"), handler: () => "allow-always" });
+  const gate = new EgressApprovalGate({
+    heldCredentials: heldCred("SECRET-ALWAYS"),
+    handler: () => "allow-always",
+  });
   await gate.start();
   const sb = await heldSandbox(gate.webhookUrl);
   gate.bind(sb);

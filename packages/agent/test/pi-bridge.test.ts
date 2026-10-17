@@ -5,17 +5,17 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 /**
- * Drives the real pi-bridge.js against a stub `pi` process — covers the permission
+ * Drives the built bridge (`dist/pi-bridge.cjs`, from `src/bridge/pi-bridge.ts`) against a stub `pi` process — covers the permission
  * hold/route/resolve protocol, batch-clear, and `/pending-permissions` without a sandbox.
  */
 
 const dir = mkdtempSync(join(tmpdir(), "alineo-bridge-"));
 const PORT = 3100 + Math.floor(Math.random() * 800);
 const BASE = `http://127.0.0.1:${PORT}`;
-const bridgeSrc = fileURLToPath(new URL("../src/adapters/pi-bridge.js", import.meta.url));
-const gatePath = fileURLToPath(new URL("../src/adapters/pi-permission-gate.js", import.meta.url));
-// The package is `"type": "module"` but pi-bridge.js is CJS (it runs from the sandbox root,
-// outside any package.json). Copy it to a `.cjs` so `node` treats it as CJS here too.
+// The bridge and the gate are built artifacts: run `bun run build` in packages/agent first.
+const bridgeSrc = fileURLToPath(new URL("../dist/pi-bridge.cjs", import.meta.url));
+const gatePath = fileURLToPath(new URL("../dist/pi-permission-gate.mjs", import.meta.url));
+// Run a copy named `bridge.cjs`, so `node` treats it as CJS as it does in the sandbox root.
 const bridgePath = join(mkdtempSync(join(tmpdir(), "alineo-bridge-bin-")), "bridge.cjs");
 copyFileSync(bridgeSrc, bridgePath);
 
@@ -186,5 +186,54 @@ describe("pi-bridge permission protocol", () => {
 
     promptAc.abort();
     ac.abort();
+  }, 20_000);
+});
+
+describe("pi-bridge steer", () => {
+  it("refuses a steer when no turn is running, and accepts one while a turn runs", async () => {
+    const port = PORT + 1000;
+    const base = `http://127.0.0.1:${port}`;
+    const steerProc = Bun.spawn(["node", bridgePath], {
+      env: {
+        ...process.env,
+        ALINEO_BRIDGE_PORT: String(port),
+        ALINEO_PI_BIN: stubPath,
+        ALINEO_PI_CONFIG: join(dir, "no-config.json"),
+        ALINEO_ENV_FILE: join(dir, "nonexistent-env"),
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    try {
+      for (let i = 0; i < 100; i++) {
+        try {
+          const r = await fetch(`${base}/health`);
+          if (((await r.json()) as { ok?: boolean }).ok) break;
+        } catch {}
+        await Bun.sleep(100);
+      }
+      const post = (path: string, body: unknown, signal?: AbortSignal) =>
+        fetch(`${base}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal,
+        });
+
+      // Idle: nothing to steer.
+      const idle = await post("/steer", { message: "go left" });
+      expect(idle.status).toBe(409);
+      expect(((await idle.json()) as { error: string }).error).toBe("no turn in progress");
+
+      // A turn is running (the stub never ends it): the steer reaches Pi and is acked.
+      const ac = new AbortController();
+      void post("/prompt", { message: "work" }, ac.signal).catch(() => {});
+      await Bun.sleep(300);
+      const live = await post("/steer", { message: "go left" });
+      expect(live.status).toBe(200);
+      ac.abort();
+    } finally {
+      steerProc.kill();
+    }
   }, 20_000);
 });

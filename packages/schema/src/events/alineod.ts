@@ -84,7 +84,15 @@ export const AgentProvisioned = defineEvent({
   version: 1,
   description:
     "The sandbox exists and the bridge is up — backfills what `agent.spawned` could not know yet.",
-  schema: z.object({ agentId: z.string().nullable(), sandboxId: z.string() }),
+  schema: z.object({
+    agentId: z.string().nullable(),
+    sandboxId: z.string(),
+    /**
+     * The sandbox provider that owns `sandboxId`. Absent on events written before this field
+     * existed, which all came from OpenSandbox.
+     */
+    provider: z.string().optional(),
+  }),
 });
 
 export const AgentRestored = defineEvent({
@@ -153,6 +161,8 @@ export const AgentEnded = defineEvent({
     outcome: z.string(),
     endedAt: z.number(),
     error: z.string().optional(),
+    /** A stable `ErrorCode` for `error`, when one is known. See `@alineo-labs/errors`. */
+    errorCode: z.string().optional(),
   }),
 });
 
@@ -308,7 +318,29 @@ export const AgentTurnFailed = defineEvent({
   schema: z.object({
     agentId: z.string().nullable(),
     error: z.string(),
+    /** A stable `ErrorCode` for `error`, when one is known. See `@alineo-labs/errors`. */
+    errorCode: z.string().optional(),
     consecutiveFailures: z.number().int(),
+  }),
+});
+
+export const AgentTurnRetried = defineEvent({
+  type: "agent.turn_retried",
+  durable: true,
+  version: 1,
+  description:
+    "A turn failed with a transient model-provider error (a 429 or a 5xx) and alineod is " +
+    "re-sending it after a backoff. This is not a supervision failure: it does not count toward " +
+    "the circuit breaker. After `maxAttempts` the failure is recorded as `agent.turn_failed`.",
+  schema: z.object({
+    agentId: z.string().nullable(),
+    error: z.string(),
+    errorCode: z.string(),
+    /** 1-based number of this retry. */
+    attempt: z.number().int(),
+    maxAttempts: z.number().int(),
+    /** The wait before the turn is re-sent, in milliseconds. */
+    delayMs: z.number().int(),
   }),
 });
 
@@ -338,5 +370,7 @@ export const AgentSupervisionNeeded = defineEvent({
     agentId: z.string().nullable(),
     reason: z.enum(["ask", "retries-exhausted", "circuit-tripped"]),
     error: z.string(),
+    /** A stable `ErrorCode` for `error`, when one is known. See `@alineo-labs/errors`. */
+    errorCode: z.string().optional(),
   }),
 });

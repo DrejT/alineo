@@ -1,7 +1,7 @@
-import type { IStorageAdapter, SandboxHandle } from "@alineo-labs/core";
+import { WorkflowError, type IStorageAdapter, type SandboxHandle } from "@alineo-labs/core";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { resourceRefOf } from "@alineo-labs/schema";
-import type { PiAdapter } from "../adapters/pi";
+import type { HarnessAdapter, HarnessRegistry } from "../harness";
 import type { AgentSpec } from "../schema";
 import type { AlineoAgentConfig } from "../config";
 import type { BlobStore } from "../blob-store";
@@ -68,7 +68,11 @@ export class Alineo {
    */
   readonly fromSnapshot: boolean;
 
-  readonly adapter: PiAdapter;
+  /**
+   * The harness this agent runs, as the harness-neutral interface. For a harness's own
+   * methods use `harness()`.
+   */
+  readonly adapter: HarnessAdapter;
   env: Record<string, string>;
   /**
    * Identifies the logical run this agent's sandbox belongs to — see
@@ -133,7 +137,7 @@ export class Alineo {
     sandbox: SandboxHandle,
     spec: AgentSpec,
     env: Record<string, string>,
-    adapter: PiAdapter,
+    adapter: HarnessAdapter,
     fromSnapshot: boolean,
     runId: string,
     egressGate?: EgressApprovalGate,
@@ -464,6 +468,29 @@ export class Alineo {
     return child;
   }
 
+  // --- the harness itself ---
+
+  /**
+   * The harness's own adapter, typed for that harness, for what it has and the others do not.
+   * `agent.harness("pi")` gives Pi's `exportHtml()`, `cycleModel()`, `getCommands()` and the
+   * rest. Throws `CAPABILITY_UNSUPPORTED` when this agent runs a different harness.
+   *
+   * Prefer the methods on `Alineo` itself where they exist: they work on every harness
+   * that declares the capability.
+   *
+   * @experimental The harness layer is being built. Expect changes before it is stable.
+   */
+  harness<K extends keyof HarnessRegistry>(id: K): HarnessRegistry[K] {
+    if (this.adapter.id !== id) {
+      throw new WorkflowError(
+        `This agent runs the ${this.adapter.id} harness, not ${String(id)}`,
+        "CAPABILITY_UNSUPPORTED",
+        { details: { harness: this.adapter.id, requested: String(id) } },
+      );
+    }
+    return this.adapter as HarnessRegistry[K];
+  }
+
   // --- streaming ---
 
   /** Send a prompt to Pi and stream the response. Pi manages its own session context. */
@@ -487,6 +514,8 @@ export class Alineo {
    * Run a shell command inside Pi's working context. Not incrementally
    * streamed — Pi returns bash output synchronously, so the full output
    * arrives as a single `text` event once the command completes.
+   *
+   * @deprecated Use `agent.harness("pi").bash()`. Moves off `Alineo` because only Pi has it.
    */
   bash(command: string): AgentStream {
     return sessionControl.bash(this, command);
@@ -545,7 +574,10 @@ export class Alineo {
     return model.setThinkingLevel(this, level);
   }
 
-  /** Enable or disable Pi's automatic context compaction. */
+  /** Enable or disable Pi's automatic context compaction.
+   *
+   * @deprecated Use `agent.harness("pi").setAutoCompaction()`. Moves off `Alineo` because only Pi has it.
+   */
   async setAutoCompaction(enabled: boolean): Promise<void> {
     return sessionControl.setAutoCompaction(this, enabled);
   }
@@ -555,6 +587,8 @@ export class Alineo {
    * Auto-retry is ON by default: 3 attempts with exponential backoff (2 s / 4 s / 8 s).
    * Disable it when you want to handle errors yourself via `auto_retry_start`/`auto_retry_end`
    * events in the stream.
+   *
+   * @deprecated Use `agent.harness("pi").setAutoRetry()`. Moves off `Alineo` because only Pi has it.
    */
   async setAutoRetry(enabled: boolean): Promise<void> {
     return sessionControl.setAutoRetry(this, enabled);
@@ -563,12 +597,17 @@ export class Alineo {
   /**
    * Abort an in-progress auto-retry immediately. Pi stops waiting and fails the current
    * operation, emitting `auto_retry_end` with `success: false`.
+   *
+   * @deprecated Use `agent.harness("pi").abortRetry()`. Moves off `Alineo` because only Pi has it.
    */
   async abortRetry(): Promise<void> {
     return sessionControl.abortRetry(this);
   }
 
-  /** Abort a currently-executing bash command without cancelling the whole prompt. */
+  /** Abort a currently-executing bash command without cancelling the whole prompt.
+   *
+   * @deprecated Use `agent.harness("pi").abortBash()`. Moves off `Alineo` because only Pi has it.
+   */
   async abortBash(): Promise<void> {
     return sessionControl.abortBash(this);
   }
@@ -591,12 +630,18 @@ export class Alineo {
     return introspection.getBranchPoints(this);
   }
 
-  /** List Pi's available slash commands, including extensions, prompt templates, and skills. */
+  /** List Pi's available slash commands, including extensions, prompt templates, and skills.
+   *
+   * @deprecated Use `agent.harness("pi").getCommands()`. Moves off `Alineo` because only Pi has it.
+   */
   async getCommands(): Promise<PiSlashCommand[]> {
     return introspection.getCommands(this);
   }
 
-  /** Set a display name for the current Pi session. */
+  /** Set a display name for the current Pi session.
+   *
+   * @deprecated Use `agent.harness("pi").setSessionName()`. Moves off `Alineo` because only Pi has it.
+   */
   async setSessionName(name: string): Promise<void> {
     return sessionControl.setSessionName(this, name);
   }
@@ -604,6 +649,8 @@ export class Alineo {
   /**
    * Control how Pi processes queued steering messages.
    * `"all"` applies all queued steers at once; `"one-at-a-time"` applies them sequentially.
+   *
+   * @deprecated Use `agent.harness("pi").setSteeringMode()`. Moves off `Alineo` because only Pi has it.
    */
   async setSteeringMode(mode: "all" | "one-at-a-time"): Promise<void> {
     return sessionControl.setSteeringMode(this, mode);
@@ -612,6 +659,8 @@ export class Alineo {
   /**
    * Control how Pi processes queued follow-up messages.
    * `"all"` sends all queued follow-ups at once; `"one-at-a-time"` sends them sequentially.
+   *
+   * @deprecated Use `agent.harness("pi").setFollowUpMode()`. Moves off `Alineo` because only Pi has it.
    */
   async setFollowUpMode(mode: "all" | "one-at-a-time"): Promise<void> {
     return sessionControl.setFollowUpMode(this, mode);
@@ -621,6 +670,8 @@ export class Alineo {
    * Export a static HTML transcript of the current session to the sandbox filesystem.
    * Returns the container path of the generated file — use `agent.sandbox.readFile(path)`
    * to retrieve it.
+   *
+   * @deprecated Use `agent.harness("pi").exportHtml()`. Moves off `Alineo` because only Pi has it.
    */
   async exportHtml(outputPath?: string): Promise<{ path: string }> {
     return lifecycle.exportHtml(this, outputPath);
@@ -657,7 +708,10 @@ export class Alineo {
     return model.setModel(this, provider, modelId);
   }
 
-  /** Cycle Pi to the next available model. Returns null if only one model is configured. */
+  /** Cycle Pi to the next available model. Returns null if only one model is configured.
+   *
+   * @deprecated Use `agent.harness("pi").cycleModel()`. Moves off `Alineo` because only Pi has it.
+   */
   async cycleModel(): Promise<{
     model: PiModel;
     thinkingLevel: ThinkingLevel;
@@ -666,7 +720,10 @@ export class Alineo {
     return model.cycleModel(this);
   }
 
-  /** Cycle Pi's thinking level. Returns null if the current model doesn't support thinking. */
+  /** Cycle Pi's thinking level. Returns null if the current model doesn't support thinking.
+   *
+   * @deprecated Use `agent.harness("pi").cycleThinkingLevel()`. Moves off `Alineo` because only Pi has it.
+   */
   async cycleThinkingLevel(): Promise<{ level: ThinkingLevel } | null> {
     return model.cycleThinkingLevel(this);
   }

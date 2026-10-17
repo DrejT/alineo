@@ -93,6 +93,22 @@ because `packLocalPackagesForGlobalInstall` only rewrites `workspace:*` deps tha
 same batch, so anything left out comes from npm at exactly the version being avoided.
 `tests/integration/local-cli.test.ts` is the check that the swap works.
 
+### Provider contract tests
+
+`tests/contract` is what a sandbox provider must do for alineo to run on it: lifecycle, exec
+(stdout, stderr, exit codes, newlines, stdin, timeouts), files (text, binary, 5 MB), snapshot and
+fork (a file written to each of nine paths survives), and endpoint (an HTTP server and an SSE
+stream across a silent gap). It goes through the public SDK, so the same suite is bound to another
+provider by one small file (`opensandbox.contract.test.ts` is the template).
+
+```bash
+bun run test:contract                 # needs a live OpenSandbox, like the integration tests
+OPEN_SANDBOX_RUNTIME=gvisor bun run test:contract   # marks /tmp as a known snapshot loss
+```
+
+Run it before changing the `execd_image` or server image pin in
+`packages/cli-shared/src/config.ts`. It is what showed `v1.0.22` strips newlines from stdout.
+
 ### Pin the Pi version in every NVIDIA spec
 
 A spec with no `harnessVersion` installs the latest Pi when its sandbox is built. Pi 1.3.0
@@ -135,7 +151,9 @@ packages/core/                    — Sandbox primitive (no runtime deps outside
                                     isolated in its own try/catch so one broken adapter can't break siblings or
                                     the sandbox operation that triggered them
   src/sandbox/bash-session.ts     — BashSession class
-  src/sandbox/resolve.ts          — resolveExecClient()
+  src/sandbox/resolve.ts          — resolveExecChannel(): asks the provider for an exec channel, re-throws
+                                    EXEC_NOT_READY as ExecConnectionError
+  src/sandbox/capabilities.ts     — requireCapability(): refuse what the provider declared it cannot do
   src/sandbox/types.ts            — ExecOptions, SandboxHooks, SandboxDeps, PendingInteractiveExec, ExecCodeOptions
   src/sandbox/internal.ts         — SandboxInternal (package-private facade the split modules operate over)
   src/sandbox/index.ts            — barrel — re-exported from src/index.ts
@@ -144,7 +162,13 @@ packages/core/                    — Sandbox primitive (no runtime deps outside
   src/errors.ts                   — WorkflowError, SandboxError, ExecConnectionError, CommandError
   src/logger.ts                   — ILogger, ConsoleLogger, noopLogger
 
-packages/opensandbox/             — OpenSandbox HTTP clients
+packages/errors/                  — stable error codes + AlineoError (zero deps, lowest layer; published and
+                                    external so there is one class at runtime)
+packages/provider/                — SandboxProvider interface + provider-neutral types (SandboxState,
+                                    ExecChannel, PtyChannel, SandboxProviderDescriptor). Core and the SDK
+                                    depend on this, not on a provider
+packages/opensandbox/             — OpenSandbox HTTP clients + OpenSandboxProvider (implements SandboxProvider)
+  src/provider.ts                 — OpenSandboxProvider: maps states, owns the execd readiness wait
   src/control.ts                  — ControlClient (sandbox lifecycle via REST)
   src/exec.ts                     — ExecClient (code/command execution via SSE)
   src/types.ts                    — Full OpenSandbox API type system
@@ -313,7 +337,7 @@ apps/sandbox/                     — the browser playground
 
 **Hooks**: `SandboxHooks` provides lifecycle callbacks: `onSandboxCreated`, `onExecStart`, `onExecComplete`, `onCheckpoint`, `onSandboxClosed`, `onSandboxFailed`. Pass via `SandboxOptions.hooks`. Use `otelHooks(tracer)` from `@alineo-labs/otel` for OpenTelemetry tracing.
 
-**execd readiness**: OpenSandbox reports a sandbox as "Running" before execd is ready. `resolveExecClient()` calls `getEndpoint()` once (each call returns a different ephemeral proxy port) then polls `listContexts()` until execd responds.
+**execd readiness**: OpenSandbox reports a sandbox as "Running" before execd is ready. `OpenSandboxProvider.connectExec()` calls `getEndpoint()` once (each call returns a different ephemeral proxy port) then polls `listContexts()` until execd responds; core re-throws a failure as `ExecConnectionError`.
 
 **Sandbox entrypoint**: Always `["tail", "-f", "/dev/null"]` — `/bin/bash` exits immediately without a TTY, killing the container. `client.sandbox()` sets this automatically.
 
@@ -354,7 +378,7 @@ port = 8080
 
 [runtime]
 type = "docker"
-execd_image = "opensandbox/execd:v1.0.22"
+execd_image = "opensandbox/execd:release-1.1.1"
 
 [docker]
 network_mode = "bridge"

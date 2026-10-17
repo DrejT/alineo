@@ -5,7 +5,8 @@ import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { backup, backupDirName, prune, verifyDb } from "../src/ops/backup";
-import { classify, listLiveSandboxes } from "../src/ops/leaks";
+import { AlineoError } from "@alineo-labs/errors";
+import { classify, closeSandbox, listLiveSandboxes } from "../src/ops/leaks";
 
 describe("backup", () => {
   let dir: string;
@@ -118,25 +119,53 @@ describe("classify", () => {
   });
 });
 
-test("listLiveSandboxes follows OpenSandbox's pages instead of stopping at the first 20", async () => {
-  const seen: string[] = [];
-  const server = Bun.serve({
-    port: 0,
-    fetch(req) {
-      const url = new URL(req.url);
-      seen.push(`${url.searchParams.get("page")}/${req.headers.get("OPEN-SANDBOX-API-KEY")}`);
-      const page = Number(url.searchParams.get("page"));
-      return Response.json({
-        items: [{ id: `sb-${page}`, status: { state: "Running" } }],
-        pagination: { hasNextPage: page < 3 },
-      });
-    },
+test("listLiveSandboxes reports the provider's own state word", async () => {
+  const provider = {
+    listSandboxes: async () => [
+      { id: "sb-1", state: "running" as const, nativeState: "Running" },
+      { id: "sb-2", state: "terminated" as const },
+    ],
+    deleteSandbox: async () => {},
+  };
+
+  const live = await listLiveSandboxes(provider);
+
+  expect(live).toEqual([
+    { id: "sb-1", state: "Running" },
+    { id: "sb-2", state: "terminated" },
+  ]);
+});
+
+describe("closeSandbox", () => {
+  const gone = new AlineoError("SANDBOX_NOT_FOUND", "gone");
+
+  test("deletes through the provider", async () => {
+    const deleted: string[] = [];
+    await closeSandbox(
+      { listSandboxes: async () => [], deleteSandbox: async (id) => void deleted.push(id) },
+      "sb-1",
+    );
+    expect(deleted).toEqual(["sb-1"]);
   });
-  try {
-    const live = await listLiveSandboxes(`http://127.0.0.1:${server.port}`, "k");
-    expect(live.map((s) => s.id)).toEqual(["sb-1", "sb-2", "sb-3"]);
-    expect(seen).toEqual(["1/k", "2/k", "3/k"]);
-  } finally {
-    void server.stop(true);
-  }
+
+  test("counts an already-gone sandbox as closed", async () => {
+    const provider = {
+      listSandboxes: async () => [],
+      deleteSandbox: async () => {
+        throw gone;
+      },
+    };
+    await expect(closeSandbox(provider, "sb-1")).resolves.toBeUndefined();
+  });
+
+  test("lets any other failure through", async () => {
+    const boom = new AlineoError("PROVIDER_UNAVAILABLE", "down");
+    const provider = {
+      listSandboxes: async () => [],
+      deleteSandbox: async () => {
+        throw boom;
+      },
+    };
+    await expect(closeSandbox(provider, "sb-1")).rejects.toBe(boom);
+  });
 });

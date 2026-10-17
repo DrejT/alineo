@@ -1,26 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { ExecHandle } from "../src/exec-handle.ts";
-import { SSEEventType } from "@alineo-labs/opensandbox";
-import type { SSEEvent } from "@alineo-labs/opensandbox";
+import type { ExecEvent } from "@alineo-labs/provider";
 
-function makeStream(events: SSEEvent[]): AsyncGenerator<SSEEvent> {
+function makeStream(events: ExecEvent[]): AsyncGenerator<ExecEvent> {
   // eslint-disable-next-line typescript/require-await -- must be an async generator to match the return type; nothing here needs to await
   return (async function* () {
     for (const ev of events) yield ev;
   })();
 }
 
-function stdout(text: string): SSEEvent {
-  return { type: SSEEventType.Stdout, text, timestamp: 0 };
+function stdout(text: string): ExecEvent {
+  return { type: "stdout", text, timestamp: 0 };
 }
 
-function stderr(text: string): SSEEvent {
-  return { type: SSEEventType.Stderr, text, timestamp: 0 };
+function stderr(text: string): ExecEvent {
+  return { type: "stderr", text, timestamp: 0 };
 }
 
-function error(exitCode: number): SSEEvent {
+function error(exitCode: number): ExecEvent {
   return {
-    type: SSEEventType.Error,
+    type: "error",
     error: { message: "exit", evalue: String(exitCode) },
     timestamp: 0,
   };
@@ -62,23 +61,23 @@ describe("ExecHandle — streaming mode", () => {
   it("streams stdout chunks via stdout() generator", async () => {
     const handle = new ExecHandle({
       type: "stream",
-      gen: makeStream([stdout("a"), stdout("b"), stdout("c"), error(0)]),
+      gen: makeStream([stdout("a\n"), stdout("b\n"), stdout("c\n"), error(0)]),
       onDone: async () => {},
     });
     const chunks: string[] = [];
     for await (const chunk of handle.stdout()) chunks.push(chunk);
-    expect(chunks).toEqual(["a", "b", "c"]);
+    expect(chunks).toEqual(["a\n", "b\n", "c\n"]);
   });
 
   it("pipe() writes chunks to writable", async () => {
     const handle = new ExecHandle({
       type: "stream",
-      gen: makeStream([stdout("x"), stdout("y"), error(0)]),
+      gen: makeStream([stdout("x\n"), stdout("y\n"), error(0)]),
       onDone: async () => {},
     });
     const written: string[] = [];
     await handle.pipe({ write: (c) => written.push(c) });
-    expect(written).toEqual(["x", "y"]);
+    expect(written).toEqual(["x\n", "y\n"]);
   });
 
   it("calls onDone with the completed result", async () => {
@@ -132,5 +131,86 @@ describe("ExecHandle — replay mode", () => {
     });
     const result = await handle.result();
     expect(result.exitCode).toBe(5);
+  });
+});
+
+function killedBy(signal: string): ExecEvent {
+  return {
+    type: "error",
+    error: {
+      message: "",
+      ename: "CommandExecError",
+      evalue: "-1",
+      traceback: [`signal: ${signal}`],
+    },
+    timestamp: 0,
+  };
+}
+
+describe("how a command ended", () => {
+  it("reports a duration for every command", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([stdout("ok\n"), error(0)]),
+      onDone: async () => {},
+    });
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    expect(result).not.toHaveProperty("killed");
+    expect(result).not.toHaveProperty("timedOut");
+  });
+
+  it("does not call a plain non-zero exit a kill", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([
+        {
+          type: "error",
+          error: {
+            message: "",
+            ename: "CommandExecError",
+            evalue: "3",
+            traceback: ["exit status 3"],
+          },
+          timestamp: 0,
+        },
+      ]),
+      onDone: async () => {},
+    });
+    expect(result.exitCode).toBe(3);
+    expect(result).not.toHaveProperty("killed");
+  });
+
+  it("reports a signal kill, and not a timeout when it came long before the limit", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([killedBy("killed")]),
+      timeoutMs: 60_000,
+      onDone: async () => {},
+    });
+    expect(result).toMatchObject({ killed: true, signal: "killed", timedOut: false, exitCode: -1 });
+  });
+
+  it("calls a kill after the limit a timeout", async () => {
+    // eslint-disable-next-line typescript/require-await -- an async generator by signature
+    async function* slowThenKilled(): AsyncGenerator<ExecEvent> {
+      await new Promise((r) => setTimeout(r, 60));
+      yield killedBy("killed");
+    }
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: slowThenKilled(),
+      timeoutMs: 50,
+      onDone: async () => {},
+    });
+    expect(result).toMatchObject({ killed: true, signal: "killed", timedOut: true });
+  });
+
+  it("never reports a timeout for a command with no limit", async () => {
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([killedBy("killed")]),
+      onDone: async () => {},
+    });
+    expect(result.timedOut).toBe(false);
   });
 });

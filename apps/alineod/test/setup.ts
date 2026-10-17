@@ -20,6 +20,10 @@ process.env.ALINEOD_CATCH_UP_POLL_MS = "25";
 process.env.ALINEOD_STATE_PROBE_TIMEOUT_MS = "100";
 process.env.ALINEOD_RESUME_BRIDGE_TIMEOUT_MS = "100";
 process.env.ALINEOD_REATTACH_RETRY_DELAY_MS = "10";
+// Transient (429/5xx) turn retries: two attempts, with a backoff short enough for a test.
+process.env.ALINEOD_TRANSIENT_RETRY_MAX = "2";
+process.env.ALINEOD_TRANSIENT_RETRY_BASE_MS = "10";
+process.env.ALINEOD_TRANSIENT_RETRY_MAX_DELAY_MS = "40";
 // Small and deterministic rather than the adaptive (host-core-derived) production default, so
 // admission.test.ts can exercise real contention with just a couple of fake agents.
 process.env.ALINEOD_ADMISSION_CONCURRENCY = "2";

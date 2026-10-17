@@ -1,4 +1,4 @@
-import { Sandbox } from "@alineo-labs/sandbox";
+import { clientFromConfig } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { readConfig } from "@alineo-labs/cli-shared";
 import type { CliCommand } from "./types.js";
@@ -8,12 +8,7 @@ export async function logs(name: string, opts: { json?: boolean } = {}): Promise
 
   const config = await readConfig();
   const adapter = new SQLiteAdapter(config.adapterPath);
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter });
 
   // listByName() connects the adapter as a side effect, so the direct
   // adapter.readAll() call below is safe to make on the same instance.

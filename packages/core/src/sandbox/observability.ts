@@ -1,4 +1,4 @@
-import type { DiagnosticLog, DiagnosticEvent, Metrics } from "@alineo-labs/opensandbox";
+import type { DiagnosticLog, DiagnosticEvent, Metrics } from "@alineo-labs/provider";
 import type { SandboxInternal } from "./internal";
 
 /** Return current CPU and memory usage for this sandbox. */
@@ -21,7 +21,7 @@ export async function* watchMetrics(sb: SandboxInternal): AsyncGenerator<Metrics
   }
 }
 
-/** `ExecClient.watchMetrics()` types every SSE payload as `SSEEvent`; this checks it's actually metrics. */
+/** `watchMetrics()` types every event payload as an `ExecEvent`; this checks it's actually metrics. */
 function isMetrics(ev: object): ev is Metrics {
   return (
     "cpu" in ev && typeof ev.cpu === "number" && "memory" in ev && typeof ev.memory === "number"
@@ -30,12 +30,12 @@ function isMetrics(ev: object): ev is Metrics {
 
 /** Return sandbox diagnostic logs (names, sizes, and optional inline content). */
 export async function diagnosticLogs(sb: SandboxInternal): Promise<DiagnosticLog[]> {
-  return sb.deps.control.getDiagnosticLogs(sb.sandboxId);
+  return sb.deps.provider.getDiagnosticLogs(sb.sandboxId);
 }
 
 /** Return sandbox diagnostic events (timestamps, types, and messages). */
 export async function diagnosticEvents(sb: SandboxInternal): Promise<DiagnosticEvent[]> {
-  return sb.deps.control.getDiagnosticEvents(sb.sandboxId);
+  return sb.deps.provider.getDiagnosticEvents(sb.sandboxId);
 }
 
 /**
@@ -47,7 +47,7 @@ export async function proxy(
   sb: SandboxInternal,
   port: number,
 ): Promise<{ url: string; headers: Record<string, string> }> {
-  const ep = await sb.deps.control.getEndpoint(sb.sandboxId, port, sb.deps.useServerProxy);
+  const ep = await sb.deps.provider.getEndpoint(sb.sandboxId, port);
   const url = ep.endpoint.startsWith("http") ? ep.endpoint : `http://${ep.endpoint}`;
   return { url, headers: ep.headers ?? {} };
 }

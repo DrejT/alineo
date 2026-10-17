@@ -407,3 +407,51 @@ describe("SQLiteAdapter durability settings", () => {
     await adapter.close();
   });
 });
+
+describe("SQLiteAdapter provider", () => {
+  let db: SQLiteAdapter;
+
+  beforeEach(async () => {
+    db = new SQLiteAdapter(":memory:");
+    await db.connect();
+  });
+
+  afterEach(async () => {
+    await db.close();
+  });
+
+  describe("sandbox.created provider", () => {
+    const created = (sandboxId: string, payload: Record<string, unknown>) =>
+      entry({
+        sandboxId,
+        name: `s-${sandboxId}`,
+        stepIndex: -1,
+        event: LedgerEvent.SandboxCreated,
+        payload: { sandboxId, runId: `run-${sandboxId}`, ...payload },
+      });
+
+    it("reads the provider recorded on sandbox.created", async () => {
+      await db.append(created("a", { provider: "e2b" }));
+      const details = await db.getSandboxDetails("s-a", "a");
+      expect(details?.provider).toBe("e2b");
+    });
+
+    it("treats a row that recorded no provider as opensandbox, with no migration", async () => {
+      await db.append(created("old", {}));
+      const details = await db.getSandboxDetails("s-old", "old");
+      expect(details?.provider).toBe("opensandbox");
+    });
+
+    it("filters a listing by provider, applying the default to old rows", async () => {
+      await db.append(created("old", {}));
+      await db.append(created("os", { provider: "opensandbox" }));
+      await db.append(created("e2b", { provider: "e2b" }));
+
+      const opensandbox = await db.listAllSandboxDetails({ provider: "opensandbox" });
+      expect(opensandbox.map((d) => d.sandboxId).sort()).toEqual(["old", "os"]);
+
+      const e2b = await db.listAllSandboxDetails({ provider: "e2b" });
+      expect(e2b.map((d) => d.sandboxId)).toEqual(["e2b"]);
+    });
+  });
+});

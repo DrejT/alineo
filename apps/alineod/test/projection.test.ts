@@ -131,3 +131,37 @@ test("rebuild() refolds the projections to exactly what incremental apply() prod
   expect(getAgentRow(id)).toEqual(before.row);
   expect(getHandle(id)).toEqual(before.handle);
 });
+
+describe("provider on the agent row", () => {
+  test("agent.provisioned records the provider that owns the sandbox", () => {
+    const runId = newRunId();
+    const id = seedAgent(runId);
+    emit(runId, id, "agent.provisioned", { sandboxId: "sb-1", provider: "e2b" });
+
+    expect(getAgentRow(id)).toMatchObject({ sandbox_id: "sb-1", provider: "e2b" });
+  });
+
+  test("an event written before provider ids existed means opensandbox", () => {
+    const runId = newRunId();
+    const id = seedAgent(runId);
+    emit(runId, id, "agent.provisioned", { sandboxId: "sb-old" });
+
+    expect(getAgentRow(id)).toMatchObject({ sandbox_id: "sb-old", provider: "opensandbox" });
+  });
+
+  test("rebuild() derives the column from the ledger", () => {
+    const runId = newRunId();
+    const id = seedAgent(runId);
+    emit(runId, id, "agent.provisioned", { sandboxId: "sb-2", provider: "e2b" });
+
+    rebuild();
+
+    expect(getAgentRow(id)?.provider).toBe("e2b");
+  });
+
+  test("an agent with no sandbox yet has no provider", () => {
+    const runId = newRunId();
+    const id = seedAgent(runId);
+    expect(getAgentRow(id)?.provider).toBeNull();
+  });
+});

@@ -88,13 +88,26 @@ export function serverDataDir(): string {
 }
 
 /**
- * v1.0.19 (the previous pin) predates cached bwrap-archive support, so every sandbox logged
- * "bwrap archive not cached for linux/amd64 -- isolation will be unavailable" and isolation
- * sessions (and anything that depends on them, e.g. pause()/resume()) hung indefinitely
- * instead of failing cleanly. OpenSandbox's own docs: >=v1.0.20 has base isolation-session
- * support, >=v1.0.21 is recommended for full functionality -- the "v1.1.0+" the warning
- * message itself suggests does not exist as a published tag. v1.0.22 is the latest.
+ * The execd image the generated server config pins.
+ *
+ * `release-1.1.1`, not `v1.0.22`. Two reasons, both measured:
+ *
+ * - **Newlines.** `v1.0.22` emits one stdout event per line with the newline stripped, so
+ *   `ExecResult.stdout` of `echo one; echo two` was `"onetwo"`. From `release-1.1.1` the event
+ *   text keeps its newline (`"one\n"`), which is what `ExecHandle` assumes when it joins events.
+ *   `tests/contract` fails three exec cases on `v1.0.22` and passes all twenty on `release-1.1.1`.
+ * - **Post-completion delay.** `/command` holds the stream open for 1.00 s after
+ *   `execution_complete` on `v1.0.22` and 0.20 s from 1.1.1 (opensandbox-group/OpenSandbox#1277).
+ *
+ * History: v1.0.19 predates cached bwrap-archive support, so every sandbox logged "bwrap archive
+ * not cached for linux/amd64 -- isolation will be unavailable" and isolation sessions (and
+ * anything that depends on them, e.g. pause()/resume()) hung instead of failing cleanly.
+ *
+ * Tags are `v1.0.x` up to v1.0.22 and `release-1.x.y` from 1.1.1. Re-run `tests/contract`
+ * against a server on the new tag before changing this.
  */
+const EXECD_IMAGE = "opensandbox/execd:release-1.1.1";
+
 /**
  * Where the OpenSandbox server, running in its own container, reaches the ports it publishes on
  * the host (`[docker].host_ip`). Without it the server falls back to `127.0.0.1` — its own
@@ -138,7 +151,7 @@ eip = "${eip}"
 
 [runtime]
 type = "docker"
-execd_image = "opensandbox/execd:v1.0.22"
+execd_image = "${EXECD_IMAGE}"
 
 [docker]
 network_mode = "bridge"

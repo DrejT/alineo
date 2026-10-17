@@ -5,7 +5,7 @@ import type {
   FileInfo,
   NetworkRule,
   EgressPolicyStatus,
-} from "@alineo-labs/opensandbox";
+} from "@alineo-labs/provider";
 import type { CheckpointInfo } from "../ledger";
 import type { CredentialBinding, CredentialSource, CredentialResolver } from "../credentials";
 import { SandboxCore } from "./core";

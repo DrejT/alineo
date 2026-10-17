@@ -21,18 +21,36 @@ export function fold<S>(
 }
 
 /**
- * Sort by `durable.seq` within each aggregate, then by timestamp across them.
+ * Put envelopes in ledger order: by `durable.seq` within an aggregate, by timestamp across them.
  *
  * A sink sees events in emission order, which is usually persist order but is not guaranteed
  * to be across two aggregates. Comparing a sink's stream against a store's rows means putting
  * them in the same order first, or the comparison fails for a reason that has nothing to do
  * with the thing being tested.
+ *
+ * "Seq within, ts across" is not a total order on its own: a clock that ran backwards inside
+ * one aggregate makes it cyclic (a < b by time, b < c by time, c < a by seq), and the result
+ * then depends on the sort algorithm, so two runtimes disagree. This resolves it by giving
+ * every event the highest timestamp seen so far in its aggregate, in seq order. Seq is the
+ * truth inside an aggregate, so an event never sorts earlier than one before it. For events
+ * whose timestamps do not run backwards, which is every event a healthy ledger holds, this
+ * is the plain ts-and-seq order. Ties break on aggregate, then seq, so the order is total.
  */
 export function inLedgerOrder(events: readonly LedgerEnvelope[]): LedgerEnvelope[] {
+  const effective = new Map<LedgerEnvelope, number>();
+  for (const group of byAggregate(events).values()) {
+    let high = Number.NEGATIVE_INFINITY;
+    for (const event of [...group].sort((a, b) => a.durable!.seq - b.durable!.seq)) {
+      high = Math.max(high, event.ts);
+      effective.set(event, high);
+    }
+  }
+  const when = (e: LedgerEnvelope): number => effective.get(e) ?? e.ts;
   return [...events].sort((a, b) => {
-    const sameAggregate = a.durable && b.durable && a.durable.aggregate === b.durable.aggregate;
-    if (sameAggregate) return a.durable!.seq - b.durable!.seq;
-    return a.ts - b.ts;
+    if (when(a) !== when(b)) return when(a) - when(b);
+    const byAgg = (a.durable?.aggregate ?? "").localeCompare(b.durable?.aggregate ?? "");
+    if (byAgg !== 0) return byAgg;
+    return (a.durable?.seq ?? 0) - (b.durable?.seq ?? 0);
   });
 }
 

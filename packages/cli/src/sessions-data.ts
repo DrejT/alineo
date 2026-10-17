@@ -1,6 +1,5 @@
-import { Sandbox, SandboxStatus, type SandboxDetails } from "@alineo-labs/sandbox";
+import { clientFromConfig, SandboxStatus, type SandboxDetails } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
-import { ControlClient, SandboxState } from "@alineo-labs/opensandbox";
 import { readConfig, type AlineoConfig } from "@alineo-labs/cli-shared";
 
 export interface SessionSnapshot {
@@ -25,19 +24,13 @@ export interface SessionSnapshot {
 export async function getSessions(config?: AlineoConfig): Promise<SessionSnapshot> {
   const cfg = config ?? (await readConfig());
   const adapter = new SQLiteAdapter(cfg.adapterPath);
-  const client = new Sandbox({
-    baseUrl: cfg.serverUrl,
-    apiKey: cfg.apiKey,
-    adapter,
-    useServerProxy: cfg.useServerProxy,
-  });
+  const client = clientFromConfig(cfg, { adapter });
 
   const ledgerRunning = await client.sandboxes.list({ status: SandboxStatus.Running });
 
-  const control = new ControlClient({ baseUrl: cfg.serverUrl, apiKey: cfg.apiKey });
   let liveIds: Set<string> | null = null;
   try {
-    const raw = await control.listSandboxes({ state: SandboxState.Running });
+    const raw = await client.provider.listSandboxes({ state: "running" });
     liveIds = new Set(raw.map((s) => s.id));
   } catch {
     // Control-plane listing is best-effort; fall back to trusting the ledger

@@ -3,8 +3,8 @@
  *
  * `AgentSpec.permissions` (a mode string or a full policy) is normalized here into a
  * `NormalizedPermissionPolicy`, written into the sandbox at `/etc/alineo-pi.json`, and read
- * by the bundled Pi gate extension (`adapters/pi-permission-gate.js`), which re-implements
- * the tiny matcher below inline (same duplication tradeoff `pi-bridge.js` already makes —
+ * by the bundled Pi gate extension (`bridge/pi-permission-gate.ts`), which re-implements
+ * the tiny matcher below inline (same duplication tradeoff `bridge/pi-bridge.ts` already makes —
  * the gate can't import from a published package it runs beside via jiti). Keep the two
  * matchers in sync; `test/permissions.test.ts` covers this one.
  */
@@ -178,7 +178,7 @@ function hasOutputRedirect(seg: string): boolean {
 /**
  * Best-effort read-vs-write triage of a shell command. `true` = every sub-command is a
  * recognised pure reader with no output redirection; `false` = something needs a human.
- * Mirrored verbatim in `adapters/pi-permission-gate.js`.
+ * Mirrored verbatim in `bridge/pi-permission-gate.ts`.
  */
 export function isReadOnlyBashCommand(command: string): boolean {
   const segments = command

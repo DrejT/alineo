@@ -1,71 +1,73 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
-import { resolveExecClient } from "../src/sandbox/resolve.ts";
-import { ExecConnectionError } from "../src/errors.ts";
-import type { ControlClient } from "@alineo-labs/opensandbox";
-import { stubControl } from "./control-stub.ts";
+import { describe, expect, it, vi } from "vitest";
+import { AlineoError } from "@alineo-labs/errors";
+import type { ExecChannel } from "@alineo-labs/provider";
+import { resolveExecChannel } from "../src/sandbox/resolve.ts";
+import { ExecConnectionError, WorkflowError } from "../src/errors.ts";
+import { stubChannel } from "./channel-stub.ts";
+import { stubProvider } from "./provider-stub.ts";
 
-function makeControl(): ControlClient {
-  return stubControl({
-    getEndpoint: vi.fn().mockResolvedValue({ endpoint: "http://localhost:44772", headers: {} }),
+const channel: ExecChannel = stubChannel();
+
+describe("resolveExecChannel", () => {
+  it("returns the channel the provider connected", async () => {
+    const provider = stubProvider({ connectExec: vi.fn().mockResolvedValue(channel) });
+
+    expect(await resolveExecChannel(provider, "sb-1")).toBe(channel);
+    expect(provider.connectExec).toHaveBeenCalledWith("sb-1", {});
   });
-}
 
-describe("resolveExecClient", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
+  it("passes the caller's signal on, so a slow connect can be abandoned", async () => {
+    const provider = stubProvider({ connectExec: vi.fn().mockResolvedValue(channel) });
+    const signal = new AbortController().signal;
+
+    await resolveExecChannel(provider, "sb-1", { signal });
+
+    expect(provider.connectExec).toHaveBeenCalledWith("sb-1", { signal });
   });
 
-  it("retries through transient failures and succeeds once execd accepts connections, using the real default budget", async () => {
-    // Real defaults (~80s of patience) apply since retries/delayMs aren't overridden here --
-    // this only takes as long as the two failures' own small ramp-up delays (100ms, 150ms).
-    let calls = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation(() => {
-        calls++;
-        if (calls <= 2) return Promise.reject(new Error("ECONNREFUSED"));
-        // eslint-disable-next-line typescript/require-await -- must match fetch's Response.json() signature; nothing here needs to await
-        return Promise.resolve({ ok: true, status: 200, json: async () => [] });
-      }),
+  it("re-throws EXEC_NOT_READY as ExecConnectionError, keeping the cause and the numbers", async () => {
+    const probe = new Error("connect ECONNREFUSED 10.0.0.5");
+    const provider = stubProvider({
+      connectExec: vi.fn().mockRejectedValue(
+        new AlineoError("EXEC_NOT_READY", "execd not ready", {
+          cause: probe,
+          details: { sandboxId: "sb-9", attempts: 46, waitedMs: 81_000 },
+        }),
+      ),
+    });
+
+    const err = await resolveExecChannel(provider, "sb-9").catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ExecConnectionError);
+    expect(err).toBeInstanceOf(WorkflowError);
+    const failure = err as ExecConnectionError;
+    expect(failure.code).toBe("EXEC_NOT_READY");
+    expect(failure.retryable).toBe(true);
+    expect(failure.sandboxId).toBe("sb-9");
+    expect(failure.attempts).toBe(46);
+    expect(failure.waitedMs).toBe(81_000);
+    expect(failure.cause).toBe(probe);
+    // The message keeps its old leading text, and now says how long it waited and what it saw.
+    expect(failure.message).toBe(
+      "execd not ready for sandbox sb-9 after 46 attempts over 81s. " +
+        "Last error: connect ECONNREFUSED 10.0.0.5",
     );
-
-    const client = await resolveExecClient(makeControl(), "sb-1");
-    expect(client).toBeDefined();
-    expect(calls).toBe(3);
+    expect(failure.hint).toContain("execd_image");
   });
 
-  it("throws ExecConnectionError once the retry budget is exhausted", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+  it("passes any other failure through untouched", async () => {
+    const boom = new AlineoError("SANDBOX_NOT_FOUND", "gone");
+    const provider = stubProvider({ connectExec: vi.fn().mockRejectedValue(boom) });
 
-    // Small explicit budget here purely to keep this test fast -- the exhaustion behavior
-    // itself doesn't depend on the specific numbers, only on eventually giving up.
-    await expect(resolveExecClient(makeControl(), "sb-1", undefined, 2, 5)).rejects.toThrow(
-      ExecConnectionError,
-    );
+    await expect(resolveExecChannel(provider, "sb-1")).rejects.toBe(boom);
   });
+});
 
-  it("affords substantially more patience than before issue #32 (the old ~11s/16-attempt budget)", async () => {
-    // Fake timers fast-forward every setTimeout the retry loop schedules instantly, so this
-    // exercises the REAL default retry math (up to 45 real retries with real backoff) without
-    // any actual wall-clock delay -- succeeding on attempt 40 is well past the old ceiling of
-    // 16 total attempts, proving the new default budget is substantially larger.
-    vi.useFakeTimers();
-    let calls = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation(() => {
-        calls++;
-        if (calls < 40) return Promise.reject(new Error("ECONNREFUSED"));
-        // eslint-disable-next-line typescript/require-await -- must match fetch's Response.json() signature; nothing here needs to await
-        return Promise.resolve({ ok: true, status: 200, json: async () => [] });
-      }),
-    );
-
-    const promise = resolveExecClient(makeControl(), "sb-1");
-    await vi.runAllTimersAsync();
-    const client = await promise;
-    expect(client).toBeDefined();
-    expect(calls).toBe(40);
+describe("ExecConnectionError", () => {
+  it("is a plain message when nothing about the probe is known", () => {
+    const err = new ExecConnectionError("sb-1");
+    expect(err.message).toBe("execd not ready for sandbox sb-1");
+    expect(err.code).toBe("EXEC_NOT_READY");
+    expect(err.attempts).toBeUndefined();
   });
 });

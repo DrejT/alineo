@@ -1,11 +1,18 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { DEFAULT_PROVIDER_ID } from "@alineo-labs/core";
 import type { AgentSpec } from "./schema";
 
 export interface AgentSnapshotRecord {
   specName: string;
   setupHash: string;
+  /**
+   * The sandbox provider that owns `snapshotId`. A snapshot id is meaningless to any other
+   * provider, so it is part of the cache key. Absent on records written before this field
+   * existed, which all came from OpenSandbox.
+   */
+  provider?: string;
   /** OpenSandbox snapshot ID returned by `sb.checkpoint()`. Pass to `client.restoreSnapshot()`. */
   snapshotId: string;
   createdAt: number;
@@ -58,13 +65,24 @@ export class AgentSnapshotStore {
     await writeFile(this.path, JSON.stringify(data, null, 2));
   }
 
-  private _key(specName: string, setupHash: string) {
-    return `${specName}:${setupHash}`;
+  /**
+   * OpenSandbox keeps the key it always had, so every existing file keeps working. Another
+   * provider's records get its id as a prefix, so two providers sharing one file never read
+   * or replace each other's snapshot ids.
+   */
+  private _key(specName: string, setupHash: string, provider: string) {
+    return provider === DEFAULT_PROVIDER_ID
+      ? `${specName}:${setupHash}`
+      : `${provider}:${specName}:${setupHash}`;
   }
 
-  async get(specName: string, setupHash: string): Promise<AgentSnapshotRecord | null> {
+  async get(
+    specName: string,
+    setupHash: string,
+    provider: string = DEFAULT_PROVIDER_ID,
+  ): Promise<AgentSnapshotRecord | null> {
     const data = await this._read();
-    return data[this._key(specName, setupHash)] ?? null;
+    return data[this._key(specName, setupHash, provider)] ?? null;
   }
 
   /**
@@ -84,11 +102,18 @@ export class AgentSnapshotStore {
   save(record: AgentSnapshotRecord): Promise<void> {
     return this.serialized(async () => {
       const data = await this._read();
-      // Remove stale records for the same spec (different hash = old packages).
+      const provider = record.provider ?? DEFAULT_PROVIDER_ID;
+      // Remove stale records for the same spec (different hash = old packages), for this provider
+      // only. Another provider's snapshot of the same spec is still valid.
       for (const k of Object.keys(data)) {
-        if (data[k].specName === record.specName) delete data[k];
+        if (
+          data[k].specName === record.specName &&
+          (data[k].provider ?? DEFAULT_PROVIDER_ID) === provider
+        ) {
+          delete data[k];
+        }
       }
-      data[this._key(record.specName, record.setupHash)] = record;
+      data[this._key(record.specName, record.setupHash, provider)] = record;
       await this._write(data);
     });
   }
