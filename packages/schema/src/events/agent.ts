@@ -44,6 +44,14 @@ export const AgentCheckpointed = defineEvent({
   description:
     "A turn-level checkpoint (workspace + session-file tarball) was captured and durably " +
     "stored, after the tarball itself was confirmed written — a snapshot with no event " +
-    "pointing at it is unreachable garbage.",
-  schema: z.object({ turn: z.number(), snapshotRef: z.string() }),
+    "pointing at it is unreachable garbage. `snapshotRef` is the file on the host. `remoteRef` " +
+    "is the same tarball in object storage and is absent when no store is configured or the " +
+    "upload failed (`uploadError` says why). A checkpoint without `remoteRef` does not survive " +
+    "the loss of the host's disk.",
+  schema: z.object({
+    turn: z.number(),
+    snapshotRef: z.string(),
+    remoteRef: z.string().optional(),
+    uploadError: z.string().optional(),
+  }),
 });

@@ -9,6 +9,12 @@
         "snapshotRef": {
           "type": "string"
         },
+        "remoteRef": {
+          "type": "string"
+        },
+        "uploadError": {
+          "type": "string"
+        },
         "event": {
           "type": "string",
           "enum": [

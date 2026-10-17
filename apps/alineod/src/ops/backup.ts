@@ -257,12 +257,20 @@ export function prune(destRoot: string, keep: number): string[] {
  *
  * @throws on an unknown option, a second positional, or a `--keep` that isn't a positive integer.
  */
-export function parseBackupArgs(argv: readonly string[]): { dest: string; keep?: number } {
+export function parseBackupArgs(argv: readonly string[]): {
+  dest: string;
+  keep?: number;
+  /** Also upload the finished backup to the bucket (`ALINEOD_BACKUP_BUCKET`). */
+  offsite?: true;
+} {
   let dest: string | undefined;
   let keep: number | undefined;
+  let offsite = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    if (arg === "--keep") {
+    if (arg === "--offsite") {
+      offsite = true;
+    } else if (arg === "--keep") {
       const n = Number(argv[++i]);
       if (!Number.isInteger(n) || n <= 0) throw new Error("--keep takes a positive integer");
       keep = n;
@@ -274,5 +282,5 @@ export function parseBackupArgs(argv: readonly string[]): { dest: string; keep?:
       throw new Error(`unexpected extra argument ${arg}`);
     }
   }
-  return { dest: dest ?? "./backups", keep };
+  return { dest: dest ?? "./backups", keep, ...(offsite ? { offsite: true as const } : {}) };
 }

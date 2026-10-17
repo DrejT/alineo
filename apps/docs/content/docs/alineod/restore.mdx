@@ -1,0 +1,178 @@
+---
+title: Back up and restore
+description: Keep a swarm's state off the machine it runs on, and bring the swarm back on a new machine after the disk is lost.
+---
+
+alineod keeps everything it needs to recover in two places: files on its own disk, and, when you set a bucket, a
+copy of those files in S3-compatible object storage. With the bucket, the loss of the disk is a restore, not the end
+of the swarm.
+
+Without `ALINEOD_BACKUP_BUCKET` nothing in this page applies, and alineod behaves exactly as before.
+
+## What is kept, and where
+
+| State                                  | On the machine             | In the bucket                      | How it gets there                                                        |
+| -------------------------------------- | -------------------------- | ---------------------------------- | ------------------------------------------------------------------------ |
+| Turn checkpoints (a conversation)      | next to the SDK ledger     | `<prefix>/<instance>/checkpoints/` | alineod uploads each one as it is taken, before it records the event     |
+| alineod ledger, SDK ledger, memory DB  | three SQLite files         | `<prefix>/<instance>/db/`          | [Litestream](#continuous-ledger-backup) streams them about once a second |
+| Results and spec files (work dir)      | `ALINEOD_WORK_DIR`         | `<prefix>/<instance>/backups/`     | `scripts/backup.ts --offsite`, on a schedule you choose                  |
+| Setup snapshot (the installed harness) | OpenSandbox on the machine | not kept                           | rebuilt on the new machine, once per spec (about 90 s)                   |
+| Model and bucket keys                  | alineod's environment      | not kept                           | copy your `.env` to the new machine                                      |
+
+The `<instance>` folder is `ALINEOD_INSTANCE_ID`. Give each alineod that shares a bucket its own id.
+
+Credentials are never in the ledger, so the bucket holds no model keys. It does hold prompts, results and every
+file a checkpointed agent had in `/root` and `/workspace`. Turn on server-side encryption for the bucket and use a
+key limited to the backup prefix.
+
+## Configure
+
+| Variable                           | Default     | What it does                                                                                              |
+| ---------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------- |
+| `ALINEOD_BACKUP_BUCKET`            | empty (off) | Bucket name. Setting it turns on checkpoint upload.                                                       |
+| `ALINEOD_BACKUP_PREFIX`            | `alineod`   | Folder in the bucket.                                                                                     |
+| `ALINEOD_INSTANCE_ID`              | `default`   | Folder for this alineod inside the prefix.                                                                |
+| `ALINEOD_BACKUP_ENDPOINT`          | empty (AWS) | Endpoint of an S3-compatible service, such as R2 or MinIO.                                                |
+| `ALINEOD_BACKUP_REGION`            | empty       | Region. R2 uses `auto`.                                                                                   |
+| `ALINEOD_BACKUP_ACCESS_KEY_ID`     | empty       | Access key.                                                                                               |
+| `ALINEOD_BACKUP_SECRET_ACCESS_KEY` | empty       | Secret for the access key.                                                                                |
+| `ALINEOD_BACKUP_REMOTE_MIN_AGE_MS` | `600000`    | An old off-box checkpoint is deleted only when it is also at least this old. See [Retention](#retention). |
+| `ALINEOD_CHECKPOINT_CONCURRENCY`   | vCPUs − 1   | Checkpoints taken at once. Each holds its tarball in memory while it is read out of the sandbox.          |
+| `ALINEOD_REHYDRATE_CONCURRENCY`    | vCPUs − 1   | Agents reconnected or restored at once on boot. `1` restores them one at a time.                          |
+
+Checkpointing is still opt-in per spec with `"checkpoint": true`. Only those agents keep their conversation across
+a lost disk.
+
+## Off-box checkpoints
+
+With a bucket set, each checkpoint is written to the local disk, then uploaded, and only then recorded. The
+`agent.checkpointed` event carries `snapshotRef` (the file on the machine) and `remoteRef` (the object in the
+bucket). The local copy is kept, so a restore on the same machine does not need the network.
+
+If the upload fails, the checkpoint is still taken and recorded with `uploadError` and no `remoteRef`. That
+checkpoint does not survive a lost disk. Watch for events with `uploadError`.
+
+On restore, an agent reads its newest checkpoint from the local disk, falls back to the bucket when the file is gone,
+and falls back to the next older checkpoint when one cannot be read at all. If none can be read it comes back with a
+blank session, and `agent.restored` says `checkpointTurn: null`.
+
+### Retention
+
+The newest three checkpoints per sandbox are kept, in the bucket as on disk. An older object in the bucket is
+deleted only when it is also older than `ALINEOD_BACKUP_REMOTE_MIN_AGE_MS`. Reason: a database restored from its
+replica can be a few seconds behind, and may then name a checkpoint that is no longer the newest. The margin keeps
+that one alive.
+
+## Continuous ledger backup
+
+[Litestream](https://litestream.io) copies each SQLite file's write-ahead log to the bucket. Run it beside alineod,
+not inside it.
+
+<Steps>
+<Step>
+
+### Write the config
+
+```bash
+bun apps/alineod/scripts/litestream-config.ts > /etc/litestream.yml
+```
+
+Run it with alineod's environment. It lists the alineod ledger, the SDK ledger and the memory database. It holds no
+secrets.
+
+</Step>
+<Step>
+
+### Start Litestream
+
+```bash
+LITESTREAM_ACCESS_KEY_ID=… LITESTREAM_SECRET_ACCESS_KEY=… litestream replicate -config /etc/litestream.yml
+```
+
+Run it under systemd, next to alineod.
+
+</Step>
+</Steps>
+
+Litestream follows one writer. alineod already refuses to start a second instance on the same database, so this
+adds no new limit. It does mean this path is for one node.
+
+## Full backups
+
+Litestream does not carry the work dir. A full backup does, and it is a second way back if a replica is ever
+unusable.
+
+```bash
+bun apps/alineod/scripts/backup.ts /var/backups/alineod --keep 7 --offsite
+```
+
+This makes the usual verified local backup, then uploads it. A backup in the bucket counts only once its last file,
+a `COMPLETE` manifest, is uploaded, so a half-finished upload is never used. `--keep` applies to the bucket too.
+Run it from cron or a systemd timer. How old the work dir is after a restore equals the time since the last full
+backup.
+
+## Restore onto a new machine
+
+<Steps>
+<Step>
+
+### Prepare the machine
+
+Install alineod, OpenSandbox and Docker. Copy your `.env` (model keys and the `ALINEOD_BACKUP_*` settings). Keep
+the same `ALINEOD_INSTANCE_ID`. Install Litestream if you restore from the replica.
+
+</Step>
+<Step>
+
+### Restore the state
+
+```bash
+bun apps/alineod/scripts/restore.ts
+```
+
+By default this restores the three SQLite files from their Litestream replica and the work dir from the newest full
+backup. To use one full backup for everything:
+
+```bash
+bun apps/alineod/scripts/restore.ts --from backup [--backup NAME]
+```
+
+The command refuses to run on a machine that already has state. Stop alineod and add `--force` to replace it. It
+checks every restored database with `PRAGMA integrity_check` and stops if one fails. If the bucket has no full
+backup it says the work dir was not restored.
+
+</Step>
+<Step>
+
+### Start alineod
+
+Start OpenSandbox, then alineod. The old instance lease is stale, so alineod waits up to `ALINEOD_LEASE_TTL_MS`
+(15 s) and takes over. Then [crash recovery](/docs/alineod/concepts/crash-recovery) runs: no container exists, so each
+agent is restored onto a fresh one, and each fetches its own checkpoint from the bucket.
+
+</Step>
+</Steps>
+
+### How long recovery takes
+
+Agents are restored up to `ALINEOD_REHYDRATE_CONCURRENCY` at a time. On a machine with no setup snapshots, the first
+agent of each spec goes first, because it installs the harness (about 90 s) and saves the snapshot the rest start
+from. Then the other agents of that spec follow in parallel.
+
+A rough bound: one setup install per distinct spec, plus (agents ÷ concurrency) × the time to restore one container.
+Measure your own with `apps/alineod/scripts/checkpoint-load.ts`.
+
+## What is lost
+
+- The turn that was running when the disk was lost. It is recorded as `agent.turn_interrupted`.
+- Ledger events newer than the replica. Litestream is normally about a second behind.
+- Results written since the last full backup, if you restored the work dir from one.
+- Agents without `"checkpoint": true` come back with a blank session.
+- Agents with `approval: "hold"` credential bindings are not restored from a gone container yet.
+
+## Limits
+
+- One node. This restores one alineod onto one machine. It is not failover.
+- A restore needs the bucket to be reachable. With the bucket down, agents restore from whatever checkpoints are
+  still on the local disk, which after a disk loss is none.
+- `scripts/restore.ts` and the disk-loss scenario are in the repository as `tests/integration/alineod-disk-loss.test.ts`.

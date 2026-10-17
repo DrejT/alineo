@@ -15,9 +15,10 @@
 import { Alineo } from "alineo";
 import { register, sdkAdapter } from "./registry";
 import { memoryOptions } from "./memory";
+import { offboxOptions } from "./offbox";
 
 /** What alineod owns, and so what a call site may not (and need not) pass. */
-type Owned = "adapter" | "memory";
+type Owned = "adapter" | "memory" | "blobStore";
 
 type StartOpts = Omit<Parameters<typeof Alineo.start>[1], Owned>;
 type ResumeOpts = Omit<Parameters<typeof Alineo.resume>[1], Owned>;
@@ -28,11 +29,21 @@ export function sdkStart(spec: Parameters<typeof Alineo.start>[0], opts: StartOp
 }
 
 export function sdkResume(sandboxId: string, opts: ResumeOpts) {
-  return Alineo.resume(sandboxId, { ...opts, adapter: sdkAdapter, ...memoryOptions() });
+  return Alineo.resume(sandboxId, {
+    ...opts,
+    adapter: sdkAdapter,
+    ...memoryOptions(),
+    ...offboxOptions(),
+  });
 }
 
 export function sdkReattach(sandboxId: string, opts: ReattachOpts) {
-  return Alineo.reattach(sandboxId, { ...opts, adapter: sdkAdapter, ...memoryOptions() });
+  return Alineo.reattach(sandboxId, {
+    ...opts,
+    adapter: sdkAdapter,
+    ...memoryOptions(),
+    ...offboxOptions(),
+  });
 }
 
 /**

@@ -37,8 +37,8 @@ import { deliverPending } from "./notify";
 import { parseStoredWait, evaluateWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
-import { errorMessage } from "../util";
-import { REATTACH_RETRY_DELAY_MS } from "../../config";
+import { errorMessage, mapLimit } from "../util";
+import { REATTACH_RETRY_DELAY_MS, REHYDRATE_CONCURRENCY } from "../../config";
 
 const log = getLogger("alineod");
 
@@ -67,8 +67,13 @@ export async function rehydrate(): Promise<void> {
 
   // Pass 1 — awaited: fast (~100-200ms each, verified live) unless a reattach needs its one retry
   // (REATTACH_RETRY_DELAY_MS, only on a failed first attempt), and pass 2 needs these parents
-  // registered before it can retry a spawn under them.
-  for (const a of reattachSet.values()) await reattachOne(a);
+  // registered before it can retry a spawn under them. A restore onto a new container is slower
+  // (seconds, plus a setup rebuild per spec on a new machine), so agents are brought back in
+  // bounded parallel waves, not one after another (durability-roadmap M4, 4.3). Each agent's
+  // recovery is independent of the others', so the order inside a wave does not matter.
+  for (const wave of restoreWaves([...reattachSet.values()], REHYDRATE_CONCURRENCY)) {
+    await mapLimit(wave, REHYDRATE_CONCURRENCY, reattachOne);
+  }
 
   // Pass 2 — fire-and-backgrounded, same as a fresh spawn: the slow part (an optional waitFor
   // hold, then the fork) shouldn't block the daemon from coming back up and serving requests.
@@ -76,6 +81,46 @@ export async function rehydrate(): Promise<void> {
 
   // Notifications that were queued but not yet delivered when the previous process died.
   for (const id of agentsWithPendingInbox()) void deliverPending(id);
+}
+
+/** The setup identity two agents share when they are built from the same spec. */
+function specKey(a: AgentRow): string {
+  try {
+    const name = (JSON.parse(a.spec_json) as { name?: unknown }).name;
+    if (typeof name === "string" && name !== "") return name;
+  } catch {
+    /* a spec that does not parse is its own group below */
+  }
+  return a.agent_id;
+}
+
+/**
+ * The order agents are reconnected in, as waves that run one after another. Inside a wave they run
+ * in parallel, up to the concurrency limit.
+ *
+ * With a limit of 1 this is one wave in the given order: exactly the old serial behavior.
+ *
+ * With more, the first agent of each spec goes in the first wave and the rest in the second. On a
+ * new machine no container exists and no setup snapshot either, so the first restore for a spec
+ * installs the harness and saves the snapshot (about 90 s). Starting every agent of that spec at
+ * once would repeat the install for each of them. After the first wave the snapshot is there and
+ * the rest start from it in seconds.
+ */
+export function restoreWaves(agents: readonly AgentRow[], concurrency: number): AgentRow[][] {
+  if (concurrency <= 1 || agents.length <= 1) return agents.length > 0 ? [[...agents]] : [];
+  const seen = new Set<string>();
+  const leaders: AgentRow[] = [];
+  const followers: AgentRow[] = [];
+  for (const a of agents) {
+    const key = specKey(a);
+    if (seen.has(key)) {
+      followers.push(a);
+    } else {
+      seen.add(key);
+      leaders.push(a);
+    }
+  }
+  return followers.length > 0 ? [leaders, followers] : [leaders];
 }
 
 /**
