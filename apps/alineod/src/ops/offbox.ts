@@ -29,7 +29,12 @@ export type OffboxKind = "checkpoints" | "backups" | "db";
 /** The folder inside the bucket for one kind of data, without leading or trailing slash. */
 export function offboxFolder(cfg: Pick<OffboxConfig, "prefix" | "instanceId">, kind: OffboxKind) {
   return [cfg.prefix, cfg.instanceId, kind]
-    .map((p) => p.replace(/^\/+|\/+$/g, ""))
+    .map((p) =>
+      p
+        .split("/")
+        .filter((part) => part !== "")
+        .join("/"),
+    )
     .filter((p) => p !== "")
     .join("/");
 }

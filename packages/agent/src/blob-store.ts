@@ -32,10 +32,19 @@ export interface BlobStore {
   keyOf(ref: string): string | undefined;
 }
 
+/** `s` without leading and trailing slashes. A loop, not a regex: no backtracking on odd input. */
+function trimSlashes(s: string): string {
+  let start = 0;
+  let end = s.length;
+  while (start < end && s[start] === "/") start++;
+  while (end > start && s[end - 1] === "/") end--;
+  return s.slice(start, end);
+}
+
 /** Joins path parts with one `/` between them, ignoring empty parts and stray slashes. */
 function joinKey(...parts: string[]): string {
   return parts
-    .map((p) => p.replace(/^\/+|\/+$/g, ""))
+    .map(trimSlashes)
     .filter((p) => p !== "")
     .join("/");
 }
