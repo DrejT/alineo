@@ -73,6 +73,7 @@ static async resume(
     runId?: string;
     memory?: Memory;
     config?: AlineoAgentConfig;
+    blobStore?: BlobStore;
   },
 ): Promise<Alineo>
 ```
@@ -80,6 +81,8 @@ static async resume(
 Reconnect to an existing sandbox after the host process has exited. Only the bridge process is restarted — Pi and the workspace are untouched. Pi resumes the most recent session via `--continue`.
 
 If the container is **gone** — deleted, or left `Exited` by a machine reboot — `resume()` restores the agent instead of failing: a fresh container from the spec's setup snapshot, with the agent's latest [turn checkpoint](/docs/agent/concepts/reconnecting#turn-checkpoints) extracted into it. Without a checkpoint, the fresh agent starts a blank session. Check `agent.sandboxId` afterwards: it is the new container's.
+
+Pass `blobStore` to let the restore fall back to [off-box checkpoints](#takecheckpoint-and-blobstore) when the checkpoint file on this machine is gone too, such as after a disk loss. The restore tries the newest checkpoint first and moves to the next older one if it cannot read it.
 
 Unlike `load()`, `resume()` still accepts a bare path (`specPath`) — or, if you already have the spec object in memory, pass it directly via `spec` and skip the read. If neither is set, the ledger is queried for the sandbox's name and the spec is read from `./agents/<name>.json`.
 
@@ -106,6 +109,7 @@ static async reattach(
     runId?: string;
     memory?: Memory;
     config?: AlineoAgentConfig;
+    blobStore?: BlobStore;
     skipReadyCheck?: boolean;
   },
 ): Promise<Alineo>
@@ -457,6 +461,71 @@ type AgentEvent =
 ```
 
 See [Streaming & tool events](/docs/agent/concepts/streaming) for usage examples.
+
+---
+
+## takeCheckpoint() and BlobStore
+
+```ts
+function takeCheckpoint(
+  sb: SandboxHandle,
+  checkpointsDir: string,
+  opts: {
+    turn: number;
+    excludeGlobs?: string[];
+    retain?: number;
+    blobStore?: BlobStore;
+    remoteMinAgeMs?: number;
+  },
+): Promise<CheckpointRecord>;
+
+interface CheckpointRecord {
+  turn: number;
+  snapshotRef: string; // the file on this machine
+  remoteRef?: string; // the same tarball in the BlobStore, when the upload worked
+  uploadError?: string; // why the upload failed, when one was tried
+  createdAt: number;
+}
+```
+
+Tars the agent's home directory (and `/workspace` when it exists), writes it to `checkpointsDir`, and records `agent.checkpointed` in the ledger. See [Turn checkpoints](/docs/agent/concepts/reconnecting#turn-checkpoints).
+
+With a `blobStore`, the tarball is also uploaded, **before** the ledger event is written, so an event never names an object that is not there. The local copy is kept. A failed upload does not fail the checkpoint: it returns without `remoteRef`, with `uploadError`, and that checkpoint exists on this machine only. `retain` (default 3) applies to both places. An older object in the store is deleted only when it is also at least `remoteMinAgeMs` old (default 10 minutes), because a ledger restored from a replica can lag and name a checkpoint that is no longer the newest.
+
+```ts
+interface BlobStore {
+  put(key: string, body: string | Uint8Array): Promise<void>; // a string is a local file path
+  get(key: string): Promise<Uint8Array>;
+  delete(key: string): Promise<void>;
+  list(prefix: string): Promise<Array<{ key: string; lastModified: number }>>;
+  refOf(key: string): string; // the reference written to the ledger
+  keyOf(ref: string): string | undefined; // undefined when this store did not write `ref`
+}
+```
+
+`S3BlobStore` covers S3, R2 and MinIO through `Bun.S3Client`, so it runs under Bun only. `MemoryBlobStore` keeps blobs in a `Map`, for tests.
+
+```ts
+import { Alineo, S3BlobStore, checkpointsPath, takeCheckpoint } from "alineo";
+
+const blobStore = new S3BlobStore({
+  bucket: "my-backups",
+  prefix: "agents/prod", // everything goes under it
+  endpoint: "https://<account>.r2.cloudflarestorage.com", // leave out for AWS
+  region: "auto",
+  accessKeyId: process.env.S3_KEY_ID,
+  secretAccessKey: process.env.S3_SECRET,
+});
+
+await takeCheckpoint(agent.sandbox, checkpointsPath(ledgerPath), { turn: 1, blobStore });
+
+// Later, on a machine that has the ledger but not the checkpoint files:
+const restored = await Alineo.resume(savedSandboxId, { adapter, spec, blobStore });
+```
+
+alineod does this for you when `ALINEOD_BACKUP_BUCKET` is set. See [Back up and restore](/docs/alineod/restore).
+
+Lower-level helpers are exported for custom restore flows: `findCheckpoints()` (every checkpoint in the ledger, newest first), `fetchCheckpoint()` (local file, then the store), `pickRestorable()` (the newest checkpoint that can be read), `extractCheckpoint()` and `pruneRemoteCheckpoints()`.
 
 ---
 
