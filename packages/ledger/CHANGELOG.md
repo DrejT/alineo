@@ -1,5 +1,13 @@
 # @alineo-labs/ledger
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [bd29bac]
+- Updated dependencies [28f693f]
+  - @alineo-labs/schema@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

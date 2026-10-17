@@ -1,5 +1,15 @@
 # drej
 
+## 0.5.1
+
+### Patch Changes
+
+- Updated dependencies [bd29bac]
+- Updated dependencies [28f693f]
+  - @alineo-labs/schema@0.3.0
+  - @alineo-labs/core@0.5.1
+  - @alineo-labs/vault@0.3.4
+
 ## 0.5.0
 
 ### Minor Changes

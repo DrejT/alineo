@@ -1,5 +1,21 @@
 # @alineo-labs/schema
 
+## 0.3.0
+
+### Minor Changes
+
+- bd29bac: A restore from a gone container now says what it restored. alineod emits `agent.restored` with `oldSandboxId` and `checkpointTurn` right after `agent.provisioned`. `checkpointTurn` is `null` when the agent had no checkpoint and came back with a blank session. Before this, a restore from a checkpoint and a restore with nothing looked the same in the event stream.
+
+  The SDK adds `Alineo.restore` (`{ checkpointTurn: number | null }`), set by `resume()` and `reattach()` when they return an agent on a fresh sandbox, and the `AgentRestore` type.
+
+- 28f693f: Checkpoints can now be kept off the machine. Pass a `BlobStore` to `takeCheckpoint()` and each tarball is uploaded to it as well as written to the host disk, and `agent.checkpointed` gains `remoteRef` (where the object is) and `uploadError` (why an upload failed, when one was tried). `S3BlobStore` covers S3, R2 and MinIO through `Bun.S3Client`. `MemoryBlobStore` is a fake for tests.
+
+  `Alineo.resume()` and `Alineo.reattach()` take the same `blobStore` option. When the sandbox is gone and the host's own checkpoint file is gone too, the restore downloads the checkpoint, and if it cannot read the newest one it tries the next older one before it falls back to a blank session.
+
+  New exports: `BlobStore`, `S3BlobStore`, `MemoryBlobStore`, `findCheckpoints`, `fetchCheckpoint`, `pickRestorable`, `extractCheckpoint`, `pruneRemoteCheckpoints`.
+
+  Nothing changes unless you pass a store. A failed upload never fails a checkpoint.
+
 ## 0.2.0
 
 ### Minor Changes
