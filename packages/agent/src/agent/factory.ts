@@ -16,7 +16,8 @@ import { createHarness, type HarnessAdapter } from "../harness";
 import { resolveEnv, extractCredentialBindings, parseShellExports } from "../adapters/pi";
 import { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "../snapshots";
 import { isSandboxGone } from "../sandbox-gone";
-import { findLatestCheckpoint, restoreCheckpoint } from "../restore";
+import { extractCheckpoint, findCheckpoints, pickRestorable } from "../restore";
+import type { BlobStore } from "../blob-store";
 import {
   assertValidSpawnDepth,
   assertValidMaxAgents,
@@ -323,7 +324,7 @@ export async function loadAgent(
 async function restoreFromCheckpoint(
   originalSandboxId: string,
   spec: AgentSpec,
-  opts: { adapter: IStorageAdapter; config?: AlineoAgentConfig },
+  opts: { adapter: IStorageAdapter; config?: AlineoAgentConfig; blobStore?: BlobStore },
   runId: string,
   log: Logger,
 ): Promise<AgentConstructorArgs> {
@@ -331,13 +332,27 @@ async function restoreFromCheckpoint(
     originalSandboxId,
   });
   const fresh = await loadAgent(spec, { adapter: opts.adapter, config: opts.config, runId });
-  const latest = await findLatestCheckpoint(opts.adapter, spec.name, originalSandboxId);
-  if (!latest) {
+  const candidates = await findCheckpoints(opts.adapter, spec.name, originalSandboxId);
+  if (candidates.length === 0) {
     log.warn("no checkpoint found for this agent — continuing with a blank session", {
       originalSandboxId,
     });
     return { ...fresh, restore: { checkpointTurn: null } };
   }
+  // Newest first. A tarball that is gone (a lost disk, a blob pruned while the ledger replica
+  // still named it) costs one turn of history, not the whole conversation (M4, 4.1).
+  const picked = await pickRestorable(candidates, { blobStore: opts.blobStore });
+  for (const s of picked?.skipped ?? []) {
+    log.warn("checkpoint is unavailable — trying an older one", { turn: s.turn, reason: s.reason });
+  }
+  if (!picked) {
+    log.warn("no checkpoint tarball could be read — continuing with a blank session", {
+      originalSandboxId,
+      tried: candidates.length,
+    });
+    return { ...fresh, restore: { checkpointTurn: null } };
+  }
+  const latest = picked.checkpoint;
   log.info("restoring checkpoint", { turn: latest.turn, sandboxId: fresh.sandbox.sandboxId });
   try {
     // Kill the bridge loadAgent() just started against the snapshot's blank session — it's
@@ -345,7 +360,7 @@ async function restoreFromCheckpoint(
     await fresh.sandbox.exec("pkill -f 'node /alineo-bridge.js' 2>/dev/null; sleep 0.1; true", {
       strict: false,
     });
-    await restoreCheckpoint(fresh.sandbox, latest.snapshotRef);
+    await extractCheckpoint(fresh.sandbox, picked.bytes);
     await fresh.adapter.configure(fresh.sandbox, spec, fresh.env, { resume: true });
     await fresh.adapter.start(fresh.sandbox);
     await fresh.adapter.waitReady();
@@ -377,6 +392,13 @@ export async function resumeAgent(
      * tests that must not depend on the working directory.
      */
     config?: AlineoAgentConfig;
+
+    /**
+     * Where off-box checkpoints are fetched from when the sandbox is gone and the host's own
+     * checkpoint file is too (a new machine after a disk loss). Without it, only checkpoints on
+     * this host's disk can be restored.
+     */
+    blobStore?: BlobStore;
   },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();
@@ -535,6 +557,13 @@ export async function reattachAgent(
      * tests that must not depend on the working directory.
      */
     config?: AlineoAgentConfig;
+
+    /**
+     * Where off-box checkpoints are fetched from when the sandbox is gone and the host's own
+     * checkpoint file is too (a new machine after a disk loss). Without it, only checkpoints on
+     * this host's disk can be restored.
+     */
+    blobStore?: BlobStore;
   },
 ): Promise<AgentConstructorArgs> {
   const t0 = Date.now();

@@ -64,3 +64,36 @@ export function errorFields(err: unknown): { error: string; errorCode?: ErrorCod
 export function providerOf(agent: { sandbox?: { provider?: string } }): string | undefined {
   return agent.sandbox?.provider;
 }
+
+/**
+ * A concurrency cap: `limit(fn)` runs `fn` once fewer than `max` earlier calls are still running,
+ * and resolves or rejects with whatever `fn` does. A rejection frees its slot like a success.
+ */
+export function createLimiter(max: number): <T>(fn: () => Promise<T>) => Promise<T> {
+  let running = 0;
+  const waiting: Array<() => void> = [];
+  const release = (): void => {
+    const next = waiting.shift();
+    if (next) next();
+    else running--;
+  };
+  return async <T>(fn: () => Promise<T>): Promise<T> => {
+    if (running < max) running++;
+    else await new Promise<void>((resolve) => waiting.push(resolve)); // slot handed over by release()
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  };
+}
+
+/** Run `fn` over `items`, at most `max` at a time. Resolves when all have finished. */
+export async function mapLimit<T>(
+  items: readonly T[],
+  max: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const limit = createLimiter(max);
+  await Promise.all(items.map((item) => limit(() => fn(item))));
+}

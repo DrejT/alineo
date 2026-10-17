@@ -45,18 +45,29 @@ export type { AgentSnapshotRecord } from "./snapshots";
 export { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "./snapshots";
 export { PromptTimeoutError, BridgeDisconnectedError, AgentSpecValidationError } from "./errors";
 export type { CheckpointRecord } from "./checkpoint";
+export type { BlobInfo, BlobStore, S3BlobStoreOptions, S3ClientLike } from "./blob-store";
+export { MemoryBlobStore, S3BlobStore } from "./blob-store";
 export type { AgentRestore } from "./agent/factory";
 export {
   takeCheckpoint,
   checkpointsPath,
   DEFAULT_CHECKPOINT_EXCLUDES,
   DEFAULT_CHECKPOINT_RETENTION,
+  DEFAULT_REMOTE_PRUNE_MIN_AGE_MS,
   CHECKPOINT_ROOT,
+  pruneRemoteCheckpoints,
 } from "./checkpoint";
 export { isSandboxGone } from "./sandbox-gone";
 export { DEFAULT_PROVIDER_ID } from "@alineo-labs/core";
-export type { LatestCheckpoint } from "./restore";
-export { findLatestCheckpoint, restoreCheckpoint } from "./restore";
+export type { LatestCheckpoint, RestoreOptions } from "./restore";
+export {
+  extractCheckpoint,
+  fetchCheckpoint,
+  findCheckpoints,
+  findLatestCheckpoint,
+  pickRestorable,
+  restoreCheckpoint,
+} from "./restore";
 export type {
   HarnessEvent,
   HarnessEventBody,

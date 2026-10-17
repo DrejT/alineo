@@ -8,8 +8,10 @@ import {
   DEFAULT_CHECKPOINT_EXCLUDES,
   DEFAULT_CHECKPOINT_RETENTION,
   checkpointsPath,
+  pruneRemoteCheckpoints,
   takeCheckpoint,
 } from "../src/checkpoint";
+import { MemoryBlobStore, type BlobStore } from "../src/blob-store";
 
 function fakeSandbox(
   opts: { sandboxId?: string; execExitCode?: number; bytes?: Uint8Array } = {},
@@ -156,5 +158,144 @@ describe("checkpoint retention (M3, 3.5)", () => {
     await takeCheckpoint(b, dir, { turn: 1 });
     expect(readdirSync(join(dir, "sb-a"))).toHaveLength(DEFAULT_CHECKPOINT_RETENTION);
     expect(readdirSync(join(dir, "sb-b"))).toHaveLength(1);
+  });
+});
+
+describe("takeCheckpoint with an off-box store (M4, 4.1)", () => {
+  it("uploads the same bytes before it emits, and records both references", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const store = new MemoryBlobStore();
+    const { sb, emitted } = fakeSandbox({ sandboxId: "sb-up" });
+
+    const record = await takeCheckpoint(sb, dir, { turn: 2, blobStore: store });
+
+    expect(store.keys()).toHaveLength(1);
+    expect(store.keys()[0]).toMatch(/^sb-up\/2-\d+\.tar\.gz$/);
+    expect(new TextDecoder().decode(await store.get(store.keys()[0]!))).toBe("fake-tar-bytes");
+    expect(record.remoteRef).toBe(store.refOf(store.keys()[0]!));
+    expect(record.uploadError).toBeUndefined();
+    // The host copy is kept (decision D5) and is still the snapshotRef.
+    expect(existsSync(record.snapshotRef)).toBe(true);
+    expect(emitted[0]!.payload).toEqual({
+      turn: 2,
+      snapshotRef: record.snapshotRef,
+      remoteRef: record.remoteRef,
+    });
+  });
+
+  it("does not fail the checkpoint when the upload fails, and says why", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const broken: BlobStore = {
+      put: () => Promise.reject(new Error("bucket unreachable")),
+      get: () => Promise.reject(new Error("bucket unreachable")),
+      delete: () => Promise.reject(new Error("bucket unreachable")),
+      list: () => Promise.resolve([]),
+      refOf: (k) => `mem://${k}`,
+      keyOf: () => undefined,
+    };
+    const { sb, emitted } = fakeSandbox();
+
+    const record = await takeCheckpoint(sb, dir, { turn: 1, blobStore: broken });
+
+    expect(record.remoteRef).toBeUndefined();
+    expect(record.uploadError).toBe("bucket unreachable");
+    expect(existsSync(record.snapshotRef)).toBe(true);
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]!.payload).toEqual({
+      turn: 1,
+      snapshotRef: record.snapshotRef,
+      uploadError: "bucket unreachable",
+    });
+  });
+
+  it("uploads before the event, so an event never names a missing blob", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const order: string[] = [];
+    const store = new MemoryBlobStore();
+    const put = store.put.bind(store);
+    store.put = async (k, b) => {
+      order.push("put");
+      await put(k, b);
+    };
+    const { sb } = fakeSandbox();
+    const emit = sb.emit.bind(sb);
+    sb.emit = async (...args: Parameters<typeof sb.emit>) => {
+      order.push("emit");
+      await emit(...args);
+    };
+
+    await takeCheckpoint(sb, dir, { turn: 1, blobStore: store });
+
+    expect(order).toEqual(["put", "emit"]);
+  });
+
+  it("leaves the payload as it was when no store is given", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "checkpoint-test-"));
+    const { sb, emitted } = fakeSandbox();
+
+    const record = await takeCheckpoint(sb, dir, { turn: 1 });
+
+    expect(emitted[0]!.payload).toEqual({ turn: 1, snapshotRef: record.snapshotRef });
+  });
+});
+
+describe("pruneRemoteCheckpoints", () => {
+  const HOUR = 3_600_000;
+
+  async function seeded(ages: number[], now: number) {
+    // Written oldest first by moving the store's clock.
+    let clock = now;
+    const aged = new MemoryBlobStore(() => clock);
+    for (const [i, age] of ages.entries()) {
+      clock = now - age;
+      await aged.put(`sb-1/${i}.tar.gz`, new Uint8Array(1));
+    }
+    await aged.put("sb-2/0.tar.gz", new Uint8Array(1));
+    return aged;
+  }
+
+  it("keeps the newest N and deletes older ones that are past the age margin", async () => {
+    const now = 100 * HOUR;
+    const store = await seeded([5 * HOUR, 4 * HOUR, 3 * HOUR, 2 * HOUR, 1 * HOUR], now);
+
+    const gone = await pruneRemoteCheckpoints(store, "sb-1", {
+      retain: 3,
+      minAgeMs: HOUR / 2,
+      now,
+    });
+
+    expect(gone.sort()).toEqual(["sb-1/0.tar.gz", "sb-1/1.tar.gz"]);
+    expect(store.keys()).toEqual([
+      "sb-1/2.tar.gz",
+      "sb-1/3.tar.gz",
+      "sb-1/4.tar.gz",
+      "sb-2/0.tar.gz",
+    ]);
+  });
+
+  it("never deletes a blob younger than the margin, even beyond the count", async () => {
+    const now = 100 * HOUR;
+    // Five blobs a minute apart: all beyond retain 2 except two, but all are younger than 10 min.
+    const store = await seeded(
+      [5, 4, 3, 2, 1].map((m) => m * 60_000),
+      now,
+    );
+
+    const gone = await pruneRemoteCheckpoints(store, "sb-1", {
+      retain: 2,
+      minAgeMs: 10 * 60_000,
+      now,
+    });
+
+    expect(gone).toEqual([]);
+  });
+
+  it("only touches the given sandbox", async () => {
+    const now = 100 * HOUR;
+    const store = await seeded([3 * HOUR, 2 * HOUR, 1 * HOUR], now);
+
+    await pruneRemoteCheckpoints(store, "sb-1", { retain: 1, minAgeMs: 0, now });
+
+    expect(store.keys()).toContain("sb-2/0.tar.gz");
   });
 });

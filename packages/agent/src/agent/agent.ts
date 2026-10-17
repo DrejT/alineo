@@ -4,6 +4,7 @@ import { resourceRefOf } from "@alineo-labs/schema";
 import type { HarnessAdapter, HarnessRegistry } from "../harness";
 import type { AgentSpec } from "../schema";
 import type { AlineoAgentConfig } from "../config";
+import type { BlobStore } from "../blob-store";
 import type {
   AgentStream,
   CompactResult,
@@ -276,6 +277,11 @@ export class Alineo {
        * tests that must not depend on the working directory.
        */
       config?: AlineoAgentConfig;
+      /**
+       * Where off-box checkpoints are fetched from when the sandbox is gone and this host's own
+       * checkpoint file is too (a new machine after a disk loss). See `BlobStore`.
+       */
+      blobStore?: BlobStore;
     },
   ): Promise<Alineo> {
     const r = await factory.resumeAgent(sandboxId, opts);
@@ -336,6 +342,11 @@ export class Alineo {
        * tests that must not depend on the working directory.
        */
       config?: AlineoAgentConfig;
+      /**
+       * Where off-box checkpoints are fetched from when the sandbox is gone and this host's own
+       * checkpoint file is too (a new machine after a disk loss). See `BlobStore`.
+       */
+      blobStore?: BlobStore;
       /**
        * Don't probe the bridge before returning, and accept a Paused sandbox. For a paused
        * sandbox, whose frozen bridge can't answer until `agent.sandbox.resume()` — check it

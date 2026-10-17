@@ -52,9 +52,10 @@ none of the conversation. Losing the conversation is still better than losing th
 
 ## Turn checkpoints
 
-A turn checkpoint is a tarball of the agent's home directory — `/root`, where Pi keeps its session file and where
-the agent usually works — written to the host after a turn finishes cleanly. Package caches (`.npm`, `.cache`,
-Cargo and Go download caches, `__pycache__`) are left out. Taking one costs well under two seconds.
+A turn checkpoint is a tarball of the agent's home directory — `/root`, where Pi keeps its session file — and of
+`/workspace` when it exists, written to the host after a turn finishes cleanly. Package caches (`.npm`, `.cache`,
+Cargo and Go download caches, `__pycache__`) and the `node_modules` directories inside `/workspace` are left out. Taking
+one costs well under two seconds for a typical workspace.
 
 It is different from the two other snapshots in the stack:
 
@@ -92,11 +93,13 @@ the turn itself already succeeded. It prunes to the newest three by default; pas
 
 ### What a checkpoint doesn't hold
 
-- **Files outside `/root`.** `/tmp`, `/workspace` and anything else come back as the setup snapshot left them. Keep
-  work the agent needs to survive under its home directory.
+- **Files outside `/root` and `/workspace`.** `/tmp` and anything else come back as the setup snapshot left them. Keep
+  work the agent needs to survive under one of those two. The agent installs `node_modules` again after a restore.
 - **The turn that was running.** A checkpoint is taken after a turn, so an interrupted turn is not in it.
-- **Anything off this machine.** Checkpoints are files next to the ledger. Losing that disk loses them — see
-  [the durability contract](/docs/alineod/concepts/durability-contract).
+- **Anything off this machine, unless you give it a store.** Checkpoints are files next to the ledger, so losing that
+  disk loses them. Pass a `BlobStore` to `takeCheckpoint()` and to `resume()` / `reattach()` to keep a second copy in
+  S3-compatible storage — see [`takeCheckpoint()` and `BlobStore`](/docs/agent/api-reference/alineo#takecheckpoint-and-blobstore)
+  and [the durability contract](/docs/alineod/concepts/durability-contract).
 
 Specs with `approval: "hold"` credential bindings can't be restored onto a fresh container yet. `resume()` and
 `reattach()` throw for them when the container is gone.

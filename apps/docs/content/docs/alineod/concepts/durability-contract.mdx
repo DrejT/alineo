@@ -9,19 +9,20 @@ description: Exactly which failures a swarm survives today — a daemon crash, a
   its last completed turn — without anyone rebuilding state by hand. Everything needed for that lives on the
   machine alineod runs on.
 - **Durable**: the swarm can be rebuilt on a _different_ machine after the disk it ran from is gone. That needs a
-  backup and restore path that isn't built yet.
+  backup bucket and the [restore procedure](/docs/alineod/restore). Without `ALINEOD_BACKUP_BUCKET` it does not
+  apply.
 
 Don't take either word further than this page says — if a capability isn't in the table below, it isn't built,
 regardless of what any other page implies.
 
 ## What survives what, today
 
-| Layer                                    | alineod crash                                                     | Container loss or machine reboot                                                                                                                          | Disk or host loss                                        |
-| ---------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Sandbox session (`client.resume`)        | yes                                                               | **yes, to the last `sb.checkpoint()`** — snapshot + exec replay                                                                                           | no — a snapshot is a `docker commit` on the sandbox host |
-| Agent SDK (`Alineo.reattach` / `resume`) | yes                                                               | **yes, to the last turn checkpoint** — a fresh container from the setup snapshot, with the latest checkpoint restored into it                             | no — checkpoints are files next to the SDK ledger        |
-| alineod swarm                            | yes — see [Crash recovery](/docs/alineod/concepts/crash-recovery) | **yes, to the last completed turn**, for specs with `"checkpoint": true` — the [restore ladder](/docs/alineod/concepts/crash-recovery#the-restore-ladder) | no                                                       |
-| alineod agent memory                     | yes                                                               | **yes** — keyed by agent identity, not sandbox                                                                                                            | no — one SQLite file; back it up (`scripts/backup.ts`)   |
+| Layer                                    | alineod crash                                                     | Container loss or machine reboot                                                                                                                          | Disk or host loss                                                                                                                                    |
+| ---------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sandbox session (`client.resume`)        | yes                                                               | **yes, to the last `sb.checkpoint()`** — snapshot + exec replay                                                                                           | no — a snapshot is a `docker commit` on the sandbox host                                                                                             |
+| Agent SDK (`Alineo.reattach` / `resume`) | yes                                                               | **yes, to the last turn checkpoint** — a fresh container from the setup snapshot, with the latest checkpoint restored into it                             | **yes, with a backup bucket** — checkpoints are uploaded as they are taken                                                                           |
+| alineod swarm                            | yes — see [Crash recovery](/docs/alineod/concepts/crash-recovery) | **yes, to the last completed turn**, for specs with `"checkpoint": true` — the [restore ladder](/docs/alineod/concepts/crash-recovery#the-restore-ladder) | **yes, with a backup bucket** — [restore onto a new machine](/docs/alineod/restore), to the last completed turn and the last replicated ledger event |
+| alineod agent memory                     | yes                                                               | **yes** — keyed by agent identity, not sandbox                                                                                                            | **yes, with a backup bucket** — replicated with the ledgers                                                                                          |
 
 Three things are called a snapshot or a checkpoint in this stack, and only one of them carries an agent's
 conversation:
@@ -66,8 +67,11 @@ to take mid-turn — only alineod's own commands (`spawn`, `pause`, `resume`, `s
 
 ## Known gaps
 
-- **Disk or host loss.** Checkpoints, both ledgers and alineod's database all live on one machine. Restoring a
-  swarm onto a new machine from a backup isn't built.
+- **Disk or host loss without a backup bucket.** Checkpoints, both ledgers and alineod's database all live on one
+  machine. With `ALINEOD_BACKUP_BUCKET` set they are copied off it. Even then, the work dir is as old as the last
+  full backup, a turn running at the time is lost, and a checkpoint whose upload failed (`uploadError` on
+  `agent.checkpointed`) is on the lost disk only.
+- **Restore is one node, not failover.** It brings one alineod back on one machine, by hand.
 - **One instance per database.** alineod is a single-node control plane — see
   [Scaling](/docs/alineod/deployment#scaling).
 - **Held credential bindings.** A spec with `approval: "hold"` credential bindings can't be restored onto a fresh
@@ -76,6 +80,7 @@ to take mid-turn — only alineod's own commands (`spawn`, `pause`, `resume`, `s
 
 ## What this unlocks today
 
-**Resumable agents, to the last completed turn — including through a machine reboot.** Not "durable": a swarm
-does not yet survive the loss of the disk it runs from. This page will move that into the table above once a fault
-test proves it, not before.
+**Resumable agents, to the last completed turn — including through a machine reboot.** With a backup bucket and
+Litestream running, the same swarm can be restored onto a new machine. The scenario for that is
+`tests/integration/alineod-disk-loss.test.ts`. Run it, and follow the [restore page](/docs/alineod/restore) once on a
+spare machine, before you rely on it.

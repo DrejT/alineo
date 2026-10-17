@@ -62,6 +62,76 @@ const ENV_VARS = {
     schema: path,
     default: "./data/alineod-work",
   }),
+  INSTANCE_ID: defineEnv({
+    name: "ALINEOD_INSTANCE_ID",
+    description:
+      "A stable name for this alineod, used as a folder in the backup bucket (`<prefix>/<instance id>/…`). Two instances that share one bucket need different ids. Not the random lease id: that changes on every start, and a restore onto a new machine must find the same folder.",
+    schema: z
+      .string()
+      .min(1)
+      .regex(/^[A-Za-z0-9._-]+$/, "letters, digits, dot, underscore and hyphen only"),
+    default: "default",
+  }),
+  BACKUP_BUCKET: defineEnv({
+    name: "ALINEOD_BACKUP_BUCKET",
+    description:
+      "S3-compatible bucket for off-box backups (S3, R2, MinIO). Setting it sends every checkpoint tarball to the bucket as well as to the host disk, and lets `scripts/backup.ts --offsite` and `scripts/restore.ts` use it. Empty (the default) keeps everything on the host, exactly as before.",
+    schema: z.string(),
+    default: "",
+  }),
+  BACKUP_PREFIX: defineEnv({
+    name: "ALINEOD_BACKUP_PREFIX",
+    description: "Folder inside the bucket that holds everything alineod writes there.",
+    schema: z.string(),
+    default: "alineod",
+  }),
+  BACKUP_ENDPOINT: defineEnv({
+    name: "ALINEOD_BACKUP_ENDPOINT",
+    description:
+      "Endpoint URL of an S3-compatible service, such as `https://<account>.r2.cloudflarestorage.com` or `http://127.0.0.1:9000` for MinIO. Leave empty for AWS S3.",
+    schema: z.string(),
+    default: "",
+  }),
+  BACKUP_REGION: defineEnv({
+    name: "ALINEOD_BACKUP_REGION",
+    description: "Bucket region. R2 uses `auto`. Empty lets the client choose.",
+    schema: z.string(),
+    default: "",
+  }),
+  BACKUP_ACCESS_KEY_ID: defineEnv({
+    name: "ALINEOD_BACKUP_ACCESS_KEY_ID",
+    description:
+      "Access key for the backup bucket. Use a key limited to the backup prefix. Litestream reads the same pair from `LITESTREAM_ACCESS_KEY_ID` and `LITESTREAM_SECRET_ACCESS_KEY`.",
+    schema: z.string(),
+    default: "",
+  }),
+  BACKUP_SECRET_ACCESS_KEY: defineEnv({
+    name: "ALINEOD_BACKUP_SECRET_ACCESS_KEY",
+    description: "Secret for the access key above.",
+    schema: z.string(),
+    default: "",
+  }),
+  BACKUP_REMOTE_MIN_AGE_MS: defineEnv({
+    name: "ALINEOD_BACKUP_REMOTE_MIN_AGE_MS",
+    description:
+      "An off-box checkpoint is deleted only when it is beyond the retention count AND at least this old. The restored ledger replica can trail the live one by a few seconds, so after a disk loss it may name a checkpoint that is no longer the newest. This margin keeps that one alive.",
+    schema: ms,
+    default: 10 * 60_000,
+  }),
+  CHECKPOINT_CONCURRENCY: defineEnv({
+    name: "ALINEOD_CHECKPOINT_CONCURRENCY",
+    description:
+      "Max checkpoints taken at once. Each holds its whole tarball in memory while it is read out of the sandbox, so a burst of agents settling together would otherwise spike alineod's memory. Extra checkpoints wait their turn. Default is the admission concurrency (host vCPUs minus one).",
+    schema: z.coerce.number().int().positive(),
+    default: defaultAdmissionConcurrency,
+  }),
+  REHYDRATE_CONCURRENCY: defineEnv({
+    name: "ALINEOD_REHYDRATE_CONCURRENCY",
+    description:
+      "Max agents reconnected or restored at once when alineod starts. Restoring a container is CPU and disk heavy, like provisioning, so the default is the admission concurrency (host vCPUs minus one). Set `1` to restore one agent at a time.",
+    schema: z.coerce.number().int().positive(),
+    default: defaultAdmissionConcurrency,
+  }),
   PROMPT_INACTIVITY_TIMEOUT_MS: defineEnv({
     name: "ALINEOD_PROMPT_INACTIVITY_MS",
     description:
@@ -220,6 +290,16 @@ export const PORT = env.PORT;
 export const DB_PATH = env.DB_PATH;
 export const SDK_LEDGER_PATH = env.SDK_LEDGER_PATH;
 export const WORK_DIR = env.WORK_DIR;
+export const INSTANCE_ID = env.INSTANCE_ID;
+export const BACKUP_BUCKET = env.BACKUP_BUCKET;
+export const BACKUP_PREFIX = env.BACKUP_PREFIX;
+export const BACKUP_ENDPOINT = env.BACKUP_ENDPOINT;
+export const BACKUP_REGION = env.BACKUP_REGION;
+export const BACKUP_ACCESS_KEY_ID = env.BACKUP_ACCESS_KEY_ID;
+export const BACKUP_SECRET_ACCESS_KEY = env.BACKUP_SECRET_ACCESS_KEY;
+export const BACKUP_REMOTE_MIN_AGE_MS = env.BACKUP_REMOTE_MIN_AGE_MS;
+export const CHECKPOINT_CONCURRENCY = env.CHECKPOINT_CONCURRENCY;
+export const REHYDRATE_CONCURRENCY = env.REHYDRATE_CONCURRENCY;
 export const PROMPT_INACTIVITY_TIMEOUT_MS = env.PROMPT_INACTIVITY_TIMEOUT_MS;
 export const TURN_MAX_MS = env.TURN_MAX_MS;
 export const CATCH_UP_POLL_MS = env.CATCH_UP_POLL_MS;
