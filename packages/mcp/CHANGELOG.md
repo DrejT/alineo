@@ -1,5 +1,16 @@
 # alineo-mcp
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [bd29bac]
+- Updated dependencies [28f693f]
+- Updated dependencies [bd29bac]
+- Updated dependencies [28f693f]
+  - alineo@0.8.0
+  - @alineo-labs/schema@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes

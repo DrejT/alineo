@@ -1,5 +1,37 @@
 # @drej/agent
 
+## 0.8.0
+
+### Minor Changes
+
+- bd29bac: A restore from a gone container now says what it restored. alineod emits `agent.restored` with `oldSandboxId` and `checkpointTurn` right after `agent.provisioned`. `checkpointTurn` is `null` when the agent had no checkpoint and came back with a blank session. Before this, a restore from a checkpoint and a restore with nothing looked the same in the event stream.
+
+  The SDK adds `Alineo.restore` (`{ checkpointTurn: number | null }`), set by `resume()` and `reattach()` when they return an agent on a fresh sandbox, and the `AgentRestore` type.
+
+- bd29bac: A turn checkpoint now includes `/workspace` when it exists, so a restored agent gets back the files it worked on and not only its Pi conversation. Before this, a checkpoint covered `/root` only, and `/workspace` is where most specs work.
+
+  `node_modules` directories inside `/workspace` are left out. They are nearly all of the cost: a web app with 417 packages was 20 MB and 5 s with them, and 0.1 MB and 0.03 s without. The agent installs them again after a restore. A `node_modules` under `/root` is still included, because it can hold Pi's own packages.
+
+  Checkpoints are larger for agents that keep a repository in `/workspace`. A cloned repository measured 3.5 MB and 0.5 s.
+
+- 28f693f: Checkpoints can now be kept off the machine. Pass a `BlobStore` to `takeCheckpoint()` and each tarball is uploaded to it as well as written to the host disk, and `agent.checkpointed` gains `remoteRef` (where the object is) and `uploadError` (why an upload failed, when one was tried). `S3BlobStore` covers S3, R2 and MinIO through `Bun.S3Client`. `MemoryBlobStore` is a fake for tests.
+
+  `Alineo.resume()` and `Alineo.reattach()` take the same `blobStore` option. When the sandbox is gone and the host's own checkpoint file is gone too, the restore downloads the checkpoint, and if it cannot read the newest one it tries the next older one before it falls back to a blank session.
+
+  New exports: `BlobStore`, `S3BlobStore`, `MemoryBlobStore`, `findCheckpoints`, `fetchCheckpoint`, `pickRestorable`, `extractCheckpoint`, `pruneRemoteCheckpoints`.
+
+  Nothing changes unless you pass a store. A failed upload never fails a checkpoint.
+
+### Patch Changes
+
+- 28f693f: `AgentSnapshotStore` now runs its writes one at a time. Two specs finishing their setup at the same moment used to read the same file and the second write dropped the first record. That showed up when many agents were restored together.
+- Updated dependencies [bd29bac]
+- Updated dependencies [28f693f]
+  - @alineo-labs/schema@0.3.0
+  - @alineo-labs/core@0.5.1
+  - @alineo-labs/sandbox@0.5.1
+  - @alineo-labs/memory@0.3.1
+
 ## 0.7.0
 
 ### Minor Changes

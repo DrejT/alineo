@@ -1,5 +1,11 @@
 # @drej/otel
 
+## 0.1.7
+
+### Patch Changes
+
+- @alineo-labs/core@0.5.1
+
 ## 0.1.6
 
 ### Patch Changes
