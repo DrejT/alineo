@@ -26,10 +26,8 @@ const DATA = mkdtempSync(join(tmpdir(), "alineod-provider-"));
 
 const spec = {
   name: "alineod-provider-test",
-  harness: "pi",
-  harnessVersion: "1.2.0",
-  provider: "nvidia",
-  model: "nvidia/nemotron-3-super-120b-a12b",
+  harness: { id: "pi", version: "1.2.0" },
+  model: { provider: "nvidia", id: "nvidia/nemotron-3-super-120b-a12b" },
   env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
   resources: { cpu: "1000m", memory: "2Gi" },
 };
@@ -82,7 +80,7 @@ afterAll(async () => {
 describe("alineod and the sandbox provider", () => {
   test("an agent reports the provider that owns its sandbox, in the view and the run tree", async () => {
     const created = await api("POST", "/runs", { spec });
-    expect(created.status).toBe(201);
+    expect(created.status).toBe(202);
     runId = created.body.runId as string;
     const rootId = created.body.rootAgentId as string;
 

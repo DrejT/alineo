@@ -12,10 +12,8 @@ const BASE = process.env.ALINEOD_URL ?? "http://localhost:4600";
 
 const spec = {
   name: "alineod-provider",
-  harness: "pi",
-  harnessVersion: "1.2.0",
-  provider: "nvidia",
-  model: "nvidia/nemotron-3-super-120b-a12b",
+  harness: { id: "pi", version: "1.2.0" },
+  model: { provider: "nvidia", id: "nvidia/nemotron-3-super-120b-a12b" },
   env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
   resources: { cpu: "1000m", memory: "2Gi" },
 };
