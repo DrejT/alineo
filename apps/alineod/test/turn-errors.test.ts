@@ -4,7 +4,7 @@
  * on its last assistant message, so the stream doesn't throw and only that message says so.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { turnError } from "../src/engine/stream";
+import { summarizeLastMessage, turnError } from "../src/engine/stream";
 import { rehydrate } from "../src/engine/rehydrate";
 import { newAgentId, newRunId } from "../src/ids";
 import { emit } from "../src/engine/emit";
@@ -167,4 +167,33 @@ describe("a turn followed by polling", () => {
       error: "429 status code (no body)",
     });
   }, 10_000);
+});
+
+describe("summarizeLastMessage", () => {
+  test("reports the role, stop reason and content size of the last message", () => {
+    const summary = summarizeLastMessage([
+      { role: "user", content: [{}] },
+      { role: "assistant", stopReason: "stop", content: [{}, {}] },
+    ]);
+    expect(summary).toEqual({
+      messages: 2,
+      role: "assistant",
+      stopReason: "stop",
+      errorMessage: undefined,
+      contentBlocks: 2,
+    });
+  });
+
+  test("keeps the start of an error message and not all of it", () => {
+    const long = "x".repeat(500);
+    const summary = summarizeLastMessage([
+      { role: "assistant", stopReason: "error", errorMessage: long },
+    ]);
+    expect((summary.errorMessage as string).length).toBe(200);
+  });
+
+  test("says so when the turn produced no messages", () => {
+    expect(summarizeLastMessage(undefined)).toEqual({ messages: 0 });
+    expect(summarizeLastMessage([])).toEqual({ messages: 0 });
+  });
 });

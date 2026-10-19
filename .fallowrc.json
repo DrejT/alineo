@@ -4,6 +4,7 @@
     "apps/alineod/scripts/*.ts",
     "apps/alineod/test/fault/write-burst-worker.ts",
     "examples/pi-agent/test-*.ts",
+    "examples/pi-agent/diagnose-*.ts",
     "packages/*/pi-extension/*.ts",
     "packages/agent/src/bridge/*.ts",
     "scripts/*.ts"

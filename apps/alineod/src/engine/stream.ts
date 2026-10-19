@@ -135,6 +135,25 @@ export function forgetAllTurnTrackingForFaultInjection(): void {
   retryTimers.clear();
 }
 
+/** The role, stop reason and content size of the last message of a turn, for a log line. */
+export function summarizeLastMessage(messages: unknown): Record<string, unknown> {
+  if (!Array.isArray(messages) || messages.length === 0) return { messages: 0 };
+  const last = messages[messages.length - 1] as {
+    role?: unknown;
+    stopReason?: unknown;
+    errorMessage?: unknown;
+    content?: unknown;
+  } | null;
+  return {
+    messages: messages.length,
+    role: last?.role,
+    stopReason: last?.stopReason,
+    errorMessage:
+      typeof last?.errorMessage === "string" ? last.errorMessage.slice(0, 200) : undefined,
+    contentBlocks: Array.isArray(last?.content) ? last.content.length : typeof last?.content,
+  };
+}
+
 /**
  * The error a turn ended on, if any. When the model API refuses a request ("overloaded", a 429,
  * a 404 for a model the account can't use) Pi stops the turn normally, with `stopReason: "error"`
@@ -214,16 +233,30 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
   setState(agentId, "running", "prompt");
   driving.add(agentId);
   noteTurnStarted(agentId);
+  const turnStartedAt = Date.now();
 
   try {
     let endMessages: unknown;
+    let eventCount = 0;
     for await (const ev of agent.prompt(message, {
       inactivityTimeoutMs: PROMPT_INACTIVITY_TIMEOUT_MS,
     })) {
+      eventCount++;
       if (ev.type === "agent_end") endMessages = (ev as { messages?: unknown }).messages;
       emitHarness(runId, agentId, ev as { type: string } & Record<string, unknown>);
     }
     const text = await safeLastText(agent);
+    // A turn that ends with no text is recorded as a success below. It is rare, so say what it
+    // looked like: a model that returned nothing and a prompt that never reached the model leave
+    // different traces in the event count, the duration and the last assistant message.
+    if (text.trim() === "") {
+      log.warn("turn settled with no text", {
+        agentId,
+        turnMs: Date.now() - turnStartedAt,
+        events: eventCount,
+        endMessage: summarizeLastMessage(endMessages),
+      });
+    }
     const resultRef = writeResult(agentId, text);
     const upstream = turnError(endMessages);
     if (upstream) {
