@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SandboxHandle } from "../src/sandbox/index.ts";
+import { CommandError } from "../src/errors.ts";
 import type { ExecEvent } from "@alineo-labs/provider";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
@@ -184,6 +185,45 @@ describe("SandboxHandle live mode", () => {
     setExecClient(sb, execClient);
 
     await expect(sb.exec("exit 1")).rejects.toThrow("Command exited with code 1");
+  });
+
+  it("puts the command's output on CommandError and ends the message with it", async () => {
+    const adapter = makeAdapter();
+    const liveEvents: ExecEvent[] = [
+      { type: "stdout", text: "resolving\n", timestamp: 0 },
+      { type: "stderr", text: "npm error code ETARGET\n", timestamp: 0 },
+      { type: "error", error: { message: "exit", evalue: "1" }, timestamp: 0 },
+    ];
+    const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter));
+    setExecClient(sb, makeExecClient(liveEvents));
+
+    let err: unknown;
+    try {
+      await sb.exec("npm install x");
+    } catch (e) {
+      err = e;
+    }
+
+    expect(err).toBeInstanceOf(CommandError);
+    expect(err).toMatchObject({ stdout: "resolving\n", stderr: "npm error code ETARGET\n" });
+    expect((err as Error).message).toBe(
+      "Command exited with code 1: npm install x\nnpm error code ETARGET",
+    );
+  });
+
+  it("keeps only the last 2000 characters of the output in the message", () => {
+    const stderr = `${"a".repeat(5000)}END`;
+    const err = new CommandError(2, "make", "sb-1", { stderr });
+
+    expect(err.stderr).toBe(stderr);
+    expect(err.message).toBe(`Command exited with code 2: make\n${stderr.slice(-2000)}`);
+  });
+
+  it("uses stdout when stderr is empty, and leaves the message alone when both are", () => {
+    expect(new CommandError(1, "c", "s", { stdout: "only out\n" }).message).toBe(
+      "Command exited with code 1: c\nonly out",
+    );
+    expect(new CommandError(1, "c", "s").message).toBe("Command exited with code 1: c");
   });
 
   it("does not throw on non-zero exit with strict:false", async () => {

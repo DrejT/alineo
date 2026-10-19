@@ -99,23 +99,43 @@ function describeCause(cause: unknown): string | undefined {
   }
 }
 
+/** How much of a failed command's output goes into the error message. The full text stays on the error. */
+const OUTPUT_TAIL_CHARS = 2000;
+
+function outputTail(output: { stdout: string; stderr: string }): string {
+  const text = (output.stderr.trim() || output.stdout.trim()).slice(-OUTPUT_TAIL_CHARS);
+  return text ? `\n${text}` : "";
+}
+
 /**
  * Thrown when a command exits with a non-zero exit code. Carries the exit
- * code and original command. For `SandboxHandle.exec()`, only thrown when `strict`
- * is enabled (the default — pass `{ strict: false }` to opt out). For
+ * code, the original command, and the command's output: `stderr` and `stdout`
+ * hold all of it, and the message ends with the last 2000 characters of `stderr`
+ * (or of `stdout` when `stderr` is empty). For `SandboxHandle.exec()`, only thrown
+ * when `strict` is enabled (the default — pass `{ strict: false }` to opt out). For
  * `BashSession.exec()` (a persistent session from `createSession()`), always
  * thrown on non-zero exit; there is no `strict` option for session execs.
  */
 export class CommandError extends WorkflowError {
+  public readonly stdout: string;
+  public readonly stderr: string;
+
   constructor(
     public readonly exitCode: number,
     public readonly command: string,
     public readonly sandboxId: string,
+    output: { stdout?: string; stderr?: string } = {},
   ) {
-    super(`Command exited with code ${exitCode}: ${command}`, "COMMAND_FAILED", {
-      details: { exitCode, sandboxId },
-    });
+    const stdout = output.stdout ?? "";
+    const stderr = output.stderr ?? "";
+    super(
+      `Command exited with code ${exitCode}: ${command}${outputTail({ stdout, stderr })}`,
+      "COMMAND_FAILED",
+      { details: { exitCode, sandboxId } },
+    );
     this.name = "CommandError";
+    this.stdout = stdout;
+    this.stderr = stderr;
   }
 }
 
