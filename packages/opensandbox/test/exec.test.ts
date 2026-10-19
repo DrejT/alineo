@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { ExecClient } from "../src/exec.ts";
+import { ExecClient, MAX_COMMAND_BYTES } from "../src/exec.ts";
 import { SSEEventType } from "../src/types.ts";
 
 /**
@@ -137,5 +137,44 @@ describe("ExecClient failures carry an alineo code", () => {
       .catch((e: unknown) => e);
 
     expect(err).toMatchObject({ code: "PROVIDER_RATE_LIMITED", status: 429, message: "slow down" });
+  });
+});
+
+describe("ExecClient command size guard", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const run = (command: string) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, body: null });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ExecClient({ baseUrl: "http://localhost:44772", accessToken: "" });
+    return {
+      fetchMock,
+      done: (async () => {
+        for await (const _ev of client.executeCommand({ command })) {
+          // no events
+        }
+      })().catch((e: unknown) => e),
+    };
+  };
+
+  it("refuses a command over the limit before any request, with INVALID_ARGUMENT and a hint", async () => {
+    const { fetchMock, done } = run("x".repeat(MAX_COMMAND_BYTES + 1));
+    const err = await done;
+    expect(err).toMatchObject({ code: "INVALID_ARGUMENT" });
+    expect((err as { hint?: string }).hint).toContain("writeFile");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("counts bytes, not characters", async () => {
+    const { done } = run("é".repeat(MAX_COMMAND_BYTES / 2 + 1));
+    expect(await done).toMatchObject({ code: "INVALID_ARGUMENT" });
+  });
+
+  it("sends a command at the limit", async () => {
+    const { fetchMock, done } = run("x".repeat(MAX_COMMAND_BYTES));
+    expect(await done).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

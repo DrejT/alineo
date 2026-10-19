@@ -1,3 +1,4 @@
+import { AlineoError } from "@alineo-labs/errors";
 import { errorFromBody } from "./control";
 import { SSEEventType } from "./types";
 import type {
@@ -99,6 +100,26 @@ async function* parseSSE(
       reader.releaseLock();
     }
   }
+}
+
+/**
+ * execd v1.0.22 silently ignores a command of about 100 KB or more: it answers exit 0 and runs
+ * nothing (92 KB was the largest size seen to work). Refuse before the request, so the caller
+ * gets an error with a way out and not a success that did nothing.
+ */
+export const MAX_COMMAND_BYTES = 92_000;
+
+function assertCommandSize(command: string): void {
+  const bytes = new TextEncoder().encode(command).length;
+  if (bytes <= MAX_COMMAND_BYTES) return;
+  throw new AlineoError(
+    "INVALID_ARGUMENT",
+    `command is ${bytes} bytes, over the ${MAX_COMMAND_BYTES} byte limit; execd would ignore it and report exit 0`,
+    {
+      hint: "Write the content with writeFile() and run a short command that reads it.",
+      details: { bytes, limit: MAX_COMMAND_BYTES },
+    },
+  );
 }
 
 function isExecTerminal(event: SSEEvent): boolean {
@@ -212,6 +233,7 @@ export class ExecClient {
   }
 
   async *executeCommand(options: ExecuteCommandOptions): AsyncGenerator<SSEEvent> {
+    assertCommandSize(options.command);
     yield* this.streamRequest("POST", "/command", options, isExecTerminal);
   }
 
