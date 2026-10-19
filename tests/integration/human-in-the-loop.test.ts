@@ -2,7 +2,7 @@
  * Integration test for the human-in-the-loop permission gate.
  *
  * Requires OpenSandbox running (`bunx alineo-cli init` or `uvx opensandbox-server`) and
- * NVIDIA_API_KEY (https://build.nvidia.com). Model: nvidia/nemotron-3-nano-30b-a3b —
+ * NVIDIA_API_KEY (https://build.nvidia.com). Model: nvidia/nemotron-3-super-120b-a12b (nano reached end of life) —
  * fast, reliable tool calls, and it adjusts after a deny-with-feedback.
  *
  * Run: NVIDIA_API_KEY=... bun test tests/integration/human-in-the-loop.test.ts --timeout 600000
@@ -22,7 +22,7 @@ const BASE = {
   harnessVersion: "1.2.0",
   packages: ["python3"],
   provider: "nvidia",
-  model: "nvidia/nemotron-3-nano-30b-a3b",
+  model: "nvidia/nemotron-3-super-120b-a12b",
   env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
   resources: { cpu: "1000m", memory: "2Gi" },
 };
