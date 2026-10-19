@@ -98,11 +98,12 @@ NVIDIA_API_KEY=nvapi-... docker compose -f apps/alineod/docker-compose.yml up --
 
 The entrypoint writes `/data/alineo.config.json` from these variables before starting the server:
 
-| Variable                  | Description                                                    |
-| ------------------------- | -------------------------------------------------------------- |
-| `ALINEO_SERVER_URL`       | OpenSandbox server URL.                                        |
-| `ALINEO_USE_SERVER_PROXY` | Route sandbox traffic through the OpenSandbox server (`true`). |
-| `ALINEO_API_KEY`          | OpenSandbox API key, if the server requires one.               |
+| Variable                  | Description                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| `ALINEO_PROVIDER`         | Sandbox provider id. Default `opensandbox`. See [Sandbox providers](/docs/core/providers). |
+| `ALINEO_SERVER_URL`       | OpenSandbox server URL.                                                                    |
+| `ALINEO_USE_SERVER_PROXY` | Route sandbox traffic through the OpenSandbox server (`true`).                             |
+| `ALINEO_API_KEY`          | OpenSandbox API key, if the server requires one.                                           |
 
 All state lives under `/data` — both ledgers, the work directory, and the `checkpoints/` directory of turn
 checkpoints next to the SDK ledger. Keep it on a volume: it is what a restart, a lost container, or a reboot is

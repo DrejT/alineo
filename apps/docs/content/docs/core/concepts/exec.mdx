@@ -46,6 +46,17 @@ await sb.exec(script).pipe(process.stdout);
 | `env`       | `Record<string, string>` | —       | Extra environment variables for this exec only                                      |
 | `timeoutMs` | `number`                 | —       | Abort the command after this many milliseconds                                      |
 
+### Command size
+
+A command string may be at most 92,000 bytes. `execd` v1.0.22 ignores a command of about 100 KB or more:
+it answers exit 0 and runs nothing. So `sb.exec()` refuses a longer command before it sends it. It throws
+`INVALID_ARGUMENT` with the hint to use `writeFile()`.
+
+```ts
+await sb.writeFile("/tmp/big.sh", hugeScript);
+await sb.exec("bash /tmp/big.sh");
+```
+
 ### Exec timeout
 
 Use `timeoutMs` to abort a command that runs too long:

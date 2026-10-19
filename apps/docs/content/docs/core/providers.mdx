@@ -1,0 +1,86 @@
+---
+title: Sandbox providers
+description: Pick the sandbox provider from config, read what it can do, and what happens when it cannot do something.
+---
+
+A sandbox provider is the service that creates containers and runs commands in them. alineo ships one,
+`opensandbox`. The `Sandbox` client talks to the `SandboxProvider` interface from `@alineo-labs/provider`,
+not to OpenSandbox directly.
+
+## Choose a provider from config
+
+`alineo.config.json` has a `provider` key. It defaults to `"opensandbox"`. The env var `ALINEO_PROVIDER` overrides it.
+The CLI, alineod and the agent SDK all build their client from this one place.
+
+```ts
+import { clientFromConfig, providerFromConfig } from "@alineo-labs/sandbox";
+
+const config = {
+  provider: "opensandbox",
+  serverUrl: "http://127.0.0.1:8080",
+  useServerProxy: true,
+};
+
+const provider = providerFromConfig(config); // the provider alone
+const client = clientFromConfig(config, { adapter }); // a Sandbox client on it
+```
+
+An id the build does not know is refused with `INVALID_ARGUMENT`. The message lists the known ids. alineo does not
+fall back to OpenSandbox, because that would run your agents on the wrong substrate without a word.
+
+To bring your own provider, pass it directly:
+
+```ts
+import { Sandbox } from "@alineo-labs/sandbox";
+
+const client = new Sandbox({ provider: myProvider, adapter });
+```
+
+## Read what a provider can do
+
+Each provider declares its abilities as plain data in `provider.descriptor.capabilities`.
+
+| Capability    | Meaning                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| `snapshot`    | `false`, or `{ kind: "filesystem" }` (files only) or `{ kind: "memory" }` (files and processes). |
+| `pause`       | `pauseSandbox` and `resumeSandbox` work.                                                         |
+| `egress`      | Runtime egress rules through `provider.egress`.                                                  |
+| `credentials` | Credential injection that keeps the value outside the guest.                                     |
+| `pty`         | An interactive terminal through `connectPty`.                                                    |
+| `code`        | Stateful code contexts.                                                                          |
+
+A value is `true`, `false` or `"unverified"` (configured to, not proven).
+
+## A missing capability is refused first
+
+If you ask for something the provider declared it cannot do, alineo throws `CAPABILITY_UNSUPPORTED` before any container
+exists. For example, a sandbox with a `networkPolicy` on a provider with `egress: false` fails at `client.sandbox()`.
+Nothing is created and nothing leaks.
+
+## The ledger records the owner
+
+A sandbox id means nothing outside the provider that made it. The ledger records the provider id on `sandbox.created`.
+If you resume a session with a client on a different provider, alineo throws `PROVIDER_MISMATCH` and the hint tells you
+which provider created it.
+
+## Errors
+
+A provider maps its own failures to alineo [error codes](/docs/core/api-reference/errors#error-codes):
+`SANDBOX_NOT_FOUND`, `EXEC_NOT_READY`, `PROVIDER_AUTH`, `PROVIDER_RATE_LIMITED`, `PROVIDER_UNAVAILABLE`.
+Code that branches on these works on any provider.
+
+## Writing a provider: the contract tests
+
+`tests/contract` is the suite a provider must pass: lifecycle, exec (stdout, stderr, exit codes, newlines, stdin,
+timeouts), files, snapshot and fork, and endpoints. It uses the public SDK. You bind it to a provider with one small
+file. `opensandbox.contract.test.ts` is the template.
+
+```bash
+bun run test:contract
+```
+
+Run it before you change the `execd_image` or the server image pin. It is what showed that `execd` v1.0.22 strips
+newlines from stdout.
+
+A runnable example is in
+[`examples/provider-config`](https://github.com/DrejT/alineo/tree/main/examples/provider-config).

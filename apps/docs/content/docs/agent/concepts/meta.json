@@ -1,6 +1,7 @@
 {
   "title": "Concepts",
   "pages": [
+    "harnesses",
     "snapshots",
     "workspace-setup",
     "streaming",
