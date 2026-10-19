@@ -121,7 +121,7 @@ test("onPermission handler auto-resolves, and the ledger records every decision"
   const events = await adapter.readAll(agent.name, agent.sandboxId);
   const kinds = events.map((e) => e.event);
   expect(kinds).toContain("permission.requested");
-  expect(kinds).toContain("permission_resolved");
+  expect(kinds).toContain("permission.resolved");
 }, 600_000);
 
 test('permissions: "readonly" removes write/bash from the toolset', async () => {

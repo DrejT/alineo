@@ -140,29 +140,44 @@ const gated = await Alineo.start(
 );
 try {
   await check("a rejected permission does not run the tool, an allowed one does", async () => {
-    const rejected = await drain(
-      gated.prompt("Use the bash tool to run: echo gate-test-reject. Then say done.", {
-        onPermission: () => ({ kind: "reject", feedback: "not allowed in this test" }),
-      }),
+    // The gate fires when the model calls a gated tool, so a turn where the model answers
+    // without one proves nothing. Try again on a fresh session, which also drops the model's
+    // memory of an earlier reject, up to three times. `diagnose-gate.ts` shows the pattern.
+    async function untilGated(
+      prompt: string,
+      onPermission: () => { kind: "reject"; feedback: string } | { kind: "once" },
+    ): Promise<{ events: AgentEvent[]; attempts: number }> {
+      for (let attempts = 1; ; attempts++) {
+        const events = await drain(gated.prompt(prompt, { onPermission }));
+        if (events.some((e) => e.type === "permission_request") || attempts === 3) {
+          return { events, attempts };
+        }
+        await gated.newSession();
+      }
+    }
+
+    const { events: rejected, attempts } = await untilGated(
+      "Use the bash tool to run: echo gate-test-reject. Then say done.",
+      () => ({ kind: "reject", feedback: "not allowed in this test" }),
     );
     assert(
       rejected.some((e) => e.type === "permission_request"),
-      "no permission_request was raised",
+      "no permission_request was raised in 3 tries (the model never called bash)",
     );
     assert(
       !rejected.some((e) => e.type === "tool_end" && e.toolName === "bash" && !e.isError),
       "bash ran successfully after a reject",
     );
-    const allowed = await drain(
-      gated.prompt("Use the bash tool to run: echo gate-test-allow. Then say done.", {
-        onPermission: () => ({ kind: "once" }),
-      }),
+    await gated.newSession();
+    const { events: allowed } = await untilGated(
+      "Use the bash tool to run: echo gate-test-allow. Then say done.",
+      () => ({ kind: "once" }),
     );
     assert(
       allowed.some((e) => e.type === "tool_end" && e.toolName === "bash" && !e.isError),
       "bash did not run after an allow",
     );
-    return "reject blocked, allow ran";
+    return `reject blocked, allow ran (reject took ${attempts} ${attempts === 1 ? "try" : "tries"})`;
   });
 } finally {
   await gated.close().catch(() => {});
