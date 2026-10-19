@@ -48,11 +48,16 @@ export function pauseAgent(
     withIdempotency(agentId, "pause", opts.idempotencyKey, async () => {
       const pausedBy = opts.pausedBy ?? "operator";
       const row = getAgentRow(agentId);
-      if (!row) throw new HttpError(404, `no agent ${agentId}`);
+      if (!row) throw new HttpError(404, `no agent ${agentId}`, "AGENT_NOT_FOUND");
       if (row.state === "paused") return; // idempotent
 
       const agent = get(agentId);
-      if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot pause it)`);
+      if (!agent)
+        throw new HttpError(
+          409,
+          `agent ${agentId} is not live (cannot pause it)`,
+          "AGENT_NOT_LIVE",
+        );
 
       try {
         await agent.sandbox.pause();
@@ -78,13 +83,18 @@ export function resumeAgent(
   return withAgentLock(agentId, () =>
     withIdempotency(agentId, "resume", opts.idempotencyKey, async () => {
       const row = getAgentRow(agentId);
-      if (!row) throw new HttpError(404, `no agent ${agentId}`);
+      if (!row) throw new HttpError(404, `no agent ${agentId}`, "AGENT_NOT_FOUND");
       if (row.state !== "paused") {
         throw new HttpError(409, `agent ${agentId} is not paused (state: ${row.state})`);
       }
 
       const agent = get(agentId);
-      if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot resume it)`);
+      if (!agent)
+        throw new HttpError(
+          409,
+          `agent ${agentId} is not live (cannot resume it)`,
+          "AGENT_NOT_LIVE",
+        );
 
       try {
         await agent.sandbox.resume();

@@ -1,0 +1,68 @@
+---
+title: Harnesses
+description: Run Pi, Claude Code or Codex as the agent loop, and read what each one can do.
+---
+
+A harness is the agent loop that runs inside the sandbox. Set it with `harness` in the [agent spec](/docs/agent/api-reference/agent-spec).
+Everything else (snapshots, the ledger, permissions, alineod) works the same for each harness.
+
+```json
+{
+  "name": "reviewer",
+  "harness": { "id": "claude-code", "version": "latest" },
+  "model": { "id": "claude-sonnet-4-5" }
+}
+```
+
+The harness receives the model id as written. Use an id that harness accepts.
+
+`"harness": "pi"` and `"harness": { "id": "pi" }` mean the same. The object form carries the version. The old
+top-level `harnessVersion` still works.
+
+| Harness     | Id            | Installed from                   |
+| ----------- | ------------- | -------------------------------- |
+| Pi          | `pi`          | the Pi coding agent npm package  |
+| Claude Code | `claude-code` | `@anthropic-ai/claude-agent-sdk` |
+| Codex       | `codex`       | `@openai/codex`                  |
+
+The sandbox needs the matching model API key in `env`, for example `ANTHROPIC_API_KEY` for Claude Code.
+
+## What each harness can do
+
+Each harness declares its abilities. They are never probed.
+
+| Capability                                       | Pi  | Claude Code | Codex |
+| ------------------------------------------------ | --- | ----------- | ----- |
+| `steer` (inject a message into the running turn) | yes | no          | yes   |
+| `followUp` (queue a message for after the turn)  | yes | no          | no    |
+| `resume` (continue a session)                    | yes | yes         | yes   |
+| `fork` (new session from an earlier point)       | yes | yes         | yes   |
+| `compact`                                        | yes | no          | yes   |
+| `setModel` (change model of a live session)      | yes | no          | no    |
+| `permissions` (ask before a tool call)           | yes | yes         | yes   |
+| `reasoning` (reasoning events)                   | yes | no          | yes   |
+
+A `no` means the adapter does not do it today. It is not a limit of the SDK.
+
+## A call the harness cannot do is refused first
+
+```ts
+import { createHarness, registeredHarnesses, requireHarnessCapability } from "alineo";
+
+registeredHarnesses(); // ["pi", "claude-code", "codex"]
+
+const claude = createHarness("claude-code");
+requireHarnessCapability(claude, "steer"); // throws CAPABILITY_UNSUPPORTED
+```
+
+`agent.steer()` and `agent.followUp()` call this check for you. An unknown harness id throws `SPEC_INVALID` with a hint that lists the real ones.
+
+## Pin the version
+
+A spec without a version installs the latest release when the sandbox is built. Pin it. For Pi on NVIDIA models,
+use `1.2.0`: Pi 1.3.0 sends a model id that the NVIDIA API answers with `404`.
+
+The harness layer is experimental. Expect changes before it is stable.
+
+A runnable example is in
+[`examples/harness-capabilities`](https://github.com/DrejT/alineo/tree/main/examples/harness-capabilities).

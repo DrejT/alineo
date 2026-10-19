@@ -42,10 +42,14 @@ const MAX_KEY_LIMIT = 1_000;
 
 function scopeOf(agentId: string): { store: MemoryStore; ref: ResourceRef } {
   const row = getAgentRow(agentId);
-  if (!row) throw new HttpError(404, `no agent ${agentId}`);
+  if (!row) throw new HttpError(404, `no agent ${agentId}`, "AGENT_NOT_FOUND");
   const store = getMemoryStore();
   if (!store) {
-    throw new HttpError(501, "memory is disabled on this alineod (ALINEOD_MEMORY_ENABLED=false)");
+    throw new HttpError(
+      501,
+      "memory is disabled on this alineod (ALINEOD_MEMORY_ENABLED=false)",
+      "CAPABILITY_UNSUPPORTED",
+    );
   }
   return { store, ref: agentResourceRef(row.spec_json, row.spec_name) };
 }
@@ -55,6 +59,7 @@ function requireSemantic(store: MemoryStore): void {
     throw new HttpError(
       501,
       "semantic memory is not configured (set ALINEOD_MEMORY_EMBEDDINGS_URL and ALINEOD_MEMORY_EMBEDDINGS_MODEL)",
+      "CAPABILITY_UNSUPPORTED",
     );
   }
 }
@@ -72,7 +77,8 @@ async function viaEmbeddings<T>(op: () => Promise<T>): Promise<T> {
     if (err instanceof EmbeddingsError) {
       throw new HttpError(502, `embeddings provider failed: ${errorMessage(err)}`);
     }
-    if (err instanceof MemoryCapabilityError) throw new HttpError(501, err.message);
+    if (err instanceof MemoryCapabilityError)
+      throw new HttpError(501, err.message, "CAPABILITY_UNSUPPORTED");
     throw err;
   }
 }
@@ -101,7 +107,11 @@ async function workingPage(
 
 function checkKey(key: string): string {
   if (key.length === 0 || key.length > MEMORY_KEY_MAX_CHARS) {
-    throw new HttpError(400, `key must be 1-${MEMORY_KEY_MAX_CHARS} characters`);
+    throw new HttpError(
+      400,
+      `key must be 1-${MEMORY_KEY_MAX_CHARS} characters`,
+      "INVALID_ARGUMENT",
+    );
   }
   return key;
 }
@@ -111,7 +121,7 @@ function intParam(raw: string | undefined, name: string, fallback: number, max: 
   if (raw === undefined || raw === "") return fallback;
   const n = Number(raw);
   if (!Number.isInteger(n) || n < 1 || n > max) {
-    throw new HttpError(400, `${name} must be an integer between 1 and ${max}`);
+    throw new HttpError(400, `${name} must be an integer between 1 and ${max}`, "INVALID_ARGUMENT");
   }
   return n;
 }
@@ -181,7 +191,8 @@ export const memoryRoutes = new Elysia()
     const sem = store.semantic;
     // Reachable only if a store was assembled with a semantic `Memory` but no provider handle to
     // list from. An empty list would read as "no facts"; say what is actually wrong.
-    if (!sem) throw new HttpError(501, "this memory store cannot list facts");
+    if (!sem)
+      throw new HttpError(501, "this memory store cannot list facts", "CAPABILITY_UNSUPPORTED");
     // A backend that can answer "the newest N" does (SQLite, off an index). One that can't is
     // read whole and cut down here — slower, but correct, and not silently empty.
     const facts = isRecentListable(sem)

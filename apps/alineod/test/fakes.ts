@@ -44,6 +44,11 @@ export interface FakeTurn {
    * `detach`) until the test flips it, standing in for "the new process after a restart."
    */
   disconnect?: boolean;
+  /**
+   * With `error`: throw it only for the first N prompts, then behave as a normal turn. Stands in
+   * for a provider that answers 429 a few times and then recovers.
+   */
+  failTimes?: number;
 }
 
 export interface SpawnOpts {
@@ -70,6 +75,8 @@ export class FakeAgent {
   readonly spawns: Array<{ specPath: string; opts: SpawnOpts; child: FakeAgent }> = [];
 
   turn: FakeTurn = {};
+  /** How many prompts have failed on `turn.error` so far. Used by `FakeTurn.failTimes`. */
+  failures = 0;
   lastText: string | null = null;
   /** What `getMessages()` returns. Set by a turn's `endMessages`, or directly by a test. */
   messages: unknown[] = [];
@@ -201,7 +208,8 @@ export class FakeAgent {
         err.name = "BridgeDisconnectedError";
         throw err;
       }
-      if (turn.error) {
+      if (turn.error && (turn.failTimes === undefined || this.failures < turn.failTimes)) {
+        this.failures++;
         this.lastText = turn.text ?? null;
         throw new Error(turn.error);
       }

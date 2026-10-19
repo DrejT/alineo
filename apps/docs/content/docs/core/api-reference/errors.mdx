@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: CommandError, SandboxError, ExecConnectionError, WorkflowError, and SandboxClientError — the full alineo error hierarchy.
+description: Stable error codes, AlineoError, and the CommandError, SandboxError, ExecConnectionError, WorkflowError and SandboxClientError classes.
 ---
 
 ```ts
@@ -12,6 +12,84 @@ import {
   SandboxClientError,
 } from "@alineo-labs/sandbox";
 ```
+
+## Error codes
+
+Every error alineo raises on purpose carries a stable `code`. Branch on the code, not on the class
+name or the message text. The classes below all carry one.
+
+```ts
+import { errorCodeOf, isRetryable } from "@alineo-labs/sandbox";
+
+try {
+  await sb.exec("true");
+} catch (e) {
+  const code = errorCodeOf(e); // "SANDBOX_NOT_FOUND", or undefined for a foreign error
+  if (code === "SANDBOX_NOT_FOUND") await client.sandbox({ image, resources });
+  else if (isRetryable(e))
+    await sleep(1000); // the same call may succeed later
+  else throw e;
+}
+```
+
+| Export                 | What it does                                                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `AlineoError`          | Base class. Has `code`, `category`, `retryable`, `hint` and `details`.                                            |
+| `errorCodeOf(value)`   | The code behind a thrown value, or `undefined`. Reads the `cause` chain, and a code that crossed a JSON boundary. |
+| `isAlineoError(value)` | True for an `AlineoError`, including one made by another copy of the package.                                     |
+| `isRetryable(value)`   | True when the same call, unchanged, may succeed on a later attempt. A hint, not proof.                            |
+
+`hint` says what to do next, for example "Call resume() first." The CLI prints it on a `Hint:` line.
+`details` holds scalars only (ids, counts, durations), never a secret.
+
+### Categories
+
+| Category     | Meaning                                                 |
+| ------------ | ------------------------------------------------------- |
+| `transient`  | A later attempt of the same call may succeed.           |
+| `permanent`  | The same call will fail again. Change the call.         |
+| `config`     | Configuration, credentials or the environment is wrong. |
+| `capability` | The sandbox provider does not support what was asked.   |
+| `internal`   | A bug, or a failure with no better code.                |
+
+### All codes
+
+| Code                     | Category   | Retryable | HTTP | Meaning                                                                                             |
+| ------------------------ | ---------- | --------- | ---- | --------------------------------------------------------------------------------------------------- |
+| `SANDBOX_NOT_FOUND`      | permanent  | no        | 404  | The sandbox does not exist on the server (deleted, expired, or never created).                      |
+| `SANDBOX_NOT_RUNNING`    | permanent  | no        | 409  | The sandbox exists but is not in the Running state (for example Terminated or Failed).              |
+| `SANDBOX_PAUSED`         | permanent  | no        | 409  | The sandbox is paused, so the operation cannot run.                                                 |
+| `SANDBOX_START_FAILED`   | permanent  | no        | 502  | The sandbox entered Failed or Terminated while starting.                                            |
+| `SANDBOX_START_TIMEOUT`  | transient  | yes       | 504  | The sandbox did not reach Running within the allowed time.                                          |
+| `SESSION_NOT_FOUND`      | permanent  | no        | 404  | No session with that id exists in the ledger.                                                       |
+| `CHECKPOINT_NOT_FOUND`   | permanent  | no        | 404  | The session has no checkpoint to restore from.                                                      |
+| `SNAPSHOT_FAILED`        | permanent  | no        | 502  | The server reported the snapshot as Failed.                                                         |
+| `SNAPSHOT_TIMEOUT`       | transient  | yes       | 504  | The snapshot did not become ready within the allowed time.                                          |
+| `EXEC_NOT_READY`         | transient  | yes       | 503  | The sandbox is Running, but the exec daemon (execd) inside it never accepted a connection.          |
+| `COMMAND_FAILED`         | permanent  | no        | 422  | A command in the sandbox exited with a non-zero code.                                               |
+| `STEP_TIMEOUT`           | transient  | yes       | 504  | A workflow step exceeded its time limit.                                                            |
+| `INVALID_ARGUMENT`       | permanent  | no        | 400  | An argument or option was rejected before any request was sent.                                     |
+| `SPEC_INVALID`           | config     | no        | 400  | An agent spec failed validation.                                                                    |
+| `CAPABILITY_UNSUPPORTED` | capability | no        | 501  | The sandbox substrate or its configuration does not support this operation.                         |
+| `CREDENTIAL_UNRESOLVED`  | config     | no        | 422  | A credential binding could not be resolved from its source.                                         |
+| `PROVIDER_AUTH`          | config     | no        | 502  | The sandbox provider rejected the credentials (401 or 403).                                         |
+| `PROVIDER_RATE_LIMITED`  | transient  | yes       | 429  | The sandbox provider rate-limited the request (429).                                                |
+| `PROVIDER_UNAVAILABLE`   | transient  | yes       | 503  | The sandbox provider answered with a server error (5xx).                                            |
+| `PROVIDER_MISMATCH`      | config     | no        | 409  | The session was created on a different sandbox provider than the one this client is configured for. |
+| `PROVIDER_ERROR`         | internal   | no        | 502  | The sandbox provider rejected the request with an error that has no better code.                    |
+| `MODEL_RATE_LIMITED`     | transient  | yes       | 429  | The model provider rate-limited the request (429) and ended the turn.                               |
+| `MODEL_UNAVAILABLE`      | transient  | yes       | 503  | The model provider was overloaded or unavailable (5xx) and ended the turn.                          |
+| `PROMPT_TIMEOUT`         | transient  | yes       | 504  | A prompt produced no activity within the inactivity window.                                         |
+| `BRIDGE_DISCONNECTED`    | transient  | yes       | 502  | The agent bridge closed its connection before it signalled the turn was done.                       |
+| `AGENT_NOT_FOUND`        | permanent  | no        | 404  | The daemon has no agent with that id.                                                               |
+| `RUN_NOT_FOUND`          | permanent  | no        | 404  | The daemon has no run with that id.                                                                 |
+| `AGENT_NOT_LIVE`         | permanent  | no        | 409  | The agent exists but is not live in this daemon, so it cannot take the call.                        |
+| `AGENT_BUSY`             | transient  | yes       | 409  | The agent is still finishing its previous turn.                                                     |
+| `INTERNAL`               | internal   | no        | 500  | A failure with no more specific code.                                                               |
+
+The same codes appear in the `code` field of an [alineod HTTP error](/docs/alineod/api-reference/http-api).
+A failure from the execd client (a command or file call) is an `OpenSandboxError`, an `AlineoError`
+that also keeps the server's own code in `.upstreamCode`.
 
 ## Error hierarchy
 

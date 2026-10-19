@@ -3,6 +3,7 @@
  * schema.ts directly (predictable at runtime); the OpenAPI document is emitted separately
  * from the same schemas by scripts/emit-spec.ts. See the README for why it's split.
  */
+import { errorCodeOf } from "@alineo-labs/errors";
 import type { ZodType } from "zod";
 import { getLogger } from "@alineo-labs/logger";
 import { HttpError } from "../engine/errors";
@@ -45,6 +46,7 @@ export function parseBody<T>(schema: ZodType<T>, value: unknown): T {
     throw new HttpError(
       400,
       `invalid request body: ${r.error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ")}`,
+      "INVALID_ARGUMENT",
     );
   }
   return r.data;
@@ -71,7 +73,10 @@ export function toErrorResponse(
     : {};
   if (err instanceof HttpError) {
     log.debug("request rejected", { ...where, status: err.status, error: err.message });
-    return Response.json({ error: err.message }, { status: err.status });
+    return Response.json(
+      { error: err.message, ...(err.code ? { code: err.code } : {}) },
+      { status: err.status },
+    );
   }
   const message = errorMessage(err);
   const clientStatus = elysiaClientStatus(context.code);
@@ -85,5 +90,16 @@ export function toErrorResponse(
     return Response.json({ error: clientMessage(context.code, message) }, { status: clientStatus });
   }
   log.error("unhandled error", { ...where, err });
-  return Response.json({ error: message }, { status: 500 });
+  // An unhandled failure that still carries an alineo code (a sandbox that vanished mid-request,
+  // say) tells the client which, but it stays a 500: it is not the client's doing.
+  const code = errorCodeOf(err);
+  const hint = (err as { hint?: unknown } | null)?.hint;
+  return Response.json(
+    {
+      error: message,
+      ...(code ? { code } : {}),
+      ...(code && typeof hint === "string" && hint.length > 0 ? { hint } : {}),
+    },
+    { status: 500 },
+  );
 }

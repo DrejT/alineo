@@ -6,7 +6,7 @@ function stubFetch(impl: () => Promise<Response>): typeof fetch {
   return Object.assign(impl, { preconnect: () => {} });
 }
 
-// The bridge's own `: ping\n\n` heartbeat (every 3s in production, see pi-bridge.js) keeps the
+// The bridge's own `: ping\n\n` heartbeat (every 3s in production, see bridge/pi-bridge.ts) keeps the
 // SSE connection's raw `reader.read()` resolving regardless of whether Pi itself is making any
 // real progress. These tests simulate that directly -- a fetch mock streaming only heartbeat
 // comment lines, or a mix of heartbeats and real events -- to verify the inactivity timeout is

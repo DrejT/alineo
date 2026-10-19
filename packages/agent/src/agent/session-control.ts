@@ -6,7 +6,9 @@ import type {
   PermissionDecision,
   PermissionRequest,
 } from "../types";
+import { legacyStream, requireHarnessCapability } from "../harness";
 import type { AgentInternal } from "./internal";
+import { pi } from "./pi";
 
 const log = getLogger("agent");
 
@@ -76,7 +78,15 @@ export function prompt(
     onPermission?: PermissionHandler;
   },
 ): AgentStream {
-  return instrument(a, a.adapter.prompt(message, opts), opts?.onPermission);
+  return instrument(
+    a,
+    legacyStream(a.adapter, {
+      message,
+      streamingBehavior: opts?.streamingBehavior,
+      inactivityTimeoutMs: opts?.inactivityTimeoutMs,
+    }),
+    opts?.onPermission,
+  );
 }
 
 /**
@@ -85,7 +95,7 @@ export function prompt(
  * arrives as a single `text` event once the command completes.
  */
 export function bash(a: AgentInternal, command: string): AgentStream {
-  return instrument(a, a.adapter.bash(command));
+  return instrument(a, pi(a, "bash").bash(command));
 }
 
 /** Snapshot of tool calls currently paused awaiting a human decision. */
@@ -95,7 +105,8 @@ export async function listPendingPermissions(a: AgentInternal): Promise<PendingP
 
 /** Steer Pi's current response mid-flight. Waits for Pi's RPC acknowledgment. */
 export async function steer(a: AgentInternal, message: string): Promise<void> {
-  return a.adapter.steer(message);
+  requireHarnessCapability(a.adapter, "steer");
+  await a.adapter.steer?.(message);
 }
 
 /** Abort Pi's current operation. */
@@ -117,17 +128,18 @@ export async function resolvePermission(
 
 /** Queue a message to be sent to Pi after it finishes its current task. */
 export async function followUp(a: AgentInternal, message: string): Promise<void> {
-  return a.adapter.followUp(message);
+  requireHarnessCapability(a.adapter, "followUp");
+  await a.adapter.followUp?.(message);
 }
 
 /** Start a fresh Pi session, clearing all prior context. */
 export async function newSession(a: AgentInternal): Promise<void> {
-  return a.adapter.newSession();
+  return pi(a, "newSession").newSession();
 }
 
 /** Enable or disable Pi's automatic context compaction. */
 export async function setAutoCompaction(a: AgentInternal, enabled: boolean): Promise<void> {
-  return a.adapter.setAutoCompaction(enabled);
+  return pi(a, "setAutoCompaction").setAutoCompaction(enabled);
 }
 
 /**
@@ -137,7 +149,7 @@ export async function setAutoCompaction(a: AgentInternal, enabled: boolean): Pro
  * events in the stream.
  */
 export async function setAutoRetry(a: AgentInternal, enabled: boolean): Promise<void> {
-  return a.adapter.setAutoRetry(enabled);
+  return pi(a, "setAutoRetry").setAutoRetry(enabled);
 }
 
 /**
@@ -145,12 +157,12 @@ export async function setAutoRetry(a: AgentInternal, enabled: boolean): Promise<
  * operation, emitting `auto_retry_end` with `success: false`.
  */
 export async function abortRetry(a: AgentInternal): Promise<void> {
-  return a.adapter.abortRetry();
+  return pi(a, "abortRetry").abortRetry();
 }
 
 /** Abort a currently-executing bash command without cancelling the whole prompt. */
 export async function abortBash(a: AgentInternal): Promise<void> {
-  return a.adapter.abortBash();
+  return pi(a, "abortBash").abortBash();
 }
 
 /**
@@ -161,7 +173,7 @@ export async function setSteeringMode(
   a: AgentInternal,
   mode: "all" | "one-at-a-time",
 ): Promise<void> {
-  return a.adapter.setSteeringMode(mode);
+  return pi(a, "setSteeringMode").setSteeringMode(mode);
 }
 
 /**
@@ -172,10 +184,10 @@ export async function setFollowUpMode(
   a: AgentInternal,
   mode: "all" | "one-at-a-time",
 ): Promise<void> {
-  return a.adapter.setFollowUpMode(mode);
+  return pi(a, "setFollowUpMode").setFollowUpMode(mode);
 }
 
 /** Set a display name for the current Pi session. */
 export async function setSessionName(a: AgentInternal, name: string): Promise<void> {
-  return a.adapter.setSessionName(name);
+  return pi(a, "setSessionName").setSessionName(name);
 }

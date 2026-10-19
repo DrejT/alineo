@@ -8,6 +8,6 @@ export default defineConfig({
   platform: "node",
   clean: true,
   deps: {
-    neverBundle: ["alineo", "@modelcontextprotocol/server"],
+    neverBundle: ["alineo", "@alineo-labs/errors", "@modelcontextprotocol/server"],
   },
 });

@@ -6,7 +6,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { getAgentRow, getHandle, inboxOf } from "../src/state/projection";
 import { getSupervisionCounters } from "../src/state/db";
+import { transientDelayMs } from "../src/engine/supervision";
 import { call, deferred, events, spawnChild, spec, startRun, until } from "./helpers";
+import { onEmit } from "../src/engine/emit";
 import { fakeSdk } from "./fakes";
 
 afterEach(() => fakeSdk.reset());
@@ -185,5 +187,165 @@ describe("automatic parent notification — not opt-in via notifyOn", () => {
       "parent inbox to receive the supervision notice",
     );
     expect(inbox).toMatchObject({ about_agent_id: child.agentId, outcome: "ask" });
+  });
+});
+
+describe("errorCode on failure events", () => {
+  test("a 429 turn failure records MODEL_RATE_LIMITED on turn_failed and ended", async () => {
+    fakeSdk.nextTurn = { text: null, error: '429 {"status":429,"title":"Too Many Requests"}' };
+    const { runId, rootAgentId } = await startRun({ prompt: "go" });
+    await endedView(rootAgentId);
+
+    const all = events(runId);
+    expect(all.find((e) => e.event === "agent.turn_failed")).toMatchObject({
+      errorCode: "MODEL_RATE_LIMITED",
+    });
+    expect(all.find((e) => e.event === "agent.ended")).toMatchObject({
+      outcome: "failed",
+      errorCode: "MODEL_RATE_LIMITED",
+    });
+  });
+
+  test("a held agent's supervision_needed carries the same code", async () => {
+    fakeSdk.nextTurn = { text: null, error: "503 Service Unavailable" };
+    const { runId, rootAgentId } = await startRun({
+      spec: spec("root", { onFailure: "ask" }),
+      prompt: "go",
+    });
+    await until(() => getAgentRow(rootAgentId)?.state === "blocked", "agent to block");
+
+    expect(events(runId).find((e) => e.event === "agent.supervision_needed")).toMatchObject({
+      reason: "ask",
+      errorCode: "MODEL_UNAVAILABLE",
+    });
+  });
+
+  test("a failure with no recognisable signal records no errorCode", async () => {
+    fakeSdk.nextTurn = { text: null, error: "boom" };
+    const { runId, rootAgentId } = await startRun({ prompt: "go" });
+    await endedView(rootAgentId);
+
+    const failed = events(runId).find((e) => e.event === "agent.turn_failed");
+    expect(failed).toMatchObject({ error: "boom" });
+    expect(failed).not.toHaveProperty("errorCode");
+  });
+});
+
+describe("transient model-provider failures (429, 5xx)", () => {
+  const rateLimited = '429 {"status":429,"title":"Too Many Requests"}';
+
+  test("a 429 is re-sent after a backoff and the agent succeeds, with no failure recorded", async () => {
+    fakeSdk.nextTurn = { error: rateLimited, failTimes: 1 };
+    const { runId, rootAgentId } = await startRun({ prompt: "go" });
+
+    expect(await endedView(rootAgentId)).toMatchObject({ state: "done", outcome: "success" });
+
+    const all = events(runId);
+    expect(all.filter((e) => e.event === "agent.turn_retried")).toHaveLength(1);
+    expect(all.find((e) => e.event === "agent.turn_retried")).toMatchObject({
+      errorCode: "MODEL_RATE_LIMITED",
+      attempt: 1,
+      maxAttempts: 2,
+    });
+    expect(all.some((e) => e.event === "agent.turn_failed")).toBe(false);
+    expect(getSupervisionCounters(rootAgentId).consecutiveFailures).toBe(0);
+  });
+
+  test("the same prompt is sent again, not a different one", async () => {
+    fakeSdk.nextTurn = { error: rateLimited, failTimes: 1 };
+    const { rootAgentId, root: agent } = await startRun({ prompt: "do the thing" });
+    await endedView(rootAgentId);
+
+    expect(agent.prompts).toHaveLength(2);
+    expect(agent.prompts[1]).toBe(agent.prompts[0]);
+  });
+
+  test("stops after the configured attempts, then applies the normal policy", async () => {
+    fakeSdk.nextTurn = { text: null, error: rateLimited };
+    const { runId, rootAgentId } = await startRun({ prompt: "go" });
+
+    expect(await endedView(rootAgentId)).toMatchObject({ state: "failed", outcome: "failed" });
+
+    const all = events(runId);
+    expect(all.filter((e) => e.event === "agent.turn_retried")).toHaveLength(2);
+    expect(all.find((e) => e.event === "agent.turn_failed")).toMatchObject({
+      errorCode: "MODEL_RATE_LIMITED",
+      // The two retries were not counted. Only the final failure is.
+      consecutiveFailures: 1,
+    });
+  });
+
+  test("an error with no transient signal is not retried", async () => {
+    fakeSdk.nextTurn = { text: null, error: "boom" };
+    const { runId, rootAgentId } = await startRun({ prompt: "go" });
+    await endedView(rootAgentId);
+
+    expect(events(runId).some((e) => e.event === "agent.turn_retried")).toBe(false);
+  });
+
+  test("onFailure: ask holds only after the transient retries are used up", async () => {
+    fakeSdk.nextTurn = { text: null, error: rateLimited };
+    const { runId, rootAgentId } = await startRun({
+      spec: spec("root", { onFailure: "ask" }),
+      prompt: "go",
+    });
+    await until(() => getAgentRow(rootAgentId)?.state === "blocked", "agent to block");
+
+    const all = events(runId);
+    expect(all.filter((e) => e.event === "agent.turn_retried")).toHaveLength(2);
+    expect(all.find((e) => e.event === "agent.supervision_needed")).toMatchObject({
+      reason: "ask",
+      errorCode: "MODEL_RATE_LIMITED",
+    });
+  });
+});
+
+describe("transientDelayMs", () => {
+  test("doubles each attempt from the base, with the middle of the jitter range", () => {
+    const mid = () => 0.5; // jitter factor 1.0
+    expect(transientDelayMs(1, mid)).toBe(10);
+    expect(transientDelayMs(2, mid)).toBe(20);
+  });
+
+  test("is capped at the maximum delay", () => {
+    const mid = () => 0.5;
+    expect(transientDelayMs(10, mid)).toBe(40);
+  });
+
+  test("jitter stays within 25% either way", () => {
+    expect(transientDelayMs(2, () => 0)).toBe(15); // 20 * 0.75
+    expect(transientDelayMs(2, () => 0.999999)).toBeLessThanOrEqual(25); // 20 * 1.25
+  });
+});
+
+describe("a stop during a transient-retry backoff", () => {
+  const rateLimited = '429 {"status":429,"title":"Too Many Requests"}';
+  let armed = false;
+
+  // Registered once: `onEmit` has no way to remove a listener, so it is switched by `armed`.
+  onEmit((_runId, agentId, event) => {
+    if (armed && agentId && event === "agent.turn_retried") {
+      armed = false;
+      // Fires inside the emit, so the stop runs before the backoff timer can: the retry has been
+      // announced and its timer set, and nothing has had a chance to tick yet.
+      void call("POST", `/agents/${agentId}/stop`, {});
+    }
+  });
+
+  // What stops the re-send is that a stopped agent is forgotten by the registry, so `driveTurn`
+  // finds nothing to prompt. `cancelBackoff` makes that explicit and frees the retry count.
+  test("the retry never fires and the agent stays stopped", async () => {
+    fakeSdk.nextTurn = { error: rateLimited };
+    // No prompt at creation, so the agent is in hand before the turn that fails.
+    const { rootAgentId, root: agent } = await startRun();
+    armed = true;
+    expect((await call("POST", `/agents/${rootAgentId}/prompt`, { text: "go" })).status).toBe(202);
+    await until(() => getAgentRow(rootAgentId)?.state === "aborted", "agent to be stopped");
+    const promptsAtStop = agent.prompts.length;
+
+    await Bun.sleep(150); // several times the whole backoff the test config allows
+
+    expect(agent.prompts.length).toBe(promptsAtStop);
+    expect(getAgentRow(rootAgentId)).toMatchObject({ state: "aborted" });
   });
 });

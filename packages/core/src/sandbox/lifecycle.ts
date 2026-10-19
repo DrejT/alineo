@@ -6,6 +6,7 @@ import {
   resolveBoundCredential,
   type CredentialResolver,
 } from "../credentials";
+import { requireCapability } from "./capabilities";
 import type { SandboxInternal } from "./internal";
 import type { SandboxHandle } from "./sandbox";
 
@@ -22,7 +23,8 @@ export function listCheckpoints(sb: SandboxInternal): Promise<CheckpointInfo[]> 
  * `close()` remains valid on a paused sandbox.
  */
 export async function pause(sb: SandboxInternal): Promise<void> {
-  await sb.deps.control.pauseSandbox(sb.sandboxId);
+  requireCapability(sb.deps.provider, "pause", sb.sandboxId);
+  await sb.deps.provider.pauseSandbox(sb.sandboxId);
   sb.setPaused(true);
   // Same dangling-connection concern as close() — the paused container can't respond
   // to a lingering exec stream anyway, and the next exec() re-resolves a fresh client.
@@ -42,7 +44,8 @@ export async function pause(sb: SandboxInternal): Promise<void> {
  * Polls until the sandbox reports Running before returning.
  */
 export async function resume(sb: SandboxInternal): Promise<void> {
-  await sb.deps.control.resumeSandbox(sb.sandboxId);
+  requireCapability(sb.deps.provider, "pause", sb.sandboxId);
+  await sb.deps.provider.resumeSandbox(sb.sandboxId);
   sb.setPaused(false);
   await sb.waitForRunning();
   await sb.emit(LedgerEvent.SandboxResumed, -1);
@@ -57,7 +60,8 @@ export async function resume(sb: SandboxInternal): Promise<void> {
  * the latest checkpoint, or pass the returned ID to `Sandbox.restoreSnapshot()`.
  */
 export async function checkpoint(sb: SandboxInternal, name?: string): Promise<string> {
-  const snap = await sb.deps.control.createSnapshot(sb.sandboxId);
+  requireCapability(sb.deps.provider, "snapshot", sb.sandboxId);
+  const snap = await sb.deps.provider.createSnapshot(sb.sandboxId);
   await sb.waitForSnapshot(snap.id);
   await sb.emit(LedgerEvent.CheckpointCreated, -1, { snapshotId: snap.id, name });
   sb.deps.hooks?.onCheckpoint?.(sb.sandboxId, snap.id, name);
@@ -105,8 +109,14 @@ export async function fork(
   },
 ): Promise<SandboxHandle> {
   if (!sb.deps.fork)
-    throw new SandboxError("fork() is not supported on this sandbox", sb.sandboxId);
-  const snap = await sb.deps.control.createSnapshot(sb.sandboxId);
+    throw new SandboxError(
+      "fork() is not supported on this sandbox",
+      sb.sandboxId,
+      "CAPABILITY_UNSUPPORTED",
+      { details: { capability: "fork" } },
+    );
+  requireCapability(sb.deps.provider, "snapshot", sb.sandboxId);
+  const snap = await sb.deps.provider.createSnapshot(sb.sandboxId);
   await sb.waitForSnapshot(snap.id);
   await sb.emit(LedgerEvent.CheckpointCreated, -1, { snapshotId: snap.id, name: tag });
   sb.deps.hooks?.onCheckpoint?.(sb.sandboxId, snap.id, tag);
@@ -157,7 +167,7 @@ export async function close(sb: SandboxInternal): Promise<void> {
   // this call and leave the host process's event loop alive with nothing left to do.
   sb.disposeExecClient();
   try {
-    await sb.deps.control.deleteSandbox(sb.sandboxId);
+    await sb.deps.provider.deleteSandbox(sb.sandboxId);
   } finally {
     await sb.emit(LedgerEvent.SandboxClosed, -1);
     sb.deps.hooks?.onSandboxClosed?.(sb.sandboxId);

@@ -1,4 +1,6 @@
 /** Small helpers shared by the engine and the route modules. */
+import { errorCodeFromText, errorCodeOf } from "@alineo-labs/errors";
+import type { ErrorCode } from "@alineo-labs/errors";
 
 /**
  * Race a promise against a timeout, returning `undefined` instead of hanging or throwing.
@@ -37,6 +39,30 @@ export function errorMessage(err: unknown): string {
   } catch {
     return raw;
   }
+}
+
+/**
+ * What a failure records on the ledger: the message, plus a stable `errorCode` when one is known.
+ *
+ * The code comes from the error itself (an `AlineoError`, or a code down its `cause` chain). When
+ * the failure arrives only as text, which is how a model provider's 429 reaches us from the Pi
+ * bridge, it is classified from the text. `errorCode` is left out, not set to a placeholder, when
+ * nothing matches.
+ */
+export function errorFields(err: unknown): { error: string; errorCode?: ErrorCode } {
+  const error = errorMessage(err);
+  const errorCode = errorCodeOf(err) ?? errorCodeFromText(error);
+  return errorCode ? { error, errorCode } : { error };
+}
+
+/**
+ * The sandbox provider that owns an agent's sandbox, for the `agent.provisioned` event.
+ *
+ * Read off the handle, which the client that created it stamped. Optional chaining because a
+ * test double or an older `alineo` build may not carry it, and an absent value means OpenSandbox.
+ */
+export function providerOf(agent: { sandbox?: { provider?: string } }): string | undefined {
+  return agent.sandbox?.provider;
 }
 
 /**

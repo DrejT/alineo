@@ -33,6 +33,29 @@ describe("loadProjectConfig precedence", () => {
     expect(config.defaults.resources.memory).toBe("1Gi");
   });
 
+  test("a config with no provider key runs on opensandbox", () => {
+    const root = makeRoot();
+    // A file written before the key existed. `alineo init` never rewrites it.
+    writeProject(root, { serverUrl: "http://project:8080" });
+
+    const config = loadProjectConfig({ cwd: root, env: {}, globalPath: null });
+
+    expect(config.provider).toBe("opensandbox");
+  });
+
+  test("ALINEO_PROVIDER beats the project file", () => {
+    const root = makeRoot();
+    writeProject(root, { provider: "opensandbox" });
+
+    const config = loadProjectConfig({
+      cwd: root,
+      globalPath: null,
+      env: { ALINEO_PROVIDER: "other" },
+    });
+
+    expect(config.provider).toBe("other");
+  });
+
   test("project file beats the global file", () => {
     const root = makeRoot();
     const globalPath = join(root, "global.json");

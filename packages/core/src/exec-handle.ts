@@ -1,14 +1,38 @@
-import { SSEEventType } from "@alineo-labs/opensandbox";
-import type { SSEEvent } from "@alineo-labs/opensandbox";
+import type { ExecEvent } from "@alineo-labs/provider";
+
+/** The shell convention for "found the command but could not run it". */
+const START_FAILED_EXIT_CODE = 126;
 
 export interface ExecResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  /** How long the command ran, in milliseconds, measured by the client. */
+  durationMs?: number;
+  /** True when the command was ended by a signal (a timeout, a `kill`, the OOM killer). */
+  killed?: boolean;
+  /** The signal that ended it, as the server reported it (`"killed"`). Set with `killed`. */
+  signal?: string;
+  /**
+   * True when the command was killed after running for about as long as `timeoutMs` allowed.
+   *
+   * **A best guess, not a report.** A timeout and a kill from inside the sandbox (the OOM
+   * killer, a `kill -9`) look the same on the wire: both are `signal: killed`, exit code -1. So
+   * this is inferred from the elapsed time, and a kill that lands close to the limit reads as a
+   * timeout. Use it to explain a failure to a person, not to decide whether a retry is safe.
+   * Never set for a command that had no limit.
+   */
+  timedOut?: boolean;
 }
 
 export type ExecDriver =
-  | { type: "stream"; gen: AsyncGenerator<SSEEvent>; onDone: (r: ExecResult) => Promise<void> }
+  | {
+      type: "stream";
+      gen: AsyncGenerator<ExecEvent>;
+      onDone: (r: ExecResult) => Promise<void>;
+      /** The `timeoutMs` the command was started with, so a timeout can be told from a kill. */
+      timeoutMs?: number;
+    }
   | { type: "replay"; result: ExecResult }
   | {
       type: "pty";
@@ -66,7 +90,7 @@ export class ExecHandle implements PromiseLike<ExecResult> {
       this._promise = this._drainPty(driver);
       this._promise.catch(() => {});
     } else {
-      this._promise = this._drain(driver.gen, driver.onDone);
+      this._promise = this._drain(driver.gen, driver.onDone, driver.timeoutMs);
       this._promise.catch(() => {});
     }
   }
@@ -106,23 +130,40 @@ export class ExecHandle implements PromiseLike<ExecResult> {
   }
 
   private async _drain(
-    gen: AsyncGenerator<SSEEvent>,
+    gen: AsyncGenerator<ExecEvent>,
     onDone: (r: ExecResult) => Promise<void>,
+    timeoutMs?: number,
   ): Promise<ExecResult> {
     const stderr: string[] = [];
     let exitCode = 0;
+    let signal: string | undefined;
+    const startedAt = Date.now();
     try {
       for await (const ev of gen) {
-        if (ev.type === SSEEventType.Stdout && ev.text) {
+        if (ev.type === "stdout" && ev.text) {
           this._chunks.push(ev.text);
           this._notify();
         }
-        if (ev.type === SSEEventType.Stderr && ev.text) {
+        if (ev.type === "stderr" && ev.text) {
           stderr.push(ev.text);
         }
-        if (ev.type === SSEEventType.Error && ev.error?.evalue !== undefined) {
+        if (ev.type === "error" && ev.error?.evalue !== undefined) {
           const code = Number(ev.error.evalue);
-          if (!isNaN(code)) exitCode = code;
+          if (!isNaN(code)) {
+            exitCode = code;
+          } else {
+            // A number is an exit status. Anything else is execd saying it could not start the
+            // command at all ("fork/exec /usr/bin/bash: argument list too long"). Reading that
+            // as "no exit code seen" reported exit 0 for a command that never ran.
+            exitCode = START_FAILED_EXIT_CODE;
+            stderr.push(`${ev.error.evalue}\n`);
+          }
+        }
+        // `["signal: killed"]` is how execd reports a command a signal ended. An exit code
+        // carries no such line, so its presence is the whole test.
+        for (const line of ev.error?.traceback ?? []) {
+          const match = /^signal: (.+)$/.exec(line);
+          if (match) signal = match[1];
         }
       }
     } catch (err) {
@@ -134,10 +175,21 @@ export class ExecHandle implements PromiseLike<ExecResult> {
       this._notify();
     }
 
+    const durationMs = Date.now() - startedAt;
     const result: ExecResult = {
       stdout: this._chunks.join(""),
       stderr: stderr.join(""),
       exitCode,
+      durationMs,
+      ...(signal !== undefined
+        ? {
+            killed: true,
+            signal,
+            // The server enforces the limit and the client clock includes the round trip, so
+            // allow some slack before calling a kill a timeout.
+            timedOut: timeoutMs !== undefined && durationMs >= timeoutMs - 250,
+          }
+        : {}),
     };
     await onDone(result);
     return result;

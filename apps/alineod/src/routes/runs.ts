@@ -16,7 +16,7 @@ export const runsRoutes = new Elysia({ prefix: "/runs" })
 
   .get("/:runId", ({ params }) => {
     const agents = getRunAgentViews(params.runId);
-    if (agents.length === 0) throw new HttpError(404, `no run ${params.runId}`);
+    if (agents.length === 0) throw new HttpError(404, `no run ${params.runId}`, "RUN_NOT_FOUND");
     const root = agents.find((a) => a.parentAgentId === null) ?? null;
     const run = getRun(params.runId);
     return {

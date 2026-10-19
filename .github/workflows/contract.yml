@@ -1,0 +1,77 @@
+name: Provider contract
+
+# Runs `tests/contract` against a real OpenSandbox server. It creates real containers and pulls
+# images, so it is manual and weekly, not on every pull request. It is how a change to the
+# `execd_image` pin, the server image, or sandbox exec/files/snapshot code is checked against a
+# live server (the unit tests use fakes, and a fake does not strip a newline the way execd v1.0.22
+# did).
+#
+# First run on GitHub (2026-10-14, run 38623136995, from the sandbox-adapter branch): 23 of 23
+# passed in 42 s, job total 1 min 48 s, on opensandbox/execd:release-1.1.1. A workflow with only
+# `workflow_dispatch` cannot be dispatched until its file is on the default branch, so that run used
+# a temporary push trigger, which is gone. To re-run before it lands, add one back.
+
+on:
+  workflow_dispatch:
+    inputs:
+      execd_image:
+        description: "execd image to test. Empty uses the pin in packages/cli-shared/src/config.ts"
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 5 * * 1"
+
+jobs:
+  contract:
+    name: OpenSandbox contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build packages
+        run: bun run build
+
+      - name: Write the server config
+        env:
+          EXECD_IMAGE: ${{ inputs.execd_image }}
+        run: |
+          # The same generator `alineo init` uses, so CI tests what a user gets.
+          bun -e '
+            import { serverConfigContent } from "./packages/cli-shared/src/config.ts";
+            let toml = serverConfigContent("http://127.0.0.1:8080");
+            const override = process.env.EXECD_IMAGE;
+            if (override) toml = toml.replace(/execd_image = ".*"/, `execd_image = "${override}"`);
+            await Bun.write("/tmp/opensandbox.toml", toml);
+          '
+          cat /tmp/opensandbox.toml
+
+      - name: Start OpenSandbox
+        run: |
+          mkdir -p /tmp/opensandbox-data
+          docker run -d --name opensandbox -p 8080:8080 \
+            --add-host host.docker.internal:host-gateway \
+            -e OPENSANDBOX_INSECURE_SERVER=YES \
+            -v /tmp/opensandbox.toml:/etc/opensandbox/config.toml:ro \
+            -v /tmp/opensandbox-data:/data \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            opensandbox/server:latest
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health; then echo; break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/health
+
+      - name: Run the contract
+        run: bun run test:contract
+
+      - name: Server log on failure
+        if: failure()
+        run: docker logs opensandbox | tail -200

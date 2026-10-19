@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { SandboxHandle } from "../src/sandbox/index.ts";
-import { SSEEventType } from "@alineo-labs/opensandbox";
-import type { SSEEvent } from "@alineo-labs/opensandbox";
+import type { ExecEvent } from "@alineo-labs/provider";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
 import { LedgerEvent } from "../src/ledger.ts";
 import type { ExecResult } from "../src/exec-handle.ts";
-import { stubControl } from "./control-stub.ts";
+import { stubProvider } from "./provider-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -25,7 +24,7 @@ function makeAdapter(): IStorageAdapter {
   };
 }
 
-function makeExecClient(events: SSEEvent[] = []) {
+function makeExecClient(events: ExecEvent[] = []) {
   return {
     listContexts: vi.fn().mockResolvedValue([]),
     executeCommand: vi.fn().mockImplementation(() =>
@@ -44,7 +43,7 @@ function setExecClient(sb: SandboxHandle, client: ReturnType<typeof makeExecClie
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return {
-    control: stubControl({}),
+    provider: stubProvider({}),
     adapter,
   };
 }
@@ -93,9 +92,9 @@ describe("SandboxHandle replay mode", () => {
       [1, { stdout: "cached\n", stderr: "", exitCode: 0 }],
     ]);
 
-    const liveEvents: SSEEvent[] = [
-      { type: SSEEventType.Stdout, text: "live output\n", timestamp: 0 },
-      { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
+    const liveEvents: ExecEvent[] = [
+      { type: "stdout", text: "live output\n", timestamp: 0 },
+      { type: "error", error: { message: "exit", evalue: "0" }, timestamp: 0 },
     ];
     const execClient = makeExecClient(liveEvents);
 
@@ -117,8 +116,8 @@ describe("SandboxHandle replay mode", () => {
       [2, { stdout: "b\n", stderr: "", exitCode: 0 }],
     ]);
     const execClient = makeExecClient([
-      { type: SSEEventType.Stdout, text: "c\n", timestamp: 0 },
-      { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
+      { type: "stdout", text: "c\n", timestamp: 0 },
+      { type: "error", error: { message: "exit", evalue: "0" }, timestamp: 0 },
     ]);
 
     const sb = new SandboxHandle("sb-1", "test", makeDeps(adapter), replayCache);
@@ -139,9 +138,9 @@ describe("SandboxHandle replay mode", () => {
 describe("SandboxHandle live mode", () => {
   it("logs exec_start and exec_complete to adapter", async () => {
     const adapter = makeAdapter();
-    const liveEvents: SSEEvent[] = [
-      { type: SSEEventType.Stdout, text: "hi\n", timestamp: 0 },
-      { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
+    const liveEvents: ExecEvent[] = [
+      { type: "stdout", text: "hi\n", timestamp: 0 },
+      { type: "error", error: { message: "exit", evalue: "0" }, timestamp: 0 },
     ];
     const execClient = makeExecClient(liveEvents);
 
@@ -158,8 +157,8 @@ describe("SandboxHandle live mode", () => {
 
   it("ledger entries use sandboxId, not runId", async () => {
     const adapter = makeAdapter();
-    const liveEvents: SSEEvent[] = [
-      { type: SSEEventType.Error, error: { message: "exit", evalue: "0" }, timestamp: 0 },
+    const liveEvents: ExecEvent[] = [
+      { type: "error", error: { message: "exit", evalue: "0" }, timestamp: 0 },
     ];
     const execClient = makeExecClient(liveEvents);
 
@@ -176,8 +175,8 @@ describe("SandboxHandle live mode", () => {
 
   it("calls CommandError on non-zero exit with strict:true (default)", async () => {
     const adapter = makeAdapter();
-    const liveEvents: SSEEvent[] = [
-      { type: SSEEventType.Error, error: { message: "exit", evalue: "1" }, timestamp: 0 },
+    const liveEvents: ExecEvent[] = [
+      { type: "error", error: { message: "exit", evalue: "1" }, timestamp: 0 },
     ];
     const execClient = makeExecClient(liveEvents);
 
@@ -189,8 +188,8 @@ describe("SandboxHandle live mode", () => {
 
   it("does not throw on non-zero exit with strict:false", async () => {
     const adapter = makeAdapter();
-    const liveEvents: SSEEvent[] = [
-      { type: SSEEventType.Error, error: { message: "exit", evalue: "1" }, timestamp: 0 },
+    const liveEvents: ExecEvent[] = [
+      { type: "error", error: { message: "exit", evalue: "1" }, timestamp: 0 },
     ];
     const execClient = makeExecClient(liveEvents);
 

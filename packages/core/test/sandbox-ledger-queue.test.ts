@@ -3,7 +3,7 @@ import { SandboxHandle } from "../src/sandbox/index.ts";
 import { LedgerEvent } from "../src/ledger.ts";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter, LedgerEntry } from "../src/ledger.ts";
-import { stubControl } from "./control-stub.ts";
+import { stubProvider } from "./provider-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -23,7 +23,7 @@ function makeAdapter(): IStorageAdapter {
 }
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
-  return { control: stubControl({}), adapter };
+  return { provider: stubProvider({}), adapter };
 }
 
 describe("SandboxHandle — ledger write ordering (emit queue)", () => {

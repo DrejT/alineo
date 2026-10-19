@@ -33,10 +33,11 @@ export function steerAgent(
 ): Promise<void> {
   return withIdempotency(agentId, "steer", opts.idempotencyKey, async () => {
     const row = getAgentRow(agentId);
-    if (!row) throw new HttpError(404, `no agent ${agentId}`);
+    if (!row) throw new HttpError(404, `no agent ${agentId}`, "AGENT_NOT_FOUND");
 
     const agent = get(agentId);
-    if (!agent) throw new HttpError(409, `agent ${agentId} is not live (cannot steer it)`);
+    if (!agent)
+      throw new HttpError(409, `agent ${agentId} is not live (cannot steer it)`, "AGENT_NOT_LIVE");
 
     try {
       await agent.steer(message);
@@ -78,9 +79,10 @@ const PROMPT_EXCERPT = 200;
  */
 export async function steerSubtree(parentId: string, message: string): Promise<SubtreeSteerResult> {
   const row = getAgentRow(parentId);
-  if (!row) throw new HttpError(404, `no agent ${parentId}`);
+  if (!row) throw new HttpError(404, `no agent ${parentId}`, "AGENT_NOT_FOUND");
   const agent = get(parentId);
-  if (!agent) throw new HttpError(409, `agent ${parentId} is not live (cannot steer it)`);
+  if (!agent)
+    throw new HttpError(409, `agent ${parentId} is not live (cannot steer it)`, "AGENT_NOT_LIVE");
 
   const children = resolveSubtree(parentId).filter((m) => m.parent_agent_id === parentId);
   const roster: RosterEntry[] = children.map((c) => ({

@@ -1,6 +1,8 @@
 export { SandboxHandle } from "./sandbox";
 export { BashSession } from "./bash-session";
-export { resolveExecClient } from "./resolve";
+export { resolveExecChannel } from "./resolve";
+export { requireCapability } from "./capabilities";
+export type { RequiredCapability } from "./capabilities";
 export { composeHooks } from "./hooks";
 export type { ComposeHooksOptions } from "./hooks";
 export type {

@@ -6,7 +6,7 @@
 import { existsSync, readdirSync } from "fs";
 import { mkdir, unlink } from "fs/promises";
 import { join } from "path";
-import { validateAgentSpec, type AgentSpec } from "alineo";
+import { validateAgentSpec, type AgentSpec, type AgentSpecInput } from "alineo";
 import { readConfig } from "@alineo-labs/cli-shared";
 
 export interface AddSpecResult {
@@ -80,10 +80,10 @@ export async function listSpecs(): Promise<SpecSummary[]> {
   const specs: SpecSummary[] = [];
   for (const file of files) {
     try {
-      const spec = (await Bun.file(join(dir, file)).json()) as Partial<AgentSpec>;
+      const spec = (await Bun.file(join(dir, file)).json()) as Partial<AgentSpecInput>;
       specs.push({
         name: spec.name ?? file.replace(/\.json$/, ""),
-        harness: spec.harness ?? "?",
+        harness: (typeof spec.harness === "object" ? spec.harness.id : spec.harness) ?? "?",
         description: spec.description ?? spec.title ?? "",
       });
     } catch {

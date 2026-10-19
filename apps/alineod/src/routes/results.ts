@@ -15,7 +15,7 @@ export const resultsRoutes = new Elysia().get(
   "/agents/:agentId/result",
   async ({ params, query, set }) => {
     const row = getAgentRow(params.agentId);
-    if (!row) throw new HttpError(404, `no agent ${params.agentId}`);
+    if (!row) throw new HttpError(404, `no agent ${params.agentId}`, "AGENT_NOT_FOUND");
 
     let handle = getHandle(params.agentId);
 

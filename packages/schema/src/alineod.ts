@@ -183,6 +183,13 @@ export const AgentView = z.object({
   state: z.string(),
   specName: z.string(),
   sandboxId: z.string().nullable(),
+  provider: z
+    .string()
+    .nullable()
+    .describe(
+      "The sandbox provider that owns sandboxId, or null before the agent has a sandbox. " +
+        "Absent in the ledger means OpenSandbox.",
+    ),
   createdAt: z.number(),
   endedAt: z.number().nullable(),
   outcome: z.string().nullable(),

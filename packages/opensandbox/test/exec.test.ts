@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { ExecClient } from "../src/exec.ts";
+import { ExecClient, MAX_COMMAND_BYTES } from "../src/exec.ts";
 import { SSEEventType } from "../src/types.ts";
 
 /**
@@ -84,5 +84,97 @@ describe("ExecClient exec streams", () => {
     // The reader was released (not registered as pending) once `done` was reached
     // naturally, so this must be a no-op rather than double-cancelling anything.
     expect(cancel).not.toHaveBeenCalled();
+  });
+});
+
+describe("ExecClient failures carry an alineo code", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const failing = (status: number, text: string) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status, text: async () => text }),
+    );
+  const client = () => new ExecClient({ baseUrl: "http://localhost:44772", accessToken: "" });
+
+  it("a command on a sandbox the server no longer has is SANDBOX_NOT_FOUND", async () => {
+    failing(
+      404,
+      JSON.stringify({ code: "DOCKER::SANDBOX_NOT_FOUND", message: "Sandbox sb-1 not found." }),
+    );
+
+    const err = await (async () => {
+      for await (const _ev of client().executeCommand({ command: "true" })) {
+        // never yields
+      }
+    })().catch((e: unknown) => e);
+
+    expect(err).toMatchObject({
+      code: "SANDBOX_NOT_FOUND",
+      status: 404,
+      upstreamCode: "DOCKER::SANDBOX_NOT_FOUND",
+    });
+  });
+
+  it("a file download that fails keeps the status in the message when the body is empty", async () => {
+    failing(500, "");
+
+    const err = await client()
+      .downloadFile("/etc/hostname")
+      .catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ code: "PROVIDER_UNAVAILABLE", status: 500 });
+    expect((err as Error).message).toBe("execd error 500");
+  });
+
+  it("a plain-text error body is kept as the message", async () => {
+    failing(429, "slow down");
+
+    const err = await client()
+      .uploadFile("/tmp/x", new Uint8Array([1]))
+      .catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ code: "PROVIDER_RATE_LIMITED", status: 429, message: "slow down" });
+  });
+});
+
+describe("ExecClient command size guard", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const run = (command: string) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, body: null });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ExecClient({ baseUrl: "http://localhost:44772", accessToken: "" });
+    return {
+      fetchMock,
+      done: (async () => {
+        for await (const _ev of client.executeCommand({ command })) {
+          // no events
+        }
+      })().catch((e: unknown) => e),
+    };
+  };
+
+  it("refuses a command over the limit before any request, with INVALID_ARGUMENT and a hint", async () => {
+    const { fetchMock, done } = run("x".repeat(MAX_COMMAND_BYTES + 1));
+    const err = await done;
+    expect(err).toMatchObject({ code: "INVALID_ARGUMENT" });
+    expect((err as { hint?: string }).hint).toContain("writeFile");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("counts bytes, not characters", async () => {
+    const { done } = run("é".repeat(Math.ceil(MAX_COMMAND_BYTES / 2)));
+    expect(await done).toMatchObject({ code: "INVALID_ARGUMENT" });
+  });
+
+  it("sends a command at the limit", async () => {
+    const { fetchMock, done } = run("x".repeat(MAX_COMMAND_BYTES));
+    expect(await done).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

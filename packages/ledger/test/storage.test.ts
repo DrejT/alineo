@@ -69,12 +69,53 @@ describe("fold helpers", () => {
 
   it("orders by seq within an aggregate and by ts across them", () => {
     const store = new MemoryStorage();
+    const a1 = store.append(envelope("agent.spawned", "r1", 10));
+    const b1 = store.append(envelope("run.started", "r2", 15));
+    const a2 = store.append(envelope("agent.ended", "r1", 20));
+    const b2 = store.append(envelope("run.ended", "r2", 25));
+
+    const order = inLedgerOrder([b2, a2, b1, a1]).map(
+      (e) => `${e.durable?.aggregate}:${e.durable?.seq}`,
+    );
+
+    // Interleaved by time, each aggregate in seq order.
+    expect(order).toEqual(["r1:1", "r2:1", "r1:2", "r2:2"]);
+  });
+
+  it("keeps seq as the truth when a clock ran backwards inside one aggregate", () => {
+    const store = new MemoryStorage();
     const a2 = store.append(envelope("agent.ended", "r1", 50));
     const a1 = store.append(envelope("agent.spawned", "r1", 10));
     const b = store.append(envelope("run.started", "r2", 30));
-    // a1 has the later seq despite the earlier ts, and stays after a2 — within one aggregate
-    // the sequence is the truth, not the clock.
-    expect(inLedgerOrder([b, a1, a2]).map((e) => e.durable?.seq)).toEqual([1, 2, 1]);
+
+    const order = inLedgerOrder([b, a1, a2]).map(
+      (e) => `${e.durable?.aggregate}:${e.durable?.seq}`,
+    );
+
+    // a1 has the later seq despite the earlier ts, so it stays after a2. b is between the two
+    // clocks, and a1 counts as 50 once a2 has been seen, so b comes first.
+    expect(order).toEqual(["r2:1", "r1:1", "r1:2"]);
+  });
+
+  it("gives the same order for any input order, so two runtimes agree", () => {
+    const store = new MemoryStorage();
+    const events = [
+      store.append(envelope("agent.ended", "r1", 50)),
+      store.append(envelope("agent.spawned", "r1", 10)),
+      store.append(envelope("run.started", "r2", 30)),
+      store.append(envelope("run.ended", "r2", 30)),
+      store.append(envelope("agent.spawned", "r3", 30)),
+    ];
+    const key = (list: typeof events) =>
+      inLedgerOrder(list).map((e) => `${e.durable?.aggregate}:${e.durable?.seq}`);
+    const expected = key(events);
+
+    for (const shuffled of [
+      [...events].reverse(),
+      [events[2]!, events[4]!, events[0]!, events[3]!, events[1]!],
+    ]) {
+      expect(key(shuffled)).toEqual(expected);
+    }
   });
 
   it("drops stream-only events from a rebuild", () => {

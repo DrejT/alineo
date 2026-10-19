@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
+import { isAlineoError } from "@alineo-labs/errors";
 import { ControlClient, OpenSandboxError } from "../src/control.ts";
 import { SandboxState } from "../src/types.ts";
 
@@ -131,7 +132,8 @@ describe("ControlClient errors", () => {
     expect(err).toBeInstanceOf(OpenSandboxError);
     expect(err).toMatchObject({
       message: "Sandbox sb-1 not found. (DOCKER::SANDBOX_NOT_FOUND)",
-      code: "DOCKER::SANDBOX_NOT_FOUND",
+      code: "SANDBOX_NOT_FOUND",
+      upstreamCode: "DOCKER::SANDBOX_NOT_FOUND",
       status: 404,
     });
   });
@@ -140,7 +142,12 @@ describe("ControlClient errors", () => {
     const err = await failing(429, JSON.stringify({ message: "slow down" })).catch(
       (e: unknown) => e,
     );
-    expect(err).toMatchObject({ message: "slow down", code: undefined, status: 429 });
+    expect(err).toMatchObject({
+      message: "slow down",
+      code: "PROVIDER_RATE_LIMITED",
+      upstreamCode: undefined,
+      status: 429,
+    });
   });
 
   it.each([
@@ -151,6 +158,47 @@ describe("ControlClient errors", () => {
   ])("keeps the raw text when the body is %s", async (_name, body, message) => {
     const err = await failing(500, body).catch((e: unknown) => e);
     expect(err).toMatchObject({ message, status: 500 });
-    expect((err as OpenSandboxError).code).toBeUndefined();
+    expect((err as OpenSandboxError).upstreamCode).toBeUndefined();
+  });
+
+  it.each([
+    [401, "PROVIDER_AUTH"],
+    [403, "PROVIDER_AUTH"],
+    [429, "PROVIDER_RATE_LIMITED"],
+    [500, "PROVIDER_UNAVAILABLE"],
+    [503, "PROVIDER_UNAVAILABLE"],
+    [400, "PROVIDER_ERROR"],
+    [409, "PROVIDER_ERROR"],
+  ])("maps HTTP %i to the alineo code %s", async (status, code) => {
+    const err = await failing(status, "x").catch((e: unknown) => e);
+    expect(err).toMatchObject({ code, status });
+  });
+
+  it("treats a 404 on a sandbox route as a missing sandbox even with no body code", async () => {
+    const err = await failing(404, "not found").catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: "SANDBOX_NOT_FOUND", status: 404 });
+  });
+
+  it("does not call a 404 on another route a missing sandbox", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 404, text: async () => "no such snapshot" }),
+    );
+    const err = await new ControlClient({ baseUrl: "http://localhost:8080", apiKey: "" })
+      .getSnapshot("snap-1")
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: "PROVIDER_ERROR", status: 404 });
+  });
+
+  it("is an AlineoError, with the status and upstream code in details", async () => {
+    const err = await failing(
+      404,
+      JSON.stringify({ code: "DOCKER::SANDBOX_NOT_FOUND", message: "gone" }),
+    ).catch((e: unknown) => e);
+    expect(isAlineoError(err)).toBe(true);
+    expect((err as OpenSandboxError).details).toEqual({
+      status: 404,
+      upstreamCode: "DOCKER::SANDBOX_NOT_FOUND",
+    });
   });
 });

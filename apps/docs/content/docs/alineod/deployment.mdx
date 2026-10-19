@@ -10,26 +10,29 @@ safe, replicas are not (see [Scaling](#scaling)).
 
 ## Configuration
 
-| Variable                                       | Default                        | Description                                                                                                                                            |
-| ---------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ALINEOD_PORT`                                 | `4600`                         | HTTP + SSE listen port.                                                                                                                                |
-| `ALINEOD_DB_PATH`                              | `./data/alineod.db`            | alineod's own state: the append-only swarm ledger and the `agents`/`handles` tables derived from it.                                                   |
-| `ALINEOD_SDK_LEDGER_PATH`                      | `./data/alineod-sdk-ledger.db` | The SDK's sandbox ledger (sandbox, exec, and checkpoint events), shared by every agent alineod drives. Turn checkpoints are written next to it.        |
-| `ALINEOD_WORK_DIR`                             | `./data/alineod-work`          | Spec files handed to `spawn()`, and stored agent results.                                                                                              |
-| `ALINEOD_PROMPT_INACTIVITY_MS`                 | `180000`                       | If a turn's stream produces nothing for this long, alineod follows the turn by polling instead.                                                        |
-| `ALINEOD_TURN_MAX_MS`                          | `1800000`                      | How long a polled turn may keep running (paused time excluded) before it's ended with partial output.                                                  |
-| `ALINEOD_CATCH_UP_POLL_MS`                     | `2000`                         | Interval between state polls while following a turn.                                                                                                   |
-| `ALINEOD_STATE_PROBE_TIMEOUT_MS`               | `5000`                         | Bound on one state poll, so an unresponsive agent can't stall alineod.                                                                                 |
-| `ALINEOD_RESUME_BRIDGE_TIMEOUT_MS`             | `10000`                        | After a resume, how long to wait for the agent's harness to answer before restarting it.                                                               |
-| `ALINEOD_SUBTREE_MEMBER_TIMEOUT_MS`            | `30000`                        | Bound on one member's pause or resume inside a subtree operation, so one unresponsive sandbox can't stall the sweep (reported as `failed: timeout`).   |
-| `ALINEOD_ADMISSION_CONCURRENCY`                | host vCPUs − 1 (at least 1)    | How many sandboxes alineod creates or forks at once. Spawns beyond it wait for a slot. See [Admission](#admission).                                    |
-| `ALINEOD_ADMISSION_TIMEOUT_MS`                 | `600000`                       | How long a spawn may wait for a slot before it fails with `agent.admission_timeout`.                                                                   |
-| `ALINEOD_REATTACH_RETRY_DELAY_MS`              | `1000`                         | On boot, how long to wait before retrying a failed reattach once — see [the restore ladder](/docs/alineod/concepts/crash-recovery#the-restore-ladder). |
-| `ALINEOD_LEASE_TTL_MS`                         | `15000`                        | How long the instance lease outlives its last heartbeat. See [Scaling](#scaling).                                                                      |
-| `ALINEOD_CHECKPOINT_CONCURRENCY`               | host vCPUs − 1 (at least 1)    | How many turn checkpoints are taken at once. Each holds its tarball in memory while it is read out of the sandbox; extra ones wait.                    |
-| `ALINEOD_REHYDRATE_CONCURRENCY`                | host vCPUs − 1 (at least 1)    | How many agents are reconnected or restored at once on boot. `1` restores one at a time. See [Back up and restore](/docs/alineod/restore).             |
-| `ALINEOD_INSTANCE_ID`                          | `default`                      | A stable name for this alineod, used as its folder in the backup bucket.                                                                               |
-| `ALINEOD_BACKUP_BUCKET` and `ALINEOD_BACKUP_*` | empty (off)                    | Off-box checkpoints and backups in an S3-compatible bucket. The full list is in [Back up and restore](/docs/alineod/restore#configure).                |
+| Variable                                       | Default                        | Description                                                                                                                                                                                                    |
+| ---------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ALINEOD_PORT`                                 | `4600`                         | HTTP + SSE listen port.                                                                                                                                                                                        |
+| `ALINEOD_DB_PATH`                              | `./data/alineod.db`            | alineod's own state: the append-only swarm ledger and the `agents`/`handles` tables derived from it.                                                                                                           |
+| `ALINEOD_SDK_LEDGER_PATH`                      | `./data/alineod-sdk-ledger.db` | The SDK's sandbox ledger (sandbox, exec, and checkpoint events), shared by every agent alineod drives. Turn checkpoints are written next to it.                                                                |
+| `ALINEOD_WORK_DIR`                             | `./data/alineod-work`          | Spec files handed to `spawn()`, and stored agent results.                                                                                                                                                      |
+| `ALINEOD_PROMPT_INACTIVITY_MS`                 | `180000`                       | If a turn's stream produces nothing for this long, alineod follows the turn by polling instead.                                                                                                                |
+| `ALINEOD_TURN_MAX_MS`                          | `1800000`                      | How long a polled turn may keep running (paused time excluded) before it's ended with partial output.                                                                                                          |
+| `ALINEOD_CATCH_UP_POLL_MS`                     | `2000`                         | Interval between state polls while following a turn.                                                                                                                                                           |
+| `ALINEOD_STATE_PROBE_TIMEOUT_MS`               | `5000`                         | Bound on one state poll, so an unresponsive agent can't stall alineod.                                                                                                                                         |
+| `ALINEOD_RESUME_BRIDGE_TIMEOUT_MS`             | `10000`                        | After a resume, how long to wait for the agent's harness to answer before restarting it.                                                                                                                       |
+| `ALINEOD_SUBTREE_MEMBER_TIMEOUT_MS`            | `30000`                        | Bound on one member's pause or resume inside a subtree operation, so one unresponsive sandbox can't stall the sweep (reported as `failed: timeout`).                                                           |
+| `ALINEOD_ADMISSION_CONCURRENCY`                | host vCPUs − 1 (at least 1)    | How many sandboxes alineod creates or forks at once. Spawns beyond it wait for a slot. See [Admission](#admission).                                                                                            |
+| `ALINEOD_ADMISSION_TIMEOUT_MS`                 | `600000`                       | How long a spawn may wait for a slot before it fails with `agent.admission_timeout`.                                                                                                                           |
+| `ALINEOD_REATTACH_RETRY_DELAY_MS`              | `1000`                         | On boot, how long to wait before retrying a failed reattach once — see [the restore ladder](/docs/alineod/concepts/crash-recovery#the-restore-ladder).                                                         |
+| `ALINEOD_TRANSIENT_RETRY_MAX`                  | `3`                            | How many times a turn that failed on a model provider's 429 or 5xx is re-sent before `onFailure` applies. `0` turns it off. See [Supervision](/docs/alineod/concepts/supervision#transient-provider-failures). |
+| `ALINEOD_TRANSIENT_RETRY_BASE_MS`              | `2000`                         | First backoff before a transient retry. Doubles each attempt, with up to 25% jitter.                                                                                                                           |
+| `ALINEOD_TRANSIENT_RETRY_MAX_DELAY_MS`         | `30000`                        | Upper bound on one transient-retry backoff.                                                                                                                                                                    |
+| `ALINEOD_LEASE_TTL_MS`                         | `15000`                        | How long the instance lease outlives its last heartbeat. See [Scaling](#scaling).                                                                                                                              |
+| `ALINEOD_CHECKPOINT_CONCURRENCY`               | host vCPUs − 1 (at least 1)    | How many turn checkpoints are taken at once. Each holds its tarball in memory while it is read out of the sandbox; extra ones wait.                                                                            |
+| `ALINEOD_REHYDRATE_CONCURRENCY`                | host vCPUs − 1 (at least 1)    | How many agents are reconnected or restored at once on boot. `1` restores one at a time. See [Back up and restore](/docs/alineod/restore).                                                                     |
+| `ALINEOD_INSTANCE_ID`                          | `default`                      | A stable name for this alineod, used as its folder in the backup bucket.                                                                                                                                       |
+| `ALINEOD_BACKUP_BUCKET` and `ALINEOD_BACKUP_*` | empty (off)                    | Off-box checkpoints and backups in an S3-compatible bucket. The full list is in [Back up and restore](/docs/alineod/restore#configure).                                                                        |
 
 Every variable is declared in `apps/alineod/config.ts`, and a bad value is rejected at startup rather than silently
 becoming `NaN`.
@@ -95,11 +98,12 @@ NVIDIA_API_KEY=nvapi-... docker compose -f apps/alineod/docker-compose.yml up --
 
 The entrypoint writes `/data/alineo.config.json` from these variables before starting the server:
 
-| Variable                  | Description                                                    |
-| ------------------------- | -------------------------------------------------------------- |
-| `ALINEO_SERVER_URL`       | OpenSandbox server URL.                                        |
-| `ALINEO_USE_SERVER_PROXY` | Route sandbox traffic through the OpenSandbox server (`true`). |
-| `ALINEO_API_KEY`          | OpenSandbox API key, if the server requires one.               |
+| Variable                  | Description                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| `ALINEO_PROVIDER`         | Sandbox provider id. Default `opensandbox`. See [Sandbox providers](/docs/core/providers). |
+| `ALINEO_SERVER_URL`       | OpenSandbox server URL.                                                                    |
+| `ALINEO_USE_SERVER_PROXY` | Route sandbox traffic through the OpenSandbox server (`true`).                             |
+| `ALINEO_API_KEY`          | OpenSandbox API key, if the server requires one.                                           |
 
 All state lives under `/data` — both ledgers, the work directory, and the `checkpoints/` directory of turn
 checkpoints next to the SDK ledger. Keep it on a volume: it is what a restart, a lost container, or a reboot is

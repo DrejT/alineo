@@ -19,9 +19,11 @@
       "version": "0.1.0",
       "dependencies": {
         "@alineo-labs/config-shared": "workspace:*",
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/ledger": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/memory": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/schema": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@alineo-labs/sqlite-memory": "workspace:*",
@@ -201,6 +203,10 @@
       "name": "alineo-example-alineod-coordination",
       "version": "0.0.1",
     },
+    "examples/alineod-provider": {
+      "name": "alineo-example-alineod-provider",
+      "version": "0.0.1",
+    },
     "examples/alineod-swarm": {
       "name": "alineo-example-alineod-swarm",
       "version": "0.0.1",
@@ -262,6 +268,14 @@
         "@alineo-labs/sqlite": "workspace:*",
       },
     },
+    "examples/error-codes": {
+      "name": "alineo-example-error-codes",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+      },
+    },
     "examples/error-handling": {
       "name": "alineo-example-error-handling",
       "version": "0.0.17",
@@ -278,12 +292,27 @@
         "@alineo-labs/sqlite": "workspace:*",
       },
     },
+    "examples/exec-result": {
+      "name": "alineo-example-exec-result",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+      },
+    },
     "examples/file-ops": {
       "name": "alineo-example-file-ops",
       "version": "0.0.17",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
+      },
+    },
+    "examples/harness-capabilities": {
+      "name": "alineo-example-harness-capabilities",
+      "version": "0.0.1",
+      "dependencies": {
+        "alineo": "workspace:*",
       },
     },
     "examples/hello-world": {
@@ -339,6 +368,14 @@
     "examples/ports": {
       "name": "alineo-example-ports",
       "version": "0.0.17",
+      "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+      },
+    },
+    "examples/provider-config": {
+      "name": "alineo-example-provider-config",
+      "version": "0.0.1",
       "dependencies": {
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
@@ -482,7 +519,6 @@
       "version": "0.3.3",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
-        "@alineo-labs/opensandbox": "workspace:*",
       },
       "devDependencies": {
         "bun-types": "1.4.2",
@@ -495,6 +531,7 @@
       "version": "0.7.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
         "@alineo-labs/memory": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
@@ -528,8 +565,8 @@
         "alineo": "./dist/index.mjs",
       },
       "dependencies": {
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
-        "@alineo-labs/opensandbox": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",
         "@opentui/core": "^0.4.3",
@@ -573,10 +610,21 @@
       "name": "@alineo-labs/core",
       "version": "0.5.0",
       "dependencies": {
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/logger": "workspace:*",
-        "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/provider": "workspace:*",
         "@alineo-labs/schema": "workspace:*",
       },
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "tsdown": "0.23.0",
+        "typescript": "6.0.3",
+        "vitest": "5.0.0",
+      },
+    },
+    "packages/errors": {
+      "name": "@alineo-labs/errors",
+      "version": "0.0.0",
       "devDependencies": {
         "bun-types": "1.4.2",
         "tsdown": "0.23.0",
@@ -622,6 +670,7 @@
         "alineo-mcp": "./dist/index.mjs",
       },
       "dependencies": {
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/schema": "workspace:*",
         "@modelcontextprotocol/server": "^2.0.0",
         "alineo": "workspace:*",
@@ -666,6 +715,20 @@
     "packages/opensandbox": {
       "name": "@alineo-labs/opensandbox",
       "version": "0.3.2",
+      "dependencies": {
+        "@alineo-labs/errors": "workspace:*",
+        "@alineo-labs/provider": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "tsdown": "0.23.0",
+        "typescript": "6.0.3",
+        "vitest": "5.0.0",
+      },
+    },
+    "packages/provider": {
+      "name": "@alineo-labs/provider",
+      "version": "0.0.0",
       "devDependencies": {
         "bun-types": "1.4.2",
         "tsdown": "0.23.0",
@@ -691,7 +754,9 @@
       "version": "0.5.0",
       "dependencies": {
         "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/errors": "workspace:*",
         "@alineo-labs/opensandbox": "workspace:*",
+        "@alineo-labs/provider": "workspace:*",
         "@alineo-labs/schema": "workspace:*",
         "@alineo-labs/vault": "workspace:*",
       },
@@ -713,6 +778,21 @@
         "tsdown": "0.23.0",
         "typescript": "6.0.3",
         "vitest": "5.0.0",
+      },
+    },
+    "tests/contract": {
+      "name": "@alineo-labs/contract-tests",
+      "version": "0.0.0",
+      "dependencies": {
+        "@alineo-labs/core": "workspace:*",
+        "@alineo-labs/errors": "workspace:*",
+        "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "1.4.2",
+        "bun-types": "1.4.2",
+        "typescript": "6.0.3",
       },
     },
     "tests/integration": {
@@ -762,9 +842,13 @@
 
     "@alineo-labs/config-shared": ["@alineo-labs/config-shared@workspace:packages/config-shared"],
 
+    "@alineo-labs/contract-tests": ["@alineo-labs/contract-tests@workspace:tests/contract"],
+
     "@alineo-labs/core": ["@alineo-labs/core@workspace:packages/core"],
 
     "@alineo-labs/docs-mcp": ["@alineo-labs/docs-mcp@workspace:apps/docs-mcp"],
+
+    "@alineo-labs/errors": ["@alineo-labs/errors@workspace:packages/errors"],
 
     "@alineo-labs/flue": ["@alineo-labs/flue@workspace:packages/adapters/flue"],
 
@@ -789,6 +873,8 @@
     "@alineo-labs/postgres": ["@alineo-labs/postgres@workspace:packages/adapters/postgres"],
 
     "@alineo-labs/postgres-memory": ["@alineo-labs/postgres-memory@workspace:packages/adapters/postgres-memory"],
+
+    "@alineo-labs/provider": ["@alineo-labs/provider@workspace:packages/provider"],
 
     "@alineo-labs/registry": ["@alineo-labs/registry@workspace:apps/registry"],
 
@@ -2008,6 +2094,8 @@
 
     "alineo-example-alineod-coordination": ["alineo-example-alineod-coordination@workspace:examples/alineod-coordination"],
 
+    "alineo-example-alineod-provider": ["alineo-example-alineod-provider@workspace:examples/alineod-provider"],
+
     "alineo-example-alineod-swarm": ["alineo-example-alineod-swarm@workspace:examples/alineod-swarm"],
 
     "alineo-example-benchmark": ["alineo-example-benchmark@workspace:examples/benchmark"],
@@ -2024,11 +2112,17 @@
 
     "alineo-example-environments": ["alineo-example-environments@workspace:examples/environments"],
 
+    "alineo-example-error-codes": ["alineo-example-error-codes@workspace:examples/error-codes"],
+
     "alineo-example-error-handling": ["alineo-example-error-handling@workspace:examples/error-handling"],
 
     "alineo-example-exec-code": ["alineo-example-exec-code@workspace:examples/exec-code"],
 
+    "alineo-example-exec-result": ["alineo-example-exec-result@workspace:examples/exec-result"],
+
     "alineo-example-file-ops": ["alineo-example-file-ops@workspace:examples/file-ops"],
+
+    "alineo-example-harness-capabilities": ["alineo-example-harness-capabilities@workspace:examples/harness-capabilities"],
 
     "alineo-example-hello-world": ["alineo-example-hello-world@workspace:examples/hello-world"],
 
@@ -2043,6 +2137,8 @@
     "alineo-example-pi-agent": ["alineo-example-pi-agent@workspace:examples/pi-agent"],
 
     "alineo-example-ports": ["alineo-example-ports@workspace:examples/ports"],
+
+    "alineo-example-provider-config": ["alineo-example-provider-config@workspace:examples/provider-config"],
 
     "alineo-example-read-file": ["alineo-example-read-file@workspace:examples/read-file"],
 

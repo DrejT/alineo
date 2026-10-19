@@ -1,9 +1,22 @@
-import { EgressClient, type EgressPolicyStatus, type NetworkRule } from "@alineo-labs/opensandbox";
+import type { EgressChannel, EgressPolicyStatus, NetworkRule } from "@alineo-labs/provider";
+import { SandboxError } from "../errors";
 import { LedgerEvent } from "../ledger";
+import { requireCapability } from "./capabilities";
 import type { SandboxInternal } from "./internal";
 
-function client(sb: SandboxInternal): EgressClient {
-  return new EgressClient(sb.deps.control, sb.deps.useServerProxy);
+/** The provider's egress control, or a typed error when it has none. */
+function client(sb: SandboxInternal): EgressChannel {
+  requireCapability(sb.deps.provider, "egress", sb.sandboxId);
+  const egress = sb.deps.provider.egress;
+  if (!egress) {
+    throw new SandboxError(
+      `The ${sb.deps.provider.id} provider cannot change a sandbox's egress rules at runtime`,
+      sb.sandboxId,
+      "CAPABILITY_UNSUPPORTED",
+      { details: { capability: "egress", provider: sb.deps.provider.id } },
+    );
+  }
+  return egress;
 }
 
 /**

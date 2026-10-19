@@ -1,3 +1,5 @@
+import { AlineoError } from "@alineo-labs/errors";
+import { errorFromBody } from "./control";
 import { SSEEventType } from "./types";
 import type {
   SSEEvent,
@@ -100,6 +102,30 @@ async function* parseSSE(
   }
 }
 
+/**
+ * The largest string Linux passes as one argument to `execve` (`MAX_ARG_STRLEN`, 32 pages)
+ * leaves room for the terminating NUL: 131,071 bytes. execd starts a command as
+ * `bash -c <command>`, so a longer command cannot start. execd then answers with an `error`
+ * event ("argument list too long") and no output, which read as exit 0 before core learned to
+ * tell a start failure from an exit status.
+ *
+ * `sb.exec()` sends `echo <base64> | base64 -d | sh`, so it can carry about 98 KB of command.
+ */
+export const MAX_COMMAND_BYTES = 131_071;
+
+function assertCommandSize(command: string): void {
+  const bytes = new TextEncoder().encode(command).length;
+  if (bytes <= MAX_COMMAND_BYTES) return;
+  throw new AlineoError(
+    "INVALID_ARGUMENT",
+    `command is ${bytes} bytes, over the ${MAX_COMMAND_BYTES} byte limit Linux sets for one argument`,
+    {
+      hint: "Write the content with writeFile() and run a short command that reads it. sb.exec() sends the command base64-encoded, so about 98 KB is the most it can carry.",
+      details: { bytes, limit: MAX_COMMAND_BYTES },
+    },
+  );
+}
+
 function isExecTerminal(event: SSEEvent): boolean {
   return event.type === SSEEventType.ExecutionComplete || event.type === SSEEventType.Error;
 }
@@ -151,7 +177,7 @@ export class ExecClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(text || `execd error ${res.status}`);
+      throw errorFromBody(text, res.status, undefined, `execd error ${res.status}`);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
@@ -174,7 +200,7 @@ export class ExecClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(text || `execd error ${res.status}`);
+      throw errorFromBody(text, res.status, undefined, `execd error ${res.status}`);
     }
     if (!res.body) return;
     yield* parseSSE(res.body, this.pendingReaders, isTerminal);
@@ -211,6 +237,7 @@ export class ExecClient {
   }
 
   async *executeCommand(options: ExecuteCommandOptions): AsyncGenerator<SSEEvent> {
+    assertCommandSize(options.command);
     yield* this.streamRequest("POST", "/command", options, isExecTerminal);
   }
 
@@ -279,7 +306,7 @@ export class ExecClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(text || `execd error ${res.status}`);
+      throw errorFromBody(text, res.status, undefined, `execd error ${res.status}`);
     }
   }
 
@@ -288,7 +315,10 @@ export class ExecClient {
       headers: this.authHeader,
       signal: this.signal,
     });
-    if (!res.ok) throw new Error(`execd error ${res.status}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw errorFromBody(text, res.status, undefined, `execd error ${res.status}`);
+    }
     if (!res.body) throw new Error("empty response body");
     return res.body;
   }

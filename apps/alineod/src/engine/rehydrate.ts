@@ -37,7 +37,7 @@ import { deliverPending } from "./notify";
 import { parseStoredWait, evaluateWait } from "./waitfor";
 import type { CreateRunBody, SpawnAgentBody } from "../schema";
 import { getLogger } from "@alineo-labs/logger";
-import { errorMessage, mapLimit } from "../util";
+import { errorMessage, mapLimit, providerOf } from "../util";
 import { REATTACH_RETRY_DELAY_MS, REHYDRATE_CONCURRENCY } from "../../config";
 
 const log = getLogger("alineod");
@@ -145,7 +145,10 @@ async function onContainerRestored(
   // The persisted row must learn about the new sandboxId -- otherwise it keeps pointing at a
   // deleted sandbox, and every future boot repeats the same restore from the same stale
   // checkpoint instead of building on the one that's now actually running.
-  emit(a.run_id, a.agent_id, "agent.provisioned", { sandboxId: agent.sandboxId });
+  emit(a.run_id, a.agent_id, "agent.provisioned", {
+    sandboxId: agent.sandboxId,
+    provider: providerOf(agent),
+  });
   // `provisioned` moves the persisted sandbox_id. `restored` says what the agent came back with:
   // a checkpoint turn, or `null` for a blank session. Without it the two cases look the same.
   emit(a.run_id, a.agent_id, "agent.restored", {

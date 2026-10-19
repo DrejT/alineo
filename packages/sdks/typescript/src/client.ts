@@ -1,4 +1,5 @@
 import {
+  DEFAULT_PROVIDER_ID,
   SandboxHandle,
   LedgerEvent,
   type IStorageAdapter,
@@ -13,15 +14,11 @@ import {
 import {
   reconstructBoundCredentials,
   reconstructEgressRules,
+  requireCapability,
   resolveBoundCredential,
 } from "@alineo-labs/core";
-import {
-  ControlClient,
-  SandboxState,
-  SnapshotState,
-  isValidEgressTarget,
-} from "@alineo-labs/opensandbox";
-import type { NetworkPolicy } from "@alineo-labs/opensandbox";
+import { OpenSandboxProvider, isValidEgressTarget } from "@alineo-labs/opensandbox";
+import type { NetworkPolicy, SandboxProvider } from "@alineo-labs/provider";
 import { OpenSandboxCredentialBroker } from "@alineo-labs/vault";
 
 import {
@@ -68,7 +65,7 @@ export type {
   CredentialBroker,
   CredentialBinding,
 } from "@alineo-labs/core";
-export type { NetworkPolicy, NetworkRule, CredentialProxyConfig } from "@alineo-labs/opensandbox";
+export type { NetworkPolicy, NetworkRule, CredentialProxyConfig } from "@alineo-labs/provider";
 export { OpenSandboxCredentialBroker } from "@alineo-labs/vault";
 export {
   SandboxClientError,
@@ -121,12 +118,11 @@ function assertValidNetworkPolicy(policy: NetworkPolicy | undefined): void {
  * ```
  */
 export class Sandbox {
-  private readonly _control: ControlClient;
+  private readonly _provider: SandboxProvider;
   private readonly _adapter: IStorageAdapter;
   private readonly _sink: SandboxClientOptions["sink"];
   private readonly _credentialBroker: CredentialBroker;
   private readonly _maxConcurrency: number | undefined;
-  private readonly _useServerProxy: boolean;
   private _activeCount = 0;
   private readonly _waiters: Array<() => void> = [];
   private _connectPromise: Promise<void> | null = null;
@@ -142,6 +138,14 @@ export class Sandbox {
    * must not delay, or fail, the write it is exporting.
    */
   private async _append(entry: LedgerEntry): Promise<void> {
+    // Every sandbox this client creates is owned by one provider. Record which, on the one
+    // event that names the sandbox, so a later resume can tell whose sandbox id it holds.
+    if (entry.event === LedgerEvent.SandboxCreated) {
+      const payload = (entry.payload ?? {}) as Record<string, unknown>;
+      if (payload.provider === undefined) {
+        entry = { ...entry, payload: { ...payload, provider: this._provider.id } };
+      }
+    }
     if (this._sink) {
       try {
         this._sink({
@@ -166,17 +170,28 @@ export class Sandbox {
   }
 
   constructor(options: SandboxClientOptions) {
-    this._control = new ControlClient({
-      baseUrl: options.baseUrl,
-      apiKey: options.apiKey ?? "",
-    });
+    if (options.provider) {
+      this._provider = options.provider;
+    } else {
+      if (!options.baseUrl) {
+        throw new SandboxClientError(
+          "Sandbox needs a `provider`, or a `baseUrl` for the OpenSandbox server",
+          400,
+          "INVALID_ARGUMENT",
+        );
+      }
+      this._provider = new OpenSandboxProvider({
+        baseUrl: options.baseUrl,
+        apiKey: options.apiKey ?? "",
+        useServerProxy: options.useServerProxy ?? false,
+      });
+    }
     this._adapter = options.adapter;
     this._sink = options.sink;
     this._maxConcurrency = options.maxConcurrency;
-    this._useServerProxy = options.useServerProxy ?? false;
     this._credentialBroker =
       options.credentialBroker ??
-      new OpenSandboxCredentialBroker(this._control, this._useServerProxy);
+      new OpenSandboxCredentialBroker(this._provider, options.useServerProxy ?? false);
 
     // Close the adapter when the event loop drains naturally (scripts, short-lived processes).
     // Long-running servers never reach beforeExit, so Postgres pools stay alive for the
@@ -188,6 +203,14 @@ export class Sandbox {
         void this._adapter.close?.();
       }
     });
+  }
+
+  /**
+   * The sandbox provider this client runs on. For a caller that needs something the client
+   * does not wrap, such as listing sandboxes the ledger never recorded.
+   */
+  get provider(): SandboxProvider {
+    return this._provider;
   }
 
   /** Lazily initialises the adapter on first use. Concurrent callers share the same promise. */
@@ -215,6 +238,9 @@ export class Sandbox {
    */
   async sandbox(opts: SandboxOptions): Promise<SandboxHandle> {
     assertValidNetworkPolicy(opts.networkPolicy);
+    // Refused here, before a container exists, when the provider says it cannot enforce it.
+    if (opts.networkPolicy?.egress?.length) requireCapability(this._provider, "egress");
+    if (opts.credentialProxy) requireCapability(this._provider, "credentials");
     await this._ensureConnected();
     await this._acquireSlot();
 
@@ -225,7 +251,7 @@ export class Sandbox {
 
     let sandboxId: string;
     try {
-      const rawSb = await this._control.createSandbox({
+      const rawSb = await this._provider.createSandbox({
         image,
         env: opts.env,
         // runId also rides along in the control-plane's own metadata (echoed back by
@@ -263,7 +289,7 @@ export class Sandbox {
       });
 
       const sb = new SandboxHandle(sandboxId, name, {
-        control: this._control,
+        provider: this._provider,
         adapter: this._adapter,
         sink: this._sink,
         credentialBroker: this._credentialBroker,
@@ -284,7 +310,6 @@ export class Sandbox {
             teamId,
             forkOpts,
           ),
-        useServerProxy: this._useServerProxy,
       });
       opts.hooks?.onSandboxCreated?.(sandboxId, name);
       return sb;
@@ -334,6 +359,21 @@ export class Sandbox {
   ): Promise<SandboxHandle> {
     const entries = await this._adapter.readAll(name, sandboxId);
 
+    // The sandbox id and its snapshots mean something only to the provider that made them.
+    // Say so here, instead of letting the wrong server answer with a bare 404.
+    const created = entries.find((e) => e.event === LedgerEvent.SandboxCreated);
+    const owner =
+      (created?.payload as { provider?: string } | undefined)?.provider ?? DEFAULT_PROVIDER_ID;
+    if (owner !== this._provider.id) {
+      throw new SandboxClientError(
+        `Session ${sandboxId} was created on the "${owner}" provider, but this client is ` +
+          `configured for "${this._provider.id}".`,
+        409,
+        "PROVIDER_MISMATCH",
+        { details: { sandboxId, provider: owner, configured: this._provider.id } },
+      );
+    }
+
     let checkpointIdx: number;
     if (tag) {
       checkpointIdx = entries.findIndex(
@@ -345,11 +385,16 @@ export class Sandbox {
         throw new SandboxClientError(
           `No checkpoint with tag '${tag}' found for session ${sandboxId}`,
           404,
+          "CHECKPOINT_NOT_FOUND",
         );
     } else {
       checkpointIdx = entries.map((e) => e.event).lastIndexOf(LedgerEvent.CheckpointCreated);
       if (checkpointIdx === -1)
-        throw new SandboxClientError(`No checkpoint found for session ${sandboxId}`, 404);
+        throw new SandboxClientError(
+          `No checkpoint found for session ${sandboxId}`,
+          404,
+          "CHECKPOINT_NOT_FOUND",
+        );
     }
 
     const { snapshotId } = entries[checkpointIdx].payload as { snapshotId: string };
@@ -464,7 +509,7 @@ export class Sandbox {
 
     await this._acquireSlot();
     try {
-      const rawSb = await this._control.createSandbox({
+      const rawSb = await this._provider.createSandbox({
         snapshotId,
         resourceLimits: resources,
         metadata: { runId },
@@ -496,7 +541,7 @@ export class Sandbox {
         newSessionId,
         name,
         {
-          control: this._control,
+          provider: this._provider,
           adapter: this._adapter,
           sink: this._sink,
           credentialBroker: this._credentialBroker,
@@ -518,7 +563,6 @@ export class Sandbox {
                     forkOpts,
                   )
               : undefined,
-          useServerProxy: this._useServerProxy,
         },
         replayCache,
         pendingInteractive,
@@ -600,20 +644,26 @@ export class Sandbox {
     },
   ): Promise<SandboxHandle> {
     await this._ensureConnected();
-    const info = await this._control.getSandbox(sandboxId);
-    const state = info.status.state;
-    const paused = state === SandboxState.Paused;
-    if (state !== SandboxState.Running && !(paused && opts?.allowPaused)) {
+    const info = await this._provider.getSandbox(sandboxId);
+    // The provider's own word for the state reads better in a message, and is what a caller
+    // matches on (`isSandboxGone`). The neutral state is what this decides on.
+    const state = info.nativeState ?? info.state;
+    const paused = info.state === "paused";
+    if (info.state !== "running" && !(paused && opts?.allowPaused)) {
       throw new SandboxClientError(
         `SandboxHandle ${sandboxId} is ${state} — can only connect to Running sandboxes` +
           (paused ? " (pass allowPaused to connect to a Paused one)" : ""),
         409,
+        paused ? "SANDBOX_PAUSED" : "SANDBOX_NOT_RUNNING",
+        // `state` is how a caller tells a sandbox that is gone (Terminated, Failed) from one
+        // that is only not up yet. See `isSandboxGone` in the agent package.
+        { details: { sandboxId, state } },
       );
     }
     await this._acquireSlot();
     const resources = opts?.resources;
     const handle = new SandboxHandle(sandboxId, name, {
-      control: this._control,
+      provider: this._provider,
       adapter: this._adapter,
       sink: this._sink,
       credentialBroker: this._credentialBroker,
@@ -634,7 +684,6 @@ export class Sandbox {
               forkOpts,
             )
         : undefined,
-      useServerProxy: this._useServerProxy,
     });
     if (paused) handle.setPaused(true);
     return handle;
@@ -694,7 +743,7 @@ export class Sandbox {
     await this._acquireSlot();
     try {
       const finalRunId = runId ?? crypto.randomUUID();
-      const rawSb = await this._control.createSandbox({
+      const rawSb = await this._provider.createSandbox({
         snapshotId,
         env: opts?.env,
         resourceLimits: resources,
@@ -721,7 +770,7 @@ export class Sandbox {
         },
       });
       return new SandboxHandle(newId, name, {
-        control: this._control,
+        provider: this._provider,
         adapter: this._adapter,
         sink: this._sink,
         credentialBroker: this._credentialBroker,
@@ -740,7 +789,6 @@ export class Sandbox {
             opts?.teamId,
             forkOpts,
           ),
-        useServerProxy: this._useServerProxy,
       });
     } catch (err) {
       this._releaseSlot();
@@ -859,8 +907,8 @@ export class Sandbox {
 
     const record = await this._adapter.getEnvironment(name);
     if (record) {
-      const snap = await this._control.getSnapshot(record.snapshotId).catch(() => null);
-      if (snap?.state === SnapshotState.Ready) {
+      const snap = await this._provider.getSnapshot(record.snapshotId).catch(() => null);
+      if (snap?.state === "ready") {
         return this._createFromSnapshot(record.snapshotId, opts.resources, name, opts.shell, extra);
       }
       // Stale snapshot (server-side TTL or deletion) — fall through to rebuild
@@ -914,7 +962,7 @@ export class Sandbox {
     await this._acquireSlot();
     try {
       const runId = crypto.randomUUID();
-      const rawSb = await this._control.createSandbox({
+      const rawSb = await this._provider.createSandbox({
         snapshotId,
         resourceLimits: resources,
         env: extra?.env,
@@ -946,7 +994,7 @@ export class Sandbox {
       });
 
       const sb = new SandboxHandle(newId, sessionName, {
-        control: this._control,
+        provider: this._provider,
         adapter: this._adapter,
         sink: this._sink,
         credentialBroker: this._credentialBroker,
@@ -967,7 +1015,6 @@ export class Sandbox {
             teamId,
             forkOpts,
           ),
-        useServerProxy: this._useServerProxy,
       });
       extra?.hooks?.onSandboxCreated?.(newId, sessionName);
       return sb;
@@ -1006,7 +1053,7 @@ export class Sandbox {
       // closure agree on one value, not two independently-defaulted ones.
       const finalResourceId = forkOpts?.resourceId ?? resourceId;
       const finalTeamId = forkOpts?.teamId ?? teamId;
-      const rawSb = await this._control.createSandbox({
+      const rawSb = await this._provider.createSandbox({
         snapshotId,
         resourceLimits: resources,
         metadata: { runId: finalRunId },
@@ -1043,7 +1090,7 @@ export class Sandbox {
       });
 
       return new SandboxHandle(newId, sessionName, {
-        control: this._control,
+        provider: this._provider,
         adapter: this._adapter,
         sink: this._sink,
         credentialBroker: this._credentialBroker,
@@ -1063,7 +1110,6 @@ export class Sandbox {
             finalTeamId,
             nextForkOpts,
           ),
-        useServerProxy: this._useServerProxy,
       });
     } catch (err) {
       this._releaseSlot();
@@ -1077,12 +1123,14 @@ export class Sandbox {
     // one fixed-interval tick, so a flat 1s poll was pure waste in the common case.
     let delay = 100;
     while (Date.now() < deadline) {
-      const s = await this._control.getSandbox(sandboxId);
-      if (s.status.state === SandboxState.Running) return;
-      if (s.status.state === SandboxState.Failed || s.status.state === SandboxState.Terminated) {
+      const s = await this._provider.getSandbox(sandboxId);
+      if (s.state === "running") return;
+      if (s.state === "failed" || s.state === "terminated") {
         throw new SandboxClientError(
-          `SandboxHandle ${sandboxId} entered state ${s.status.state}: ${s.status.message ?? ""}`,
+          `SandboxHandle ${sandboxId} entered state ${s.nativeState ?? s.state}: ${s.message ?? ""}`,
           500,
+          "SANDBOX_START_FAILED",
+          { details: { sandboxId, state: s.nativeState ?? s.state } },
         );
       }
       await new Promise<void>((r) => setTimeout(r, delay));
@@ -1091,6 +1139,8 @@ export class Sandbox {
     throw new SandboxClientError(
       `SandboxHandle ${sandboxId} did not reach Running within ${timeoutMs}ms`,
       408,
+      "SANDBOX_START_TIMEOUT",
+      { details: { sandboxId, timeoutMs } },
     );
   }
 

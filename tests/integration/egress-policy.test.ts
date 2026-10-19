@@ -26,10 +26,20 @@ function newClient() {
   });
 }
 
-/** `true` if `host` resolves from inside the sandbox (i.e. egress policy allows it). */
+/**
+ * `true` if `host` resolves from inside the sandbox to an address it could reach (i.e. egress
+ * policy allows it).
+ *
+ * A denied name does not always fail to resolve. A host whose resolv.conf says `search localhost`
+ * (the Docker default copies it from the host) makes glibc retry an NXDOMAIN name as
+ * `<name>.localhost`. With `defaultAction: "allow"` that retry is allowed, and the resolver path
+ * answers 127.0.0.1 and ::1 for a `*.localhost` name. Even a name that does not exist
+ * resolves. A lookup with a trailing dot skips the search list and fails. So "getaddrinfo
+ * succeeded" is not the same as "allowed". An address that is only loopback counts as denied.
+ */
 async function resolves(sb: SandboxHandle, host: string): Promise<boolean> {
   const { exitCode } = await sb.exec(
-    `python3 -c "import socket,sys; socket.getaddrinfo('${host}', 443)"`,
+    `python3 -c "import socket,sys; a={x[4][0] for x in socket.getaddrinfo('${host}', 443)}; sys.exit(0 if any(not i.startswith('127.') and i != '::1' for i in a) else 1)"`,
     { strict: false },
   );
   return exitCode === 0;
@@ -81,7 +91,10 @@ test("a malformed networkPolicy target is rejected locally, before any server ca
     newClient().sandbox({
       image: IMAGE,
       resources: RESOURCES,
-      networkPolicy: { defaultAction: "deny", egress: [{ action: "allow", target: "http://nope" }] },
+      networkPolicy: {
+        defaultAction: "deny",
+        egress: [{ action: "allow", target: "http://nope" }],
+      },
     }),
   ).rejects.toThrow(/Invalid networkPolicy egress target/);
 }, 15_000);
@@ -255,7 +268,8 @@ test("EgressApprovalGate: a held host stays denied — and the credential is nev
   const sb = await heldSandbox(gate.webhookUrl);
   gate.bind(sb);
   try {
-    expect(await resolves(sb, HELD)).toBe(false);
+    // Settled, not a single probe: a freshly booted sidecar's nft layer can lag its policy layer.
+    expect(await resolvesSettled(sb, HELD, false)).toBe(false);
     await new Promise((r) => setTimeout(r, 800));
     expect(decisions).toContain(HELD); // the real webhook reached the handler
     expect(await resolves(sb, HELD)).toBe(false); // still denied
@@ -266,14 +280,17 @@ test("EgressApprovalGate: a held host stays denied — and the credential is nev
 }, 90_000);
 
 test("EgressApprovalGate: allow-once opens the host + injects, then endTurn() reverses both (C2)", async () => {
-  const gate = new EgressApprovalGate({ heldCredentials: heldCred("SECRET-ONCE"), handler: () => "allow-once" });
+  const gate = new EgressApprovalGate({
+    heldCredentials: heldCred("SECRET-ONCE"),
+    handler: () => "allow-once",
+  });
   await gate.start();
   const sb = await heldSandbox();
   gate.bind(sb);
   try {
     // Probe first — the `exec` naturally waits out the sidecar's cold start before we drive
     // the gate (which calls `sb.egress.patch` + `sb.credentials.set` against it).
-    expect(await resolves(sb, HELD)).toBe(false);
+    expect(await resolvesSettled(sb, HELD, false)).toBe(false);
     await fetch(gate.webhookUrl.replace("172.17.0.1", "127.0.0.1"), {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -291,14 +308,17 @@ test("EgressApprovalGate: allow-once opens the host + injects, then endTurn() re
 }, 120_000);
 
 test("the real deny webhook drives an allow-always approval end-to-end: host reachable + credential injected (C2)", async () => {
-  const gate = new EgressApprovalGate({ heldCredentials: heldCred("SECRET-ALWAYS"), handler: () => "allow-always" });
+  const gate = new EgressApprovalGate({
+    heldCredentials: heldCred("SECRET-ALWAYS"),
+    handler: () => "allow-always",
+  });
   await gate.start();
   const sb = await heldSandbox(gate.webhookUrl);
   gate.bind(sb);
   try {
     // First real attempt is denied; the sidecar POSTs the webhook; the gate approves,
     // opens the rule, and registers the credential; a retry succeeds and carries it.
-    expect(await resolves(sb, HELD)).toBe(false);
+    expect(await resolvesSettled(sb, HELD, false)).toBe(false);
     await new Promise((r) => setTimeout(r, 2500));
     expect(await headerSeenBy(sb)).toBe("SECRET-ALWAYS");
   } finally {

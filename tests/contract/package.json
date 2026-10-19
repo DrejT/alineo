@@ -1,0 +1,22 @@
+{
+  "name": "@alineo-labs/contract-tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What a sandbox provider must do for alineo to run on it. One suite, bound to a provider by a small file.",
+  "type": "module",
+  "scripts": {
+    "test": "bun test --timeout 240000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@alineo-labs/core": "workspace:*",
+    "@alineo-labs/errors": "workspace:*",
+    "@alineo-labs/sandbox": "workspace:*",
+    "@alineo-labs/sqlite": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "bun-types": "1.4.2",
+    "typescript": "6.0.3"
+  }
+}

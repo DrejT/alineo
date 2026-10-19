@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { PiAdapter } from "../src/adapters/pi";
 import type { AgentEvent } from "../src/types";
 import { bash } from "../src/agent/session-control";
 import type { AgentInternal } from "../src/agent/internal";
@@ -8,12 +9,13 @@ function fakeAgent(events: AgentEvent[]) {
   let endTurnCalls = 0;
   // eslint-disable-next-line strict-ts/no-chained-type-assertions -- deliberately partial: bash() only reads these fields of AgentInternal
   const a = {
-    adapter: {
+    // `bash()` is Pi-only, so the double must be a real PiAdapter with the one method replaced.
+    adapter: Object.assign(new PiAdapter(), {
       // eslint-disable-next-line require-yield
       bash: async function* () {
         for (const ev of events) yield ev;
       },
-    },
+    }),
     sandbox: { emit: async () => {} },
     env: {},
     egressGate: {

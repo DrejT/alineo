@@ -5,6 +5,21 @@ description: Every alineod route — runs, agents, control actions, and results.
 
 Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors are returned as
 `{ "error": "<message>" }` with an appropriate status; an invalid body is `400` and names each failing field.
+When the failure has a stable error code, the body also carries it as `code`
+(`{ "error": "<message>", "code": "SANDBOX_NOT_RUNNING" }`). Branch on `code`, not on the message text.
+A body without `code` means no code applies.
+
+| Code                     | Status | When                                                                                        |
+| ------------------------ | ------ | ------------------------------------------------------------------------------------------- |
+| `INVALID_ARGUMENT`       | 400    | The request body or a parameter failed validation.                                          |
+| `AGENT_NOT_FOUND`        | 404    | No agent with that id.                                                                      |
+| `RUN_NOT_FOUND`          | 404    | No run with that id.                                                                        |
+| `AGENT_NOT_LIVE`         | 409    | The agent exists but is not live in this daemon (ended, released, or the daemon restarted). |
+| `AGENT_BUSY`             | 409    | The agent is still finishing its previous turn. Retryable.                                  |
+| `CAPABILITY_UNSUPPORTED` | 501    | The daemon setup lacks what the route needs, for example memory when it is disabled.        |
+
+Sandbox and model failures use the codes in [Error codes](/docs/core/api-reference/errors#error-codes).
+The body also carries `hint` when the code has one.
 
 | Method   | Path                             | Description                                                                                                                                              |
 | -------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |

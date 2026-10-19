@@ -10,6 +10,7 @@
  * playground), so a sandbox alineod has never heard of is reported as foreign and never closed.
  */
 import type { Database } from "bun:sqlite";
+import { errorCodeOf } from "@alineo-labs/errors";
 
 export type SandboxVerdict =
   /** alineod still needs it. */
@@ -103,29 +104,29 @@ export function classify(db: Database, live: LiveSandbox[]): LeakReport {
   return { sandboxes, missing };
 }
 
-/** Every sandbox on the server. OpenSandbox pages with `page`/`pageSize` (max 200). */
-export async function listLiveSandboxes(serverUrl: string, apiKey: string): Promise<LiveSandbox[]> {
-  const out: LiveSandbox[] = [];
-  for (let page = 1; ; page++) {
-    const res = await fetch(`${serverUrl}/v1/sandboxes?page=${page}&pageSize=200`, {
-      headers: { "OPEN-SANDBOX-API-KEY": apiKey },
-    });
-    if (!res.ok) throw new Error(`GET /v1/sandboxes: HTTP ${res.status} ${await res.text()}`);
-    const body = (await res.json()) as {
-      items: { id: string; status?: { state?: string } }[];
-      pagination?: { hasNextPage?: boolean };
-    };
-    for (const sb of body.items) out.push({ id: sb.id, state: sb.status?.state ?? "Unknown" });
-    if (!body.pagination?.hasNextPage) return out;
-  }
+/**
+ * The two provider calls the leak check needs. A `SandboxProvider` satisfies this, which is the
+ * point: the check asks the provider what exists and does not know which substrate it is.
+ */
+export interface LeakProvider {
+  listSandboxes(): Promise<{ id: string; state: string; nativeState?: string }[]>;
+  deleteSandbox(sandboxId: string): Promise<void>;
 }
 
-export async function closeSandbox(serverUrl: string, apiKey: string, id: string): Promise<void> {
-  const res = await fetch(`${serverUrl}/v1/sandboxes/${id}`, {
-    method: "DELETE",
-    headers: { "OPEN-SANDBOX-API-KEY": apiKey },
-  });
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`DELETE /v1/sandboxes/${id}: HTTP ${res.status} ${await res.text()}`);
+/**
+ * Every sandbox the provider has. `state` is the provider's own word for it (`Running`), as the
+ * report always showed, not the normalized one.
+ */
+export async function listLiveSandboxes(provider: LeakProvider): Promise<LiveSandbox[]> {
+  const all = await provider.listSandboxes();
+  return all.map((sb) => ({ id: sb.id, state: sb.nativeState ?? sb.state }));
+}
+
+/** Delete a sandbox. One that is already gone counts as closed. */
+export async function closeSandbox(provider: LeakProvider, id: string): Promise<void> {
+  try {
+    await provider.deleteSandbox(id);
+  } catch (err) {
+    if (errorCodeOf(err) !== "SANDBOX_NOT_FOUND") throw err;
   }
 }

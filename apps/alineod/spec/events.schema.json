@@ -187,6 +187,9 @@
         "sandboxId": {
           "type": "string"
         },
+        "provider": {
+          "type": "string"
+        },
         "event": {
           "type": "string",
           "enum": [
@@ -354,6 +357,9 @@
           "type": "number"
         },
         "error": {
+          "type": "string"
+        },
+        "errorCode": {
           "type": "string"
         },
         "event": {
@@ -771,6 +777,9 @@
         "error": {
           "type": "string"
         },
+        "errorCode": {
+          "type": "string"
+        },
         "consecutiveFailures": {
           "type": "integer",
           "minimum": -9007199254740991,
@@ -787,6 +796,52 @@
         "agentId",
         "error",
         "consecutiveFailures",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "nullable": true,
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "errorCode": {
+          "type": "string"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "delayMs": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "agent.turn_retried"
+          ]
+        }
+      },
+      "required": [
+        "agentId",
+        "error",
+        "errorCode",
+        "attempt",
+        "maxAttempts",
+        "delayMs",
         "event"
       ],
       "additionalProperties": false
@@ -827,6 +882,9 @@
           ]
         },
         "error": {
+          "type": "string"
+        },
+        "errorCode": {
           "type": "string"
         },
         "event": {

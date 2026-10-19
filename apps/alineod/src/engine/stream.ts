@@ -16,11 +16,11 @@ import { get } from "./registry";
 import { restartBridge } from "./sdk";
 import { emit, emitHarness } from "./emit";
 import { writeResult } from "./results";
-import { resolveTurnFailure } from "./supervision";
+import { forgetTransientRetries, recordTurnSuccess, resolveTurnFailure } from "./supervision";
+import { errorCodeOf } from "@alineo-labs/errors";
 import { createLimiter, errorMessage, sleep, withTimeout } from "../util";
 import { checkpointBlobStore } from "./offbox";
 import { getAgentRow, getHandle } from "../state/projection";
-import { resetFailureCounters } from "../state/db";
 import {
   BACKUP_REMOTE_MIN_AGE_MS,
   CATCH_UP_POLL_MS,
@@ -108,10 +108,14 @@ async function maybeCheckpoint(runId: string, agentId: string): Promise<void> {
 const driving = new Set<string>();
 /** Agents whose turn alineod is following by polling Pi's state. */
 const catchingUp = new Set<string>();
+/** Agents waiting out a transient-retry backoff. Counts as an active turn. */
+const backingOff = new Set<string>();
+/** The timers behind `backingOff`, so a stop can cancel them. */
+const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /** True while alineod is following a turn on this agent, by stream or by polling. */
 export function isTurnActive(agentId: string): boolean {
-  return driving.has(agentId) || catchingUp.has(agentId);
+  return driving.has(agentId) || catchingUp.has(agentId) || backingOff.has(agentId);
 }
 
 /** True while alineod is polling a turn it stopped streaming (or reconnected to mid-turn). */
@@ -126,6 +130,28 @@ export function isCatchingUp(agentId: string): boolean {
 export function forgetAllTurnTrackingForFaultInjection(): void {
   driving.clear();
   catchingUp.clear();
+  backingOff.clear();
+  for (const timer of retryTimers.values()) clearTimeout(timer);
+  retryTimers.clear();
+}
+
+/** The role, stop reason and content size of the last message of a turn, for a log line. */
+export function summarizeLastMessage(messages: unknown): Record<string, unknown> {
+  if (!Array.isArray(messages) || messages.length === 0) return { messages: 0 };
+  const last = messages[messages.length - 1] as {
+    role?: unknown;
+    stopReason?: unknown;
+    errorMessage?: unknown;
+    content?: unknown;
+  } | null;
+  return {
+    messages: messages.length,
+    role: last?.role,
+    stopReason: last?.stopReason,
+    errorMessage:
+      typeof last?.errorMessage === "string" ? last.errorMessage.slice(0, 200) : undefined,
+    contentBlocks: Array.isArray(last?.content) ? last.content.length : typeof last?.content,
+  };
 }
 
 /**
@@ -159,8 +185,39 @@ export function turnError(messages: unknown): string | undefined {
  * immediately (and wrongly) clear the new call's tracking. Deferring to a fresh microtask
  * guarantees the old call's finally has already run first.
  */
-function deferRetry(agentId: string, message: string): void {
-  queueMicrotask(() => void driveTurn(agentId, message));
+function deferRetry(agentId: string, message: string, delayMs = 0): void {
+  if (delayMs <= 0) {
+    queueMicrotask(() => void driveTurn(agentId, message));
+    return;
+  }
+  // Backing off: the agent is still mid-turn from a caller's point of view, so a prompt that
+  // arrives now must queue behind this retry, not start a second turn beside it.
+  backingOff.add(agentId);
+  const timer = setTimeout(() => {
+    retryTimers.delete(agentId);
+    backingOff.delete(agentId);
+    // Stopped, or ended some other way, while it waited: nothing is left to retry.
+    const row = getAgentRow(agentId);
+    if (!row || row.ended_at !== null) {
+      forgetTransientRetries(agentId);
+      return;
+    }
+    void driveTurn(agentId, message);
+  }, delayMs);
+  retryTimers.set(agentId, timer);
+}
+
+/**
+ * End a transient-retry backoff that is still waiting: the operator stopped the agent, or its run
+ * closed. Without this the timer would fire up to `ALINEOD_TRANSIENT_RETRY_MAX_DELAY_MS` later and
+ * re-send a prompt to an agent nobody wants any more. Safe to call when nothing is waiting.
+ */
+export function cancelBackoff(agentId: string): void {
+  const timer = retryTimers.get(agentId);
+  if (timer !== undefined) clearTimeout(timer);
+  retryTimers.delete(agentId);
+  backingOff.delete(agentId);
+  forgetTransientRetries(agentId);
 }
 
 /** Runs in the background — callers do not await this. */
@@ -176,16 +233,30 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
   setState(agentId, "running", "prompt");
   driving.add(agentId);
   noteTurnStarted(agentId);
+  const turnStartedAt = Date.now();
 
   try {
     let endMessages: unknown;
+    let eventCount = 0;
     for await (const ev of agent.prompt(message, {
       inactivityTimeoutMs: PROMPT_INACTIVITY_TIMEOUT_MS,
     })) {
+      eventCount++;
       if (ev.type === "agent_end") endMessages = (ev as { messages?: unknown }).messages;
       emitHarness(runId, agentId, ev as { type: string } & Record<string, unknown>);
     }
     const text = await safeLastText(agent);
+    // A turn that ends with no text is recorded as a success below. It is rare, so say what it
+    // looked like: a model that returned nothing and a prompt that never reached the model leave
+    // different traces in the event count, the duration and the last assistant message.
+    if ((text ?? "").trim() === "") {
+      log.warn("turn settled with no text", {
+        agentId,
+        turnMs: Date.now() - turnStartedAt,
+        events: eventCount,
+        endMessage: summarizeLastMessage(endMessages),
+      });
+    }
     const resultRef = writeResult(agentId, text);
     const upstream = turnError(endMessages);
     if (upstream) {
@@ -196,10 +267,10 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
         resultRef: text ? resultRef : null,
         retryMessage: message,
       });
-      if (decision.action === "retry") deferRetry(agentId, decision.message);
+      if (decision.action === "retry") deferRetry(agentId, decision.message, decision.delayMs);
       return;
     }
-    resetFailureCounters(agentId);
+    recordTurnSuccess(agentId);
     emit(runId, agentId, "handle.settled", { outcome: "success", resultRef });
     emit(runId, agentId, "agent.ended", { outcome: "success", endedAt: Date.now() });
     void maybeCheckpoint(runId, agentId);
@@ -237,12 +308,13 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     if (!partial) {
       const decision = resolveTurnFailure(runId, agentId, {
         error: errMessage,
+        errorCode: errorCodeOf(err),
         resultRef: null,
         retryMessage: message,
       });
-      if (decision.action === "retry") deferRetry(agentId, decision.message);
+      if (decision.action === "retry") deferRetry(agentId, decision.message, decision.delayMs);
     } else {
-      resetFailureCounters(agentId);
+      recordTurnSuccess(agentId);
       emit(runId, agentId, "handle.settled", { outcome: "success", resultRef });
       emit(runId, agentId, "agent.ended", { outcome: "success", endedAt: Date.now() });
     }
@@ -384,9 +456,9 @@ export async function catchUpTurn(
         resultRef: text ? resultRef : null,
         retryMessage: row.prompt,
       });
-      if (decision.action === "retry") deferRetry(agentId, decision.message);
+      if (decision.action === "retry") deferRetry(agentId, decision.message, decision.delayMs);
     } else {
-      resetFailureCounters(agentId);
+      recordTurnSuccess(agentId);
       emit(runId, agentId, "handle.settled", { outcome, resultRef: text ? resultRef : null });
       // `error` can be set even on a "success" settle here — e.g. catch-up gave up on a turn
       // that was still running (giveUpReason) but kept its partial text; that explanation is

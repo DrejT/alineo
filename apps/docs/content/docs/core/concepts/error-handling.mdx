@@ -1,7 +1,26 @@
 ---
 title: Error handling
-description: Strict vs non-strict exec, CommandError, SandboxError, and ExecConnectionError.
+description: Strict vs non-strict exec, stable error codes, hints, and retry.
 ---
+
+## Branch on the code
+
+Every error alineo raises on purpose has a stable `code`. Read it with `errorCodeOf()` and ask
+`isRetryable()` whether the same call may succeed later. The message text may change between releases. The code does not.
+
+```ts
+import { errorCodeOf, isRetryable } from "@alineo-labs/sandbox";
+
+try {
+  await sb.exec("true");
+} catch (e) {
+  console.error(errorCodeOf(e), isRetryable(e));
+  console.error((e as { hint?: string }).hint); // what to do next
+}
+```
+
+The full list is in [Error codes](/docs/core/api-reference/errors#error-codes). A runnable version is in
+[`examples/error-codes`](https://github.com/DrejT/alineo/tree/main/examples/error-codes).
 
 ## Strict mode (default)
 

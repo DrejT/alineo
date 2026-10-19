@@ -1,17 +1,19 @@
-import { Sandbox } from "@alineo-labs/sandbox";
+import { clientFromConfig } from "@alineo-labs/sandbox";
 import { readFileSync } from "node:fs";
-import { LedgerEvent, type IStorageAdapter, type SandboxHandle } from "@alineo-labs/core";
+import {
+  DEFAULT_PROVIDER_ID,
+  requireCapability,
+  LedgerEvent,
+  type IStorageAdapter,
+  type SandboxHandle,
+} from "@alineo-labs/core";
 import { getLogger, type Logger } from "@alineo-labs/logger";
 import type { Memory, ResourceRef } from "@alineo-labs/memory";
 import { resolveProjectConfig, type AlineoAgentConfig } from "../config";
 import { resourceRefOf } from "@alineo-labs/schema";
 import { validateAgentSpec, type AgentSpec } from "../schema";
-import {
-  PiAdapter,
-  resolveEnv,
-  extractCredentialBindings,
-  parseShellExports,
-} from "../adapters/pi";
+import { createHarness, type HarnessAdapter } from "../harness";
+import { resolveEnv, extractCredentialBindings, parseShellExports } from "../adapters/pi";
 import { AgentSnapshotStore, computeSetupHash, snapshotsPath } from "../snapshots";
 import { isSandboxGone } from "../sandbox-gone";
 import { extractCheckpoint, findCheckpoints, pickRestorable } from "../restore";
@@ -49,7 +51,7 @@ export interface AgentConstructorArgs {
   sandbox: SandboxHandle;
   spec: AgentSpec;
   env: Record<string, string>;
-  adapter: PiAdapter;
+  adapter: HarnessAdapter;
   fromSnapshot: boolean;
   /** Run-correlation ID for this agent's sandbox — see `SandboxDetails.runId`. */
   runId: string;
@@ -142,6 +144,14 @@ export async function loadAgent(
         }
       : undefined;
 
+  const client = clientFromConfig(config, { adapter: opts.adapter });
+
+  // Refuse before the listener starts, so a provider that cannot enforce egress does not leave
+  // one running behind a create that is about to be refused.
+  if (heldCredentials.length > 0 && opts.onEgressRequest) {
+    requireCapability(client.provider, "egress");
+  }
+
   // Start the listener before creating the sandbox — its URL goes into the sidecar env.
   // `gate.bind(sb)` attaches the handle once it exists.
   const egressGate =
@@ -162,17 +172,10 @@ export async function loadAgent(
     egressEnv.OPENSANDBOX_EGRESS_DENY_WEBHOOK = egressGate.webhookUrl;
   }
 
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter: opts.adapter,
-    useServerProxy: config.useServerProxy,
-  });
-
   const store = new AgentSnapshotStore(snapshotsPath(config.adapterPath));
   const setupHash = computeSetupHash(spec);
 
-  const adapter = new PiAdapter();
+  const adapter = createHarness(spec.harness);
   let sb: SandboxHandle | undefined;
   let fromSnapshot = false;
 
@@ -248,6 +251,7 @@ export async function loadAgent(
       await store.save({
         specName: spec.name,
         setupHash,
+        provider: DEFAULT_PROVIDER_ID,
         snapshotId,
         createdAt: Date.now(),
       });
@@ -282,7 +286,7 @@ export async function loadAgent(
 
     log.info("starting bridge");
     const t4 = Date.now();
-    await adapter.startBridge(sb);
+    await adapter.start(sb);
     await adapter.waitReady();
     log.info("bridge ready", { elapsed: elapsed(t4) });
   } catch (err) {
@@ -358,7 +362,7 @@ async function restoreFromCheckpoint(
     });
     await extractCheckpoint(fresh.sandbox, picked.bytes);
     await fresh.adapter.configure(fresh.sandbox, spec, fresh.env, { resume: true });
-    await fresh.adapter.startBridge(fresh.sandbox);
+    await fresh.adapter.start(fresh.sandbox);
     await fresh.adapter.waitReady();
     return { ...fresh, restore: { checkpointTurn: latest.turn } };
   } catch (err) {
@@ -400,12 +404,7 @@ export async function resumeAgent(
   const t0 = Date.now();
   const config = resolveProjectConfig(opts.config);
 
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter: opts.adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter: opts.adapter });
 
   // Three-way fallback, in order of preference: an already-parsed object (no I/O at all) >
   // an explicit path (one read) > guessing the path from the ledger's own record of this
@@ -472,13 +471,13 @@ export async function resumeAgent(
     strict: false,
   });
 
-  const adapter = new PiAdapter();
+  const adapter = createHarness(spec.harness);
   resolvedEnv.ALINEO_SANDBOX_ID = sandboxId;
   await adapter.configure(sb, spec, resolvedEnv, { resume: true });
 
   log.info("starting bridge");
   const t2 = Date.now();
-  await adapter.startBridge(sb);
+  await adapter.start(sb);
   await adapter.waitReady();
   log.info("bridge ready", { elapsed: elapsed(t2) });
 
@@ -570,12 +569,7 @@ export async function reattachAgent(
   const t0 = Date.now();
   const config = resolveProjectConfig(opts.config);
 
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter: opts.adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter: opts.adapter });
 
   // Same three-way spec fallback as resumeAgent() — see its comment for why.
   let spec: AgentSpec;
@@ -638,8 +632,8 @@ export async function reattachAgent(
   // actually still there; a short timeout because there's nothing to wait out (it either
   // answers immediately or the bridge process is gone and the caller should fall back to
   // `Alineo.resume()`).
-  const adapter = new PiAdapter();
-  await adapter.reattachBridge(sb);
+  const adapter = createHarness(spec.harness);
+  await adapter.reattach(sb);
   const t2 = Date.now();
   // `skipReadyCheck`: the caller knows the bridge can't answer right now (a paused sandbox's
   // container is frozen) and will check it itself once it can — e.g. after `sandbox.resume()`.
@@ -669,12 +663,7 @@ export async function attachAgent(
   },
 ): Promise<AgentConstructorArgs> {
   const config = resolveProjectConfig(opts.config);
-  const client = new Sandbox({
-    baseUrl: config.serverUrl,
-    apiKey: config.apiKey,
-    adapter: opts.adapter,
-    useServerProxy: config.useServerProxy,
-  });
+  const client = clientFromConfig(config, { adapter: opts.adapter });
   const resources = opts.resources ?? config.defaults.resources;
   const sb = await client.connect(sandboxId, opts.name, { resources });
   let envFile: string;
@@ -707,7 +696,7 @@ export async function attachAgent(
     sandbox: sb,
     spec: stubSpec,
     env,
-    adapter: new PiAdapter(),
+    adapter: createHarness(stubSpec.harness),
     fromSnapshot: false,
     runId,
   };
@@ -766,7 +755,7 @@ export async function spawnChild(
   });
   log.info("fork ready", { elapsed: elapsed(t0), sandboxId: forkedSb.sandboxId });
 
-  const adapter = new PiAdapter();
+  const adapter = createHarness(childSpec.harness);
   try {
     for (const { name, value, binding, source } of childCredentialBindings) {
       await forkedSb.credentials.set(name, value, binding, source);
@@ -777,7 +766,7 @@ export async function spawnChild(
 
     log.info("starting bridge");
     const t1 = Date.now();
-    await adapter.startBridge(forkedSb, Object.keys(self.env));
+    await adapter.start(forkedSb, { unsetVars: Object.keys(self.env) });
     await adapter.waitReady();
     log.info("bridge ready", { elapsed: elapsed(t1) });
   } catch (err) {

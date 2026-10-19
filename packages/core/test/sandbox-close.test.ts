@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SandboxHandle } from "../src/sandbox/index.ts";
 import type { SandboxDeps } from "../src/sandbox/index.ts";
 import type { IStorageAdapter } from "../src/ledger.ts";
-import { stubControl } from "./control-stub.ts";
+import { stubProvider } from "./provider-stub.ts";
 
 function makeAdapter(): IStorageAdapter {
   return {
@@ -22,12 +22,12 @@ function makeAdapter(): IStorageAdapter {
 }
 
 function makeControl() {
-  return stubControl({ deleteSandbox: vi.fn().mockResolvedValue(undefined) });
+  return stubProvider({ deleteSandbox: vi.fn().mockResolvedValue(undefined) });
 }
 
 function makeDeps(adapter: IStorageAdapter): SandboxDeps {
   return {
-    control: makeControl(),
+    provider: makeControl(),
     adapter,
   };
 }
@@ -54,7 +54,7 @@ describe("SandboxHandle.close()", () => {
   it("does not resolve a new exec client just to dispose it when none was ever created", async () => {
     const adapter = makeAdapter();
     const control = makeControl();
-    const sb = new SandboxHandle("sb-1", "test", { control, adapter });
+    const sb = new SandboxHandle("sb-1", "test", { provider: control, adapter });
 
     await expect(sb.close()).resolves.toBeUndefined();
     // No fetch/control call was ever made to resolve an exec client — deleteSandbox is
