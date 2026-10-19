@@ -4,10 +4,11 @@
  *   2. timeoutMs                   — killed, signal "killed", timedOut (a best guess, see below)
  *   3. a kill from inside          — exit 137 (128 + 9), and not timedOut
  *   4. an AbortSignal              — the call rejects with AbortError and the command is interrupted
+ *   5. a command over the size limit — refused with INVALID_ARGUMENT; writeFile() is the way around it
  *
  * Needs: OpenSandbox server running (bunx alineo-cli init).
  */
-import { Sandbox } from "@alineo-labs/sandbox";
+import { errorCodeOf, Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const client = new Sandbox({
@@ -55,6 +56,19 @@ try {
     strict: false,
   });
   console.log(`the sleep is ${after.stdout.trim()}; the sandbox is still usable`);
+
+  console.log("\n── 5. a command that is too large ───────────────────────────");
+  // execd ignores a command of about 100 KB and reports exit 0. alineo refuses it first.
+  const big = `echo ${"x".repeat(120_000)}`;
+  try {
+    await sb.exec(big);
+  } catch (e) {
+    console.log(`${errorCodeOf(e)}: ${(e as Error).message}`);
+    console.log(`hint: ${(e as { hint?: string }).hint}`);
+  }
+  await sb.writeFile("/tmp/big.sh", big);
+  const viaFile = await sb.exec("bash /tmp/big.sh | wc -c");
+  console.log(`through writeFile it runs: ${viaFile.stdout.trim()} bytes of output`);
 } finally {
   await sb.close();
 }

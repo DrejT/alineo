@@ -1,4 +1,4 @@
-import { Sandbox, type SandboxHandle } from "@alineo-labs/sandbox";
+import { errorCodeOf, Sandbox, type SandboxHandle } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { describe, expect, test } from "bun:test";
 
@@ -64,6 +64,19 @@ describe("how a command ended", () => {
         strict: false,
       });
       expect(after.stdout.trim()).toBe("gone");
+    });
+  }, 90_000);
+
+  test("a command over the size limit is refused, and writeFile is the way around it", async () => {
+    await withSandbox("exec-result-big", async (sb) => {
+      const big = `echo ${"x".repeat(120_000)}`;
+      const err = await Promise.resolve(sb.exec(big)).catch((e: unknown) => e);
+      expect(errorCodeOf(err)).toBe("INVALID_ARGUMENT");
+      expect((err as { hint?: string }).hint).toContain("writeFile");
+
+      await sb.writeFile("/tmp/big.sh", big);
+      const r = await sb.exec("bash /tmp/big.sh | wc -c");
+      expect(Number(r.stdout.trim())).toBe(120_001);
     });
   }, 90_000);
 });

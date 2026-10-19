@@ -1,6 +1,6 @@
 # exec-result
 
-Read how a command ended: `durationMs`, `killed`, `signal`, `timedOut`, and an `AbortSignal` that interrupts it.
+Read how a command ended: `durationMs`, `killed`, `signal`, `timedOut`, an `AbortSignal` that interrupts it, and the command size limit.
 
 ## Setup
 
@@ -17,7 +17,7 @@ bun start
 
 ## What it does
 
-Runs a 1 s command, one stopped by `timeoutMs`, one that kills itself, and one aborted by an `AbortSignal`. `timedOut` is inferred from elapsed time, so use it to explain a failure and not to decide a retry.
+Runs a 1 s command, one stopped by `timeoutMs`, one that kills itself, one aborted by an `AbortSignal`, and a command over 92 KB, which is refused with `INVALID_ARGUMENT` before it is sent. `timedOut` is inferred from elapsed time, so use it to explain a failure and not to decide a retry.
 
 ## Notes
 
