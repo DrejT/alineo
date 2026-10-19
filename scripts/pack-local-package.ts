@@ -32,6 +32,51 @@ export interface SetupStep {
 }
 
 /**
+ * The largest base64 text one setup step carries. OpenSandbox's execd silently ignores a command
+ * of about 100 KB or more: it answers exit 0 and runs nothing, so a 122 KB tarball step "worked"
+ * and the file was never written. 48 KB per step stays well under that.
+ */
+export const MAX_STEP_BASE64 = 48_000;
+
+/**
+ * The setup steps that put one tarball at `remotePath`. A tarball whose base64 fits in one step
+ * is a single heredoc, as it always was. A larger one is appended to `<remotePath>.b64` in
+ * pieces and decoded at the end, so no single command nears the limit above.
+ */
+export function tarballWriteSteps(pkg: {
+  name: string;
+  version: string;
+  remotePath: string;
+  base64: string;
+}): SetupStep[] {
+  const label = `${pkg.name}@${pkg.version}`;
+  const eof = `ALINEO_PKG_${pkg.name.replace(/[^A-Z0-9]/gi, "_").toUpperCase()}_EOF`;
+  if (pkg.base64.length <= MAX_STEP_BASE64) {
+    return [
+      {
+        name: `Write local ${label} tarball into the sandbox`,
+        run: `base64 -d <<'${eof}' > ${pkg.remotePath}\n${pkg.base64}\n${eof}`,
+      },
+    ];
+  }
+  const parts: string[] = [];
+  for (let at = 0; at < pkg.base64.length; at += MAX_STEP_BASE64) {
+    parts.push(pkg.base64.slice(at, at + MAX_STEP_BASE64));
+  }
+  const staging = `${pkg.remotePath}.b64`;
+  return [
+    ...parts.map((part, index) => ({
+      name: `Write local ${label} tarball into the sandbox (part ${index + 1} of ${parts.length})`,
+      run: `cat ${index === 0 ? ">" : ">>"} ${staging} <<'${eof}'\n${part}\n${eof}`,
+    })),
+    {
+      name: `Decode local ${label} tarball`,
+      run: `base64 -d ${staging} > ${pkg.remotePath} && rm ${staging}`,
+    },
+  ];
+}
+
+/**
  * Packs a *chain* of local packages where a later one depends on an earlier one (e.g.
  * `alineo-cli` depends on `alineo`, which depends on `@alineo-labs/core`, etc.) and every one
  * of them needs to be the exact local build — not whatever published npm version `bun pm
@@ -114,17 +159,18 @@ export async function packLocalPackagesForGlobalInstall(
     const entryPkg = packed.find((p) => p.name === entryPkgJson.name);
     if (!entryPkg) throw new Error(`entryPkgDir ${entryPkgDir} not found among packed pkgDirs`);
 
-    const writeSteps = await Promise.all(
-      packed.map(async (pkg) => {
-        const tarball = await readFile(pkg.tgzPath);
-        const b64 = tarball.toString("base64");
-        const eof = `ALINEO_PKG_${pkg.name.replace(/[^A-Z0-9]/gi, "_").toUpperCase()}_EOF`;
-        return {
-          name: `Write local ${pkg.name}@${pkg.version} tarball into the sandbox`,
-          run: `base64 -d <<'${eof}' > ${pkg.remotePath}\n${b64}\n${eof}`,
-        };
-      }),
-    );
+    const writeSteps = (
+      await Promise.all(
+        packed.map(async (pkg) =>
+          tarballWriteSteps({
+            name: pkg.name,
+            version: pkg.version,
+            remotePath: pkg.remotePath,
+            base64: (await readFile(pkg.tgzPath)).toString("base64"),
+          }),
+        ),
+      )
+    ).flat();
 
     return [
       ...writeSteps,
