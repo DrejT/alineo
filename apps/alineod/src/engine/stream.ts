@@ -249,7 +249,7 @@ export async function driveTurn(agentId: string, message: string): Promise<void>
     // A turn that ends with no text is recorded as a success below. It is rare, so say what it
     // looked like: a model that returned nothing and a prompt that never reached the model leave
     // different traces in the event count, the duration and the last assistant message.
-    if (text.trim() === "") {
+    if ((text ?? "").trim() === "") {
       log.warn("turn settled with no text", {
         agentId,
         turnMs: Date.now() - turnStartedAt,
