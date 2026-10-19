@@ -1,3 +1,4 @@
+import { errorFromBody } from "./control";
 import { SSEEventType } from "./types";
 import type {
   SSEEvent,
@@ -151,7 +152,7 @@ export class ExecClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(text || `execd error ${res.status}`);
+      throw errorFromBody(text, res.status, undefined, `execd error ${res.status}`);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
@@ -174,7 +175,7 @@ export class ExecClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(text || `execd error ${res.status}`);
+      throw errorFromBody(text, res.status, undefined, `execd error ${res.status}`);
     }
     if (!res.body) return;
     yield* parseSSE(res.body, this.pendingReaders, isTerminal);
@@ -279,7 +280,7 @@ export class ExecClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(text || `execd error ${res.status}`);
+      throw errorFromBody(text, res.status, undefined, `execd error ${res.status}`);
     }
   }
 
@@ -288,7 +289,10 @@ export class ExecClient {
       headers: this.authHeader,
       signal: this.signal,
     });
-    if (!res.ok) throw new Error(`execd error ${res.status}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw errorFromBody(text, res.status, undefined, `execd error ${res.status}`);
+    }
     if (!res.body) throw new Error("empty response body");
     return res.body;
   }

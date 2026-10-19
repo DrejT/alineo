@@ -46,6 +46,7 @@ export function parseBody<T>(schema: ZodType<T>, value: unknown): T {
     throw new HttpError(
       400,
       `invalid request body: ${r.error.issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ")}`,
+      "INVALID_ARGUMENT",
     );
   }
   return r.data;

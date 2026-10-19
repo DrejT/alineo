@@ -48,7 +48,7 @@ export function stopAgent(
   return withAgentLock(agentId, () =>
     withIdempotency(agentId, "stop", opts.idempotencyKey, async () => {
       const row = getAgentRow(agentId);
-      if (!row) throw new HttpError(404, `no agent ${agentId}`);
+      if (!row) throw new HttpError(404, `no agent ${agentId}`, "AGENT_NOT_FOUND");
       const agent = get(agentId);
 
       if (row.ended_at !== null) {
@@ -106,7 +106,7 @@ async function stopMember(member: AgentRow, mode: "abort" | "drain"): Promise<Me
 
 export async function deleteRun(runId: string): Promise<void> {
   const agents = getRunAgentViews(runId);
-  if (agents.length === 0) throw new HttpError(404, `no run ${runId}`);
+  if (agents.length === 0) throw new HttpError(404, `no run ${runId}`, "RUN_NOT_FOUND");
 
   // Make everyone terminal first — abort whatever is still live. A member that's already
   // ended (including one a prior DELETE or an auto-close already finished) is left alone, so

@@ -44,16 +44,29 @@ describe("errors Elysia raises itself", () => {
 });
 
 describe("errors alineod raises itself are unchanged", () => {
-  test("a body of the wrong shape is a 400 naming the field", async () => {
+  test("a body of the wrong shape is a 400 naming the field, with its code", async () => {
     const res = await call("POST", "/runs", { spec: 123 });
     expect(res.status).toBe(400);
     expect(String(res.body.error)).toContain("spec");
+    expect(res.body.code).toBe("INVALID_ARGUMENT");
   });
 
-  test("a missing agent is a 404 with its own message", async () => {
+  test("a missing agent is a 404 with its own message and AGENT_NOT_FOUND", async () => {
     const res = await call("GET", "/agents/a_nope");
     expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: "no agent a_nope" });
+    expect(res.body).toEqual({ error: "no agent a_nope", code: "AGENT_NOT_FOUND" });
+  });
+
+  test("a missing run is a 404 with RUN_NOT_FOUND", async () => {
+    const res = await call("GET", "/runs/r_nope");
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "no run r_nope", code: "RUN_NOT_FOUND" });
+  });
+
+  test("prompting an agent that is not live is a 409 with AGENT_NOT_LIVE", async () => {
+    const res = await call("POST", "/agents/a_nope/prompt", { text: "hi" });
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "agent a_nope is not live", code: "AGENT_NOT_LIVE" });
   });
 });
 

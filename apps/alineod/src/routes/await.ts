@@ -27,10 +27,14 @@ const waitMs = (seconds: unknown) =>
 export const awaitRoutes = new Elysia()
   .get("/agents/:agentId/await", async ({ params, query }) => {
     if (query.scope !== undefined && query.scope !== "subtree") {
-      throw new HttpError(400, `unsupported scope ${String(query.scope)} (only "subtree")`);
+      throw new HttpError(
+        400,
+        `unsupported scope ${String(query.scope)} (only "subtree")`,
+        "INVALID_ARGUMENT",
+      );
     }
     const view = await waitQuiescent(params.agentId, waitMs(query.wait));
-    if (!view) throw new HttpError(404, `no agent ${params.agentId}`);
+    if (!view) throw new HttpError(404, `no agent ${params.agentId}`, "AGENT_NOT_FOUND");
     return view;
   })
 
@@ -40,7 +44,11 @@ export const awaitRoutes = new Elysia()
     if (req.subtree) {
       const root = getAgentRow(req.subtree);
       if (!root || root.run_id !== params.runId) {
-        throw new HttpError(404, `no agent ${req.subtree} in run ${params.runId}`);
+        throw new HttpError(
+          404,
+          `no agent ${req.subtree} in run ${params.runId}`,
+          "AGENT_NOT_FOUND",
+        );
       }
       const view = (await waitQuiescent(req.subtree, waitMs(req.wait)))!;
       return {
@@ -60,11 +68,11 @@ export const awaitRoutes = new Elysia()
       onDepFailure: req.onDepFailure,
     })!;
     const problem = validateWait(wait);
-    if (problem) throw new HttpError(400, problem);
+    if (problem) throw new HttpError(400, problem, "INVALID_ARGUMENT");
     for (const id of wait.agents) {
       const row = getAgentRow(id);
       if (!row || row.run_id !== params.runId) {
-        throw new HttpError(400, `unknown agent ${id} in run ${params.runId}`);
+        throw new HttpError(400, `unknown agent ${id} in run ${params.runId}`, "INVALID_ARGUMENT");
       }
     }
     const out = await waitUntil(params.runId, () => evaluateWait(wait), {

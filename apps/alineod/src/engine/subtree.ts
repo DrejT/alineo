@@ -19,7 +19,7 @@ export async function sweepSubtree(
   act: (member: AgentRow) => Promise<MemberResult>,
 ): Promise<SubtreeOpResult> {
   const root = getAgentRow(rootId);
-  if (!root) throw new HttpError(404, `no agent ${rootId}`);
+  if (!root) throw new HttpError(404, `no agent ${rootId}`, "AGENT_NOT_FOUND");
   const asOf = runAsOf(root.run_id);
   const results = new Map<string, MemberResult>();
 

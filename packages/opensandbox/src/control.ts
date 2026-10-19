@@ -87,7 +87,12 @@ export class OpenSandboxError extends AlineoError {
  * sentence in `message` (with the code after it), keep the code on `.upstreamCode`, and fall back
  * to the raw text when the body isn't that shape.
  */
-function errorFromBody(text: string, status: number, path?: string): OpenSandboxError {
+export function errorFromBody(
+  text: string,
+  status: number,
+  path?: string,
+  fallback = "OpenSandbox API error",
+): OpenSandboxError {
   try {
     const body = JSON.parse(text) as { code?: unknown; message?: unknown } | null;
     if (typeof body?.message === "string" && body.message) {
@@ -103,7 +108,7 @@ function errorFromBody(text: string, status: number, path?: string): OpenSandbox
   } catch {
     // not JSON: use the raw text below
   }
-  return new OpenSandboxError(text || "OpenSandbox API error", status, undefined, undefined, path);
+  return new OpenSandboxError(text || fallback, status, undefined, undefined, path);
 }
 
 export class ControlClient {

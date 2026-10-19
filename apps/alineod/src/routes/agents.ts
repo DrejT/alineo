@@ -29,7 +29,7 @@ export const agentsRoutes = new Elysia()
 
   .get("/agents/:agentId", async ({ params }) => {
     const view = getAgentView(params.agentId);
-    if (!view) throw new HttpError(404, `no agent ${params.agentId}`);
+    if (!view) throw new HttpError(404, `no agent ${params.agentId}`, "AGENT_NOT_FOUND");
     const agent = get(params.agentId);
     // Skip the live fetch outright while paused (the bridge is frozen, this would just burn
     // the timeout below every time) — and bound it regardless, since "container reports
@@ -42,17 +42,23 @@ export const agentsRoutes = new Elysia()
   })
 
   .get("/agents/:agentId/transcript", ({ params, query }) => {
-    if (!getAgentRow(params.agentId)) throw new HttpError(404, `no agent ${params.agentId}`);
+    if (!getAgentRow(params.agentId))
+      throw new HttpError(404, `no agent ${params.agentId}`, "AGENT_NOT_FOUND");
     return buildTranscript(params.agentId, { full: query.full === "1" });
   })
 
   .post("/agents/:agentId/prompt", async ({ params, body }) => {
     const { text } = parseBody(PromptBody, body);
-    if (!get(params.agentId)) throw new HttpError(409, `agent ${params.agentId} is not live`);
+    if (!get(params.agentId))
+      throw new HttpError(409, `agent ${params.agentId} is not live`, "AGENT_NOT_LIVE");
     // Pi is still working on a turn alineod stopped streaming — a new prompt would land in the
     // middle of it. Wait for that turn's result first.
     if (isCatchingUp(params.agentId)) {
-      throw new HttpError(409, `agent ${params.agentId} is still finishing its previous turn`);
+      throw new HttpError(
+        409,
+        `agent ${params.agentId} is still finishing its previous turn`,
+        "AGENT_BUSY",
+      );
     }
     void driveTurn(params.agentId, withInbox(params.agentId, text));
     return new Response(null, { status: 202 });
@@ -89,13 +95,14 @@ export const agentsRoutes = new Elysia()
   .post("/agents/:agentId/notify-on", ({ params, body }) => {
     const { agents, wake } = parseBody(NotifyOnBody, body);
     const row = getAgentRow(params.agentId);
-    if (!row) throw new HttpError(404, `no agent ${params.agentId}`);
+    if (!row) throw new HttpError(404, `no agent ${params.agentId}`, "AGENT_NOT_FOUND");
     registerNotify(row.run_id, params.agentId, agents, wake ?? false);
     return { subscribed: agents, wake: wake ?? false };
   })
 
   .get("/agents/:agentId/inbox", ({ params }) => {
-    if (!getAgentRow(params.agentId)) throw new HttpError(404, `no agent ${params.agentId}`);
+    if (!getAgentRow(params.agentId))
+      throw new HttpError(404, `no agent ${params.agentId}`, "AGENT_NOT_FOUND");
     const items = inboxOf(params.agentId).map((i) => ({
       seq: i.seq,
       kind: i.kind,
@@ -115,6 +122,7 @@ export const agentsRoutes = new Elysia()
   })
 
   .post("/agents/:agentId/inbox/deliver", async ({ params }) => {
-    if (!getAgentRow(params.agentId)) throw new HttpError(404, `no agent ${params.agentId}`);
+    if (!getAgentRow(params.agentId))
+      throw new HttpError(404, `no agent ${params.agentId}`, "AGENT_NOT_FOUND");
     return { delivery: await deliverPending(params.agentId, { wake: true }) };
   });

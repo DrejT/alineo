@@ -48,8 +48,9 @@ export function registerNotify(
   for (const id of onIds) {
     const row = getAgentRow(id);
     if (!row || row.run_id !== runId)
-      throw new HttpError(400, `unknown agent ${id} in run ${runId}`);
-    if (id === subscriberId) throw new HttpError(400, "an agent can't subscribe to itself");
+      throw new HttpError(400, `unknown agent ${id} in run ${runId}`, "INVALID_ARGUMENT");
+    if (id === subscriberId)
+      throw new HttpError(400, "an agent can't subscribe to itself", "INVALID_ARGUMENT");
   }
   emit(runId, subscriberId, "notify.registered", { on: onIds, wake });
   for (const id of onIds) {

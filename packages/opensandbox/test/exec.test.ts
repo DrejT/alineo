@@ -86,3 +86,56 @@ describe("ExecClient exec streams", () => {
     expect(cancel).not.toHaveBeenCalled();
   });
 });
+
+describe("ExecClient failures carry an alineo code", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const failing = (status: number, text: string) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status, text: async () => text }),
+    );
+  const client = () => new ExecClient({ baseUrl: "http://localhost:44772", accessToken: "" });
+
+  it("a command on a sandbox the server no longer has is SANDBOX_NOT_FOUND", async () => {
+    failing(
+      404,
+      JSON.stringify({ code: "DOCKER::SANDBOX_NOT_FOUND", message: "Sandbox sb-1 not found." }),
+    );
+
+    const err = await (async () => {
+      for await (const _ev of client().executeCommand({ command: "true" })) {
+        // never yields
+      }
+    })().catch((e: unknown) => e);
+
+    expect(err).toMatchObject({
+      code: "SANDBOX_NOT_FOUND",
+      status: 404,
+      upstreamCode: "DOCKER::SANDBOX_NOT_FOUND",
+    });
+  });
+
+  it("a file download that fails keeps the status in the message when the body is empty", async () => {
+    failing(500, "");
+
+    const err = await client()
+      .downloadFile("/etc/hostname")
+      .catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ code: "PROVIDER_UNAVAILABLE", status: 500 });
+    expect((err as Error).message).toBe("execd error 500");
+  });
+
+  it("a plain-text error body is kept as the message", async () => {
+    failing(429, "slow down");
+
+    const err = await client()
+      .uploadFile("/tmp/x", new Uint8Array([1]))
+      .catch((e: unknown) => e);
+
+    expect(err).toMatchObject({ code: "PROVIDER_RATE_LIMITED", status: 429, message: "slow down" });
+  });
+});

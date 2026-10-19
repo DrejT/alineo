@@ -49,19 +49,23 @@ export interface SpawnResult {
 export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
   const parentRow = getAgentRow(body.parentAgentId);
   if (!parentRow || parentRow.run_id !== runId) {
-    throw new HttpError(404, `no agent ${body.parentAgentId} in run ${runId}`);
+    throw new HttpError(404, `no agent ${body.parentAgentId} in run ${runId}`, "AGENT_NOT_FOUND");
   }
   if (!get(body.parentAgentId)) {
-    throw new HttpError(409, `agent ${body.parentAgentId} is not live (cannot spawn from it)`);
+    throw new HttpError(
+      409,
+      `agent ${body.parentAgentId} is not live (cannot spawn from it)`,
+      "AGENT_NOT_LIVE",
+    );
   }
   const wait = normalizeWait(body.waitFor);
   if (wait) {
     const problem = validateWait(wait);
-    if (problem) throw new HttpError(400, problem);
+    if (problem) throw new HttpError(400, problem, "INVALID_ARGUMENT");
     for (const depId of wait.agents) {
       const depRow = getAgentRow(depId);
       if (!depRow || depRow.run_id !== runId) {
-        throw new HttpError(400, `waitFor references unknown agent ${depId}`);
+        throw new HttpError(400, `waitFor references unknown agent ${depId}`, "INVALID_ARGUMENT");
       }
     }
   }
@@ -69,7 +73,7 @@ export function spawnAgent(runId: string, body: SpawnAgentBody): SpawnResult {
   for (const id of body.notifyOn ?? []) {
     const row = getAgentRow(id);
     if (!row || row.run_id !== runId)
-      throw new HttpError(400, `notifyOn references unknown agent ${id}`);
+      throw new HttpError(400, `notifyOn references unknown agent ${id}`, "INVALID_ARGUMENT");
   }
 
   // D-f: a client-supplied idempotency key lets a retried POST (e.g. after the response was
