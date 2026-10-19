@@ -32,9 +32,10 @@ export interface SetupStep {
 }
 
 /**
- * The largest base64 text one setup step carries. OpenSandbox's execd silently ignores a command
- * of about 100 KB or more: it answers exit 0 and runs nothing, so a 122 KB tarball step "worked"
- * and the file was never written. 48 KB per step stays well under that.
+ * The largest base64 text one setup step carries. `sb.exec()` sends a command base64-encoded and
+ * Linux allows 131,071 bytes in one argument, so a command over about 98 KB cannot start. Before
+ * core reported that as a failure it read as exit 0, so a 122 KB tarball step "worked" and the
+ * file was never written. 48 KB per step stays well under the limit.
  */
 export const MAX_STEP_BASE64 = 48_000;
 

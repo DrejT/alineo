@@ -30,8 +30,11 @@ function newClient() {
  * `true` if `host` resolves from inside the sandbox to an address it could reach (i.e. egress
  * policy allows it).
  *
- * A denied name does not always fail to resolve. Some builds of the egress sidecar answer a
- * denied name with a loopback address (127.0.0.1) instead of NXDOMAIN, so "getaddrinfo
+ * A denied name does not always fail to resolve. A host whose resolv.conf says `search localhost`
+ * (the Docker default copies it from the host) makes glibc retry an NXDOMAIN name as
+ * `<name>.localhost`. With `defaultAction: "allow"` that retry is allowed, and the resolver path
+ * answers 127.0.0.1 and ::1 for a `*.localhost` name. Even a name that does not exist
+ * resolves. A lookup with a trailing dot skips the search list and fails. So "getaddrinfo
  * succeeded" is not the same as "allowed". An address that is only loopback counts as denied.
  */
 async function resolves(sb: SandboxHandle, host: string): Promise<boolean> {
