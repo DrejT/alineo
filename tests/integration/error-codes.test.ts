@@ -25,7 +25,11 @@ function makeClient(): Sandbox {
 describe("error codes", () => {
   test("a failed command is COMMAND_FAILED and not retryable", async () => {
     const client = makeClient();
-    const sb = await client.sandbox({ image: "debian:bookworm-slim", resources, name: "codes-cmd" });
+    const sb = await client.sandbox({
+      image: "debian:bookworm-slim",
+      resources,
+      name: "codes-cmd",
+    });
     try {
       const err = await Promise.resolve(sb.exec("exit 42")).catch((e: unknown) => e);
       expect(errorCodeOf(err)).toBe("COMMAND_FAILED");
@@ -37,7 +41,11 @@ describe("error codes", () => {
 
   test("a command on a sandbox that was closed is SANDBOX_NOT_FOUND, not a raw Error", async () => {
     const client = makeClient();
-    const sb = await client.sandbox({ image: "debian:bookworm-slim", resources, name: "codes-closed" });
+    const sb = await client.sandbox({
+      image: "debian:bookworm-slim",
+      resources,
+      name: "codes-closed",
+    });
     await sb.exec("echo warm");
     await sb.close();
 

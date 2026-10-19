@@ -1,5 +1,8 @@
 import type { ExecEvent } from "@alineo-labs/provider";
 
+/** The shell convention for "found the command but could not run it". */
+const START_FAILED_EXIT_CODE = 126;
+
 export interface ExecResult {
   stdout: string;
   stderr: string;
@@ -146,7 +149,15 @@ export class ExecHandle implements PromiseLike<ExecResult> {
         }
         if (ev.type === "error" && ev.error?.evalue !== undefined) {
           const code = Number(ev.error.evalue);
-          if (!isNaN(code)) exitCode = code;
+          if (!isNaN(code)) {
+            exitCode = code;
+          } else {
+            // A number is an exit status. Anything else is execd saying it could not start the
+            // command at all ("fork/exec /usr/bin/bash: argument list too long"). Reading that
+            // as "no exit code seen" reported exit 0 for a command that never ran.
+            exitCode = START_FAILED_EXIT_CODE;
+            stderr.push(`${ev.error.evalue}\n`);
+          }
         }
         // `["signal: killed"]` is how execd reports a command a signal ended. An exit code
         // carries no such line, so its presence is the whole test.

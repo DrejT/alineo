@@ -48,9 +48,12 @@ await sb.exec(script).pipe(process.stdout);
 
 ### Command size
 
-A command string may be at most 92,000 bytes. `execd` v1.0.22 ignores a command of about 100 KB or more:
-it answers exit 0 and runs nothing. So `sb.exec()` refuses a longer command before it sends it. It throws
-`INVALID_ARGUMENT` with the hint to use `writeFile()`.
+`sb.exec()` can carry about 98 KB of command. It sends the command base64-encoded, and Linux allows 131,071 bytes
+in one argument. A longer command cannot start. `sb.exec()` refuses it before it sends it, with `INVALID_ARGUMENT` and
+the hint to use `writeFile()`.
+
+If a command fails to start for another reason, the result has exit code `126` and the reason in `stderr`. Strict
+mode throws `CommandError`.
 
 ```ts
 await sb.writeFile("/tmp/big.sh", hugeScript);

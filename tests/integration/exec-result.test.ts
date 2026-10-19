@@ -69,6 +69,10 @@ describe("how a command ended", () => {
 
   test("a command over the size limit is refused, and writeFile is the way around it", async () => {
     await withSandbox("exec-result-big", async (sb) => {
+      // Just under the limit: base64 makes 90 KB about 120 KB on the wire, and it still runs.
+      const large = await sb.exec(`echo ${"y".repeat(90_000)} | wc -c`);
+      expect(large.stdout.trim()).toBe("90001");
+
       const big = `echo ${"x".repeat(120_000)}`;
       const err = await Promise.resolve(sb.exec(big)).catch((e: unknown) => e);
       expect(errorCodeOf(err)).toBe("INVALID_ARGUMENT");

@@ -58,7 +58,7 @@ try {
   console.log(`the sleep is ${after.stdout.trim()}; the sandbox is still usable`);
 
   console.log("\n── 5. a command that is too large ───────────────────────────");
-  // execd ignores a command of about 100 KB and reports exit 0. alineo refuses it first.
+  // Linux allows 131,071 bytes in one argument and sb.exec() sends base64, so ~98 KB is the most.
   const big = `echo ${"x".repeat(120_000)}`;
   try {
     await sb.exec(big);

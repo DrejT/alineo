@@ -103,20 +103,24 @@ async function* parseSSE(
 }
 
 /**
- * execd v1.0.22 silently ignores a command of about 100 KB or more: it answers exit 0 and runs
- * nothing (92 KB was the largest size seen to work). Refuse before the request, so the caller
- * gets an error with a way out and not a success that did nothing.
+ * The largest string Linux passes as one argument to `execve` (`MAX_ARG_STRLEN`, 32 pages)
+ * leaves room for the terminating NUL: 131,071 bytes. execd starts a command as
+ * `bash -c <command>`, so a longer command cannot start. execd then answers with an `error`
+ * event ("argument list too long") and no output, which read as exit 0 before core learned to
+ * tell a start failure from an exit status.
+ *
+ * `sb.exec()` sends `echo <base64> | base64 -d | sh`, so it can carry about 98 KB of command.
  */
-export const MAX_COMMAND_BYTES = 92_000;
+export const MAX_COMMAND_BYTES = 131_071;
 
 function assertCommandSize(command: string): void {
   const bytes = new TextEncoder().encode(command).length;
   if (bytes <= MAX_COMMAND_BYTES) return;
   throw new AlineoError(
     "INVALID_ARGUMENT",
-    `command is ${bytes} bytes, over the ${MAX_COMMAND_BYTES} byte limit; execd would ignore it and report exit 0`,
+    `command is ${bytes} bytes, over the ${MAX_COMMAND_BYTES} byte limit Linux sets for one argument`,
     {
-      hint: "Write the content with writeFile() and run a short command that reads it.",
+      hint: "Write the content with writeFile() and run a short command that reads it. sb.exec() sends the command base64-encoded, so about 98 KB is the most it can carry.",
       details: { bytes, limit: MAX_COMMAND_BYTES },
     },
   );

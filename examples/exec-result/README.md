@@ -17,7 +17,7 @@ bun start
 
 ## What it does
 
-Runs a 1 s command, one stopped by `timeoutMs`, one that kills itself, one aborted by an `AbortSignal`, and a command over 92 KB, which is refused with `INVALID_ARGUMENT` before it is sent. `timedOut` is inferred from elapsed time, so use it to explain a failure and not to decide a retry.
+Runs a 1 s command, one stopped by `timeoutMs`, one that kills itself, one aborted by an `AbortSignal`, and a command over about 98 KB, which is refused with `INVALID_ARGUMENT` before it is sent. `timedOut` is inferred from elapsed time, so use it to explain a failure and not to decide a retry.
 
 ## Notes
 

@@ -78,7 +78,10 @@ describe("the provider comes from config", () => {
         image: "debian:bookworm-slim",
         resources,
         name: "provider-config-egress-test",
-        networkPolicy: { defaultAction: "deny", egress: [{ action: "allow", target: "example.com" }] },
+        networkPolicy: {
+          defaultAction: "deny",
+          egress: [{ action: "allow", target: "example.com" }],
+        },
       })
       .catch((e: unknown) => e);
 

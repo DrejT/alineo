@@ -213,4 +213,23 @@ describe("how a command ended", () => {
     });
     expect(result.timedOut).toBe(false);
   });
+
+  it("reports a command execd could not start as a failure, not as exit 0", async () => {
+    const startFailure: ExecEvent = {
+      type: "error",
+      error: {
+        ename: "CommandExecError",
+        evalue: "fork/exec /usr/bin/bash: argument list too long",
+        traceback: [],
+      },
+      timestamp: 0,
+    } as ExecEvent;
+    const result = await new ExecHandle({
+      type: "stream",
+      gen: makeStream([startFailure]),
+      onDone: async () => {},
+    }).result();
+    expect(result.exitCode).toBe(126);
+    expect(result.stderr).toContain("argument list too long");
+  });
 });

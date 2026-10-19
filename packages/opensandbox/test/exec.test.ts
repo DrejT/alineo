@@ -168,7 +168,7 @@ describe("ExecClient command size guard", () => {
   });
 
   it("counts bytes, not characters", async () => {
-    const { done } = run("é".repeat(MAX_COMMAND_BYTES / 2 + 1));
+    const { done } = run("é".repeat(Math.ceil(MAX_COMMAND_BYTES / 2)));
     expect(await done).toMatchObject({ code: "INVALID_ARGUMENT" });
   });
 
