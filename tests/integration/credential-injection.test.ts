@@ -30,6 +30,9 @@ test("credential injected transparently, never present in the sandbox's own env"
   });
 
   try {
+    // ubuntu:22.04 doesn't ship curl. The example installs it the same way.
+    await sb.exec("apt-get update -qq && apt-get install -y -qq curl >/dev/null");
+
     await sb.credentials.set("demo", DEMO_SECRET, {
       host: "httpbin.org",
       injection: { type: "header", name: "X-Demo-Credential" },
@@ -52,7 +55,7 @@ test("credential injected transparently, never present in the sandbox's own env"
   } finally {
     await sb.close();
   }
-}, 60_000);
+}, 180_000);
 
 test("fork() carries the parent's bound credentials to the child automatically", async () => {
   const client = new Sandbox({
@@ -72,6 +75,9 @@ test("fork() carries the parent's bound credentials to the child automatically",
 
   let child: SandboxHandle | undefined;
   try {
+    // ubuntu:22.04 doesn't ship curl. The example installs it the same way.
+    await sb.exec("apt-get update -qq && apt-get install -y -qq curl >/dev/null");
+
     // No `source` given — resolves as `{ type: "external" }`, so fork() needs `resolveCredential`
     // to carry it over. Exercises the "not env-derivable" path deliberately (the more common
     // env-sourced path is covered implicitly by resolveBoundCredential()'s unit-level logic).
@@ -91,4 +97,4 @@ test("fork() carries the parent's bound credentials to the child automatically",
     await child?.close();
     await sb.close();
   }
-}, 60_000);
+}, 180_000);
