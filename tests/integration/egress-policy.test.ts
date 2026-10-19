@@ -26,10 +26,17 @@ function newClient() {
   });
 }
 
-/** `true` if `host` resolves from inside the sandbox (i.e. egress policy allows it). */
+/**
+ * `true` if `host` resolves from inside the sandbox to an address it could reach (i.e. egress
+ * policy allows it).
+ *
+ * A denied name does not always fail to resolve. Some builds of the egress sidecar answer a
+ * denied name with a loopback address (127.0.0.1) instead of NXDOMAIN, so "getaddrinfo
+ * succeeded" is not the same as "allowed". An address that is only loopback counts as denied.
+ */
 async function resolves(sb: SandboxHandle, host: string): Promise<boolean> {
   const { exitCode } = await sb.exec(
-    `python3 -c "import socket,sys; socket.getaddrinfo('${host}', 443)"`,
+    `python3 -c "import socket,sys; a={x[4][0] for x in socket.getaddrinfo('${host}', 443)}; sys.exit(0 if any(not i.startswith('127.') and i != '::1' for i in a) else 1)"`,
     { strict: false },
   );
   return exitCode === 0;
