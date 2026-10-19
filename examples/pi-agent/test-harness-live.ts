@@ -15,7 +15,11 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const spec = (await Bun.file("./agents/hello-agent.json").json()) as Record<string, unknown>;
 // PI_VERSION pins the Pi release, with the `harness: { id, version }` spelling.
-if (process.env.PI_VERSION) spec.harness = { id: "pi", version: process.env.PI_VERSION };
+if (process.env.PI_VERSION) {
+  // The spec file pins `harnessVersion`, and the schema refuses both spellings together.
+  delete spec.harnessVersion;
+  spec.harness = { id: "pi", version: process.env.PI_VERSION };
+}
 const results: Array<{ name: string; ok: boolean; note: string }> = [];
 
 async function check(name: string, fn: () => Promise<string | void>): Promise<void> {

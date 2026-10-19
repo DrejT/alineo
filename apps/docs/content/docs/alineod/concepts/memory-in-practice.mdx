@@ -11,13 +11,16 @@ How the pieces in [Memory model](/docs/alineod/concepts/memory-model) are used d
 recalled facts into plain text:
 
 ```ts
+import { textOnly } from "alineo";
 import { buildContextSnippet } from "@alineo-labs/memory";
 
 const context = await buildContextSnippet(memory, agent.resourceRef, {
   query: userMessage,
   topK: 5,
 });
-for await (const chunk of agent.prompt(context ? `${context}\n\n${userMessage}` : userMessage)) {
+for await (const chunk of textOnly(
+  agent.prompt(context ? `${context}\n\n${userMessage}` : userMessage),
+)) {
   process.stdout.write(chunk);
 }
 ```

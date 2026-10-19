@@ -28,9 +28,17 @@ describe("PiAdapter.install", () => {
 
   it("pins an exact version", async () => {
     const { sb, commands } = fakeSandbox();
-    await new PiAdapter().install(sb, baseSpec({ harnessVersion: "1.2.3" }));
+    await new PiAdapter().install(sb, baseSpec({ harnessVersion: "1.3.0" }));
     expect(commands).toContain(
-      "npm install -g --ignore-scripts @earendil-works/pi-coding-agent@1.2.3",
+      "npm install -g --ignore-scripts @earendil-works/pi-coding-agent@1.3.0",
+    );
+  });
+
+  it("names the AWS SDK pin for an exact 1.2 version", async () => {
+    const { sb, commands } = fakeSandbox();
+    await new PiAdapter().install(sb, baseSpec({ harnessVersion: "1.2.0" }));
+    expect(commands).toContain(
+      "npm install -g --ignore-scripts @earendil-works/pi-coding-agent@1.2.0 @aws-sdk/credential-provider-http@3.972.76",
     );
   });
 
@@ -38,8 +46,16 @@ describe("PiAdapter.install", () => {
     const { sb, commands } = fakeSandbox();
     await new PiAdapter().install(sb, baseSpec({ harnessVersion: "^1.2.0" }));
     expect(commands).toContain(
-      "npm install -g --ignore-scripts @earendil-works/pi-coding-agent@^1.2.0",
+      "npm install -g --ignore-scripts @earendil-works/pi-coding-agent@^1.2.0 @aws-sdk/credential-provider-http@3.972.76",
     );
+  });
+
+  it("leaves the AWS SDK pin off versions outside the 1.2 line", async () => {
+    for (const harnessVersion of ["1.1.0", "1.3.0", "^1.20.0", "latest"]) {
+      const { sb, commands } = fakeSandbox();
+      await new PiAdapter().install(sb, baseSpec({ harnessVersion }));
+      expect(commands.join("\n")).not.toContain("@aws-sdk");
+    }
   });
 
   it("passes through a dist-tag", async () => {

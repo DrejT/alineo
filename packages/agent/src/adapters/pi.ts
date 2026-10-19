@@ -112,6 +112,19 @@ export function parseShellExports(content: string): Record<string, string> {
   return result;
 }
 
+/**
+ * Pi 1.2.x depends on `@aws-sdk/credential-provider-http@^3.972.77`, a version the npm registry
+ * does not serve (newest is 3.972.76), so a fresh `npm install -g` of 1.2.x fails with ETARGET.
+ * Naming 3.972.76 in the same command makes npm resolve to it. Drop this once the registry
+ * serves a version that satisfies Pi 1.2.x.
+ */
+const PI_1_2_AWS_SDK_PIN = "@aws-sdk/credential-provider-http@3.972.76";
+
+/** True for an exact, caret, or tilde specifier on the 1.2 line, such as `1.2.0` or `^1.2.0`. */
+function needsAwsSdkPin(versionSpecifier: string | undefined): boolean {
+  return versionSpecifier !== undefined && /^[\^~]?1\.2(\.|$)/.test(versionSpecifier);
+}
+
 export class PiAdapter extends BridgeHarness<AgentEvent> implements HarnessAdapter {
   readonly id = "pi";
   readonly capabilities = PI_CAPABILITIES;
@@ -130,7 +143,8 @@ export class PiAdapter extends BridgeHarness<AgentEvent> implements HarnessAdapt
     const pkg = versionSpecifier
       ? `@earendil-works/pi-coding-agent@${versionSpecifier}`
       : "@earendil-works/pi-coding-agent";
-    await sb.exec(`npm install -g --ignore-scripts ${pkg}`);
+    const extra = needsAwsSdkPin(versionSpecifier) ? ` ${PI_1_2_AWS_SDK_PIN}` : "";
+    await sb.exec(`npm install -g --ignore-scripts ${pkg}${extra}`);
   }
 
   /**

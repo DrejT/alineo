@@ -46,6 +46,7 @@ interface SandboxInternals {
   _activeCount: number;
   _acquireSlot(): Promise<void>;
   _releaseSlot(): void;
+  _buildEnvironment(name: string, opts: unknown): Promise<string>;
   _createFromSnapshot(
     snapshotId: string,
     resources: { cpu: string; memory: string; gpu?: string },
@@ -247,6 +248,55 @@ describe("Environment.info()", () => {
     });
 
     expect(await env.info()).toBeNull();
+  });
+});
+
+// ── Environment.sandbox() with a snapshot image that is gone ───────────────
+
+describe("Environment.sandbox() when the cached snapshot cannot be restored", () => {
+  const envOpts = {
+    image: "debian:slim",
+    resources: { cpu: "500m", memory: "256Mi" },
+    setup: async () => {},
+  };
+  const handle = { sandboxId: "restored" };
+
+  function setup(restore: (snapshotId: string) => Promise<unknown>) {
+    const record = { name: "py", snapshotId: "old-snap", image: "debian:slim", builtAt: 1000 };
+    const client = makeClient(makeAdapter({ getEnvironment: vi.fn().mockResolvedValue(record) }));
+    const inner = internals(client);
+    inner._provider = { getSnapshot: vi.fn().mockResolvedValue({ state: "ready" }) };
+    const create = vi.fn(restore);
+    const build = vi.fn().mockResolvedValue("new-snap");
+    Object.assign(inner, { _createFromSnapshot: create, _buildEnvironment: build });
+    return { env: client.environment("py", envOpts), create, build };
+  }
+
+  it("rebuilds and restores from the new snapshot", async () => {
+    const { env, create, build } = setup(async (id) => {
+      if (id === "old-snap") throw new Error("Failed to pull image opensandbox-snapshots:old-snap");
+      return handle;
+    });
+
+    expect(await env.sandbox()).toBe(handle);
+    expect(build).toHaveBeenCalledOnce();
+    expect(create.mock.calls.map((c) => c[0])).toEqual(["old-snap", "new-snap"]);
+  });
+
+  it("throws the rebuild error when the rebuild fails too", async () => {
+    const { env, build } = setup(async () => {
+      throw new Error("restore failed");
+    });
+    build.mockRejectedValue(new Error("build failed"));
+
+    await expect(env.sandbox()).rejects.toThrow("build failed");
+  });
+
+  it("does not rebuild when the restore works", async () => {
+    const { env, build } = setup(async () => handle);
+
+    expect(await env.sandbox()).toBe(handle);
+    expect(build).not.toHaveBeenCalled();
   });
 });
 
