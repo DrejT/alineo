@@ -35,6 +35,18 @@ describe("error codes", () => {
     }
   }, 90_000);
 
+  test("a command on a sandbox that was closed is SANDBOX_NOT_FOUND, not a raw Error", async () => {
+    const client = makeClient();
+    const sb = await client.sandbox({ image: "debian:bookworm-slim", resources, name: "codes-closed" });
+    await sb.exec("echo warm");
+    await sb.close();
+
+    const err = await Promise.resolve(sb.exec("echo again")).catch((e: unknown) => e);
+
+    expect(isAlineoError(err)).toBe(true);
+    expect(errorCodeOf(err)).toBe("SANDBOX_NOT_FOUND");
+  }, 90_000);
+
   test("a sandbox that is not there is SANDBOX_NOT_FOUND, with a hint", async () => {
     const err = await makeClient()
       .connect("00000000-0000-0000-0000-000000000000", "missing")
