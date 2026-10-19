@@ -8,7 +8,7 @@
  * Run: bun examples/pi-agent/test-resume.ts
  * Needs: OpenSandbox server running (uvx opensandbox-server)
  */
-import { Alineo } from "alineo";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
@@ -24,7 +24,9 @@ const sandboxId = agent.sandboxId;
 console.log(`SandboxHandle ID: ${sandboxId}\n`);
 
 process.stdout.write("Initial prompt → ");
-for await (const chunk of agent.prompt("Remember the secret number 99. Reply with just OK.")) {
+for await (const chunk of textOnly(
+  agent.prompt("Remember the secret number 99. Reply with just OK."),
+)) {
   process.stdout.write(chunk);
 }
 console.log("\n");
@@ -50,8 +52,8 @@ if (resumed.sandboxId !== sandboxId) {
 
 process.stdout.write("Resumed prompt → ");
 let fullResponse = "";
-for await (const chunk of resumed.prompt(
-  "What secret number did I ask you to remember? Answer in one sentence.",
+for await (const chunk of textOnly(
+  resumed.prompt("What secret number did I ask you to remember? Answer in one sentence."),
 )) {
   process.stdout.write(chunk);
   fullResponse += chunk;

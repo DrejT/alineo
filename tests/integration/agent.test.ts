@@ -7,7 +7,7 @@
  *
  * Run with: GEMINI_API_KEY=... bun test tests/integration/agent.test.ts --timeout 600000
  */
-import { Alineo } from "alineo";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { beforeAll, afterAll, test, expect, describe } from "bun:test";
 
@@ -73,7 +73,7 @@ describe("agent.setEnv", () => {
 describe("agent.prompt (Pi RPC — Google Gemini)", () => {
   test("streams a response to a simple prompt", async () => {
     const chunks: string[] = [];
-    for await (const chunk of agent.prompt("Reply with exactly: pong")) {
+    for await (const chunk of textOnly(agent.prompt("Reply with exactly: pong"))) {
       chunks.push(chunk);
     }
     expect(chunks.join("").toLowerCase()).toContain("pong");
@@ -85,7 +85,7 @@ describe("agent.prompt (Pi RPC — Google Gemini)", () => {
     }
 
     const chunks: string[] = [];
-    for await (const c of agent.prompt("What was the word I asked you to remember?")) {
+    for await (const c of textOnly(agent.prompt("What was the word I asked you to remember?"))) {
       chunks.push(c);
     }
     expect(chunks.join("").toUpperCase()).toContain("ZEPHYR");
@@ -99,7 +99,7 @@ describe("agent.prompt (Pi RPC — Google Gemini)", () => {
     await agent.newSession();
 
     const chunks: string[] = [];
-    for await (const c of agent.prompt("What codeword did I give you?")) {
+    for await (const c of textOnly(agent.prompt("What codeword did I give you?"))) {
       chunks.push(c);
     }
     expect(chunks.join("").toUpperCase()).not.toContain("BANANA");

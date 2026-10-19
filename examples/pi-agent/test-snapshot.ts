@@ -5,7 +5,7 @@
  * Run: bun examples/pi-agent/test-snapshot.ts
  * Needs: OpenSandbox server running (uvx opensandbox-server)
  */
-import { Alineo } from "alineo";
+import { Alineo, textOnly } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
 const SPEC = "./agents/hello-agent.json";
@@ -29,7 +29,7 @@ if (agent1.fromSnapshot) {
 
 // Quick sanity check.
 process.stdout.write("Prompt → ");
-for await (const chunk of agent1.prompt("Reply with just the word READY.")) {
+for await (const chunk of textOnly(agent1.prompt("Reply with just the word READY."))) {
   process.stdout.write(chunk);
 }
 console.log("\n");
@@ -45,7 +45,7 @@ const elapsed2 = Date.now() - t2;
 console.log(`\nLoad 2 total: ${elapsed2}ms  fromSnapshot=${agent2.fromSnapshot}`);
 
 process.stdout.write("Prompt → ");
-for await (const chunk of agent2.prompt("Reply with just the word READY.")) {
+for await (const chunk of textOnly(agent2.prompt("Reply with just the word READY."))) {
   process.stdout.write(chunk);
 }
 console.log("\n");

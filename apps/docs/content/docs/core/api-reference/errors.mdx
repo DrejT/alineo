@@ -142,13 +142,15 @@ try {
 
 ### Properties
 
-| Property    | Type     | Description                           |
-| ----------- | -------- | ------------------------------------- |
-| `exitCode`  | `number` | The process exit code                 |
-| `command`   | `string` | The command string that was run       |
-| `sandboxId` | `string` | The sandbox ID where it ran           |
-| `message`   | `string` | `"Command exited with code N: <cmd>"` |
-| `name`      | `string` | `"CommandError"`                      |
+| Property    | Type     | Description                                                                                                                          |
+| ----------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `exitCode`  | `number` | The process exit code                                                                                                                |
+| `command`   | `string` | The command string that was run                                                                                                      |
+| `sandboxId` | `string` | The sandbox ID where it ran                                                                                                          |
+| `stdout`    | `string` | All the output the command wrote to stdout                                                                                           |
+| `stderr`    | `string` | All the output the command wrote to stderr                                                                                           |
+| `message`   | `string` | `"Command exited with code N: <cmd>"`, then a new line and the last 2000 characters of `stderr` (of `stdout` when `stderr` is empty) |
+| `name`      | `string` | `"CommandError"`                                                                                                                     |
 
 ### Avoiding CommandError
 

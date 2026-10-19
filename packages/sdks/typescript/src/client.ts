@@ -909,7 +909,19 @@ export class Sandbox {
     if (record) {
       const snap = await this._provider.getSnapshot(record.snapshotId).catch(() => null);
       if (snap?.state === "ready") {
-        return this._createFromSnapshot(record.snapshotId, opts.resources, name, opts.shell, extra);
+        try {
+          return await this._createFromSnapshot(
+            record.snapshotId,
+            opts.resources,
+            name,
+            opts.shell,
+            extra,
+          );
+        } catch {
+          // The server still lists the snapshot but its image is gone (pruned, or the Docker
+          // store was reset), so the restore fails at create time. Rebuild once. If the cause
+          // was something else, the rebuild fails with that error.
+        }
       }
       // Stale snapshot (server-side TTL or deletion) — fall through to rebuild
     }

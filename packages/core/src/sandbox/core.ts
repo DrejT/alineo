@@ -305,7 +305,7 @@ export class SandboxCore implements SandboxInternal {
         await self.emit(LedgerEvent.ExecComplete, seq, execCompletedPayload(result, seq));
         self.deps.hooks?.onExecComplete?.(self.sandboxId, seq, result);
         if (opts.strict !== false && result.exitCode !== 0) {
-          throw new CommandError(result.exitCode, cmd, self.sandboxId);
+          throw new CommandError(result.exitCode, cmd, self.sandboxId, result);
         }
       },
     });
@@ -404,7 +404,7 @@ export class SandboxCore implements SandboxInternal {
         await self.emit(LedgerEvent.ExecComplete, seq, { exitCode: result.exitCode, seq });
         self.deps.hooks?.onExecComplete?.(self.sandboxId, seq, result);
         if (opts.strict !== false && result.exitCode !== 0) {
-          throw new CommandError(result.exitCode, cmd, self.sandboxId);
+          throw new CommandError(result.exitCode, cmd, self.sandboxId, result);
         }
       },
     };
@@ -544,7 +544,7 @@ export class SandboxCore implements SandboxInternal {
           await self.emit(LedgerEvent.ExecComplete, seq, { exitCode: result.exitCode, seq });
           self.deps.hooks?.onExecComplete?.(self.sandboxId, seq, result);
           if (result.exitCode !== 0)
-            throw new CommandError(result.exitCode, command, self.sandboxId);
+            throw new CommandError(result.exitCode, command, self.sandboxId, result);
         },
       });
     };

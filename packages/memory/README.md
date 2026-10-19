@@ -222,10 +222,13 @@ memory and (if a query is given and a semantic provider is configured) its most 
 semantic memories — ready to prepend to a prompt:
 
 ```ts
+import { textOnly } from "alineo";
 import { buildContextSnippet } from "@alineo-labs/memory";
 
 const context = await buildContextSnippet(memory, ref, { query: userMessage, topK: 5 });
-for await (const chunk of agent.prompt(context ? `${context}\n\n${userMessage}` : userMessage)) {
+for await (const chunk of textOnly(
+  agent.prompt(context ? `${context}\n\n${userMessage}` : userMessage),
+)) {
   process.stdout.write(chunk);
 }
 ```

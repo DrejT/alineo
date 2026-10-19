@@ -11,7 +11,7 @@
  */
 import { Sandbox } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
-import { Alineo } from "alineo";
+import { Alineo, textOnly } from "alineo";
 
 const adapter = new SQLiteAdapter("./.alineo/test-extensions.db");
 const client = new Sandbox({
@@ -123,7 +123,7 @@ console.log(`Original agent sandbox: ${agentSandboxId}`);
 
 // Send an initial prompt to establish session history.
 process.stdout.write("Initial prompt: ");
-for await (const chunk of agent.prompt("Remember the number 42. Just reply OK.")) {
+for await (const chunk of textOnly(agent.prompt("Remember the number 42. Just reply OK."))) {
   process.stdout.write(chunk);
 }
 console.log("\n");
@@ -143,8 +143,8 @@ const resumed = await Alineo.resume(agentSandboxId, {
 console.log(`Resumed agent sandbox: ${resumed.sandboxId}`);
 
 process.stdout.write("Resumed prompt: ");
-for await (const chunk of resumed.prompt(
-  "What number did I ask you to remember? Answer in one sentence.",
+for await (const chunk of textOnly(
+  resumed.prompt("What number did I ask you to remember? Answer in one sentence."),
 )) {
   process.stdout.write(chunk);
 }
