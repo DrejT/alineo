@@ -258,7 +258,8 @@ test("EgressApprovalGate: a held host stays denied — and the credential is nev
   const sb = await heldSandbox(gate.webhookUrl);
   gate.bind(sb);
   try {
-    expect(await resolves(sb, HELD)).toBe(false);
+    // Settled, not a single probe: a freshly booted sidecar's nft layer can lag its policy layer.
+    expect(await resolvesSettled(sb, HELD, false)).toBe(false);
     await new Promise((r) => setTimeout(r, 800));
     expect(decisions).toContain(HELD); // the real webhook reached the handler
     expect(await resolves(sb, HELD)).toBe(false); // still denied
@@ -279,7 +280,7 @@ test("EgressApprovalGate: allow-once opens the host + injects, then endTurn() re
   try {
     // Probe first — the `exec` naturally waits out the sidecar's cold start before we drive
     // the gate (which calls `sb.egress.patch` + `sb.credentials.set` against it).
-    expect(await resolves(sb, HELD)).toBe(false);
+    expect(await resolvesSettled(sb, HELD, false)).toBe(false);
     await fetch(gate.webhookUrl.replace("172.17.0.1", "127.0.0.1"), {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -307,7 +308,7 @@ test("the real deny webhook drives an allow-always approval end-to-end: host rea
   try {
     // First real attempt is denied; the sidecar POSTs the webhook; the gate approves,
     // opens the rule, and registers the credential; a retry succeeds and carries it.
-    expect(await resolves(sb, HELD)).toBe(false);
+    expect(await resolvesSettled(sb, HELD, false)).toBe(false);
     await new Promise((r) => setTimeout(r, 2500));
     expect(await headerSeenBy(sb)).toBe("SECRET-ALWAYS");
   } finally {
