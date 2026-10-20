@@ -11,6 +11,23 @@ import type { CliTelemetryEvent } from "./db";
 
 export const RUN_EVENT = "cli_command_run";
 export const EXCEPTION_EVENT = "$exception";
+export const FIRST_RUN_EVENT = "cli_first_run";
+
+/**
+ * Activation milestones: a successful command that moves a machine one step further. Sent on top
+ * of `cli_command_run`, so a funnel can use plain event names instead of `command` filters.
+ * Read-only commands (`list`, `agents`, `logs`, `remove`, `telemetry`, `tui`) are not milestones.
+ * Adding or renaming one is a change here, not a CLI release.
+ */
+const MILESTONES: Readonly<Record<string, string>> = {
+  init: "cli_initialized",
+  add: "cli_spec_added",
+  start: "cli_agent_started",
+  prompt: "cli_prompt_sent",
+  spawn: "cli_agent_spawned",
+  steer: "cli_agent_steered",
+  stop: "cli_agent_stopped",
+};
 
 /** Bumped when a property is renamed or removed, so a chart can tell the two shapes apart. */
 const SCHEMA_VERSION = 1;
@@ -125,7 +142,21 @@ export function toPostHogEvents(event: CliTelemetryEvent, ctx: MapContext): Post
       ...(event.errorClass !== undefined && { error_class: event.errorClass }),
     },
   };
-  if (event.outcome !== "error") return [run];
+  const events: PostHogEvent[] = [run];
+
+  const milestone = event.outcome === "success" ? MILESTONES[event.command] : undefined;
+  if (milestone) events.push({ event: milestone, ...base, properties: run.properties });
+
+  // The server has never seen this machine before: its first command, whether or not it worked.
+  if (ctx.firstSeenAt === null) {
+    events.push({
+      event: FIRST_RUN_EVENT,
+      ...base,
+      properties: { ...shared, first_command: event.command },
+    });
+  }
+
+  if (event.outcome !== "error") return events;
 
   const errorClass = event.errorClass ?? "UnknownError";
   const exception: PostHogEvent = {
@@ -144,7 +175,8 @@ export function toPostHogEvents(event: CliTelemetryEvent, ctx: MapContext): Post
       $issue_name: `${event.command}: ${errorClass}`,
     },
   };
-  return [run, exception];
+  events.push(exception);
+  return events;
 }
 
 /** Entries are case-insensitive. A trailing `*` matches a prefix. */

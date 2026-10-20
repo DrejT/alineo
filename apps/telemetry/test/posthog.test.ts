@@ -10,6 +10,7 @@ const { postEvent } = await import("../routes/events");
 const { firstSeenAt } = await import("../db");
 const {
   EXCEPTION_EVENT,
+  FIRST_RUN_EVENT,
   RUN_EVENT,
   compileDenyList,
   createForwarder,
@@ -29,7 +30,7 @@ const NOW = Date.UTC(2026, 9, 20, 12, 0, 0);
 
 function cliEvent(overrides: Partial<CliTelemetryEvent> = {}): CliTelemetryEvent {
   return {
-    command: "spawn",
+    command: "list",
     flags: { json: true },
     outcome: "success",
     durationMs: 120,
@@ -74,7 +75,7 @@ function forwarderWith(overrides: Partial<ForwarderOptions> = {}) {
   });
 }
 
-const input = (event: CliTelemetryEvent, firstSeen: number | null = null) => ({
+const input = (event: CliTelemetryEvent, firstSeen: number | null = NOW - 2 * DAY) => ({
   event,
   receivedAt: NOW,
   firstSeenAt: firstSeen,
@@ -114,7 +115,7 @@ describe("toPostHogEvents", () => {
 
   it("adds a fingerprinted $exception for an error outcome", () => {
     const events = toPostHogEvents(
-      cliEvent({ outcome: "error", errorClass: "ExecConnectionError" }),
+      cliEvent({ command: "spawn", outcome: "error", errorClass: "ExecConnectionError" }),
       ctx,
     );
     expect(events.map((e) => e.event)).toEqual([RUN_EVENT, EXCEPTION_EVENT]);
@@ -128,7 +129,7 @@ describe("toPostHogEvents", () => {
   });
 
   it("falls back to UnknownError when the CLI sent no class", () => {
-    const events = toPostHogEvents(cliEvent({ outcome: "error" }), ctx);
+    const events = toPostHogEvents(cliEvent({ command: "spawn", outcome: "error" }), ctx);
     expect(events[1]!.properties.$exception_fingerprint).toBe("spawn:UnknownError");
   });
 
@@ -220,8 +221,8 @@ describe("createForwarder", () => {
     f.forward(input(cliEvent({ command: "start" })));
     await f.flush();
     const batch = calls.flatMap((c) => c.body.batch);
-    // 2 allowed error pairs (4 events) + 1 success for another command.
-    expect(batch).toHaveLength(5);
+    // 2 allowed error pairs (4 events) + a successful start (its run event and its milestone).
+    expect(batch).toHaveLength(6);
     expect(batch.filter((e) => e.event === EXCEPTION_EVENT)).toHaveLength(2);
   });
 
@@ -457,5 +458,84 @@ describe("POST /v1/events source address", () => {
     expect(sent).not.toContain("203.0.113.9");
     expect(sent).not.toContain("198.51.100.4");
     expect(sent).not.toContain("$ip");
+  });
+});
+
+describe("milestone events", () => {
+  const ctx = { receivedAt: NOW, firstSeenAt: NOW - 2 * DAY, internalIds: new Set<string>() };
+  const names = (e: CliTelemetryEvent) => toPostHogEvents(e, ctx).map((x) => x.event);
+
+  it("adds one named milestone for each successful activation command", () => {
+    const expected: Record<string, string> = {
+      init: "cli_initialized",
+      add: "cli_spec_added",
+      start: "cli_agent_started",
+      prompt: "cli_prompt_sent",
+      spawn: "cli_agent_spawned",
+      steer: "cli_agent_steered",
+      stop: "cli_agent_stopped",
+    };
+    for (const [command, milestone] of Object.entries(expected)) {
+      expect(names(cliEvent({ command }))).toEqual([RUN_EVENT, milestone]);
+    }
+  });
+
+  it("sends no milestone for a failed command", () => {
+    expect(names(cliEvent({ command: "start", outcome: "error", errorClass: "Error" }))).toEqual([
+      RUN_EVENT,
+      EXCEPTION_EVENT,
+    ]);
+  });
+
+  it("sends no milestone for read-only commands", () => {
+    for (const command of ["list", "agents", "logs", "remove", "telemetry", "tui"]) {
+      expect(names(cliEvent({ command }))).toEqual([RUN_EVENT]);
+    }
+  });
+
+  it("gives a milestone the same properties as the run event", () => {
+    const [run, milestone] = toPostHogEvents(
+      cliEvent({ command: "start", specProvider: "nvidia" }),
+      ctx,
+    );
+    expect(milestone!.properties).toEqual(run!.properties);
+    expect(milestone!.properties.spec_provider).toBe("nvidia");
+    expect(milestone!.distinct_id).toBe(run!.distinct_id);
+  });
+});
+
+describe("first run event", () => {
+  const base = { receivedAt: NOW, internalIds: new Set<string>() };
+
+  it("is sent only for a machine the server has never seen", () => {
+    const first = toPostHogEvents(cliEvent({ command: "init" }), { ...base, firstSeenAt: null });
+    expect(first.map((e) => e.event)).toEqual([RUN_EVENT, "cli_initialized", FIRST_RUN_EVENT]);
+    const again = toPostHogEvents(cliEvent({ command: "init" }), {
+      ...base,
+      firstSeenAt: NOW - DAY,
+    });
+    expect(again.map((e) => e.event)).toEqual([RUN_EVENT, "cli_initialized"]);
+  });
+
+  it("records the first command, and is sent even when that command failed", () => {
+    const events = toPostHogEvents(
+      cliEvent({ command: "start", outcome: "error", errorClass: "Error" }),
+      {
+        ...base,
+        firstSeenAt: null,
+      },
+    );
+    expect(events.map((e) => e.event)).toEqual([RUN_EVENT, FIRST_RUN_EVENT, EXCEPTION_EVENT]);
+    const first = events.find((e) => e.event === FIRST_RUN_EVENT)!;
+    expect(first.properties.first_command).toBe("start");
+    expect(first.properties.outcome).toBe("error");
+  });
+
+  it("can be denied by name without touching the run event", async () => {
+    const { calls, fakeFetch } = recorder();
+    const f = forwarderWith({ fetch: fakeFetch, deny: [FIRST_RUN_EVENT, "cli_agent_*"] });
+    f.forward(input(cliEvent({ command: "start" }), null));
+    await f.flush();
+    expect(calls.flatMap((c) => c.body.batch.map((e) => e.event))).toEqual([RUN_EVENT]);
   });
 });
