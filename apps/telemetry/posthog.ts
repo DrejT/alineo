@@ -9,7 +9,7 @@
  */
 import type { CliTelemetryEvent } from "./db";
 
-export const RUN_EVENT = "alineo cli command run";
+export const RUN_EVENT = "cli_command_run";
 export const EXCEPTION_EVENT = "$exception";
 
 /** Bumped when a property is renamed or removed, so a chart can tell the two shapes apart. */

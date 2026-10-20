@@ -34,7 +34,7 @@ shell or a `.env` next to the compose file on the VPS.
 | `INTERNAL_IDS`      | Comma list of `anonymousId` values to tag `internal: true`. Filter on `internal != true` in PostHog.                                    |
 | `POSTHOG_DAILY_CAP` | Default 500 per command and outcome per UTC day. A run event and its `$exception` count once.                                           |
 
-Each accepted event becomes one `alineo cli command run` event. An `outcome: "error"` also sends an
+Each accepted event becomes one `cli_command_run` event. An `outcome: "error"` also sends an
 `$exception` with the fingerprint `<command>:<errorClass>` (for example `spawn:ExecConnectionError`),
 because the CLI sends a class name and no stack, so PostHog's own grouping would merge everything.
 Every property comes from the allowlisted fields the docs list. Geoip is disabled on each event,
