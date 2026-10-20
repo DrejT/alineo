@@ -1,10 +1,11 @@
 import { AlineoError } from "@alineo-labs/errors";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   envDisabled,
+  extractSpecProvider,
   isTelemetryDisabled,
   readTelemetryConfig,
   sendTelemetryEvent,
@@ -242,5 +243,67 @@ describe("withTelemetry", () => {
 
     const config = await readTelemetryConfig();
     expect(config.notifiedAt).not.toBeNull();
+  });
+});
+
+describe("extractSpecProvider", () => {
+  async function spec(name: string, body: unknown): Promise<string> {
+    const path = join(tempDir, name);
+    await writeFile(path, JSON.stringify(body));
+    return path;
+  }
+
+  it("reads the provider of the spec given to start", async () => {
+    const path = await spec("a.json", { name: "a", provider: "nvidia" });
+    expect(await extractSpecProvider("start", [path])).toBe("nvidia");
+  });
+
+  it("prefers model.provider, where the field moved to", async () => {
+    const path = await spec("b.json", { name: "b", model: { provider: "google", id: "x" } });
+    expect(await extractSpecProvider("start", [path])).toBe("google");
+  });
+
+  it("finds the spec past leading flags, as start does", async () => {
+    const path = await spec("c.json", { name: "c", provider: "nvidia" });
+    expect(await extractSpecProvider("start", ["--json", path, "--prompt", "hi"])).toBe("nvidia");
+  });
+
+  it("reads the child spec of spawn, not the parent id", async () => {
+    const path = await spec("d.json", { name: "d", provider: "nvidia" });
+    expect(await extractSpecProvider("spawn", ["1d2acd80-parent-sandbox-id", path])).toBe("nvidia");
+    expect(await extractSpecProvider("spawn", ["1d2acd80-parent-sandbox-id"])).toBeUndefined();
+  });
+
+  it("sends nothing for other commands, including the retired fork", async () => {
+    const path = await spec("e.json", { name: "e", provider: "nvidia" });
+    for (const command of ["fork", "prompt", "add", "list", "stop"]) {
+      expect(await extractSpecProvider(command, [path])).toBeUndefined();
+      expect(await extractSpecProvider(command, ["parent", path])).toBeUndefined();
+    }
+  });
+
+  it("never throws on a missing, unreadable or provider-less spec", async () => {
+    expect(await extractSpecProvider("start", [join(tempDir, "missing.json")])).toBeUndefined();
+    const bad = join(tempDir, "bad.json");
+    await writeFile(bad, "{not json");
+    expect(await extractSpecProvider("start", [bad])).toBeUndefined();
+    const none = await spec("none.json", { name: "none" });
+    expect(await extractSpecProvider("start", [none])).toBeUndefined();
+    const num = await spec("num.json", { provider: 7 });
+    expect(await extractSpecProvider("start", [num])).toBeUndefined();
+    expect(await extractSpecProvider("start", [])).toBeUndefined();
+  });
+
+  it("reaches the event body through withTelemetry for start", async () => {
+    await writeTelemetryConfig({ enabled: true, anonymousId: "x", notifiedAt: Date.now() });
+    let capturedBody: string | undefined;
+    globalThis.fetch = stubFetch((_url, init) => {
+      capturedBody = init?.body as string;
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const path = await spec("f.json", { name: "f", provider: "nvidia" });
+    // eslint-disable-next-line typescript/require-await -- run must return a Promise per withTelemetry's signature; nothing here needs to await
+    await withTelemetry("start", [path], async () => {});
+    expect((JSON.parse(capturedBody ?? "{}") as CliTelemetryEvent).specProvider).toBe("nvidia");
   });
 });
