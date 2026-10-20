@@ -10,6 +10,8 @@ bunx alineo-cli init   # starts OpenSandbox in Docker (one-time setup)
 export NVIDIA_API_KEY=...
 ```
 
+If your account no longer serves the default model, set `NVIDIA_MODEL` to one it does serve.
+
 ## Run
 
 ```bash
