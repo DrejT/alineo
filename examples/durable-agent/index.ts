@@ -13,6 +13,7 @@
  *
  * Run:  cd examples/durable-agent && bun start
  * Needs: OpenSandbox running (`bunx alineo-cli init`), Docker, and NVIDIA_API_KEY in your environment.
+ * Set NVIDIA_MODEL to use another model if your account no longer serves the default.
  */
 import { Alineo, checkpointsPath, takeCheckpoint } from "alineo";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
@@ -26,7 +27,7 @@ const spec = {
   harness: "pi" as const,
   harnessVersion: "1.2.0",
   provider: "nvidia",
-  model: "nvidia/nemotron-3-super-120b-a12b",
+  model: process.env.NVIDIA_MODEL ?? "nvidia/nemotron-3-super-120b-a12b",
   env: { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" },
   resources: { cpu: "1000m", memory: "2Gi" },
 };
@@ -65,8 +66,10 @@ Bun.spawnSync(["docker", "rm", "-f", ...ids]);
 console.log(`removed ${ids.length} container(s) for ${originalId}`);
 
 rule("4 · Alineo.resume() restores the agent onto a fresh container");
+const resumeStart = performance.now();
 const restored = await Alineo.resume(originalId, { adapter, spec });
 try {
+  console.log(`resumed in:   ${Math.round(performance.now() - resumeStart)} ms`);
   console.log(`new sandbox:  ${restored.sandboxId}`);
   console.log(`restore:      ${JSON.stringify(restored.restore)}`);
 
