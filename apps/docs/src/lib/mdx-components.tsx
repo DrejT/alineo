@@ -3,6 +3,7 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
+import { CopyTrackingPre } from "@/components/copy-tracking-pre";
 import { Mermaid } from "@/components/mermaid";
 
 /**
@@ -25,6 +26,7 @@ function Img({ className, ...props }: ComponentProps<"img">) {
 export const mdxComponents = {
   ...defaultMdxComponents,
   img: Img,
+  pre: CopyTrackingPre,
   Steps,
   Step,
   Tabs,
