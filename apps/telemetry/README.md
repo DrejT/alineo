@@ -14,7 +14,34 @@ bun run server                        # port 3002, db at ./data/telemetry.db
 docker compose up -d --build          # the same thing, how it runs in production
 ```
 
-`TELEMETRY_DB_PATH` and `PORT` are the only knobs.
+`TELEMETRY_DB_PATH` and `PORT` are the only required knobs. The PostHog variables below are optional.
+
+## Forwarding to PostHog
+
+After an event is validated and written to SQLite, `posthog.ts` forwards it to PostHog. SQLite
+stays the source of truth: the forward is fire and forget (3 second timeout, one retry on a 5xx,
+then the batch is dropped), so a PostHog outage never changes what the CLI sees. It has no
+dependency beyond `fetch`.
+
+It is **off unless `POSTHOG_KEY` is set**. In `docker-compose.yml` the variables come from the
+shell or a `.env` next to the compose file on the VPS.
+
+| Variable            | Meaning                                                                                                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `POSTHOG_KEY`       | The project key (`phc_...`). Write-only, not a secret. Empty turns the forward off.                                                     |
+| `POSTHOG_HOST`      | Default `https://us.i.posthog.com`.                                                                                                     |
+| `POSTHOG_DENY`      | Comma list of command or event names to keep out of PostHog. A trailing `*` matches a prefix. Takes a container restart, not a release. |
+| `INTERNAL_IDS`      | Comma list of `anonymousId` values to tag `internal: true`. Filter on `internal != true` in PostHog.                                    |
+| `POSTHOG_DAILY_CAP` | Default 500 per command and outcome per UTC day. A run event and its `$exception` count once.                                           |
+
+Each accepted event becomes one `alineo cli command run` event. An `outcome: "error"` also sends an
+`$exception` with the fingerprint `<command>:<errorClass>` (for example `spawn:ExecConnectionError`),
+because the CLI sends a class name and no stack, so PostHog's own grouping would merge everything.
+Every property comes from the allowlisted fields the docs list. Geoip is disabled on each event,
+because the request comes from the VPS. Also turn on "Discard client IP data" in the PostHog
+project settings.
+
+Plan: `plans/20-10-2026/posthog-telemetry-forward.md` (local, not tracked).
 
 ## The database
 

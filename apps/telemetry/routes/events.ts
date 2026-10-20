@@ -4,7 +4,9 @@
  * only ever sends what its own code says it will): any unexpected top-level field, or a known
  * field of the wrong type, is rejected outright rather than silently dropped.
  */
-import { insertEvent, type CliTelemetryEvent } from "../db";
+import { firstSeenAt, insertEvent, type CliTelemetryEvent } from "../db";
+import { forwarder as defaultForwarder } from "../forwarder";
+import type { PostHogForwarder } from "../posthog";
 import { MAX_BODY_BYTES, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS } from "../config";
 
 const KNOWN_FIELDS = new Set([
@@ -120,7 +122,10 @@ function isRateLimited(anonymousId: string): boolean {
   return false;
 }
 
-export async function postEvent(req: Request): Promise<Response> {
+export async function postEvent(
+  req: Request,
+  forwarder: PostHogForwarder = defaultForwarder,
+): Promise<Response> {
   const contentLength = Number(req.headers.get("content-length") ?? "0");
   if (contentLength > MAX_BODY_BYTES) {
     return Response.json({ error: "payload too large" }, { status: 413 });
@@ -152,6 +157,11 @@ export async function postEvent(req: Request): Promise<Response> {
     return Response.json({ error: "rate limited" }, { status: 429 });
   }
 
+  // Read before the insert: after it, every reporter would look like it was first seen just now.
+  const firstSeen = firstSeenAt(event.anonymousId);
+  const receivedAt = Date.now();
   insertEvent(event);
+  // SQLite is the source of truth. The forward is best effort and cannot change the response.
+  forwarder.forward({ event, receivedAt, firstSeenAt: firstSeen });
   return new Response(null, { status: 204 });
 }

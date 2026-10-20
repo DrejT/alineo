@@ -71,6 +71,15 @@ if (renamedCommands > 0) {
   console.log(`[telemetry] migrated ${renamedCommands} rows to the 0.4.0 command names`);
 }
 
+/** When this reporter was first seen, or null for a first-ever event. Call before `insertEvent`.
+ * Backed by `idx_events_anonymous_id`. */
+export function firstSeenAt(anonymousId: string): number | null {
+  const row = db
+    .query("SELECT MIN(received_at) AS first FROM events WHERE anonymous_id = ?")
+    .get(anonymousId) as { first: number | null } | null;
+  return row?.first ?? null;
+}
+
 export function insertEvent(event: CliTelemetryEvent): void {
   db.run(
     `INSERT INTO events (

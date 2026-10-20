@@ -10,7 +10,7 @@ WORKDIR /app
 # Copying it anyway keeps `bun` from walking up looking for one, and records the app's identity
 # in the image.
 COPY package.json ./
-COPY config.ts db.ts server.ts ./
+COPY config.ts db.ts server.ts forwarder.ts posthog.ts ./
 COPY routes ./routes
 COPY migrate-command-names.ts ./
 
