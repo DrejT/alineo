@@ -30,7 +30,7 @@ conversation:
 - the **setup snapshot** — taken once per spec, so `Alineo.start()` skips reinstalling Pi and packages. A fresh
   container restored from it is _empty_: right packages, no conversation.
 - the **turn checkpoint** — a tarball of the agent's home directory (`/root`: Pi's session file and what the agent
-  wrote there, package caches excluded), taken after every turn that finishes cleanly when the spec sets
+  wrote there) and of `/workspace` when it exists, package caches excluded, taken after every turn that finishes cleanly when the spec sets
   `"checkpoint": true`. alineod takes these; the newest three per sandbox are kept. This is what restores a
   conversation.
 - **`sb.checkpoint()`** — the Core SDK's named OpenSandbox snapshot of a whole container, used by
@@ -41,8 +41,9 @@ conversation:
 - **Its conversation, to the last completed turn.** A turn that was running when the container went is not in the
   checkpoint. It is recorded as `agent.turn_interrupted` and settles with whatever text survived — never silently
   dropped, never silently repeated.
-- **Its home directory as of that turn.** Files written outside `/root` — `/tmp`, `/workspace`, anywhere else — are
-  not in a turn checkpoint and come back as the setup snapshot left them. Its `waitFor` inputs (`/inputs/*.txt`,
+- **Its home directory and `/workspace` as of that turn.** Files written anywhere else, such as `/tmp`, are not in a
+  turn checkpoint and come back as the setup snapshot left them. Package caches and the `node_modules` folders inside
+  `/workspace` are left out, and the agent installs those again. Its `waitFor` inputs (`/inputs/*.txt`,
   `/inputs.json`) are written again by alineod.
 - **Its place in the tree.** Parent and child edges are kept, so it can still be prompted, steered, and used as a
   spawn parent.
