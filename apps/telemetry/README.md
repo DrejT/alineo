@@ -14,7 +14,46 @@ bun run server                        # port 3002, db at ./data/telemetry.db
 docker compose up -d --build          # the same thing, how it runs in production
 ```
 
-`TELEMETRY_DB_PATH` and `PORT` are the only knobs.
+`TELEMETRY_DB_PATH` and `PORT` are the only required knobs. The PostHog variables below are optional.
+
+## Forwarding to PostHog
+
+After an event is validated and written to SQLite, `posthog.ts` forwards it to PostHog. SQLite
+stays the source of truth: the forward is fire and forget (3 second timeout, one retry on a 5xx,
+then the batch is dropped), so a PostHog outage never changes what the CLI sees. It has no
+dependency beyond `fetch`.
+
+It is **off unless `POSTHOG_KEY` is set**. In `docker-compose.yml` the variables come from the
+shell or a `.env` next to the compose file on the VPS.
+
+| Variable            | Meaning                                                                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POSTHOG_KEY`       | The project key (`phc_...`). Write-only, not a secret. Empty turns the forward off.                                                                                          |
+| `POSTHOG_HOST`      | Default `https://us.i.posthog.com`.                                                                                                                                          |
+| `POSTHOG_DENY`      | Comma list of command or event names to keep out of PostHog. A trailing `*` matches a prefix. Takes a container restart, not a release.                                      |
+| `INTERNAL_IDS`      | Comma list of `anonymousId` values to tag `internal: true`. Filter on `internal != true` in PostHog.                                                                         |
+| `INTERNAL_IPS`      | Comma list of public source addresses to tag `internal: true`, for example the VPS's. A private, loopback, or link-local source address is always internal, with no setting. |
+| `POSTHOG_DAILY_CAP` | Default 500 per command and outcome per UTC day. A run event and its `$exception` count once.                                                                                |
+
+**Internal traffic.** An `anonymousId` list cannot keep up with sandbox containers, because each one gets a new ID every run. So the request's source address is checked too: from `X-Forwarded-For` (first entry), else `X-Real-IP`, else the direct peer. A private, loopback, or link-local address can only be a process on the same host behind Caddy. A listed public address in `INTERNAL_IPS` matches too. The address is compared and dropped. It is never stored, logged, or sent to PostHog. Port 3002 is also published directly, so a hand-made request can claim any address. The only effect is a row tagged `internal`.
+
+Each accepted event becomes these PostHog events. All share the same properties (`command`,
+`outcome`, versions, `internal`, `tenure_bucket`, ...).
+
+| Event                                                                                                                                      | When                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli_command_run`                                                                                                                          | Every accepted event. The complete record.                                                                                                                                                                                                              |
+| `cli_initialized`, `cli_spec_added`, `cli_agent_started`, `cli_prompt_sent`, `cli_agent_spawned`, `cli_agent_steered`, `cli_agent_stopped` | The matching command (`init`, `add`, `start`, `prompt`, `spawn`, `steer`, `stop`) **succeeded**. Activation milestones, so a funnel uses event names and not a `command` filter. Read-only commands have none. The map is `MILESTONES` in `posthog.ts`. |
+| `cli_first_run`                                                                                                                            | The server has never seen this machine before. Carries `first_command`, and is sent even if that command failed.                                                                                                                                        |
+| `$exception`                                                                                                                               | `outcome` is `error`. Carries the fingerprint `<command>:<errorClass>` (for example `spawn:ExecConnectionError`), because the CLI sends a class name and no stack, so PostHog's own grouping would merge everything.                                    |
+
+`POSTHOG_DENY` takes any of these names, with a trailing `*` for a prefix (`cli_agent_*`).
+
+Every property comes from the allowlisted fields the docs list. Geoip is disabled on each event,
+because the request comes from the VPS. Also turn on "Discard client IP data" in the PostHog
+project settings.
+
+Plan: `plans/20-10-2026/posthog-telemetry-forward.md` (local, not tracked).
 
 ## The database
 

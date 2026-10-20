@@ -83,6 +83,19 @@ const FAQS: Faq[] = [
     ),
     text: "Yes — Apache 2.0, and published to npm as `alineo`. The source is at github.com/DrejT/alineo.",
   },
+  {
+    question: "What does alineo collect about me?",
+    answer: (
+      <>
+        This site uses PostHog and Cloudflare Web Analytics to count page views. Visitors stay
+        anonymous, session recordings are off, and PostHog honors your browser&apos;s Do Not Track
+        setting. The CLI sends anonymous usage events, which you can turn off any time — see{" "}
+        <a href="/docs/cli/commands/telemetry">alineo telemetry</a> for exactly what is collected
+        and how to opt out.
+      </>
+    ),
+    text: "This site uses PostHog and Cloudflare Web Analytics to count page views. Visitors stay anonymous, session recordings are off, and PostHog honors your browser's Do Not Track setting. The CLI sends anonymous usage events, which you can turn off any time — see alineo telemetry for exactly what is collected and how to opt out.",
+  },
 ];
 
 const faqStructuredData = {

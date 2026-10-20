@@ -4,8 +4,15 @@
  * only ever sends what its own code says it will): any unexpected top-level field, or a known
  * field of the wrong type, is rejected outright rather than silently dropped.
  */
-import { insertEvent, type CliTelemetryEvent } from "../db";
-import { MAX_BODY_BYTES, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS } from "../config";
+import { firstSeenAt, insertEvent, type CliTelemetryEvent } from "../db";
+import { forwarder as defaultForwarder } from "../forwarder";
+import { isInternalAddress, type PostHogForwarder } from "../posthog";
+import {
+  INTERNAL_IPS,
+  MAX_BODY_BYTES,
+  RATE_LIMIT_MAX_REQUESTS,
+  RATE_LIMIT_WINDOW_MS,
+} from "../config";
 
 const KNOWN_FIELDS = new Set([
   "command",
@@ -120,7 +127,21 @@ function isRateLimited(anonymousId: string): boolean {
   return false;
 }
 
-export async function postEvent(req: Request): Promise<Response> {
+/** The caller's address as Caddy reports it, else the direct peer. Only ever compared by
+ * `isInternalAddress`, never stored. The first `X-Forwarded-For` entry is the client when Caddy
+ * overwrote the header; port 3002 is also published directly, so a hand-made request can claim
+ * any address -- the only thing that buys is a row tagged `internal`. */
+function sourceAddress(req: Request, peer: string | undefined): string | undefined {
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || req.headers.get("x-real-ip")?.trim() || peer;
+}
+
+export async function postEvent(
+  req: Request,
+  forwarder: PostHogForwarder = defaultForwarder,
+  peerAddress?: string,
+  internalAddresses: ReadonlySet<string> = INTERNAL_IPS,
+): Promise<Response> {
   const contentLength = Number(req.headers.get("content-length") ?? "0");
   if (contentLength > MAX_BODY_BYTES) {
     return Response.json({ error: "payload too large" }, { status: 413 });
@@ -152,6 +173,16 @@ export async function postEvent(req: Request): Promise<Response> {
     return Response.json({ error: "rate limited" }, { status: 429 });
   }
 
+  // Read before the insert: after it, every reporter would look like it was first seen just now.
+  const firstSeen = firstSeenAt(event.anonymousId);
+  const receivedAt = Date.now();
   insertEvent(event);
+  // SQLite is the source of truth. The forward is best effort and cannot change the response.
+  forwarder.forward({
+    event,
+    receivedAt,
+    firstSeenAt: firstSeen,
+    internalSource: isInternalAddress(sourceAddress(req, peerAddress), internalAddresses),
+  });
   return new Response(null, { status: 204 });
 }

@@ -11,6 +11,14 @@ services:
       # Host 3002, because Caddy already proxies telemetry.alineo.tech to it. Publishing the
       # same port is what makes this swap invisible to the reverse proxy.
       - "3002:3002"
+    environment:
+      # PostHog forward (posthog.ts). Read from the shell or a `.env` next to this file on the
+      # VPS. An empty POSTHOG_KEY turns the forward off, which is the safe default.
+      POSTHOG_KEY: ${POSTHOG_KEY:-}
+      POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
+      POSTHOG_DENY: ${POSTHOG_DENY:-}
+      INTERNAL_IDS: ${INTERNAL_IDS:-}
+      INTERNAL_IPS: ${INTERNAL_IPS:-}
     volumes:
       # A bind mount, not a named volume: the database is already at ./data on the VPS with
       # real history in it, and this keeps it there — readable with sqlite3 from the host, and

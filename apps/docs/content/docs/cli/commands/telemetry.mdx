@@ -19,7 +19,7 @@ bunx alineo-cli telemetry status|enable|disable
 
 `alineo` can send small, anonymous usage events — which subcommand ran, a per-command allowlist of boolean flag presence, success/failure, and timing — to help prioritize development. `alineo telemetry` reads and writes the local config file that controls this (`~/.config/alineo/telemetry.json`), created on first use with a random `anonymousId`.
 
-**Default-on**, sent to `https://telemetry.alineo.tech`. See [Opting out](#opting-out) below.
+**Default-on**, sent to `https://telemetry.alineo.tech`. The server stores each event and forwards the same fields to [PostHog](https://posthog.com), which processes them for us as a service provider. Nothing is added on the way, and the request address is not passed on. See [Opting out](#opting-out) below.
 
 ## What's collected
 
@@ -62,7 +62,7 @@ Telemetry is on by default. Turn it off any time with:
 bunx alineo-cli telemetry disable
 ```
 
-or by setting either env var, which take priority over the persisted config and require no config file read at all:
+Either way, nothing is sent, so nothing reaches the telemetry server or PostHog. You can also set either env var, which take priority over the persisted config and require no config file read at all:
 
 ```bash
 ALINEO_TELEMETRY_DISABLED=1 alineo start ./agents/my-agent.json
