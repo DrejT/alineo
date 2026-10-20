@@ -18,6 +18,7 @@ services:
       POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
       POSTHOG_DENY: ${POSTHOG_DENY:-}
       INTERNAL_IDS: ${INTERNAL_IDS:-}
+      INTERNAL_IPS: ${INTERNAL_IPS:-}
     volumes:
       # A bind mount, not a named volume: the database is already at ./data on the VPS with
       # real history in it, and this keeps it there — readable with sqlite3 from the host, and

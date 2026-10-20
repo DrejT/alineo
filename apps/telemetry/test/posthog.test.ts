@@ -13,6 +13,7 @@ const {
   RUN_EVENT,
   compileDenyList,
   createForwarder,
+  isInternalAddress,
   tenureBucket,
   toPostHogEvents,
 } = await import("../posthog");
@@ -318,5 +319,143 @@ describe("POST /v1/events with a forwarder", () => {
     expect(res.status).toBe(400);
     await f.flush();
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("isInternalAddress", () => {
+  const none = new Set<string>();
+
+  it("treats private, loopback and link-local addresses as internal", () => {
+    for (const ip of [
+      "10.1.2.3",
+      "127.0.0.1",
+      "172.17.0.1",
+      "172.31.255.1",
+      "192.168.1.5",
+      "169.254.10.10",
+      "::1",
+      "fd12:3456::1",
+      "fe80::1",
+      "::ffff:172.17.0.1",
+      "[::1]",
+    ]) {
+      expect(isInternalAddress(ip, none)).toBe(true);
+    }
+  });
+
+  it("treats a public address as external unless it is listed", () => {
+    expect(isInternalAddress("62.72.57.226", none)).toBe(false);
+    expect(isInternalAddress("62.72.57.226", new Set(["62.72.57.226"]))).toBe(true);
+    expect(isInternalAddress("  62.72.57.226  ", new Set(["62.72.57.226"]))).toBe(true);
+  });
+
+  it("does not treat the edges of the private ranges as internal", () => {
+    for (const ip of [
+      "172.15.0.1",
+      "172.32.0.1",
+      "11.0.0.1",
+      "192.169.0.1",
+      "8.8.8.8",
+      "2001:db8::1",
+    ]) {
+      expect(isInternalAddress(ip, none)).toBe(false);
+    }
+  });
+
+  it("is false for a missing or empty address", () => {
+    expect(isInternalAddress(undefined, none)).toBe(false);
+    expect(isInternalAddress("", none)).toBe(false);
+  });
+});
+
+describe("internal source", () => {
+  it("tags a mapped event internal when the source is internal, even for an unknown id", () => {
+    const ctx = { receivedAt: NOW, firstSeenAt: null, internalIds: new Set<string>() };
+    const external = toPostHogEvents(cliEvent(), ctx);
+    const internal = toPostHogEvents(cliEvent(), { ...ctx, internalSource: true });
+    expect(external[0]!.properties.internal).toBe(false);
+    expect(internal[0]!.properties.internal).toBe(true);
+  });
+});
+
+describe("POST /v1/events source address", () => {
+  function request(body: unknown, headers: Record<string, string> = {}): Request {
+    const text = JSON.stringify(body);
+    return new Request("http://localhost/v1/events", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": String(text.length),
+        ...headers,
+      },
+      body: text,
+    });
+  }
+
+  const wire = () => ({
+    command: "spawn",
+    flags: {},
+    outcome: "success",
+    durationMs: 5,
+    cliVersion: "0.4.0",
+    osPlatform: "linux",
+    osArch: "x64",
+    bunVersion: "1.3.9",
+    isCI: false,
+    anonymousId: crypto.randomUUID(),
+  });
+
+  async function internalFor(
+    headers: Record<string, string>,
+    peer: string | undefined,
+    listed: string[] = [],
+  ): Promise<unknown> {
+    const { calls, fakeFetch } = recorder();
+    const f = forwarderWith({ fetch: fakeFetch, now: () => Date.now() });
+    await postEvent(request(wire(), headers), f, peer, new Set(listed));
+    await f.flush();
+    return calls[0]!.body.batch[0]!.properties.internal;
+  }
+
+  it("is internal for a Docker bridge address in X-Forwarded-For", async () => {
+    expect(await internalFor({ "x-forwarded-for": "172.17.0.1" }, "172.18.0.1")).toBe(true);
+  });
+
+  it("is external for a public address in X-Forwarded-For, even if the peer is local", async () => {
+    expect(await internalFor({ "x-forwarded-for": "203.0.113.9" }, "127.0.0.1")).toBe(false);
+  });
+
+  it("uses only the first X-Forwarded-For entry", async () => {
+    expect(await internalFor({ "x-forwarded-for": "203.0.113.9, 172.17.0.1" }, undefined)).toBe(
+      false,
+    );
+  });
+
+  it("is internal for a listed public address", async () => {
+    expect(
+      await internalFor({ "x-forwarded-for": "62.72.57.226" }, undefined, ["62.72.57.226"]),
+    ).toBe(true);
+  });
+
+  it("falls back to the direct peer when no header is present", async () => {
+    expect(await internalFor({}, "10.0.0.7")).toBe(true);
+    expect(await internalFor({}, "203.0.113.9")).toBe(false);
+    expect(await internalFor({}, undefined)).toBe(false);
+  });
+
+  it("never puts an address in what is sent to PostHog", async () => {
+    const { calls, fakeFetch } = recorder();
+    const f = forwarderWith({ fetch: fakeFetch, now: () => Date.now() });
+    await postEvent(
+      request(wire(), { "x-forwarded-for": "203.0.113.9" }),
+      f,
+      "198.51.100.4",
+      new Set(),
+    );
+    await f.flush();
+    const sent = JSON.stringify(calls[0]!.body);
+    expect(sent).not.toContain("203.0.113.9");
+    expect(sent).not.toContain("198.51.100.4");
+    expect(sent).not.toContain("$ip");
   });
 });

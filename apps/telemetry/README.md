@@ -26,13 +26,16 @@ dependency beyond `fetch`.
 It is **off unless `POSTHOG_KEY` is set**. In `docker-compose.yml` the variables come from the
 shell or a `.env` next to the compose file on the VPS.
 
-| Variable            | Meaning                                                                                                                                 |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `POSTHOG_KEY`       | The project key (`phc_...`). Write-only, not a secret. Empty turns the forward off.                                                     |
-| `POSTHOG_HOST`      | Default `https://us.i.posthog.com`.                                                                                                     |
-| `POSTHOG_DENY`      | Comma list of command or event names to keep out of PostHog. A trailing `*` matches a prefix. Takes a container restart, not a release. |
-| `INTERNAL_IDS`      | Comma list of `anonymousId` values to tag `internal: true`. Filter on `internal != true` in PostHog.                                    |
-| `POSTHOG_DAILY_CAP` | Default 500 per command and outcome per UTC day. A run event and its `$exception` count once.                                           |
+| Variable            | Meaning                                                                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POSTHOG_KEY`       | The project key (`phc_...`). Write-only, not a secret. Empty turns the forward off.                                                                                          |
+| `POSTHOG_HOST`      | Default `https://us.i.posthog.com`.                                                                                                                                          |
+| `POSTHOG_DENY`      | Comma list of command or event names to keep out of PostHog. A trailing `*` matches a prefix. Takes a container restart, not a release.                                      |
+| `INTERNAL_IDS`      | Comma list of `anonymousId` values to tag `internal: true`. Filter on `internal != true` in PostHog.                                                                         |
+| `INTERNAL_IPS`      | Comma list of public source addresses to tag `internal: true`, for example the VPS's. A private, loopback, or link-local source address is always internal, with no setting. |
+| `POSTHOG_DAILY_CAP` | Default 500 per command and outcome per UTC day. A run event and its `$exception` count once.                                                                                |
+
+**Internal traffic.** An `anonymousId` list cannot keep up with sandbox containers, because each one gets a new ID every run. So the request's source address is checked too: from `X-Forwarded-For` (first entry), else `X-Real-IP`, else the direct peer. A private, loopback, or link-local address can only be a process on the same host behind Caddy. A listed public address in `INTERNAL_IPS` matches too. The address is compared and dropped. It is never stored, logged, or sent to PostHog. Port 3002 is also published directly, so a hand-made request can claim any address. The only effect is a row tagged `internal`.
 
 Each accepted event becomes one `cli_command_run` event. An `outcome: "error"` also sends an
 `$exception` with the fingerprint `<command>:<errorClass>` (for example `spawn:ExecConnectionError`),

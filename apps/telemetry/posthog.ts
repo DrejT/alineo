@@ -30,6 +30,45 @@ export function tenureBucket(firstSeenAt: number | null, now: number): TenureBuc
   return "older";
 }
 
+/**
+ * Whether a request's source address belongs to the maintainer, so events from sandbox containers
+ * on the VPS (each one gets a fresh `anonymousId`, which an ID list can never keep up with) are
+ * tagged internal too.
+ *
+ * True for a private, loopback, or link-local address -- behind Caddy that can only be a
+ * container or process on this same host, never an outside user -- and for any address in
+ * `internalAddresses` (the VPS's public address, a home address).
+ *
+ * The address is compared and dropped. It is never stored, logged, or sent to PostHog.
+ */
+export function isInternalAddress(
+  address: string | undefined,
+  internalAddresses: ReadonlySet<string>,
+): boolean {
+  if (!address) return false;
+  const ip = address
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/^::ffff:/, "");
+  if (!ip) return false;
+  if (internalAddresses.has(ip)) return true;
+
+  const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return (
+      a === 10 ||
+      a === 127 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254)
+    );
+  }
+  // ::1, fc00::/7 (unique local), fe80::/10 (link local)
+  return ip === "::1" || /^f[cd][0-9a-f]{2}:/.test(ip) || /^fe[89ab][0-9a-f]:/.test(ip);
+}
+
 export interface PostHogEvent {
   event: string;
   distinct_id: string;
@@ -41,6 +80,8 @@ export interface MapContext {
   receivedAt: number;
   firstSeenAt: number | null;
   internalIds: ReadonlySet<string>;
+  /** The request came from the maintainer's own network. See `isInternalAddress`. */
+  internalSource?: boolean;
 }
 
 /**
@@ -61,7 +102,7 @@ export function toPostHogEvents(event: CliTelemetryEvent, ctx: MapContext): Post
     os_arch: event.osArch,
     bun_version: event.bunVersion,
     is_ci: event.isCI,
-    internal: ctx.internalIds.has(event.anonymousId),
+    internal: ctx.internalIds.has(event.anonymousId) || ctx.internalSource === true,
     tenure_bucket: tenureBucket(ctx.firstSeenAt, ctx.receivedAt),
     schema_version: SCHEMA_VERSION,
     // This runs on the VPS, so geoip would place every user at the VPS location.
@@ -147,6 +188,8 @@ export interface ForwardInput {
   event: CliTelemetryEvent;
   receivedAt: number;
   firstSeenAt: number | null;
+  /** From `isInternalAddress`. A boolean, so the address itself never reaches this module. */
+  internalSource?: boolean;
 }
 
 export interface PostHogForwarder {
@@ -240,11 +283,16 @@ export function createForwarder(options: ForwarderOptions): PostHogForwarder {
   }
 
   return {
-    forward({ event, receivedAt, firstSeenAt }) {
+    forward({ event, receivedAt, firstSeenAt, internalSource }) {
       try {
         if (isDenied(event.command)) return;
         if (!underCap(event.command, event.outcome, now())) return;
-        const events = toPostHogEvents(event, { receivedAt, firstSeenAt, internalIds });
+        const events = toPostHogEvents(event, {
+          receivedAt,
+          firstSeenAt,
+          internalIds,
+          internalSource,
+        });
         queue.push(...events.filter((e) => !isDenied(e.event)));
         if (queue.length >= batchSize) void flush();
         else schedule();

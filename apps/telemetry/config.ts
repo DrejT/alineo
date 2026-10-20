@@ -32,6 +32,11 @@ export const POSTHOG_DENY = list(process.env.POSTHOG_DENY);
  * machines. Stays a list until the CLI sends a build type. */
 export const INTERNAL_IDS: ReadonlySet<string> = new Set(list(process.env.INTERNAL_IDS));
 
+/** Public source addresses to treat as the maintainer's, on top of any private or loopback one
+ * (see `isInternalAddress`). Covers sandbox containers on the VPS, whose `anonymousId` changes
+ * every time. The address is compared and dropped, never stored. */
+export const INTERNAL_IPS: ReadonlySet<string> = new Set(list(process.env.INTERNAL_IPS));
+
 /** Per command and outcome per UTC day. Bounds a retry loop, not normal use. */
 export const POSTHOG_DAILY_CAP = Number(process.env.POSTHOG_DAILY_CAP ?? 500);
 export const POSTHOG_BATCH_SIZE = 20;

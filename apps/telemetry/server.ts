@@ -7,7 +7,7 @@ const server = Bun.serve({
   routes: {
     "/health": new Response("ok"),
     "/v1/events": {
-      POST: (req: Request) => postEvent(req),
+      POST: (req: Request, srv) => postEvent(req, forwarder, srv.requestIP(req)?.address),
     },
   },
   fetch: () => Response.json({ error: "not found" }, { status: 404 }),
