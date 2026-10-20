@@ -34,6 +34,11 @@ jobs:
       - name: Build docs
         run: bun run build
         working-directory: apps/docs
+        env:
+          # Write-only PostHog project key, public by design (it ships in the page). Set it as the
+          # repository variable NEXT_PUBLIC_POSTHOG_KEY. Only the main build gets it, so a branch
+          # preview never sends events. Unset means the docs build with analytics off.
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ github.ref_name == 'main' && vars.NEXT_PUBLIC_POSTHOG_KEY || '' }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
