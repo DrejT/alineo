@@ -1,5 +1,11 @@
 # @alineo-labs/sqlite-memory
 
+## 0.3.1
+
+### Patch Changes
+
+- @alineo-labs/memory@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes

@@ -1,5 +1,171 @@
 # @drej/agent
 
+## 0.8.0
+
+### Minor Changes
+
+- bd29bac: A restore from a gone container now says what it restored. alineod emits `agent.restored` with `oldSandboxId` and `checkpointTurn` right after `agent.provisioned`. `checkpointTurn` is `null` when the agent had no checkpoint and came back with a blank session. Before this, a restore from a checkpoint and a restore with nothing looked the same in the event stream.
+
+  The SDK adds `Alineo.restore` (`{ checkpointTurn: number | null }`), set by `resume()` and `reattach()` when they return an agent on a fresh sandbox, and the `AgentRestore` type.
+
+- bd29bac: A turn checkpoint now includes `/workspace` when it exists, so a restored agent gets back the files it worked on and not only its Pi conversation. Before this, a checkpoint covered `/root` only, and `/workspace` is where most specs work.
+
+  `node_modules` directories inside `/workspace` are left out. They are nearly all of the cost: a web app with 417 packages was 20 MB and 5 s with them, and 0.1 MB and 0.03 s without. The agent installs them again after a restore. A `node_modules` under `/root` is still included, because it can hold Pi's own packages.
+
+  Checkpoints are larger for agents that keep a repository in `/workspace`. A cloned repository measured 3.5 MB and 0.5 s.
+
+- d55be76: Add Claude Code as a second harness, driven through the Claude Agent SDK.
+
+  - Set `"harness": "claude-code"` in an agent spec. `harnessVersion` pins the
+    `@anthropic-ai/claude-agent-sdk` version. `model` is a Claude model id and the API key goes in
+    `env` as `ANTHROPIC_API_KEY`.
+  - A permission policy gates tool calls: `canUseTool` is parked as a `permission_request`, and
+    `agent.resolvePermission()` answers it. Claude's own read-only tools do not ask in `"ask"` mode.
+  - `steer`, `followUp` and `compact` are not available (the adapter declares them `false`).
+    `fork` is: `adapter.forkAt(messageId)`, with the `messageId` of a `message_start`.
+  - `ClaudeCodeAdapter` and `CLAUDE_CODE_CAPABILITIES` are exported and `@experimental`.
+  - `HarnessAdapter` gains `forkAt`, present when `capabilities.fork` is `true`.
+
+- d55be76: Add Codex as a third harness, driven through `codex app-server`.
+
+  - Set `"harness": "codex"` in an agent spec. `harnessVersion` pins `@openai/codex`. `model` is an
+    OpenAI model id and the key goes in `env` as `OPENAI_API_KEY`.
+  - `steer` (`turn/steer`), `compact` (`thread/compact/start`) and `forkAt` (`thread/fork`) work.
+    Fork granularity is the turn: every message of a turn has the turn id as its `messageId`.
+    `followUp` is not available.
+  - A permission policy gates command and file-change approvals. Codex asks for each one and the
+    bridge answers from the same policy as the other harnesses, parking the ones that need a human
+    as a `permission_request`.
+  - `HarnessAdapter` gains an optional `compact`, present when `capabilities.compact` is `true`.
+  - `CodexAdapter` and `CODEX_CAPABILITIES` are exported and `@experimental`.
+
+- d55be76: Put Pi behind a harness-neutral interface, so a second harness can sit beside it.
+
+  - `HarnessAdapter`, `HarnessEvent` and `HarnessCapabilities` are new and `@experimental`.
+    `createHarness(id)` is the one place an adapter is built. `FakeHarness` is an in-memory
+    adapter for tests.
+  - `agent.harness("pi")` returns Pi's own adapter, for what only Pi has.
+  - `exportHtml`, `cycleModel`, `cycleThinkingLevel`, `getCommands`, `setSteeringMode`,
+    `setFollowUpMode`, `setSessionName`, `setAutoRetry`, `abortRetry`, `abortBash`,
+    `setAutoCompaction` and `bash` are deprecated on `Alineo`. They still work. Use
+    `agent.harness("pi").<method>()`.
+  - **Breaking:** `agent.adapter` is typed `HarnessAdapter`, not `PiAdapter`. Use
+    `agent.harness("pi")` for Pi's methods.
+  - **Behavior:** `agent.steer()` with no turn running now throws `no turn in progress`. Before, Pi
+    queued the message for whatever turn came next. A steer sent while a turn runs is unchanged.
+  - `prompt()` still yields `AgentEvent`, and a failed turn still throws the original error.
+
+- 28f693f: Checkpoints can now be kept off the machine. Pass a `BlobStore` to `takeCheckpoint()` and each tarball is uploaded to it as well as written to the host disk, and `agent.checkpointed` gains `remoteRef` (where the object is) and `uploadError` (why an upload failed, when one was tried). `S3BlobStore` covers S3, R2 and MinIO through `Bun.S3Client`. `MemoryBlobStore` is a fake for tests.
+
+  `Alineo.resume()` and `Alineo.reattach()` take the same `blobStore` option. When the sandbox is gone and the host's own checkpoint file is gone too, the restore downloads the checkpoint, and if it cannot read the newest one it tries the next older one before it falls back to a blank session.
+
+  New exports: `BlobStore`, `S3BlobStore`, `MemoryBlobStore`, `findCheckpoints`, `fetchCheckpoint`, `pickRestorable`, `extractCheckpoint`, `pruneRemoteCheckpoints`.
+
+  Nothing changes unless you pass a store. A failed upload never fails a checkpoint.
+
+- d55be76: Let `harness` and `model` in an agent spec carry their own version and provider.
+
+  ```json
+  {
+    "harness": { "id": "codex", "version": "0.162.1" },
+    "model": { "provider": "openai", "id": "gpt-5-codex" }
+  }
+  ```
+
+  - `harness` is an id or `{ id, version }`. `model` is an id or `{ provider, id }`. The string forms
+    are unchanged and not deprecated.
+  - The top-level `harnessVersion` and `provider` still work and are **deprecated**: use
+    `harness.version` and `model.provider`. `validateAgentSpec()` logs one warning per spec and field.
+  - Setting both spellings to different values is an error, not a silent pick.
+  - `claude-code` runs on `anthropic` models and `codex` on `openai`. A spec that names another
+    provider with one of those harnesses is rejected, where it was ignored before. Pi is unchanged.
+  - `validateAgentSpec()` returns the flat `AgentSpec` the runtime reads. The new `AgentSpecInput`
+    is what an author may write, and `normalizeAgentSpec()` converts one to the other.
+
+### Patch Changes
+
+- 28f693f: `AgentSnapshotStore` now runs its writes one at a time. Two specs finishing their setup at the same moment used to read the same file and the second write dropped the first record. That showed up when many agents were restored together.
+- ed0d9e6: Fix a fresh Pi 1.2.x install, and rebuild an environment whose snapshot image is gone.
+
+  - `alineo`: installing Pi `1.2.x` named an AWS SDK version the npm registry no longer serves, so every fresh agent start failed with `ETARGET`. The install command now also names `@aws-sdk/credential-provider-http@3.972.76` for `1.2.x` specifiers.
+  - `@alineo-labs/sandbox`: `env.sandbox()` threw `SANDBOX_IMAGE_PULL_FAILED` when the server still listed the snapshot but its image was gone. It now rebuilds the environment once, as alineod already does.
+
+- d55be76: Pick the sandbox provider from `alineo.config.json`, in the CLI and in alineod.
+
+  - `alineo.config.json` gains `provider`. It defaults to `"opensandbox"`, which is the only
+    provider today, so a file without the key behaves as before. `ALINEO_PROVIDER` overrides it.
+    `alineo init` writes the key into a new file and never rewrites an existing one.
+  - `@alineo-labs/sandbox` exports `providerFromConfig()` and `clientFromConfig()`. An unknown id
+    throws `INVALID_ARGUMENT` and names the known ids.
+  - Every CLI command and the agent runtime build their client through `clientFromConfig()`, so no
+    call site names OpenSandbox.
+  - A provider that declares it cannot enforce egress is refused before the approval listener
+    starts, with `CAPABILITY_UNSUPPORTED`.
+  - The leak check (`apps/alineod/scripts/sandbox-leaks.ts`) lists and deletes sandboxes through
+    the provider instead of calling the OpenSandbox REST API.
+
+- d55be76: Carry the sandbox provider through to alineod's agent view.
+
+  - `SandboxHandle.provider` reports the provider that owns the sandbox. The client that created the
+    handle sets it. The `alineo` package re-exports `DEFAULT_PROVIDER_ID`.
+  - `agent.provisioned` gains an optional `provider`. A event with none means `"opensandbox"`.
+  - The `agents` projection gains a `provider` column, derived from the ledger on `rebuild()`, and
+    `AgentView.provider` is in `GET /agents/:id` and the run tree (`null` until the agent has a sandbox).
+
+- d55be76: Record which sandbox provider owns each sandbox.
+
+  - `sandbox.created` gains an optional `provider` (`"opensandbox"` today). A row with no
+    `provider` means `"opensandbox"`. There is no migration: readers apply the default.
+  - `SandboxDetails.provider` and `ListSandboxOptions.provider` (core). Both SQLite and Postgres
+    adapters derive it from the `sandbox.created` payload, the same way they derive `runId`.
+    `DEFAULT_PROVIDER_ID` is exported from core.
+  - `Sandbox.resume()` throws `PROVIDER_MISMATCH` (409) when the session was created on another
+    provider, instead of sending a sandbox id to a server that has never heard of it.
+  - `AgentSnapshotStore` includes the provider in its key. OpenSandbox keeps the legacy key, so
+    an existing `agent-snapshots.json` keeps working, and saving for one provider no longer
+    deletes another provider's snapshot of the same spec.
+
+- d55be76: Add `@alineo-labs/errors`: stable error codes and an `AlineoError` base class.
+
+  Every error alineo raises on purpose now carries a `code` (`SANDBOX_NOT_FOUND`,
+  `EXEC_NOT_READY`, `PROVIDER_RATE_LIMITED`, and so on) plus `category`, `retryable`, `hint`, and
+  `details`. Branch on `code`, not on the class name or the message.
+
+  - `ExecConnectionError` keeps its name and leading message text, and now carries `cause`,
+    `attempts`, and `waitedMs`, so a first-run failure says why execd never answered.
+  - `OpenSandboxError.code` is now the alineo code. OpenSandbox's own code
+    (`DOCKER::SANDBOX_NOT_FOUND`) moved to `OpenSandboxError.upstreamCode`. This is a breaking
+    change for anything that read the old `.code`.
+  - `WorkflowError`, `SandboxError`, `CommandError`, `StepTimeoutError`, and `SandboxClientError`
+    extend `AlineoError`. `instanceof` and `err.name` are unchanged.
+  - `isSandboxGone` decides by code first and keeps the message match as a fallback.
+  - `@alineo-labs/core` re-exports `AlineoError`, `errorCodeOf`, and `isRetryable`.
+
+- Updated dependencies [bd29bac]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [ed0d9e6]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [28f693f]
+- Updated dependencies [ed0d9e6]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+  - @alineo-labs/schema@0.3.0
+  - @alineo-labs/core@0.6.0
+  - @alineo-labs/sandbox@0.6.0
+  - @alineo-labs/errors@0.1.0
+  - @alineo-labs/memory@0.3.1
+
 ## 0.7.0
 
 ### Minor Changes

@@ -1,5 +1,123 @@
 # @drej/core
 
+## 0.6.0
+
+### Minor Changes
+
+- d55be76: Refuse, before anything is sent, what the provider has declared it cannot do.
+
+  - `requireCapability(provider, capability)` throws `CAPABILITY_UNSUPPORTED`, naming the capability
+    and the provider. Only an explicit `false` is a refusal: `"unverified"` goes ahead and may still
+    fail at the call, and a provider with no descriptor is not second-guessed.
+  - `sb.checkpoint()` and `sb.fork()` check `snapshot`, `sb.pause()` checks `pause`, and `sb.egress.*`
+    checks `egress`.
+  - `Sandbox.sandbox()` refuses a `networkPolicy` with rules on a provider with no egress control and
+    a `credentialProxy` on one with no credential injection, before a container exists.
+  - `Sandbox.provider` exposes the provider. `alineo agents` uses it to list live sandboxes, and
+    `alineo-cli` no longer depends on `@alineo-labs/opensandbox`.
+
+  OpenSandbox declares egress and credentials as `"unverified"`, so nothing changes for it today.
+
+- d55be76: Core and the SDK now run on a `SandboxProvider`, not on OpenSandbox's HTTP clients.
+
+  - `@alineo-labs/core` no longer imports `@alineo-labs/opensandbox`. `SandboxDeps.control` is
+    `SandboxDeps.provider`, and `SandboxDeps.useServerProxy` is gone (it is the provider's own
+    setting). `SandboxState` (a string union) replaces OpenSandbox's state enums, and `ExecEvent` replaces `SSEEvent`.
+  - `resolveExecClient(control, id, ...)` is replaced by `resolveExecChannel(provider, id)`. The
+    provider owns the wait. An `EXEC_NOT_READY` from it is re-thrown as `ExecConnectionError`.
+  - `sb.egress.*` and `exec(cmd, { interactive: true })` throw `CAPABILITY_UNSUPPORTED` on a
+    provider that has no egress control or no terminal.
+  - `Sandbox` takes an optional `provider`. `baseUrl` is optional when one is given. Without it,
+    `baseUrl`, `apiKey`, and `useServerProxy` build an `OpenSandboxProvider`, so existing callers
+    change nothing.
+  - `@alineo-labs/vault` takes any object with a `getEndpoint` (`EndpointSource`), and no longer
+    depends on `@alineo-labs/opensandbox`.
+
+- d55be76: Say how a command ended, and let a caller abort it.
+
+  - `ExecResult` gains optional `durationMs`, `killed`, `signal`, and `timedOut`. A command that a
+    signal ended is `killed` with the `signal` execd reported. It is `timedOut` when it was killed
+    after running for `timeoutMs`. A timeout and a kill from inside look the same on the wire, so
+    `timedOut` is a best guess from the elapsed time: a kill that lands close to the limit reads as a timeout. A command that exits non-zero on its own is none
+    of these.
+  - `ExecOptions.signal`: an `AbortSignal`. On abort the call rejects with the signal's reason
+    (`AbortError` by default) and execd is asked to interrupt the command, best effort. A signal that
+    is already aborted rejects before anything is sent.
+  - `exec.completed` records `durationMs`, `killed`, `signal`, and `timedOut` when they apply.
+    A row for an ordinary command is unchanged.
+  - `SSEEvent.error` types `ename` and `traceback`, which execd was already sending.
+
+- d55be76: Record which sandbox provider owns each sandbox.
+
+  - `sandbox.created` gains an optional `provider` (`"opensandbox"` today). A row with no
+    `provider` means `"opensandbox"`. There is no migration: readers apply the default.
+  - `SandboxDetails.provider` and `ListSandboxOptions.provider` (core). Both SQLite and Postgres
+    adapters derive it from the `sandbox.created` payload, the same way they derive `runId`.
+    `DEFAULT_PROVIDER_ID` is exported from core.
+  - `Sandbox.resume()` throws `PROVIDER_MISMATCH` (409) when the session was created on another
+    provider, instead of sending a sandbox id to a server that has never heard of it.
+  - `AgentSnapshotStore` includes the provider in its key. OpenSandbox keeps the legacy key, so
+    an existing `agent-snapshots.json` keeps working, and saving for one provider no longer
+    deletes another provider's snapshot of the same spec.
+
+- d55be76: Add `@alineo-labs/errors`: stable error codes and an `AlineoError` base class.
+
+  Every error alineo raises on purpose now carries a `code` (`SANDBOX_NOT_FOUND`,
+  `EXEC_NOT_READY`, `PROVIDER_RATE_LIMITED`, and so on) plus `category`, `retryable`, `hint`, and
+  `details`. Branch on `code`, not on the class name or the message.
+
+  - `ExecConnectionError` keeps its name and leading message text, and now carries `cause`,
+    `attempts`, and `waitedMs`, so a first-run failure says why execd never answered.
+  - `OpenSandboxError.code` is now the alineo code. OpenSandbox's own code
+    (`DOCKER::SANDBOX_NOT_FOUND`) moved to `OpenSandboxError.upstreamCode`. This is a breaking
+    change for anything that read the old `.code`.
+  - `WorkflowError`, `SandboxError`, `CommandError`, `StepTimeoutError`, and `SandboxClientError`
+    extend `AlineoError`. `instanceof` and `err.name` are unchanged.
+  - `isSandboxGone` decides by code first and keeps the message match as a fallback.
+  - `@alineo-labs/core` re-exports `AlineoError`, `errorCodeOf`, and `isRetryable`.
+
+### Patch Changes
+
+- ed0d9e6: `CommandError` now carries the command's output. Before, a failed `sb.exec()` reported only the exit code and the command, so the reason (for example an npm `ETARGET` error) was lost. The error has new `stdout` and `stderr` fields, and its message ends with the last 2000 characters of `stderr` (or `stdout` when `stderr` is empty).
+- d55be76: Stop reporting a command that never started as exit 0.
+
+  When execd cannot start a command it sends an `error` event whose `evalue` is a message
+  (`fork/exec /usr/bin/bash: argument list too long`), not an exit status. `ExecHandle` read only
+  numeric values, so the result stayed at its default exit 0 with no output. It is now exit 126,
+  with the message in `stderr`, so strict mode throws `CommandError`.
+
+  The usual cause is size. Linux allows 131,071 bytes in one argument, and `sb.exec()` sends the
+  command base64-encoded, so about 98 KB is the most it can carry. `ExecClient.executeCommand()`
+  now refuses a longer command before it sends it, with `INVALID_ARGUMENT` and a hint to use
+  `writeFile()`.
+
+- d55be76: Carry the sandbox provider through to alineod's agent view.
+
+  - `SandboxHandle.provider` reports the provider that owns the sandbox. The client that created the
+    handle sets it. The `alineo` package re-exports `DEFAULT_PROVIDER_ID`.
+  - `agent.provisioned` gains an optional `provider`. A event with none means `"opensandbox"`.
+  - The `agents` projection gains a `provider` column, derived from the ledger on `rebuild()`, and
+    `AgentView.provider` is in `GET /agents/:id` and the run tree (`null` until the agent has a sandbox).
+
+- Updated dependencies [bd29bac]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [28f693f]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+  - @alineo-labs/schema@0.3.0
+  - @alineo-labs/provider@0.1.0
+  - @alineo-labs/errors@0.1.0
+
 ## 0.5.0
 
 ### Minor Changes
