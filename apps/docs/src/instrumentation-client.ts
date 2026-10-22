@@ -35,7 +35,11 @@ function takeHandoffId(projectKey: string): string | undefined {
     const id = readHandoffId(window.location.search);
     if (!id) return undefined;
     const { pathname, search, hash } = window.location;
-    window.history.replaceState(window.history.state, "", stripHandoffParam(pathname, search, hash));
+    window.history.replaceState(
+      window.history.state,
+      "",
+      stripHandoffParam(pathname, search, hash),
+    );
     // posthog-js keeps its state under `ph_<key>_posthog`; a stored ID means a returning visitor.
     return localStorage.getItem(`ph_${projectKey}_posthog`) === null ? id : undefined;
   } catch {
