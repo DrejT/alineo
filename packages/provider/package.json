@@ -1,6 +1,6 @@
 {
   "name": "@alineo-labs/provider",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The interface a sandbox provider implements for alineo, and the provider-neutral types it speaks in",
   "license": "Apache-2.0",
   "repository": {
