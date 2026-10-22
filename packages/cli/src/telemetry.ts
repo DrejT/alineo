@@ -143,17 +143,27 @@ function extractAllowedFlags(commandName: string, argv: string[]): Record<string
   return flags;
 }
 
-/** `spawn`/`fork` take a spec file as their first non-flag argv token -- reads just its own
- * `provider` field (a small, closed, non-identifying set like `"nvidia"`/`"google"`) to answer
- * "which providers actually get used." Deliberately not `model` (closer to free text, not needed
- * for that question) and nothing else from the spec. Never throws -- a missing/unreadable spec
- * file must never surface through telemetry into the real command. */
-async function extractSpecProvider(
+/** `start <spec>` and `spawn <parent> <child-spec>` take a spec file as a non-flag argv token --
+ * reads just its own provider (a small, closed, non-identifying set like `"nvidia"`/`"google"`)
+ * to answer "which providers actually get used." Deliberately not `model` itself (closer to free
+ * text, not needed for that question) and nothing else from the spec. Never throws -- a
+ * missing/unreadable spec file must never surface through telemetry into the real command.
+ *
+ * The token is found the way `start.ts` and `spawn.ts` find it: the first non-flag token for
+ * `start`, the first one after the parent for `spawn`. This once keyed off the verbs from before
+ * the rename (`spawn`/`fork`), so `start` sent no provider and `spawn` read the parent id as a
+ * path. */
+export async function extractSpecProvider(
   commandName: string,
   argv: string[],
 ): Promise<string | undefined> {
-  if (commandName !== "spawn" && commandName !== "fork") return undefined;
-  const specPath = (commandName === "fork" ? argv.slice(1) : argv).find((a) => !a.startsWith("--"));
+  const nonFlag = (a: string) => !a.startsWith("--");
+  const specPath =
+    commandName === "start"
+      ? argv.find(nonFlag)
+      : commandName === "spawn"
+        ? argv.slice(1).find(nonFlag)
+        : undefined;
   if (!specPath) return undefined;
   try {
     const spec = (await Bun.file(specPath).json()) as { provider?: unknown; model?: unknown };
