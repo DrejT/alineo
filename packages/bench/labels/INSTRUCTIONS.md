@@ -1,6 +1,7 @@
 # Labelling instructions
 
 ## How
+
 1. Open `labeler.html` in a normal browser (double-click it). Pick your rater number: **1** labels every item, **2** labels only the shared items.
 2. For each item read the task, the verified result (ground truth from a program), the trace (what the agent actually ran) and the message (what you are auditing). Answer the nine questions with the Yes/No buttons or the `y`/`n` keys.
 3. Progress saves in your browser automatically. Click **Export CSV** when done; it writes `rater1.csv` or `rater2.csv` (unfinished items are left out). Send that file back.

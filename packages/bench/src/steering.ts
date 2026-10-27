@@ -43,11 +43,17 @@ const short = (x: unknown) => JSON.stringify(x)?.slice(0, 160);
 const ok2xx = (s: number) => s >= 200 && s < 300;
 const TERMINAL = ["stopped", "done", "failed", "aborted"];
 
-const spec = (name: string) => agentSpec({ name, extra: { setup: [{ name: "dirs", run: "mkdir -p /tmp/work" }] } });
-const agentState = async (agentId: string) => (await call<{ state: string; outcome: string | null }>("GET", `/agents/${agentId}`)).body?.state;
+const spec = (name: string) =>
+  agentSpec({ name, extra: { setup: [{ name: "dirs", run: "mkdir -p /tmp/work" }] } });
+const agentState = async (agentId: string) =>
+  (await call<{ state: string; outcome: string | null }>("GET", `/agents/${agentId}`)).body?.state;
 
 /** Poll until `cond` holds or `ms` elapses; returns whether it held. */
-async function until(cond: () => boolean | Promise<boolean>, ms: number, stepMs = 1000): Promise<boolean> {
+async function until(
+  cond: () => boolean | Promise<boolean>,
+  ms: number,
+  stepMs = 1000,
+): Promise<boolean> {
   const end = Date.now() + ms;
   while (Date.now() < end) {
     if (await cond()) return true;
@@ -58,7 +64,10 @@ async function until(cond: () => boolean | Promise<boolean>, ms: number, stepMs 
 
 const containerExists = (sandboxId: string) => {
   try {
-    execFileSync("docker", ["inspect", "-f", "{{.State.Status}}", `sandbox-${sandboxId}`], { stdio: "ignore", timeout: 15_000 });
+    execFileSync("docker", ["inspect", "-f", "{{.State.Status}}", `sandbox-${sandboxId}`], {
+      stdio: "ignore",
+      timeout: 15_000,
+    });
     return true;
   } catch {
     return false;
@@ -75,7 +84,8 @@ async function startLive(name: string, prompt: string) {
       sandboxId = a.sandboxId;
       break;
     }
-    if (a && (a.state === "failed" || a.outcome === "failed")) throw new Error("agent failed to start");
+    if (a && (a.state === "failed" || a.outcome === "failed"))
+      throw new Error("agent failed to start");
     await sleep(1500);
   }
   if (!sandboxId) throw new Error("agent never went live");
@@ -91,16 +101,33 @@ async function steerRunningTurn(): Promise<Check[]> {
   try {
     const t0 = Date.now();
     const s = await call<unknown>("POST", `/agents/${agentId}/steer`, {
-      message: "Change of plan: do NOT wait for anything. Immediately run exactly: echo B > /tmp/work/b.txt . Then reply with exactly DONE-B.",
+      message:
+        "Change of plan: do NOT wait for anything. Immediately run exactly: echo B > /tmp/work/b.txt . Then reply with exactly DONE-B.",
       scope: "agent",
     });
     const res = await waitResult(agentId, 600_000);
     const b = sandboxExec(sandboxId, "cat /tmp/work/b.txt 2>/dev/null");
     return [
-      { name: "steer accepted while the turn was running", pass: ok2xx(s.status), detail: `HTTP ${s.status} ${short(s.body)}` },
-      { name: "agent adopted the new instruction (b.txt written)", pass: b === "B", detail: `b.txt=${JSON.stringify(b)}` },
-      { name: "final message follows the new instruction (DONE-B)", pass: /DONE-B/.test(res.result ?? ""), detail: (res.result ?? "").slice(0, 80) },
-      { name: "turn finished successfully", pass: res.outcome === "success", detail: `${res.outcome} after ${((Date.now() - t0) / 1000).toFixed(0)}s` },
+      {
+        name: "steer accepted while the turn was running",
+        pass: ok2xx(s.status),
+        detail: `HTTP ${s.status} ${short(s.body)}`,
+      },
+      {
+        name: "agent adopted the new instruction (b.txt written)",
+        pass: b === "B",
+        detail: `b.txt=${JSON.stringify(b)}`,
+      },
+      {
+        name: "final message follows the new instruction (DONE-B)",
+        pass: /DONE-B/.test(res.result ?? ""),
+        detail: (res.result ?? "").slice(0, 80),
+      },
+      {
+        name: "turn finished successfully",
+        pass: res.outcome === "success",
+        detail: `${res.outcome} after ${((Date.now() - t0) / 1000).toFixed(0)}s`,
+      },
     ];
   } finally {
     await deleteRun(run.runId);
@@ -120,18 +147,48 @@ async function pauseResume(): Promise<Check[]> {
     await sleep(45_000);
     const stillFrozen = isPaused(sandboxId);
     // If the container is not frozen any more, did the 40 s sleep finish while the agent was supposedly paused?
-    const progressedWhilePaused = !stillFrozen && sandboxExec(sandboxId, "test -e /tmp/work/p.txt && echo yes || echo no", { keepPaused: true }) === "yes";
+    const progressedWhilePaused =
+      !stillFrozen &&
+      sandboxExec(sandboxId, "test -e /tmp/work/p.txt && echo yes || echo no", {
+        keepPaused: true,
+      }) === "yes";
     const r = await call<unknown>("POST", `/agents/${agentId}/resume`, { scope: "agent" });
     const resumedState = await until(async () => (await agentState(agentId)) === "running", 20_000);
     const res = await waitResult(agentId, 600_000);
     const done = sandboxExec(sandboxId, "cat /tmp/work/p.txt 2>/dev/null");
     return [
-      { name: "pause accepted", pass: ok2xx(p.status), detail: `HTTP ${p.status} ${short(p.body)}` },
-      { name: "daemon reports the agent as paused", pass: statePaused, detail: "state=paused within 20s" },
-      { name: "sandbox container really frozen (docker State.Paused)", pass: frozen && stillFrozen, detail: `frozen=${frozen} after45s=${stillFrozen}` },
-      { name: "no work progressed while the agent was paused", pass: !progressedWhilePaused, detail: progressedWhilePaused ? "p.txt was written during the pause" : "p.txt absent during the pause" },
-      { name: "resume accepted and the agent runs again", pass: ok2xx(r.status) && resumedState, detail: `HTTP ${r.status} runningAgain=${resumedState}` },
-      { name: "original work finished after resume (state preserved)", pass: done === "done" && res.outcome === "success", detail: `p.txt=${JSON.stringify(done)} outcome=${res.outcome}` },
+      {
+        name: "pause accepted",
+        pass: ok2xx(p.status),
+        detail: `HTTP ${p.status} ${short(p.body)}`,
+      },
+      {
+        name: "daemon reports the agent as paused",
+        pass: statePaused,
+        detail: "state=paused within 20s",
+      },
+      {
+        name: "sandbox container really frozen (docker State.Paused)",
+        pass: frozen && stillFrozen,
+        detail: `frozen=${frozen} after45s=${stillFrozen}`,
+      },
+      {
+        name: "no work progressed while the agent was paused",
+        pass: !progressedWhilePaused,
+        detail: progressedWhilePaused
+          ? "p.txt was written during the pause"
+          : "p.txt absent during the pause",
+      },
+      {
+        name: "resume accepted and the agent runs again",
+        pass: ok2xx(r.status) && resumedState,
+        detail: `HTTP ${r.status} runningAgain=${resumedState}`,
+      },
+      {
+        name: "original work finished after resume (state preserved)",
+        pass: done === "done" && res.outcome === "success",
+        detail: `p.txt=${JSON.stringify(done)} outcome=${res.outcome}`,
+      },
     ];
   } finally {
     await deleteRun(run.runId);
@@ -151,7 +208,12 @@ async function steerWhilePaused(): Promise<Check[]> {
     let body: unknown = null;
     let hung = false;
     try {
-      const s = await call<unknown>("POST", `/agents/${agentId}/steer`, { message: "Before you reply, also run exactly: echo C > /tmp/work/c.txt", scope: "agent" }, 20_000);
+      const s = await call<unknown>(
+        "POST",
+        `/agents/${agentId}/steer`,
+        { message: "Before you reply, also run exactly: echo C > /tmp/work/c.txt", scope: "agent" },
+        20_000,
+      );
       steerStatus = s.status;
       body = s.body;
     } catch {
@@ -162,9 +224,21 @@ async function steerWhilePaused(): Promise<Check[]> {
     const res = await waitResult(agentId, 600_000);
     const c = sandboxExec(sandboxId, "cat /tmp/work/c.txt 2>/dev/null");
     return [
-      { name: "steer on a paused agent returns promptly (does not hang)", pass: !hung && ok2xx(steerStatus), detail: hung ? "no reply within 20s" : `HTTP ${steerStatus} in ${steerMs}ms ${short(body)}` },
-      { name: "queued instruction applied after resume (c.txt)", pass: c === "C", detail: `c.txt=${JSON.stringify(c)}` },
-      { name: "turn finished successfully", pass: res.outcome === "success", detail: String(res.outcome) },
+      {
+        name: "steer on a paused agent returns promptly (does not hang)",
+        pass: !hung && ok2xx(steerStatus),
+        detail: hung ? "no reply within 20s" : `HTTP ${steerStatus} in ${steerMs}ms ${short(body)}`,
+      },
+      {
+        name: "queued instruction applied after resume (c.txt)",
+        pass: c === "C",
+        detail: `c.txt=${JSON.stringify(c)}`,
+      },
+      {
+        name: "turn finished successfully",
+        pass: res.outcome === "success",
+        detail: String(res.outcome),
+      },
     ];
   } finally {
     await deleteRun(run.runId);
@@ -188,17 +262,26 @@ async function stopMidTurn(): Promise<Check[]> {
     await sleep(8_000);
     // If the sandbox was removed by the stop, the work cannot have completed; otherwise look for the file.
     const exists = containerExists(sandboxId);
-    const late = exists ? sandboxExec(sandboxId, "test -e /tmp/work/late.txt && echo yes || echo no") : "removed";
+    const late = exists
+      ? sandboxExec(sandboxId, "test -e /tmp/work/late.txt && echo yes || echo no")
+      : "removed";
     return [
       { name: "stop accepted", pass: ok2xx(s.status), detail: `HTTP ${s.status} ${short(s.body)}` },
-      { name: "agent reaches a terminal state within 30 s", pass: terminal, detail: `${state} in ${(stopMs / 1000).toFixed(1)}s` },
-      { name: "interrupted work did not complete", pass: late === "no" || late === "removed", detail: `late.txt: ${late}` },
+      {
+        name: "agent reaches a terminal state within 30 s",
+        pass: terminal,
+        detail: `${state} in ${(stopMs / 1000).toFixed(1)}s`,
+      },
+      {
+        name: "interrupted work did not complete",
+        pass: late === "no" || late === "removed",
+        detail: `late.txt: ${late}`,
+      },
     ];
   } finally {
     await deleteRun(run.runId);
   }
 }
-
 
 /** Does a steer sent to a paused agent block the caller until resume, and what does it answer then? */
 async function steerPausedBlocking(): Promise<Check[]> {
@@ -213,7 +296,12 @@ async function steerPausedBlocking(): Promise<Check[]> {
     let settledAt: number | null = null;
     let status = 0;
     let body: unknown = null;
-    const steer = call<unknown>("POST", `/agents/${agentId}/steer`, { message: "Also run exactly: echo D > /tmp/work/d.txt", scope: "agent" }, 120_000)
+    const steer = call<unknown>(
+      "POST",
+      `/agents/${agentId}/steer`,
+      { message: "Also run exactly: echo D > /tmp/work/d.txt", scope: "agent" },
+      120_000,
+    )
       .then((r) => {
         settledAt = Date.now() - t0;
         status = r.status;
@@ -230,10 +318,28 @@ async function steerPausedBlocking(): Promise<Check[]> {
     const res = await waitResult(agentId, 600_000);
     const d = sandboxExec(sandboxId, "cat /tmp/work/d.txt 2>/dev/null");
     return [
-      { name: "steer on a paused agent returns without waiting for resume", pass: !blockedWhilePaused, detail: blockedWhilePaused ? "still waiting after 15 s paused" : `returned after ${settledAt} ms` },
-      { name: "when it returns it reports the instruction as queued/accepted", pass: ok2xx(status), detail: `HTTP ${status} ${short(body)} (resumed at ${resumeAt} ms, steer answered at ${settledAt} ms)` },
-      { name: "queued instruction applied (d.txt)", pass: d === "D", detail: `d.txt=${JSON.stringify(d)}` },
-      { name: "turn finished successfully", pass: res.outcome === "success", detail: String(res.outcome) },
+      {
+        name: "steer on a paused agent returns without waiting for resume",
+        pass: !blockedWhilePaused,
+        detail: blockedWhilePaused
+          ? "still waiting after 15 s paused"
+          : `returned after ${settledAt} ms`,
+      },
+      {
+        name: "when it returns it reports the instruction as queued/accepted",
+        pass: ok2xx(status),
+        detail: `HTTP ${status} ${short(body)} (resumed at ${resumeAt} ms, steer answered at ${settledAt} ms)`,
+      },
+      {
+        name: "queued instruction applied (d.txt)",
+        pass: d === "D",
+        detail: `d.txt=${JSON.stringify(d)}`,
+      },
+      {
+        name: "turn finished successfully",
+        pass: res.outcome === "success",
+        detail: String(res.outcome),
+      },
     ];
   } finally {
     await deleteRun(run.runId);
@@ -250,7 +356,12 @@ const SCENARIOS: [string, () => Promise<Check[]>][] = [
 const only = new Set(arg("only", "").split(",").filter(Boolean));
 
 const repeats = Number(arg("repeats", "1"));
-const manifest = collectManifest({ scenario: "steering", repeats, version: 2, model: process.env.BENCH_AGENT_MODEL ?? "openai/gpt-oss-20b" });
+const manifest = collectManifest({
+  scenario: "steering",
+  repeats,
+  version: 2,
+  model: process.env.BENCH_AGENT_MODEL ?? "openai/gpt-oss-20b",
+});
 const results: ScenarioResult[] = [];
 let stoppedEarly: string | undefined;
 outer: for (let r = 0; r < repeats; r++) {
@@ -259,16 +370,32 @@ outer: for (let r = 0; r < repeats; r++) {
     try {
       await assertProviderBudget();
       const checks = await fn();
-      const res: ScenarioResult = { scenario: name, repeat: r, checks, passed: checks.every((c) => c.pass), ms: Date.now() - t0 };
+      const res: ScenarioResult = {
+        scenario: name,
+        repeat: r,
+        checks,
+        passed: checks.every((c) => c.pass),
+        ms: Date.now() - t0,
+      };
       results.push(res);
-      console.log(`${name}#${r}: ${res.passed ? "PASS" : "FAIL"} (${checks.filter((c) => c.pass).length}/${checks.length} checks, ${(res.ms / 1000).toFixed(0)}s)`);
-      for (const c of checks) console.log(`   ${c.pass ? "ok" : "x "} ${c.name}${c.detail ? `  [${c.detail}]` : ""}`);
+      console.log(
+        `${name}#${r}: ${res.passed ? "PASS" : "FAIL"} (${checks.filter((c) => c.pass).length}/${checks.length} checks, ${(res.ms / 1000).toFixed(0)}s)`,
+      );
+      for (const c of checks)
+        console.log(`   ${c.pass ? "ok" : "x "} ${c.name}${c.detail ? `  [${c.detail}]` : ""}`);
     } catch (e) {
       if (e instanceof ProviderCapReached) {
         stoppedEarly = e.message;
         break outer;
       }
-      results.push({ scenario: name, repeat: r, checks: [], passed: false, ms: Date.now() - t0, error: e instanceof Error ? e.message : String(e) });
+      results.push({
+        scenario: name,
+        repeat: r,
+        checks: [],
+        passed: false,
+        ms: Date.now() - t0,
+        error: e instanceof Error ? e.message : String(e),
+      });
       console.log(`${name}#${r}: ERROR ${e instanceof Error ? e.message : String(e)}`);
     }
   }
@@ -279,7 +406,16 @@ const w = wilson(passed, results.length);
 const dir = join(arg("out", "results"), `steering-${manifest.runId}`);
 mkdirSync(dir, { recursive: true });
 writeFileSync(join(dir, "manifest.json"), JSON.stringify(manifest, null, 2));
-writeFileSync(join(dir, "result.json"), JSON.stringify({ results, passed, runs: results.length, ci: w, stoppedEarly: stoppedEarly ?? null }, null, 2));
-console.log(`\nsteering: ${passed}/${results.length} scenario runs passed (${(100 * w.p).toFixed(0)}%, 95% CI ${(100 * w.lo).toFixed(0)}-${(100 * w.hi).toFixed(0)}%)`);
+writeFileSync(
+  join(dir, "result.json"),
+  JSON.stringify(
+    { results, passed, runs: results.length, ci: w, stoppedEarly: stoppedEarly ?? null },
+    null,
+    2,
+  ),
+);
+console.log(
+  `\nsteering: ${passed}/${results.length} scenario runs passed (${(100 * w.p).toFixed(0)}%, 95% CI ${(100 * w.lo).toFixed(0)}-${(100 * w.hi).toFixed(0)}%)`,
+);
 if (stoppedEarly) console.log(`STOPPED EARLY: ${stoppedEarly}`);
 console.log(`wrote ${dir}`);

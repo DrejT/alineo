@@ -14,13 +14,20 @@ export class ProviderCapReached extends Error {}
  */
 function assertNoRecentCap(sinceMinutes = 8): void {
   try {
-    const out = execFileSync("docker", ["logs", "--since", `${sinceMinutes}m`, process.env.ALINEOD_CONTAINER ?? "alineo-alineod"], {
-      encoding: "utf8",
-      timeout: 30_000,
-      stdio: ["ignore", "pipe", "pipe"],
-      maxBuffer: 64 * 1024 * 1024,
-    });
-    if (/tokens per day \(TPD\)/.test(out)) throw new ProviderCapReached("provider daily token cap reached (tokens per day 429 in alineod logs)");
+    const out = execFileSync(
+      "docker",
+      ["logs", "--since", `${sinceMinutes}m`, process.env.ALINEOD_CONTAINER ?? "alineo-alineod"],
+      {
+        encoding: "utf8",
+        timeout: 30_000,
+        stdio: ["ignore", "pipe", "pipe"],
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    );
+    if (/tokens per day \(TPD\)/.test(out))
+      throw new ProviderCapReached(
+        "provider daily token cap reached (tokens per day 429 in alineod logs)",
+      );
   } catch (e) {
     if (e instanceof ProviderCapReached) throw e;
     // docker unavailable: fall through to the probe
@@ -41,6 +48,7 @@ export async function assertProviderBudget(): Promise<void> {
   }).catch(() => undefined);
   if (res?.status === 429) {
     const body = await res.text();
-    if (/tokens per day|TPD/i.test(body)) throw new ProviderCapReached(`${model}: daily token cap reached`);
+    if (/tokens per day|TPD/i.test(body))
+      throw new ProviderCapReached(`${model}: daily token cap reached`);
   }
 }

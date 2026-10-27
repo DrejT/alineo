@@ -48,10 +48,14 @@ function executionsIn(sandboxId: string | null): number | null {
     // already running
   }
   try {
-    const n = execFileSync("docker", ["exec", name, "bash", "-c", "grep -c run /tmp/starts.txt || true"], {
-      encoding: "utf8",
-      timeout: 30_000,
-    }).trim();
+    const n = execFileSync(
+      "docker",
+      ["exec", name, "bash", "-c", "grep -c run /tmp/starts.txt || true"],
+      {
+        encoding: "utf8",
+        timeout: 30_000,
+      },
+    ).trim();
     return Number(n);
   } catch {
     return null;
@@ -105,7 +109,9 @@ try {
     const trees = await Promise.all(runs.map((r) => getRun(r.runId)));
     const agents = trees.map((t) => t.agents[0]);
     const live = agents.filter((a) => a?.sandboxId && a.state === "running").length;
-    startFailures = agents.filter((a) => a && (a.state === "failed" || a.outcome === "failed")).length;
+    startFailures = agents.filter(
+      (a) => a && (a.state === "failed" || a.outcome === "failed"),
+    ).length;
     if (live > 0 && live + startFailures === K) break;
     if (Date.now() - t0 > 900_000) throw new Error("agents never all went live or failed");
     await new Promise((r) => setTimeout(r, 1000));

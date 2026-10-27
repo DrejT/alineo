@@ -73,7 +73,8 @@ const TOOL_HINT =
   "Tool-use note: always send every parameter of a tool call. For the bash tool include `timeout` (seconds, for " +
   "example 60); for the read tool include both `offset` and `limit` and no other parameter names.\n\n";
 
-const withToolHint = (prompt: string) => (process.env.BENCH_TOOL_HINT === "0" ? prompt : TOOL_HINT + prompt);
+const withToolHint = (prompt: string) =>
+  process.env.BENCH_TOOL_HINT === "0" ? prompt : TOOL_HINT + prompt;
 
 export async function startRun(spec: Record<string, unknown>, prompt: string) {
   const r = await call<{ runId: string; rootAgentId: string; error?: unknown }>("POST", "/runs", {

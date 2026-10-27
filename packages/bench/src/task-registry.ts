@@ -7,6 +7,13 @@ export type Suite = "easy" | "hard" | "hard2" | "all";
 
 /** Tasks for a named suite, optionally restricted to the dev or test split. */
 export function selectTasks(suite: Suite, split: "dev" | "test" | "all" = "all"): Task[] {
-  const base = suite === "easy" ? TASKS : suite === "hard" ? HARD_TASKS : suite === "hard2" ? HARD2_TASKS : ALL_TASKS;
+  const base =
+    suite === "easy"
+      ? TASKS
+      : suite === "hard"
+        ? HARD_TASKS
+        : suite === "hard2"
+          ? HARD2_TASKS
+          : ALL_TASKS;
   return split === "all" ? base : base.filter((t) => splitOf(t.id) === split);
 }

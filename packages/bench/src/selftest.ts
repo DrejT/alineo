@@ -52,7 +52,9 @@ try {
     console.log(
       `${untouchedOk && solvedOk ? "ok  " : "FAIL"} ${t.id}` +
         (untouchedOk ? "" : "  <- verifier passes on the UNTOUCHED task") +
-        (solvedOk ? "" : `  <- reference gave ${JSON.stringify(after.slice(0, 80))}, expected ${JSON.stringify(want.slice(0, 80))}`),
+        (solvedOk
+          ? ""
+          : `  <- reference gave ${JSON.stringify(after.slice(0, 80))}, expected ${JSON.stringify(want.slice(0, 80))}`),
     );
   }
   // Code-review fixtures: every seeded bug must be real (test fails on the buggy code, passes on the fixed code).
@@ -61,7 +63,10 @@ try {
     const buggy = files[f.file]!;
     const run = (src: string) => {
       inBox("rm -rf /tmp/fx && mkdir -p /tmp/fx");
-      for (const [n, body] of [[f.file, src], ["t.py", f.test]] as const) {
+      for (const [n, body] of [
+        [f.file, src],
+        ["t.py", f.test],
+      ] as const) {
         inBox(`echo ${Buffer.from(body).toString("base64")} | base64 -d > /tmp/fx/${n}`);
       }
       return inBox("cd /tmp/fx && python3 t.py && echo PASS || echo FAIL");
@@ -71,11 +76,17 @@ try {
     const nBugs = bugs.filter((b) => b.file === f.file).length;
     const ok = onBuggy && onFixed && nBugs === 2;
     if (!ok) failures++;
-    console.log(`${ok ? "ok  " : "FAIL"} review fixture ${f.file}: test fails on buggy=${onBuggy}, passes on fixed=${onFixed}, seeded bugs=${nBugs}`);
+    console.log(
+      `${ok ? "ok  " : "FAIL"} review fixture ${f.file}: test fails on buggy=${onBuggy}, passes on fixed=${onFixed}, seeded bugs=${nBugs}`,
+    );
   }
-  const clean = inBox(`echo ${Buffer.from(CLEAN_FILE.source).toString("base64")} | base64 -d > /tmp/fx/c.py && python3 -c "import sys; sys.path.insert(0,'/tmp/fx'); import c; assert c.gcd(12,18)==6 and c.clamp(5,1,3)==3; print('CLEAN-OK')"`);
+  const clean = inBox(
+    `echo ${Buffer.from(CLEAN_FILE.source).toString("base64")} | base64 -d > /tmp/fx/c.py && python3 -c "import sys; sys.path.insert(0,'/tmp/fx'); import c; assert c.gcd(12,18)==6 and c.clamp(5,1,3)==3; print('CLEAN-OK')"`,
+  );
   if (!clean.endsWith("CLEAN-OK")) failures++;
-  console.log(`${clean.endsWith("CLEAN-OK") ? "ok  " : "FAIL"} review clean file behaves correctly`);
+  console.log(
+    `${clean.endsWith("CLEAN-OK") ? "ok  " : "FAIL"} review clean file behaves correctly`,
+  );
 } finally {
   try {
     sh(["rm", "-f", name]);
@@ -83,5 +94,9 @@ try {
     // best effort
   }
 }
-console.log(failures ? `\n${failures} task(s) failed the self-test` : `\nall ${ALL_TASKS.length} tasks pass the self-test`);
+console.log(
+  failures
+    ? `\n${failures} task(s) failed the self-test`
+    : `\nall ${ALL_TASKS.length} tasks pass the self-test`,
+);
 process.exit(failures ? 1 : 0);

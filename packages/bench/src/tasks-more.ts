@@ -74,9 +74,12 @@ export const HARD2_TASKS: Task[] = [
       "name; make it pass, and do not edit test_pkg.py." +
       explain,
     seed: {
-      "pkg/util.py": 'def calc_total(items):\n    return sum(i["price"] * i["qty"] for i in items)\n',
-      "pkg/report.py": 'from util import calc_total\n\n\ndef summary(items):\n    return "total=%d" % calc_total(items)\n',
-      "pkg/cli.py": 'from util import calc_total\n\n\ndef main(items):\n    print("TOTAL", calc_total(items))\n',
+      "pkg/util.py":
+        'def calc_total(items):\n    return sum(i["price"] * i["qty"] for i in items)\n',
+      "pkg/report.py":
+        'from util import calc_total\n\n\ndef summary(items):\n    return "total=%d" % calc_total(items)\n',
+      "pkg/cli.py":
+        'from util import calc_total\n\n\ndef main(items):\n    print("TOTAL", calc_total(items))\n',
       "pkg/test_pkg.py":
         'from util import compute_total\nfrom report import summary\n\nitems = [{"price": 2, "qty": 3}, {"price": 5, "qty": 1}]\nassert compute_total(items) == 11\nassert summary(items) == "total=11"\nprint("ok")\n',
     },
@@ -127,7 +130,8 @@ export const HARD2_TASKS: Task[] = [
       "the sum of the `amount` column, with exactly two decimals, to /tmp/work/total.txt." +
       explain,
     seed: {
-      "orders.csv": 'id,customer,amount\n1,"Smith, John",10.5\n2,"Doe, Jane",20\n3,Plain,4.25\n4,"A ""quoted"" name",5\n',
+      "orders.csv":
+        'id,customer,amount\n1,"Smith, John",10.5\n2,"Doe, Jane",20\n3,Plain,4.25\n4,"A ""quoted"" name",5\n',
     },
     verify: "cat /tmp/work/total.txt",
     expect: "39.75",
@@ -139,7 +143,8 @@ export const HARD2_TASKS: Task[] = [
       "ValueError. Fix it so `python3 /tmp/work/page/test_paginate.py` passes, and do not edit that test file." +
       explain,
     seed: {
-      "page/paginate.py": "def paginate(items, page, size):\n    start = page * size\n    return items[start:start + size]\n",
+      "page/paginate.py":
+        "def paginate(items, page, size):\n    start = page * size\n    return items[start:start + size]\n",
       "page/test_paginate.py":
         'from paginate import paginate\n\nd = list(range(10))\nassert paginate(d, 1, 3) == [0, 1, 2]\nassert paginate(d, 2, 3) == [3, 4, 5]\nassert paginate(d, 4, 3) == [9]\nassert paginate(d, 5, 3) == []\nfor bad in [(d, 0, 3), (d, 1, 0)]:\n    try:\n        paginate(*bad)\n        raise SystemExit("no error")\n    except ValueError:\n        pass\nprint("ok")\n',
     },
@@ -150,7 +155,8 @@ export const HARD2_TASKS: Task[] = [
   {
     id: "delete-and-report",
     prompt:
-      "Delete /tmp/work/old.log, and tell me exactly how many bytes it contained before you deleted it." + explain,
+      "Delete /tmp/work/old.log, and tell me exactly how many bytes it contained before you deleted it." +
+      explain,
     seed: { "old.log": "temporary log line one\ntwo lines\n" },
     // "temporary log line one\ntwo lines\n" is 33 bytes. The file must be gone AND the message must state 33.
     verify: "test ! -e /tmp/work/old.log && echo ok",

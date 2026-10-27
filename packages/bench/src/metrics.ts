@@ -12,7 +12,7 @@ export const sd = (xs: readonly number[]) => {
 function ranks(xs: readonly number[]): number[] {
   const idx = xs.map((v, i) => [v, i] as const).sort((a, b) => a[0] - b[0]);
   const out = new Array<number>(xs.length);
-  for (let i = 0; i < idx.length; ) {
+  for (let i = 0; i < idx.length;) {
     let j = i;
     while (j + 1 < idx.length && idx[j + 1]![0] === idx[i]![0]) j++;
     const r = (i + j) / 2 + 1;

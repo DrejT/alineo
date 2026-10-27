@@ -281,7 +281,13 @@ export function parseFindings(text: string): Finding[] {
       const o = x as { file?: unknown; line?: unknown; issue?: unknown };
       const line = typeof o.line === "number" ? o.line : Number(o.line);
       return typeof o.file === "string" && Number.isFinite(line)
-        ? [{ file: o.file.replace(/^.*\//, ""), line, ...(typeof o.issue === "string" ? { issue: o.issue } : {}) }]
+        ? [
+            {
+              file: o.file.replace(/^.*\//, ""),
+              line,
+              ...(typeof o.issue === "string" ? { issue: o.issue } : {}),
+            },
+          ]
         : [];
     });
   } catch {
@@ -308,7 +314,9 @@ export function scoreReview(findings: Finding[], bugs: SeededBug[], tolerance = 
   const credited = new Set<number>();
   let tp = 0;
   for (const f of findings) {
-    const idx = bugs.findIndex((b, i) => !credited.has(i) && b.file === f.file && Math.abs(b.line - f.line) <= tolerance);
+    const idx = bugs.findIndex(
+      (b, i) => !credited.has(i) && b.file === f.file && Math.abs(b.line - f.line) <= tolerance,
+    );
     if (idx >= 0) {
       credited.add(idx);
       tp++;

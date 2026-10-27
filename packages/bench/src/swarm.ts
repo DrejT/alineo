@@ -56,11 +56,15 @@ async function runLevel(n: number): Promise<LevelResult> {
       Array.from({ length: n }, async (_, k) => {
         const t = task(k * 7 + 1);
         const s0 = performance.now();
-        const r = await call<{ agentId: string; state: string }>("POST", `/runs/${root.runId}/agents`, {
-          spec: agentSpec({ name: `swarm-child-${n}-${k}` }),
-          parentAgentId: root.rootAgentId,
-          prompt: t.prompt,
-        });
+        const r = await call<{ agentId: string; state: string }>(
+          "POST",
+          `/runs/${root.runId}/agents`,
+          {
+            spec: agentSpec({ name: `swarm-child-${n}-${k}` }),
+            parentAgentId: root.rootAgentId,
+            prompt: t.prompt,
+          },
+        );
         if (r.status >= 300) throw new Error(`spawn failed ${r.status}: ${JSON.stringify(r.body)}`);
         spawned.push({ id: r.body.agentId, expected: t.expected, spawnMs: performance.now() - s0 });
       }),
@@ -83,7 +87,10 @@ async function runLevel(n: number): Promise<LevelResult> {
 
     const results: ChildResult[] = [];
     for (const s of spawned) {
-      const r = await call<{ outcome: string | null; result: string | null }>("GET", `/agents/${s.id}/result`);
+      const r = await call<{ outcome: string | null; result: string | null }>(
+        "GET",
+        `/agents/${s.id}/result`,
+      );
       const got = (r.body?.result ?? "").trim();
       results.push({
         agentId: s.id,
@@ -91,7 +98,8 @@ async function runLevel(n: number): Promise<LevelResult> {
         got: r.body?.result ?? null,
         outcome: r.body?.outcome ?? null,
         // The child may add a short sentence; the right number must be present as a whole token.
-        correct: r.body?.outcome === "success" && new RegExp(`(^|\\D)${s.expected}(\\D|$)`).test(got),
+        correct:
+          r.body?.outcome === "success" && new RegExp(`(^|\\D)${s.expected}(\\D|$)`).test(got),
       });
     }
     const tree = await getRun(root.runId);

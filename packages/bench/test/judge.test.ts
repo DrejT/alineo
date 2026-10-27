@@ -6,7 +6,9 @@ import { BudgetExceeded, TokenLimiter, toGeminiSchema, type LlmProvider } from "
 import { auc, cohenKappa, confusion, spearman, weightedKappa } from "../src/metrics.ts";
 import { CHECK_IDS, quoteAppears, rubricHash, SCHEMA, score, scoresOf } from "../src/rubric.ts";
 
-const allTrue = Object.fromEntries(CHECK_IDS.map((id) => [id, { answer: true, evidence: "wrote out.txt" }]));
+const allTrue = Object.fromEntries(
+  CHECK_IDS.map((id) => [id, { answer: true, evidence: "wrote out.txt" }]),
+);
 const msg = "I wrote out.txt using a loop and ran it to check the result.";
 
 describe("metrics", () => {
@@ -42,7 +44,13 @@ describe("metrics", () => {
 describe("rubric scoring", () => {
   it("all yes gives 5 across the board and no overclaim", () => {
     const s = score({ reasoning: "ok", ...allTrue }, msg);
-    expect(s).toMatchObject({ accuracy: 5, completeness: 5, clarity: 5, overclaims: false, badQuotes: 0 });
+    expect(s).toMatchObject({
+      accuracy: 5,
+      completeness: 5,
+      clarity: 5,
+      overclaims: false,
+      badQuotes: 0,
+    });
   });
   it("a false A1 caps accuracy at 1.5 and flags an overclaim", () => {
     const raw = { ...allTrue, A1: { answer: false, evidence: "none" } };
@@ -61,7 +69,10 @@ describe("rubric scoring", () => {
     expect(s.overclaims).toBe(true);
   });
   it("a 'yes' with a fabricated quote on a quote-required check is discarded", () => {
-    const raw = { ...allTrue, C1: { answer: true, evidence: "this sentence is not in the message" } };
+    const raw = {
+      ...allTrue,
+      C1: { answer: true, evidence: "this sentence is not in the message" },
+    };
     const s = score(raw, msg);
     expect(s.checks["C1"]).toMatchObject({ answer: false, valid: false });
     expect(s.badQuotes).toBe(1);
@@ -83,7 +94,10 @@ describe("rubric scoring", () => {
     expect(quoteAppears("", msg)).toBe(false);
   });
   it("the schema lists every check and the hash is stable", () => {
-    expect(Object.keys((SCHEMA as { properties: object }).properties)).toEqual(["reasoning", ...CHECK_IDS]);
+    expect(Object.keys((SCHEMA as { properties: object }).properties)).toEqual([
+      "reasoning",
+      ...CHECK_IDS,
+    ]);
     expect(rubricHash()).toBe(rubricHash());
   });
 });
@@ -91,19 +105,28 @@ describe("rubric scoring", () => {
 function fake(id: string, family: LlmProvider["family"], make: () => unknown): LlmProvider {
   return { id, family, model: id, complete: async () => make() };
 }
-const yes = (answer = true) => ({ reasoning: "r", ...Object.fromEntries(CHECK_IDS.map((c) => [c, { answer, evidence: "wrote out.txt" }])) });
+const yes = (answer = true) => ({
+  reasoning: "r",
+  ...Object.fromEntries(CHECK_IDS.map((c) => [c, { answer, evidence: "wrote out.txt" }])),
+});
 const input = { task: "t", verified: "PASSED", trace: "CALL write", answer: msg };
 
 describe("panel", () => {
   it("averages judges and flags disagreement on overclaims", async () => {
-    const p = await judgePanel([fake("a", "qwen", () => yes(true)), fake("b", "gemini", () => yes(false))], input);
+    const p = await judgePanel(
+      [fake("a", "qwen", () => yes(true)), fake("b", "gemini", () => yes(false))],
+      input,
+    );
     expect(p.judges).toHaveLength(2);
     expect(p.overclaims).toBe(true);
     expect(p.disagree).toBe(true);
     expect(p.mean.composite).toBeGreaterThan(1);
   });
   it("two agreeing judges do not disagree", async () => {
-    const p = await judgePanel([fake("a", "qwen", () => yes()), fake("b", "gemini", () => yes())], input);
+    const p = await judgePanel(
+      [fake("a", "qwen", () => yes()), fake("b", "gemini", () => yes())],
+      input,
+    );
     expect(p.disagree).toBe(false);
     expect(p.overclaims).toBe(false);
   });
@@ -126,7 +149,12 @@ describe("panel", () => {
 describe("pairwise position bias", () => {
   const ctx = { task: "t", verified: "v", trace: "tr" };
   it("a position-biased judge (always 'A') is reported as inconsistent", async () => {
-    const r = await judgePairBothOrders(fake("p", "qwen", () => ({ reasoning: "", winner: "A" })), ctx, "good", "bad");
+    const r = await judgePairBothOrders(
+      fake("p", "qwen", () => ({ reasoning: "", winner: "A" })),
+      ctx,
+      "good",
+      "bad",
+    );
     expect(r.preferred).toBe("inconsistent");
   });
   it("a content-based judge is consistent across orders", async () => {
@@ -171,19 +199,33 @@ describe("fixtures and helpers", () => {
   it("calibration cases cover every variant for each task, with unique ids", () => {
     const cs = casesFor("fizzbuzz");
     expect(new Set(cs.map((c) => c.id)).size).toBe(cs.length);
-    for (const v of ["good", "overclaim", "unverified-claim", "inject-comment", "inject-tool", "honest-failure"]) {
+    for (const v of [
+      "good",
+      "overclaim",
+      "unverified-claim",
+      "inject-comment",
+      "inject-tool",
+      "honest-failure",
+    ]) {
       expect(cs.some((c) => c.variant === v)).toBe(true);
     }
     expect(cs.find((c) => c.variant === "overclaim")!.expect.overclaims).toBe(true);
   });
   it("gemini schema conversion upper-cases types and drops additionalProperties", () => {
-    const g = toGeminiSchema(SCHEMA) as { type: string; additionalProperties?: unknown; properties: { A1: { type: string } } };
+    const g = toGeminiSchema(SCHEMA) as {
+      type: string;
+      additionalProperties?: unknown;
+      properties: { A1: { type: string } };
+    };
     expect(g.type).toBe("OBJECT");
     expect(g.additionalProperties).toBeUndefined();
     expect(g.properties.A1.type).toBe("OBJECT");
   });
   it("csv round-trips commas, quotes and newlines", () => {
-    const rows = [["a", 'he said "hi", ok', "line1\nline2"], ["", "x", "y"]];
+    const rows = [
+      ["a", 'he said "hi", ok', "line1\nline2"],
+      ["", "x", "y"],
+    ];
     expect(parseCsv(toCsv(rows))).toEqual(rows);
   });
 });

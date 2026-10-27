@@ -118,10 +118,16 @@ async function runOne(t: Task, repeat: number): Promise<OutcomeRow> {
     await assertProviderBudget();
     const row = await runAttempt(t, repeat);
     if (row.agentOutcome !== "failed" || attempt >= MAX_ATTEMPTS) {
-      return { ...row, attempts: attempt, infraFailures: infraFailures + (row.agentOutcome === "failed" ? 1 : 0) };
+      return {
+        ...row,
+        attempts: attempt,
+        infraFailures: infraFailures + (row.agentOutcome === "failed" ? 1 : 0),
+      };
     }
     infraFailures++;
-    console.log(`${t.id}#${repeat}: agent turn failed (attempt ${attempt}), retrying after a pause`);
+    console.log(
+      `${t.id}#${repeat}: agent turn failed (attempt ${attempt}), retrying after a pause`,
+    );
     await new Promise((r) => setTimeout(r, 45_000 * attempt));
   }
 }
@@ -173,12 +179,17 @@ await Promise.all(
         };
       }
       rows.push(row);
-      console.log(`${row.task}#${row.repeat}: ${row.passed ? "PASS" : "FAIL"} (${(row.wallMs / 1000).toFixed(0)}s)`);
+      console.log(
+        `${row.task}#${row.repeat}: ${row.passed ? "PASS" : "FAIL"} (${(row.wallMs / 1000).toFixed(0)}s)`,
+      );
     }
   }),
 );
 
-const dir = join(arg("out", "results"), `outcome-${suite}${split === "all" ? "" : "-" + split}-${manifest.runId}`);
+const dir = join(
+  arg("out", "results"),
+  `outcome-${suite}${split === "all" ? "" : "-" + split}-${manifest.runId}`,
+);
 mkdirSync(dir, { recursive: true });
 const pct = (k: number, n: number) => {
   const w = wilson(k, n);
@@ -197,13 +208,23 @@ const stats = {
   bySplit: Object.fromEntries(
     (["dev", "test"] as const).map((s) => {
       const rs = rows.filter((r) => r.split === s);
-      return [s, { runs: rs.length, passed: rs.filter((r) => r.passed).length, ...wilson(rs.filter((r) => r.passed).length, rs.length) }];
+      return [
+        s,
+        {
+          runs: rs.length,
+          passed: rs.filter((r) => r.passed).length,
+          ...wilson(rs.filter((r) => r.passed).length, rs.length),
+        },
+      ];
     }),
   ),
   byTask: Object.fromEntries(
     chosen.map((t) => {
       const rs = rows.filter((r) => r.task === t.id);
-      return [t.id, { runs: rs.length, passed: rs.filter((r) => r.passed).length, split: splitOf(t.id) }];
+      return [
+        t.id,
+        { runs: rs.length, passed: rs.filter((r) => r.passed).length, split: splitOf(t.id) },
+      ];
     }),
   ),
   stoppedEarly: stoppedEarly ?? null,
@@ -212,7 +233,9 @@ writeFileSync(join(dir, "manifest.json"), JSON.stringify(manifest, null, 2));
 writeFileSync(join(dir, "rows.json"), JSON.stringify(rows, null, 2));
 writeFileSync(join(dir, "stats.json"), JSON.stringify(stats, null, 2));
 console.log(`\npass rate: ${pct(passed, rows.length)}`);
-console.log(`first-attempt pass rate: ${pct(firstAttempt, rows.length)}; infra failures ${stats.infraFailures} over ${stats.attempts} attempts; tokens ${stats.tokens}`);
+console.log(
+  `first-attempt pass rate: ${pct(firstAttempt, rows.length)}; infra failures ${stats.infraFailures} over ${stats.attempts} attempts; tokens ${stats.tokens}`,
+);
 for (const s of ["dev", "test"] as const) {
   const b = stats.bySplit[s]!;
   if (b.runs) console.log(`  ${s}: ${pct(b.passed, b.runs)}`);
@@ -220,5 +243,7 @@ for (const s of ["dev", "test"] as const) {
 if (stoppedEarly) console.log(`STOPPED EARLY: ${stoppedEarly}`);
 console.log(`wrote ${dir}`);
 for (const r of rows.filter((x) => !x.passed)) {
-  console.log(`FAIL ${r.task}#${r.repeat} outcome=${r.agentOutcome} verify=${JSON.stringify(r.verifyOutput.slice(0, 120))}${r.messageOk === false ? " (message check failed)" : ""}`);
+  console.log(
+    `FAIL ${r.task}#${r.repeat} outcome=${r.agentOutcome} verify=${JSON.stringify(r.verifyOutput.slice(0, 120))}${r.messageOk === false ? " (message check failed)" : ""}`,
+  );
 }

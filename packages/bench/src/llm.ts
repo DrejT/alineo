@@ -56,7 +56,11 @@ export function callsMade(): number {
 }
 
 /** Retries 429/5xx with exponential backoff (honouring Retry-After). Throws a message free of secrets. */
-async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<unknown> {
+async function postJson(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
     let res: Response;
     try {
@@ -74,7 +78,9 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
         await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
         continue;
       }
-      throw new Error(`request to ${new URL(url).host} failed after retries: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(
+        `request to ${new URL(url).host} failed after retries: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
     if (res.ok) return res.json();
     const retryable = res.status === 429 || res.status >= 500;
@@ -102,7 +108,13 @@ function parseJsonLoose(text: string): unknown {
 
 function cached(id: string, run: LlmProvider["complete"]): LlmProvider["complete"] {
   return async (prompt, schema, opts) => {
-    const key = createHash("sha256").update(id).update("\0").update(prompt).update("\0").update(JSON.stringify(schema)).digest("hex");
+    const key = createHash("sha256")
+      .update(id)
+      .update("\0")
+      .update(prompt)
+      .update("\0")
+      .update(JSON.stringify(schema))
+      .digest("hex");
     const hit = cacheGet(key); // also loads the cache file, so a later write never drops old entries
     if (!opts?.fresh && hit !== undefined) return hit;
     if (uncachedCalls >= budgetLimit) throw new BudgetExceeded(budgetLimit);
@@ -110,7 +122,8 @@ function cached(id: string, run: LlmProvider["complete"]): LlmProvider["complete
     const t0 = Date.now();
     const n = uncachedCalls;
     const out = await run(prompt, schema, opts);
-    if (process.env.BENCH_JUDGE_VERBOSE) console.error(`[judge] #${n} ${id} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    if (process.env.BENCH_JUDGE_VERBOSE)
+      console.error(`[judge] #${n} ${id} ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     cacheSet(key, out);
     return out;
   };
@@ -151,7 +164,8 @@ const estimateTokens = (prompt: string, reply = 450) => Math.ceil(prompt.length 
 const groqLimiters = new Map<string, TokenLimiter>();
 const groqLimiter = (model: string) => {
   let l = groqLimiters.get(model);
-  if (!l) groqLimiters.set(model, (l = new TokenLimiter(Number(process.env.BENCH_GROQ_TPM ?? 7000))));
+  if (!l)
+    groqLimiters.set(model, (l = new TokenLimiter(Number(process.env.BENCH_GROQ_TPM ?? 7000))));
   return l;
 };
 
@@ -174,9 +188,13 @@ export function groqProvider(model = process.env.BENCH_GROQ_MODEL ?? QWEN_MODEL)
       if (!key) throw new Error("set GROQ_API_KEY for the Groq judge");
       // gpt-oss is a reasoning model: its hidden reasoning counts against Groq's token limit, so budget far more per reply.
       const tAcquire = Date.now();
-      await groqLimiter(model).acquire(estimateTokens(prompt, model.includes("gpt-oss") ? 2400 : 450));
+      await groqLimiter(model).acquire(
+        estimateTokens(prompt, model.includes("gpt-oss") ? 2400 : 450),
+      );
       if (process.env.BENCH_JUDGE_VERBOSE) {
-        console.error(`[judge] ${id} limiter wait ${((Date.now() - tAcquire) / 1000).toFixed(1)}s, est ${estimateTokens(prompt)} tokens`);
+        console.error(
+          `[judge] ${id} limiter wait ${((Date.now() - tAcquire) / 1000).toFixed(1)}s, est ${estimateTokens(prompt)} tokens`,
+        );
       }
       const body = (await postJson(
         "https://api.groq.com/openai/v1/chat/completions",
@@ -188,11 +206,19 @@ export function groqProvider(model = process.env.BENCH_GROQ_MODEL ?? QWEN_MODEL)
           max_tokens: Number(process.env.BENCH_GROQ_MAX_TOKENS ?? 3500),
           ...(model.includes("gpt-oss") ? { reasoning_effort: "low" } : {}),
           messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_schema", json_schema: { name: "judgement", strict: true, schema } },
+          response_format: {
+            type: "json_schema",
+            json_schema: { name: "judgement", strict: true, schema },
+          },
         },
-      )) as { choices?: { message?: { content?: string }; finish_reason?: string }[]; usage?: { completion_tokens?: number } };
+      )) as {
+        choices?: { message?: { content?: string }; finish_reason?: string }[];
+        usage?: { completion_tokens?: number };
+      };
       if (process.env.BENCH_JUDGE_VERBOSE) {
-        console.error(`[judge] ${id} completion_tokens=${body.usage?.completion_tokens} finish=${body.choices?.[0]?.finish_reason}`);
+        console.error(
+          `[judge] ${id} completion_tokens=${body.usage?.completion_tokens} finish=${body.choices?.[0]?.finish_reason}`,
+        );
       }
       return parseJsonLoose(body.choices?.[0]?.message?.content ?? "");
     }),
@@ -213,7 +239,9 @@ export function toGeminiSchema(s: unknown): unknown {
   return s;
 }
 
-export function geminiProvider(model = process.env.BENCH_GEMINI_MODEL ?? "gemini-flash-lite-latest"): LlmProvider {
+export function geminiProvider(
+  model = process.env.BENCH_GEMINI_MODEL ?? "gemini-flash-lite-latest",
+): LlmProvider {
   const id = `gemini:${model}`;
   return {
     id,
@@ -241,7 +269,10 @@ export function geminiProvider(model = process.env.BENCH_GEMINI_MODEL ?? "gemini
 }
 
 /** Free-form text generation (used to have a second model family write a candidate answer). */
-export async function groqText(prompt: string, model = process.env.BENCH_GROQ_MODEL ?? QWEN_MODEL): Promise<string> {
+export async function groqText(
+  prompt: string,
+  model = process.env.BENCH_GROQ_MODEL ?? QWEN_MODEL,
+): Promise<string> {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("set GROQ_API_KEY for the Groq judge");
   if (uncachedCalls >= budgetLimit) throw new BudgetExceeded(budgetLimit);

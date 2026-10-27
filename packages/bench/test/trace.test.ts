@@ -4,12 +4,12 @@ import { parseSse, renderArgs, traceFromEvents } from "../src/trace.ts";
 
 // Shapes captured from a real alineod run (Pi 1.2.0 on Gemini): tool start has args, tool end has result.
 const sse = [
-  ': ping',
+  ": ping",
   'event: agent.provisioned\ndata: {"agentId":"a_1","sandboxId":"sb","provider":"opensandbox"}',
   'event: harness.tool_execution_start\ndata: {"agentId":"a_1","toolCallId":"c1","toolName":"bash","args":{"command":"echo hello > /tmp/probe.txt && cat /tmp/probe.txt","timeout":null}}',
   'event: harness.tool_execution_end\ndata: {"agentId":"a_1","toolCallId":"c1","toolName":"bash","result":{"content":[{"type":"text","text":"hello\\n"}],"structuredContent":{"output":"hello\\n","truncated":false,"exit_code":0}},"isError":false}',
   'event: harness.tool_execution_start\ndata: {"agentId":"a_2","toolCallId":"c9","toolName":"bash","args":{"command":"another agent"}}',
-  'event: x\ndata: {not json',
+  "event: x\ndata: {not json",
 ].join("\n\n");
 
 describe("trace from the run event stream", () => {

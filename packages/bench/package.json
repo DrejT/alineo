@@ -2,8 +2,8 @@
   "name": "@alineo-labs/bench",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "description": "Benchmark harness: scale ramps, percentile stats and run manifests for alineo.",
+  "type": "module",
   "scripts": {
     "bench": "bun src/cli.ts",
     "test": "vitest run",

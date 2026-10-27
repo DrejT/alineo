@@ -40,12 +40,19 @@ const runIds: string[] = [];
 
 /** Start an agent whose memory scope is `resource`; it only needs to exist, so give it a trivial turn. */
 async function agentFor(resource: string, prompt = "Reply with exactly: READY") {
-  const run = await startRun({ ...agentSpec({ name: `mem-${resource}-${Math.random().toString(36).slice(2, 6)}` }), resourceId: resource }, prompt);
+  const run = await startRun(
+    {
+      ...agentSpec({ name: `mem-${resource}-${Math.random().toString(36).slice(2, 6)}` }),
+      resourceId: resource,
+    },
+    prompt,
+  );
   runIds.push(run.runId);
   return run;
 }
 
-const mem = (agentId: string, key: string) => `/agents/${agentId}/memory/${encodeURIComponent(key)}`;
+const mem = (agentId: string, key: string) =>
+  `/agents/${agentId}/memory/${encodeURIComponent(key)}`;
 
 async function apiChecks(restart: boolean) {
   const A = `bench-a-${stamp}`;
@@ -67,33 +74,58 @@ async function apiChecks(restart: boolean) {
   for (const [k, v] of samples) {
     const put = await call("PUT", mem(a.rootAgentId, k), { value: v });
     const got = await call<{ value: unknown }>("GET", mem(a.rootAgentId, k));
-    if (put.status >= 300 || JSON.stringify(got.body?.value) !== JSON.stringify(v)) allRoundTrip = false;
+    if (put.status >= 300 || JSON.stringify(got.body?.value) !== JSON.stringify(v))
+      allRoundTrip = false;
   }
   record("api", "JSON values round-trip (string, number, object, array, boolean)", allRoundTrip);
 
   // M2 size limit
   const big = await call("PUT", mem(a.rootAgentId, "big"), { value: "x".repeat(70_000) });
-  record("api", "a value over 64 KiB is rejected", big.status >= 400 && big.status < 500, `HTTP ${big.status}`);
+  record(
+    "api",
+    "a value over 64 KiB is rejected",
+    big.status >= 400 && big.status < 500,
+    `HTTP ${big.status}`,
+  );
 
   // M3 delete is idempotent
   await call("PUT", mem(a.rootAgentId, "tmp"), { value: 1 });
   const d1 = await call("DELETE", mem(a.rootAgentId, "tmp"));
   const d2 = await call("DELETE", mem(a.rootAgentId, "tmp"));
   const gone = await call("GET", mem(a.rootAgentId, "tmp"));
-  record("api", "delete is idempotent and the key is gone", d1.status < 300 && d2.status < 300 && gone.status === 404, `${d1.status}/${d2.status}/${gone.status}`);
+  record(
+    "api",
+    "delete is idempotent and the key is gone",
+    d1.status < 300 && d2.status < 300 && gone.status === 404,
+    `${d1.status}/${d2.status}/${gone.status}`,
+  );
 
   // M4 isolation between resources
   await call("PUT", mem(a.rootAgentId, "secret"), { value: "ALPHA-ONLY" });
   const leak = await call<{ value?: unknown }>("GET", mem(b.rootAgentId, "secret"));
-  const list = await call<{ working?: Record<string, unknown>; keys?: string[] } & Record<string, unknown>>("GET", `/agents/${b.rootAgentId}/memory`);
-  const leaked = JSON.stringify(list.body ?? {}).includes("ALPHA-ONLY") || JSON.stringify(leak.body ?? {}).includes("ALPHA-ONLY");
-  record("api", "a different resource cannot read the value (no leak)", leak.status === 404 && !leaked, `GET other resource -> ${leak.status}`);
+  const list = await call<
+    { working?: Record<string, unknown>; keys?: string[] } & Record<string, unknown>
+  >("GET", `/agents/${b.rootAgentId}/memory`);
+  const leaked =
+    JSON.stringify(list.body ?? {}).includes("ALPHA-ONLY") ||
+    JSON.stringify(leak.body ?? {}).includes("ALPHA-ONLY");
+  record(
+    "api",
+    "a different resource cannot read the value (no leak)",
+    leak.status === 404 && !leaked,
+    `GET other resource -> ${leak.status}`,
+  );
 
   // M5 sharing inside one resource (a second agent with the same resourceId)
   const a2 = await agentFor(A);
   await waitResult(a2.rootAgentId, 600_000);
   const shared = await call<{ value: unknown }>("GET", mem(a2.rootAgentId, "secret"));
-  record("api", "a second agent with the same resource sees the value", shared.status === 200 && shared.body?.value === "ALPHA-ONLY", `HTTP ${shared.status}`);
+  record(
+    "api",
+    "a second agent with the same resource sees the value",
+    shared.status === 200 && shared.body?.value === "ALPHA-ONLY",
+    `HTTP ${shared.status}`,
+  );
 
   // M6 durability across an alineod restart
   if (restart) {
@@ -101,12 +133,26 @@ async function apiChecks(restart: boolean) {
     execFileSync("docker", ["restart", c], { stdio: "ignore", timeout: 420_000 });
     await waitHealthy();
     const after = await call<{ value: unknown }>("GET", mem(a2.rootAgentId, "secret"));
-    record("api", "the value survives an alineod restart", after.status === 200 && after.body?.value === "ALPHA-ONLY", `HTTP ${after.status}`);
+    record(
+      "api",
+      "the value survives an alineod restart",
+      after.status === 200 && after.body?.value === "ALPHA-ONLY",
+      `HTTP ${after.status}`,
+    );
   }
 
   // M7 semantic facts (needs an embeddings provider)
-  const fact = await call("POST", `/agents/${a.rootAgentId}/facts`, { content: "The user's favourite number is 7." });
-  record("api", "semantic facts endpoint", fact.status < 300, fact.status === 501 || fact.status === 502 ? `unavailable in this setup (HTTP ${fact.status}: no embeddings provider)` : `HTTP ${fact.status}`);
+  const fact = await call("POST", `/agents/${a.rootAgentId}/facts`, {
+    content: "The user's favourite number is 7.",
+  });
+  record(
+    "api",
+    "semantic facts endpoint",
+    fact.status < 300,
+    fact.status === 501 || fact.status === 502
+      ? `unavailable in this setup (HTTP ${fact.status}: no embeddings provider)`
+      : `HTTP ${fact.status}`,
+  );
   return { A, B, a };
 }
 
@@ -117,10 +163,19 @@ async function ask(resource: string, question: string): Promise<string> {
   return res.outcome === "success" ? (res.result ?? "") : `(turn ${res.outcome})`;
 }
 
-async function agentChecks(ctx: { A: string; B: string; a: { rootAgentId: string } }, repeats: number) {
+async function agentChecks(
+  ctx: { A: string; B: string; a: { rootAgentId: string } },
+  repeats: number,
+) {
   const id = ctx.a.rootAgentId;
   // Plant distinct facts, plus near-duplicate and stale values as distractors.
-  const plant: Record<string, unknown> = { pet: "Biscuit", city: "Lisbon", color: "teal", pet_old: "Rex", city_previous: "Porto" };
+  const plant: Record<string, unknown> = {
+    pet: "Biscuit",
+    city: "Lisbon",
+    color: "teal",
+    pet_old: "Rex",
+    city_previous: "Porto",
+  };
   for (let i = 0; i < 12; i++) plant[`note_${i}`] = `filler value ${i}`;
   for (const [k, v] of Object.entries(plant)) await call("PUT", mem(id, k), { value: v });
 
@@ -131,7 +186,10 @@ async function agentChecks(ctx: { A: string; B: string; a: { rootAgentId: string
     if (/biscuit/i.test(pet)) tally.recall[0]++;
     else console.log(`   recall miss: ${JSON.stringify(pet.slice(0, 80))}`);
 
-    const city = await ask(ctx.A, "Which city do I live in now, according to your memory? (Not a previous one.)");
+    const city = await ask(
+      ctx.A,
+      "Which city do I live in now, according to your memory? (Not a previous one.)",
+    );
     tally.distractor[1]++;
     if (/lisbon/i.test(city) && !/porto/i.test(city)) tally.distractor[0]++;
     else console.log(`   distractor miss: ${JSON.stringify(city.slice(0, 80))}`);
@@ -149,29 +207,62 @@ async function agentChecks(ctx: { A: string; B: string; a: { rootAgentId: string
     if (/pixel/i.test(pet) && !/biscuit/i.test(pet)) tally.update[0]++;
     else console.log(`   update miss: ${JSON.stringify(pet.slice(0, 80))}`);
   }
-  record("agent", "a fresh agent (new sandbox, same resource) recalls a stored fact", tally.recall[0] === tally.recall[1] && tally.recall[1] > 0, `${tally.recall[0]}/${tally.recall[1]}`);
-  record("agent", "it picks the right key among near-duplicates and stale values", tally.distractor[0] === tally.distractor[1] && tally.distractor[1] > 0, `${tally.distractor[0]}/${tally.distractor[1]}`);
-  record("agent", "after an update it reports the new value, not the old one", tally.update[0] === tally.update[1] && tally.update[1] > 0, `${tally.update[0]}/${tally.update[1]}`);
-  record("agent", "an agent with a different resource does not know the value (no leak)", tally.isolation[0] === tally.isolation[1] && tally.isolation[1] > 0, `${tally.isolation[0]}/${tally.isolation[1]}`);
+  record(
+    "agent",
+    "a fresh agent (new sandbox, same resource) recalls a stored fact",
+    tally.recall[0] === tally.recall[1] && tally.recall[1] > 0,
+    `${tally.recall[0]}/${tally.recall[1]}`,
+  );
+  record(
+    "agent",
+    "it picks the right key among near-duplicates and stale values",
+    tally.distractor[0] === tally.distractor[1] && tally.distractor[1] > 0,
+    `${tally.distractor[0]}/${tally.distractor[1]}`,
+  );
+  record(
+    "agent",
+    "after an update it reports the new value, not the old one",
+    tally.update[0] === tally.update[1] && tally.update[1] > 0,
+    `${tally.update[0]}/${tally.update[1]}`,
+  );
+  record(
+    "agent",
+    "an agent with a different resource does not know the value (no leak)",
+    tally.isolation[0] === tally.isolation[1] && tally.isolation[1] > 0,
+    `${tally.isolation[0]}/${tally.isolation[1]}`,
+  );
   return tally;
 }
 
-const manifest = collectManifest({ scenario: "memory", model: process.env.BENCH_AGENT_MODEL ?? "openai/gpt-oss-20b" });
+const manifest = collectManifest({
+  scenario: "memory",
+  model: process.env.BENCH_AGENT_MODEL ?? "openai/gpt-oss-20b",
+});
 let stoppedEarly: string | undefined;
 let tally: unknown = null;
 try {
   const ctx = await apiChecks(!process.argv.includes("--no-restart"));
-  if (!process.argv.includes("--api-only")) tally = await agentChecks(ctx, Number(arg("repeats", "2")));
+  if (!process.argv.includes("--api-only"))
+    tally = await agentChecks(ctx, Number(arg("repeats", "2")));
 } catch (e) {
   if (e instanceof ProviderCapReached) stoppedEarly = e.message;
-  else record("api", "suite ran without an unexpected error", false, e instanceof Error ? e.message : String(e));
+  else
+    record(
+      "api",
+      "suite ran without an unexpected error",
+      false,
+      e instanceof Error ? e.message : String(e),
+    );
 } finally {
   for (const id of runIds) await deleteRun(id);
 }
 const dir = join(arg("out", "results"), `memory-${manifest.runId}`);
 mkdirSync(dir, { recursive: true });
 writeFileSync(join(dir, "manifest.json"), JSON.stringify(manifest, null, 2));
-writeFileSync(join(dir, "result.json"), JSON.stringify({ checks, tally, stoppedEarly: stoppedEarly ?? null }, null, 2));
+writeFileSync(
+  join(dir, "result.json"),
+  JSON.stringify({ checks, tally, stoppedEarly: stoppedEarly ?? null }, null, 2),
+);
 const ok = checks.filter((c) => c.pass).length;
 console.log(`\nmemory: ${ok}/${checks.length} checks passed`);
 if (stoppedEarly) console.log(`STOPPED EARLY: ${stoppedEarly}`);

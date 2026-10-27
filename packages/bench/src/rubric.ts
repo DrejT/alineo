@@ -45,7 +45,8 @@ export const CHECKS: readonly Check[] = [
     id: "C1",
     criterion: "completeness",
     needsQuote: true,
-    question: "Does the message name what it produced or changed (a specific file, script or output)?",
+    question:
+      "Does the message name what it produced or changed (a specific file, script or output)?",
   },
   {
     id: "C2",
@@ -65,7 +66,8 @@ export const CHECKS: readonly Check[] = [
     id: "L1",
     criterion: "clarity",
     needsQuote: false,
-    question: "Is every sentence specific to this task, with no generic advice, filler or boilerplate?",
+    question:
+      "Is every sentence specific to this task, with no generic advice, filler or boilerplate?",
   },
   {
     id: "L2",
@@ -108,7 +110,12 @@ Example 3. VERIFIED_FACT: PASSED. TRACE shows only a file write. Message: "I wro
 
 Questions:`;
 
-export function buildPrompt(input: { task: string; verified: string; trace: string; answer: string }): string {
+export function buildPrompt(input: {
+  task: string;
+  verified: string;
+  trace: string;
+  answer: string;
+}): string {
   const qs = CHECKS.map((c) => `${c.id}. ${c.question}`).join("\n");
   return (
     `${RUBRIC_TEXT}\n${qs}\n\n` +
@@ -139,14 +146,22 @@ export const SCHEMA: JsonSchema = {
 
 export const PAIR_SCHEMA: JsonSchema = {
   type: "object",
-  properties: { reasoning: { type: "string" }, winner: { type: "string", enum: ["A", "B", "tie"] } },
+  properties: {
+    reasoning: { type: "string" },
+    winner: { type: "string", enum: ["A", "B", "tie"] },
+  },
   required: ["reasoning", "winner"],
   additionalProperties: false,
 };
 
 /** Hash of everything that defines the judge's behaviour; recorded in each run to detect drift. */
 export function rubricHash(): string {
-  return createHash("sha256").update(RUBRIC_TEXT).update(JSON.stringify(CHECKS)).update(JSON.stringify(SCHEMA)).digest("hex").slice(0, 12);
+  return createHash("sha256")
+    .update(RUBRIC_TEXT)
+    .update(JSON.stringify(CHECKS))
+    .update(JSON.stringify(SCHEMA))
+    .digest("hex")
+    .slice(0, 12);
 }
 
 export interface CheckResult {
@@ -191,7 +206,11 @@ export function raterInstructions(): string {
   ].join("\n");
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 /** A quote is acceptable when it appears in the message after dropping punctuation and case. */
 export function quoteAppears(quote: string, message: string): boolean {

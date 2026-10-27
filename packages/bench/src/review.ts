@@ -16,7 +16,14 @@ import { agentSpec, deleteRun, getRun, startRun, waitResult } from "./alineod.ts
 import { assertProviderBudget, ProviderCapReached } from "./budget.ts";
 import { collectManifest } from "./manifest.ts";
 import { mean, wilson } from "./metrics.ts";
-import { buildRepo, parseFindings, REVIEW_PROMPT, scoreReview, type Finding, type SeededBug } from "./review-suite.ts";
+import {
+  buildRepo,
+  parseFindings,
+  REVIEW_PROMPT,
+  scoreReview,
+  type Finding,
+  type SeededBug,
+} from "./review-suite.ts";
 import { fetchRunEvidence, type Usage } from "./trace.ts";
 
 function arg(name: string, fallback: string): string {
@@ -33,13 +40,20 @@ interface Unit {
   bugs: SeededBug[];
 }
 const units: Unit[] = perFile
-  ? Object.entries(allFiles).map(([n, body]) => ({ label: n, files: { [n]: body }, bugs: allBugs.filter((b) => b.file === n) }))
+  ? Object.entries(allFiles).map(([n, body]) => ({
+      label: n,
+      files: { [n]: body },
+      bugs: allBugs.filter((b) => b.file === n),
+    }))
   : [{ label: "whole-repo", files: allFiles, bugs: allBugs }];
 
 const seedFor = (files: Record<string, string>) =>
   "mkdir -p /tmp/work/repo && " +
   Object.entries(files)
-    .map(([n, body]) => `echo ${Buffer.from(body).toString("base64")} | base64 -d > /tmp/work/repo/${n}`)
+    .map(
+      ([n, body]) =>
+        `echo ${Buffer.from(body).toString("base64")} | base64 -d > /tmp/work/repo/${n}`,
+    )
     .join(" && ");
 
 function inSandbox(sandboxId: string, script: string): string {
@@ -50,7 +64,10 @@ function inSandbox(sandboxId: string, script: string): string {
     // already running
   }
   try {
-    return execFileSync("docker", ["exec", name, "bash", "-c", script], { encoding: "utf8", timeout: 60_000 });
+    return execFileSync("docker", ["exec", name, "bash", "-c", script], {
+      encoding: "utf8",
+      timeout: 60_000,
+    });
   } catch {
     return "";
   }
@@ -75,7 +92,10 @@ interface Row {
 async function attempt(unit: Unit, repeat: number): Promise<Row> {
   const t0 = performance.now();
   const run = await startRun(
-    agentSpec({ name: `bench-review-${unit.label.replace(/\W/g, "")}-${repeat}`, extra: { packages: ["python3"], setup: [{ name: "seed", run: seedFor(unit.files) }] } }),
+    agentSpec({
+      name: `bench-review-${unit.label.replace(/\W/g, "")}-${repeat}`,
+      extra: { packages: ["python3"], setup: [{ name: "seed", run: seedFor(unit.files) }] },
+    }),
     REVIEW_PROMPT,
   );
   try {
@@ -83,7 +103,9 @@ async function attempt(unit: Unit, repeat: number): Promise<Row> {
     const sandboxId = (await getRun(run.runId)).agents[0]?.sandboxId ?? null;
     const raw = sandboxId ? inSandbox(sandboxId, "cat /tmp/work/review.json 2>/dev/null") : "";
     const sums = sandboxId ? inSandbox(sandboxId, "cd /tmp/work/repo && sha256sum *.py") : "";
-    const modified = Object.entries(unit.files).some(([n, b]) => !sums.includes(`${createHash("sha256").update(b).digest("hex")}  ${n}`));
+    const modified = Object.entries(unit.files).some(
+      ([n, b]) => !sums.includes(`${createHash("sha256").update(b).digest("hex")}  ${n}`),
+    );
     const findings = parseFindings(raw);
     const s = scoreReview(findings, unit.bugs);
     const evidence = await fetchRunEvidence(run.runId, run.rootAgentId);
@@ -129,7 +151,20 @@ outer: for (let r = 0; r < repeats; r++) {
           stoppedEarly = e.message;
           break outer;
         }
-        row = { unit: unit.label, repeat: r, agentOutcome: "error", findings: [], bugs: unit.bugs.length, found: 0, truePositives: 0, cleanFileFalseAlarms: 0, modifiedCode: false, attempts: a, wallMs: 0, rawReview: String(e) };
+        row = {
+          unit: unit.label,
+          repeat: r,
+          agentOutcome: "error",
+          findings: [],
+          bugs: unit.bugs.length,
+          found: 0,
+          truePositives: 0,
+          cleanFileFalseAlarms: 0,
+          modifiedCode: false,
+          attempts: a,
+          wallMs: 0,
+          rawReview: String(e),
+        };
       }
     }
     if (row) {
@@ -159,12 +194,24 @@ const summary = {
   meanFindingsPerRun: mean(scored.map((r) => r.findings.length)),
   stoppedEarly: stoppedEarly ?? null,
 };
-const manifest = collectManifest({ scenario: "code-review", mode: summary.mode, repeats, bugs: allBugs.length, model: process.env.BENCH_AGENT_MODEL ?? "openai/gpt-oss-20b" });
+const manifest = collectManifest({
+  scenario: "code-review",
+  mode: summary.mode,
+  repeats,
+  bugs: allBugs.length,
+  model: process.env.BENCH_AGENT_MODEL ?? "openai/gpt-oss-20b",
+});
 const dir = join(arg("out", "results"), `review-${manifest.runId}`);
 mkdirSync(dir, { recursive: true });
 writeFileSync(join(dir, "manifest.json"), JSON.stringify(manifest, null, 2));
-writeFileSync(join(dir, "rows.json"), JSON.stringify({ summary, rows, seededBugs: allBugs }, null, 2));
-const pc = (w: { p: number; lo: number; hi: number }) => `${(100 * w.p).toFixed(0)}% (95% CI ${(100 * w.lo).toFixed(0)}-${(100 * w.hi).toFixed(0)}%)`;
-console.log(`\nmode ${summary.mode}: recall ${totalFound}/${totalBugs} = ${pc(summary.recall)}; precision ${totalTp}/${totalFind} = ${pc(summary.precision)}; clean-file false alarms ${summary.falseAlarmsOnCleanFile}; ${summary.scored}/${summary.runs} runs scored`);
+writeFileSync(
+  join(dir, "rows.json"),
+  JSON.stringify({ summary, rows, seededBugs: allBugs }, null, 2),
+);
+const pc = (w: { p: number; lo: number; hi: number }) =>
+  `${(100 * w.p).toFixed(0)}% (95% CI ${(100 * w.lo).toFixed(0)}-${(100 * w.hi).toFixed(0)}%)`;
+console.log(
+  `\nmode ${summary.mode}: recall ${totalFound}/${totalBugs} = ${pc(summary.recall)}; precision ${totalTp}/${totalFind} = ${pc(summary.precision)}; clean-file false alarms ${summary.falseAlarmsOnCleanFile}; ${summary.scored}/${summary.runs} runs scored`,
+);
 if (stoppedEarly) console.log(`STOPPED EARLY: ${stoppedEarly}`);
 console.log(`wrote ${dir}`);

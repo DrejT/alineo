@@ -53,7 +53,11 @@ export async function judgePanel(
   settled.forEach((s, i) => {
     if (s.status === "fulfilled") judges.push(s.value);
     else if (s.reason instanceof BudgetExceeded) throw s.reason;
-    else failed.push({ judge: providers[i]!.id, error: s.reason instanceof Error ? s.reason.message : String(s.reason) });
+    else
+      failed.push({
+        judge: providers[i]!.id,
+        error: s.reason instanceof Error ? s.reason.message : String(s.reason),
+      });
   });
   const comps = judges.map((j) => j.composite);
   const flags = judges.map((j) => j.overclaims);

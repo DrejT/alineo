@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildSheet, compare, deriveItems, labelerHtml, readRaterCsv, realItems } from "../src/labels.ts";
+import {
+  buildSheet,
+  compare,
+  deriveItems,
+  labelerHtml,
+  readRaterCsv,
+  realItems,
+} from "../src/labels.ts";
 import { CHECK_IDS } from "../src/rubric.ts";
 import type { OutcomeRow } from "../src/outcome.ts";
 
@@ -11,14 +18,19 @@ const row = (task: string, repeat: number, o: Partial<OutcomeRow> = {}): Outcome
   verifyOutput: "ok",
   wallMs: 1,
   finalText: `I wrote /tmp/work/${task}.py and ran it.`,
-  trace: 'CALL write {"path":"x"}\nRESULT write: ok\nCALL bash {"command":"python3 x"}\nRESULT bash exit=0: ok',
+  trace:
+    'CALL write {"path":"x"}\nRESULT write: ok\nCALL bash {"command":"python3 x"}\nRESULT bash exit=0: ok',
   ...o,
 });
 
 const rows: OutcomeRow[] = [
   row("fizzbuzz", 0),
   row("fizzbuzz", 1),
-  row("log-count", 0, { passed: false, verifyOutput: "wrong", finalText: "I counted the lines in /tmp/work/access.log." }),
+  row("log-count", 0, {
+    passed: false,
+    verifyOutput: "wrong",
+    finalText: "I counted the lines in /tmp/work/access.log.",
+  }),
   row("word-frequency", 0, { trace: 'CALL write {"path":"x"}\nRESULT write: ok' }), // no bash run in the trace
   row("csv-aggregate", 0, { finalText: "", passed: false }),
 ];
@@ -47,13 +59,22 @@ describe("labelling items", () => {
   });
   it("the sheet is blind: public items carry no source, and the key is separate", () => {
     const { pub, key } = buildSheet(rows, 6, 0.5);
-    expect(Object.keys(pub[0]!).sort()).toEqual(["double", "id", "message", "task", "trace", "verified"]);
+    expect(Object.keys(pub[0]!).sort()).toEqual([
+      "double",
+      "id",
+      "message",
+      "task",
+      "trace",
+      "verified",
+    ]);
     expect(Object.keys(key).sort()).toEqual(pub.map((p) => p.id).sort());
     expect(JSON.stringify(pub)).not.toContain("derived:");
     expect(pub.filter((p) => p.double).length).toBe(Math.round(pub.length * 0.5));
   });
   it("the export is deterministic", () => {
-    expect(buildSheet(rows, 6, 0.3).pub.map((p) => p.id)).toEqual(buildSheet(rows, 6, 0.3).pub.map((p) => p.id));
+    expect(buildSheet(rows, 6, 0.3).pub.map((p) => p.id)).toEqual(
+      buildSheet(rows, 6, 0.3).pub.map((p) => p.id),
+    );
   });
 });
 
@@ -71,19 +92,41 @@ describe("labeler page", () => {
 
 describe("agreement", () => {
   const csv = (rowsIn: [string, string][]) =>
-    [["id", ...CHECK_IDS].join(","), ...rowsIn.map(([id, v]) => [id, ...CHECK_IDS.map(() => v)].join(","))].join("\n") + "\n";
+    [
+      ["id", ...CHECK_IDS].join(","),
+      ...rowsIn.map(([id, v]) => [id, ...CHECK_IDS.map(() => v)].join(",")),
+    ].join("\n") + "\n";
 
   it("reads rater CSVs and skips incomplete rows", () => {
-    const m = readRaterCsv(csv([["a", "y"], ["b", "n"]]) + "c,y,n\n");
+    const m = readRaterCsv(
+      csv([
+        ["a", "y"],
+        ["b", "n"],
+      ]) + "c,y,n\n",
+    );
     expect([...m.keys()]).toEqual(["a", "b"]);
     expect(m.get("a")!["A1"]).toBe(true);
     expect(m.get("b")!["A1"]).toBe(false);
   });
   it("identical raters agree perfectly, opposite raters do not", () => {
-    const all = readRaterCsv(csv([["a", "y"], ["b", "n"], ["c", "y"], ["d", "n"]]));
+    const all = readRaterCsv(
+      csv([
+        ["a", "y"],
+        ["b", "n"],
+        ["c", "y"],
+        ["d", "n"],
+      ]),
+    );
     const same = compare([...all.values()].map((a) => ({ a, b: a })));
     expect(same.overclaimKappa).toBeCloseTo(1);
-    const flipped = readRaterCsv(csv([["a", "n"], ["b", "y"], ["c", "n"], ["d", "y"]]));
+    const flipped = readRaterCsv(
+      csv([
+        ["a", "n"],
+        ["b", "y"],
+        ["c", "n"],
+        ["d", "y"],
+      ]),
+    );
     const opp = compare([...all.keys()].map((id) => ({ a: all.get(id)!, b: flipped.get(id)! })));
     expect(opp.overclaimKappa).toBeLessThan(0);
   });

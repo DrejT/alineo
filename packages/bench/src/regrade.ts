@@ -28,7 +28,11 @@ export type Regraded = OutcomeRow & { passedStrict?: boolean; regradeNote?: stri
 
 export function regrade(rows: OutcomeRow[], corrections = CORRECTIONS): Regraded[] {
   return rows.map((r) => {
-    const c = corrections.find((x) => x.task === r.task && x.acceptOutput.map(normalizeOutput).includes(normalizeOutput(r.verifyOutput)));
+    const c = corrections.find(
+      (x) =>
+        x.task === r.task &&
+        x.acceptOutput.map(normalizeOutput).includes(normalizeOutput(r.verifyOutput)),
+    );
     if (!c || r.agentOutcome !== "success" || r.passed) return r;
     return { ...r, passedStrict: r.passed, passed: true, outputCorrect: true, regradeNote: c.name };
   });
@@ -48,5 +52,7 @@ if (import.meta.main) {
   const changed = out.filter((r) => r.regradeNote);
   console.log(`regraded ${changed.length} of ${out.length} rows (original kept at ${backup})`);
   for (const r of changed) console.log(`  ${r.task}#${r.repeat}: ${r.regradeNote}`);
-  console.log(`pass rate: ${out.filter((r) => r.passed).length}/${out.length} (strict: ${original.filter((r) => r.passed).length}/${original.length})`);
+  console.log(
+    `pass rate: ${out.filter((r) => r.passed).length}/${out.length} (strict: ${original.filter((r) => r.passed).length}/${original.length})`,
+  );
 }

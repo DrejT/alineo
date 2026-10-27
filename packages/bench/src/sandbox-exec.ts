@@ -11,25 +11,42 @@ export function isPaused(sandboxId: string): boolean {
   let last: unknown;
   for (let i = 0; i < 4; i++) {
     try {
-      return execFileSync("docker", ["inspect", "-f", "{{.State.Status}}", container(sandboxId)], { encoding: "utf8", timeout: 20_000 }).trim() === "paused";
+      return (
+        execFileSync("docker", ["inspect", "-f", "{{.State.Status}}", container(sandboxId)], {
+          encoding: "utf8",
+          timeout: 20_000,
+        }).trim() === "paused"
+      );
     } catch (e) {
       last = e;
     }
   }
-  throw new Error(`docker inspect failed for ${container(sandboxId)}: ${last instanceof Error ? last.message.slice(0, 120) : String(last)}`);
+  throw new Error(
+    `docker inspect failed for ${container(sandboxId)}: ${last instanceof Error ? last.message.slice(0, 120) : String(last)}`,
+  );
 }
 
 /** Run a shell command in the sandbox. Unpauses first unless `keepPaused` (docker refuses exec on a paused container). */
-export function sandboxExec(sandboxId: string, script: string, opts: { keepPaused?: boolean } = {}): string {
+export function sandboxExec(
+  sandboxId: string,
+  script: string,
+  opts: { keepPaused?: boolean } = {},
+): string {
   if (!opts.keepPaused) {
     try {
-      execFileSync("docker", ["unpause", container(sandboxId)], { stdio: "ignore", timeout: 15_000 });
+      execFileSync("docker", ["unpause", container(sandboxId)], {
+        stdio: "ignore",
+        timeout: 15_000,
+      });
     } catch {
       // not paused
     }
   }
   try {
-    return execFileSync("docker", ["exec", container(sandboxId), "bash", "-c", script], { encoding: "utf8", timeout: 60_000 }).trim();
+    return execFileSync("docker", ["exec", container(sandboxId), "bash", "-c", script], {
+      encoding: "utf8",
+      timeout: 60_000,
+    }).trim();
   } catch {
     return "";
   }

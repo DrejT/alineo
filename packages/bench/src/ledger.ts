@@ -34,7 +34,13 @@ const entry = (i: number, bytes: number): LedgerEntry => ({
 });
 
 /** Run `total` appends with `concurrency` writers in flight; returns per-op latencies and wall time. */
-async function appendLoad(a: IStorageAdapter, total: number, concurrency: number, bytes: number, offset: number) {
+async function appendLoad(
+  a: IStorageAdapter,
+  total: number,
+  concurrency: number,
+  bytes: number,
+  offset: number,
+) {
   const lat: number[] = [];
   let next = 0;
   const t0 = performance.now();
@@ -70,8 +76,19 @@ async function benchAdapter(name: string, a: IStorageAdapter) {
     for (const c of [1, 8, 32]) {
       const r = await appendLoad(a, EVENTS, c, bytes, offset);
       offset += EVENTS;
-      rows.push({ adapter: name, payloadBytes: bytes, concurrency: c, events: EVENTS, opsPerSec: r.opsPerSec, p50: r.latency.p50, p95: r.latency.p95, p99: r.latency.p99 });
-      console.log(`${name} payload=${bytes}B c=${c}: ${r.opsPerSec.toFixed(0)} ops/s p50=${r.latency.p50.toFixed(1)}ms p95=${r.latency.p95.toFixed(1)}ms p99=${r.latency.p99.toFixed(1)}ms`);
+      rows.push({
+        adapter: name,
+        payloadBytes: bytes,
+        concurrency: c,
+        events: EVENTS,
+        opsPerSec: r.opsPerSec,
+        p50: r.latency.p50,
+        p95: r.latency.p95,
+        p99: r.latency.p99,
+      });
+      console.log(
+        `${name} payload=${bytes}B c=${c}: ${r.opsPerSec.toFixed(0)} ops/s p50=${r.latency.p50.toFixed(1)}ms p95=${r.latency.p95.toFixed(1)}ms p99=${r.latency.p99.toFixed(1)}ms`,
+      );
     }
   }
   // Replay: one session with many events, so readAll has real work to do.
@@ -99,14 +116,35 @@ async function benchAdapter(name: string, a: IStorageAdapter) {
 
 async function withPostgres<T>(fn: (conn: string) => Promise<T>): Promise<T> {
   const name = `bench-pg-${Date.now()}`;
-  execFileSync("docker", ["run", "-d", "--rm", "--name", name, "-e", "POSTGRES_PASSWORD=bench", "-p", "55432:5432", "postgres:16-alpine"], { stdio: "ignore", timeout: 240_000 });
+  execFileSync(
+    "docker",
+    [
+      "run",
+      "-d",
+      "--rm",
+      "--name",
+      name,
+      "-e",
+      "POSTGRES_PASSWORD=bench",
+      "-p",
+      "55432:5432",
+      "postgres:16-alpine",
+    ],
+    { stdio: "ignore", timeout: 240_000 },
+  );
   try {
     for (let i = 0; i < 60; i++) {
       try {
-        execFileSync("docker", ["exec", name, "pg_isready", "-U", "postgres"], { stdio: "ignore", timeout: 10_000 });
+        execFileSync("docker", ["exec", name, "pg_isready", "-U", "postgres"], {
+          stdio: "ignore",
+          timeout: 10_000,
+        });
         // The image restarts once during init; give it a moment, then confirm again.
         await new Promise((r) => setTimeout(r, 3000));
-        execFileSync("docker", ["exec", name, "pg_isready", "-U", "postgres"], { stdio: "ignore", timeout: 10_000 });
+        execFileSync("docker", ["exec", name, "pg_isready", "-U", "postgres"], {
+          stdio: "ignore",
+          timeout: 10_000,
+        });
         break;
       } catch {
         await new Promise((r) => setTimeout(r, 2000));
@@ -122,14 +160,20 @@ async function withPostgres<T>(fn: (conn: string) => Promise<T>): Promise<T> {
   }
 }
 
-const manifest = collectManifest({ scenario: "ledger-throughput", events: EVENTS, sqliteSynchronous: "FULL" });
+const manifest = collectManifest({
+  scenario: "ledger-throughput",
+  events: EVENTS,
+  sqliteSynchronous: "FULL",
+});
 const dbDir = join(tmpdir(), `bench-ledger-${Date.now()}`);
 mkdirSync(dbDir, { recursive: true });
 const results: Record<string, unknown> = {};
 try {
   results["sqlite"] = await benchAdapter("sqlite", new SQLiteAdapter(join(dbDir, "ledger.db")));
   if (!process.argv.includes("--no-postgres")) {
-    results["postgres"] = await withPostgres((conn) => benchAdapter("postgres", new PostgresAdapter(conn)));
+    results["postgres"] = await withPostgres((conn) =>
+      benchAdapter("postgres", new PostgresAdapter(conn)),
+    );
   }
 } finally {
   rmSync(dbDir, { recursive: true, force: true });

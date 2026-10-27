@@ -30,7 +30,8 @@ export function parseSse(text: string): SseEvent[] {
   return out;
 }
 
-const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) + "..." : s).replace(/\s+/g, " ").trim();
+const clip = (s: string, n: number) =>
+  (s.length > n ? s.slice(0, n) + "..." : s).replace(/\s+/g, " ").trim();
 
 /**
  * Arguments of a tool call. A written file's content is kept (up to 2,500 characters) because the judge needs
@@ -42,7 +43,8 @@ export function renderArgs(args: unknown): string {
   const content = typeof a["content"] === "string" ? (a["content"] as string) : undefined;
   if (content !== undefined) {
     const { content: _c, ...rest } = a;
-    const body = content.length > 2500 ? content.slice(0, 2500) + "\n...(content truncated)" : content;
+    const body =
+      content.length > 2500 ? content.slice(0, 2500) + "\n...(content truncated)" : content;
     return `${clip(JSON.stringify(rest), 200)} content<<<\n${body}\n>>>`;
   }
   const edits = a["edits"];
@@ -62,15 +64,24 @@ export function traceFromEvents(events: SseEvent[], agentId: string): string {
     if ("args" in data && !("result" in data)) {
       lines.push(`CALL ${name} ${renderArgs(data["args"])}`);
     } else if ("result" in data) {
-      const res = data["result"] as { content?: { text?: string }[]; structuredContent?: { output?: string; exit_code?: number } } | undefined;
+      const res = data["result"] as
+        | {
+            content?: { text?: string }[];
+            structuredContent?: { output?: string; exit_code?: number };
+          }
+        | undefined;
       const sc = res?.structuredContent;
       const text = sc?.output ?? res?.content?.map((c) => c.text ?? "").join("") ?? "";
       const exit = typeof sc?.exit_code === "number" ? ` exit=${sc.exit_code}` : "";
-      lines.push(`RESULT ${name}${data["isError"] === true ? " (error)" : ""}${exit}: ${clip(text, 200)}`);
+      lines.push(
+        `RESULT ${name}${data["isError"] === true ? " (error)" : ""}${exit}: ${clip(text, 200)}`,
+      );
     }
   }
   const out = lines.join("\n");
-  return out.length > 9000 ? out.slice(0, 9000) + "\n...(truncated)" : out || "(no tool calls recorded)";
+  return out.length > 9000
+    ? out.slice(0, 9000) + "\n...(truncated)"
+    : out || "(no tool calls recorded)";
 }
 
 export interface Usage {
@@ -90,7 +101,9 @@ export function usageFromEvents(events: SseEvent[], agentId: string): Usage {
   const u: Usage = { input: 0, output: 0, total: 0, cost: 0 };
   for (const { data } of events) {
     if (data["agentId"] !== agentId) continue;
-    const m = data["message"] as { role?: string; timestamp?: unknown; usage?: Record<string, unknown> } | undefined;
+    const m = data["message"] as
+      | { role?: string; timestamp?: unknown; usage?: Record<string, unknown> }
+      | undefined;
     if (!m || m.role !== "assistant" || !m.usage) continue;
     const key = `${String(m.timestamp ?? "")}|${JSON.stringify(m.usage)}`;
     if (seen.has(key)) continue;
@@ -115,7 +128,11 @@ export async function fetchRunEvidence(
   return { trace: traceFromEvents(events, agentId), usage: usageFromEvents(events, agentId) };
 }
 
-export async function readEvents(runId: string, idleMs = 2500, maxMs = 15_000): Promise<SseEvent[]> {
+export async function readEvents(
+  runId: string,
+  idleMs = 2500,
+  maxMs = 15_000,
+): Promise<SseEvent[]> {
   const ctl = new AbortController();
   const hard = setTimeout(() => ctl.abort(), maxMs);
   let text = "";
@@ -127,7 +144,9 @@ export async function readEvents(runId: string, idleMs = 2500, maxMs = 15_000): 
     for (;;) {
       const next = await Promise.race([
         reader.read(),
-        new Promise<{ done: true; value?: undefined }>((r) => setTimeout(() => r({ done: true }), idleMs)),
+        new Promise<{ done: true; value?: undefined }>((r) =>
+          setTimeout(() => r({ done: true }), idleMs),
+        ),
       ]);
       if (next.done) break;
       text += dec.decode(next.value, { stream: true });
