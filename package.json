@@ -28,6 +28,7 @@
     "packages/cli",
     "packages/cli-shared",
     "packages/mcp",
+    "packages/bench",
     "examples/*",
     "cookbooks/*",
     "tests/integration",
