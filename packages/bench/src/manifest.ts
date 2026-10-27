@@ -31,7 +31,7 @@ function tryExec(cmd: string, args: string[], timeout = 8000): string | null {
 }
 
 /** Docker's view of its own VM (on Docker Desktop this is the WSL2 limit, the real ceiling). */
-export function dockerInfo(timeout = 8000): Manifest["docker"] {
+function dockerInfo(timeout = 8000): Manifest["docker"] {
   const raw = tryExec(
     "docker",
     ["info", "--format", "{{.NCPU}} {{.MemTotal}} {{.ServerVersion}}"],

@@ -20,7 +20,7 @@ export interface JudgeScore extends Scored {
   family: LlmProvider["family"];
 }
 
-export async function judgeOne(
+async function judgeOne(
   provider: LlmProvider,
   input: JudgeInput,
   opts?: CompleteOptions,

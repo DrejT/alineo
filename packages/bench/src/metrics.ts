@@ -22,7 +22,7 @@ function ranks(xs: readonly number[]): number[] {
   return out;
 }
 
-export function pearson(x: readonly number[], y: readonly number[]): number {
+function pearson(x: readonly number[], y: readonly number[]): number {
   const mx = mean(x);
   const my = mean(y);
   let num = 0;

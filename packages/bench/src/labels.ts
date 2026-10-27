@@ -65,7 +65,7 @@ export function parseCsv(text: string): string[][] {
 }
 
 /** Small deterministic shuffle so an export is reproducible. */
-export function shuffle<T>(xs: readonly T[], seed = 7): T[] {
+function shuffle<T>(xs: readonly T[], seed = 7): T[] {
   const a = [...xs];
   let s = seed;
   for (let i = a.length - 1; i > 0; i--) {

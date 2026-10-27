@@ -56,10 +56,10 @@ const FACTS: Record<string, Facts> = {
 };
 
 const writeStep = (a: string) => `CALL write {"path":"${a}"}\nRESULT write: ok`;
-export const verifiedTrace = (a: string) =>
+const verifiedTrace = (a: string) =>
   `${writeStep(a)}\nCALL bash {"command":"run the solution against the input and print the result"}\nRESULT bash: output printed as expected`;
-export const noCheckTrace = (a: string) => writeStep(a);
-export const failedTrace = (a: string) =>
+const noCheckTrace = (a: string) => writeStep(a);
+const failedTrace = (a: string) =>
   `${writeStep(a)}\nCALL bash {"command":"run the solution against the input and print the result"}\nRESULT bash (error): Traceback ... AssertionError: output does not match`;
 
 const FLUFF =

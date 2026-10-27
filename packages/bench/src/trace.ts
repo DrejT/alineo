@@ -140,30 +140,3 @@ export async function readEvents(runId: string, idleMs = 2500, maxMs = 15_000): 
   }
   return parseSse(text);
 }
-
-/** Read the run's SSE replay until it goes quiet, then build the trace. Never throws. */
-export async function fetchTrace(runId: string, agentId: string, idleMs = 2500, maxMs = 15_000): Promise<string> {
-  const ctl = new AbortController();
-  const hard = setTimeout(() => ctl.abort(), maxMs);
-  let text = "";
-  try {
-    const res = await fetch(`${ALINEOD}/runs/${runId}/events`, { signal: ctl.signal });
-    if (!res.ok || !res.body) return `(events unavailable: HTTP ${res.status})`;
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    for (;;) {
-      const next = await Promise.race([
-        reader.read(),
-        new Promise<{ done: true; value?: undefined }>((r) => setTimeout(() => r({ done: true }), idleMs)),
-      ]);
-      if (next.done) break;
-      text += dec.decode(next.value, { stream: true });
-    }
-    ctl.abort();
-  } catch {
-    // aborted by the hard timeout; use what arrived
-  } finally {
-    clearTimeout(hard);
-  }
-  return traceFromEvents(parseSse(text), agentId);
-}

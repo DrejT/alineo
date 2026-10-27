@@ -145,7 +145,7 @@ export class TokenLimiter {
   }
 }
 
-export const estimateTokens = (prompt: string, reply = 450) => Math.ceil(prompt.length / 3.5) + reply;
+const estimateTokens = (prompt: string, reply = 450) => Math.ceil(prompt.length / 3.5) + reply;
 
 /** Groq limits tokens per model, so each model gets its own window. */
 const groqLimiters = new Map<string, TokenLimiter>();
@@ -238,23 +238,6 @@ export function geminiProvider(model = process.env.BENCH_GEMINI_MODEL ?? "gemini
       return parseJsonLoose(text);
     }),
   };
-}
-
-/** Free-form Gemini text (the other author in the self-preference test). */
-export async function geminiText(
-  prompt: string,
-  model = process.env.BENCH_GEMINI_MODEL ?? "gemini-flash-lite-latest",
-): Promise<string> {
-  const key = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
-  if (!key) throw new Error("set GEMINI_API_KEY or GOOGLE_API_KEY for the Gemini judge");
-  if (uncachedCalls >= budgetLimit) throw new BudgetExceeded(budgetLimit);
-  uncachedCalls++;
-  const body = (await postJson(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    { "x-goog-api-key": key },
-    { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0 } },
-  )) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  return (body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "").trim();
 }
 
 /** Free-form text generation (used to have a second model family write a candidate answer). */

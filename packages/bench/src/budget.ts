@@ -12,7 +12,7 @@ export class ProviderCapReached extends Error {}
  * counts the size of each request), which let one suite burn 17 runs on retries. alineod logs the provider's
  * exact 429 text for every failed turn, so a "tokens per day" line in the last few minutes is conclusive.
  */
-export function assertNoRecentCap(sinceMinutes = 8): void {
+function assertNoRecentCap(sinceMinutes = 8): void {
   try {
     const out = execFileSync("docker", ["logs", "--since", `${sinceMinutes}m`, process.env.ALINEOD_CONTAINER ?? "alineo-alineod"], {
       encoding: "utf8",
