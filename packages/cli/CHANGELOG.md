@@ -1,5 +1,108 @@
 # drejx
 
+## 0.4.1
+
+### Patch Changes
+
+- d55be76: Refuse, before anything is sent, what the provider has declared it cannot do.
+
+  - `requireCapability(provider, capability)` throws `CAPABILITY_UNSUPPORTED`, naming the capability
+    and the provider. Only an explicit `false` is a refusal: `"unverified"` goes ahead and may still
+    fail at the call, and a provider with no descriptor is not second-guessed.
+  - `sb.checkpoint()` and `sb.fork()` check `snapshot`, `sb.pause()` checks `pause`, and `sb.egress.*`
+    checks `egress`.
+  - `Sandbox.sandbox()` refuses a `networkPolicy` with rules on a provider with no egress control and
+    a `credentialProxy` on one with no credential injection, before a container exists.
+  - `Sandbox.provider` exposes the provider. `alineo agents` uses it to list live sandboxes, and
+    `alineo-cli` no longer depends on `@alineo-labs/opensandbox`.
+
+  OpenSandbox declares egress and credentials as `"unverified"`, so nothing changes for it today.
+
+- c33c848: Telemetry sends the spec's provider again for `start` and `spawn`. It was keyed on the old verbs `spawn` and `fork`, so after the rename `start` sent none and `spawn` read the parent sandbox id as a spec path.
+- d55be76: Carry error codes across the alineod wire.
+
+  - `agent.ended`, `agent.turn_failed`, and `agent.supervision_needed` events gain an optional
+    `errorCode` beside `error`. The old fields are unchanged.
+  - alineod HTTP error bodies gain an optional `code` beside `error`. A response with no
+    applicable code is unchanged.
+  - A failure that arrives only as text, such as a model provider's `429`, is classified with
+    `errorCodeFromText()` into `MODEL_RATE_LIMITED` or `MODEL_UNAVAILABLE`.
+  - `alineo-cli` telemetry reports the alineo error code as `errorClass` when the error has one,
+    and the class name otherwise.
+  - `alineo-mcp` surfaces `code` on `AlineodError` and names it in a tool's error text.
+
+- d55be76: Show the `hint` of an error where a person reads it.
+
+  - The CLI prints `Hint: …` on its own line under the error message when the error carries one.
+  - alineod's HTTP error body gains `hint` beside `code`, for an unhandled error that has one.
+  - `alineo-mcp` tool errors end with a `Hint:` line when alineod sent a hint.
+
+- d55be76: `alineo init` now pins `opensandbox/execd:release-1.1.1` instead of `v1.0.22`.
+
+  `v1.0.22` emits one stdout event per line with the newline stripped, so a multi-line command's
+  `ExecResult.stdout` lost its line breaks: `echo one; echo two` returned `"onetwo"`. From 1.1.1 the
+  event text keeps its newline. The post-completion delay on `/command` also drops from about 1 s to
+  about 0.2 s.
+
+  An existing install keeps the `execd_image` in its `~/.config/alineo/server.toml`. To get the fix,
+  change that line to `opensandbox/execd:release-1.1.1` and restart the OpenSandbox container.
+
+- d55be76: Pick the sandbox provider from `alineo.config.json`, in the CLI and in alineod.
+
+  - `alineo.config.json` gains `provider`. It defaults to `"opensandbox"`, which is the only
+    provider today, so a file without the key behaves as before. `ALINEO_PROVIDER` overrides it.
+    `alineo init` writes the key into a new file and never rewrites an existing one.
+  - `@alineo-labs/sandbox` exports `providerFromConfig()` and `clientFromConfig()`. An unknown id
+    throws `INVALID_ARGUMENT` and names the known ids.
+  - Every CLI command and the agent runtime build their client through `clientFromConfig()`, so no
+    call site names OpenSandbox.
+  - A provider that declares it cannot enforce egress is refused before the approval listener
+    starts, with `CAPABILITY_UNSUPPORTED`.
+  - The leak check (`apps/alineod/scripts/sandbox-leaks.ts`) lists and deletes sandboxes through
+    the provider instead of calling the OpenSandbox REST API.
+
+- d55be76: Let `harness` and `model` in an agent spec carry their own version and provider.
+
+  ```json
+  {
+    "harness": { "id": "codex", "version": "0.162.1" },
+    "model": { "provider": "openai", "id": "gpt-5-codex" }
+  }
+  ```
+
+  - `harness` is an id or `{ id, version }`. `model` is an id or `{ provider, id }`. The string forms
+    are unchanged and not deprecated.
+  - The top-level `harnessVersion` and `provider` still work and are **deprecated**: use
+    `harness.version` and `model.provider`. `validateAgentSpec()` logs one warning per spec and field.
+  - Setting both spellings to different values is an error, not a silent pick.
+  - `claude-code` runs on `anthropic` models and `codex` on `openai`. A spec that names another
+    provider with one of those harnesses is rejected, where it was ignored before. Pi is unchanged.
+  - `validateAgentSpec()` returns the flat `AgentSpec` the runtime reads. The new `AgentSpecInput`
+    is what an author may write, and `normalizeAgentSpec()` converts one to the other.
+
+- Updated dependencies [bd29bac]
+- Updated dependencies [28f693f]
+- Updated dependencies [d55be76]
+- Updated dependencies [bd29bac]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [28f693f]
+- Updated dependencies [ed0d9e6]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+  - alineo@0.8.0
+  - @alineo-labs/sandbox@0.6.0
+  - @alineo-labs/errors@0.1.0
+  - @alineo-labs/sqlite@0.3.1
+
 ## 0.4.0
 
 ### Minor Changes

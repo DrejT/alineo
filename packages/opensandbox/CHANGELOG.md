@@ -1,5 +1,112 @@
 # @drej/opensandbox
 
+## 0.4.0
+
+### Minor Changes
+
+- d55be76: Add `@alineo-labs/provider`: the interface a sandbox provider implements, and the provider-neutral
+  types it speaks in. `@alineo-labs/opensandbox` gains `OpenSandboxProvider`, which implements it.
+
+  - `SandboxProvider`: `createSandbox`, `getSandbox`, `listSandboxes`, `deleteSandbox`,
+    `pauseSandbox`, `resumeSandbox`, `createSnapshot`, `getSnapshot`, `getEndpoint`, diagnostics,
+    `connectExec`, and optionally `connectPty` and `egress`.
+  - States are `SandboxState`, a plain string union, not a provider's enum. A state a provider cannot place is
+    `provisioning`, never `running`.
+  - `connectExec(sandboxId, { signal })` resolves once the sandbox accepts a connection, stops waiting
+    when the signal aborts, and rejects with
+    `EXEC_NOT_READY`, with the attempt count and the wait in `details`, when it never does.
+  - `SandboxProviderDescriptor` declares what a provider can do as plain data.
+
+  Nothing consumes it yet. Core and the SDK move onto it next.
+
+  `CodeLanguage` is one definition now: a const object in `@alineo-labs/provider` (`CodeLanguage.Python`
+  and the type `CodeLanguage` both work), re-exported unchanged by `@alineo-labs/opensandbox` and
+  `@alineo-labs/sandbox`. It replaces OpenSandbox's enum of the same name.
+
+- d55be76: Add `@alineo-labs/errors`: stable error codes and an `AlineoError` base class.
+
+  Every error alineo raises on purpose now carries a `code` (`SANDBOX_NOT_FOUND`,
+  `EXEC_NOT_READY`, `PROVIDER_RATE_LIMITED`, and so on) plus `category`, `retryable`, `hint`, and
+  `details`. Branch on `code`, not on the class name or the message.
+
+  - `ExecConnectionError` keeps its name and leading message text, and now carries `cause`,
+    `attempts`, and `waitedMs`, so a first-run failure says why execd never answered.
+  - `OpenSandboxError.code` is now the alineo code. OpenSandbox's own code
+    (`DOCKER::SANDBOX_NOT_FOUND`) moved to `OpenSandboxError.upstreamCode`. This is a breaking
+    change for anything that read the old `.code`.
+  - `WorkflowError`, `SandboxError`, `CommandError`, `StepTimeoutError`, and `SandboxClientError`
+    extend `AlineoError`. `instanceof` and `err.name` are unchanged.
+  - `isSandboxGone` decides by code first and keeps the message match as a fallback.
+  - `@alineo-labs/core` re-exports `AlineoError`, `errorCodeOf`, and `isRetryable`.
+
+### Patch Changes
+
+- d55be76: Stop reporting a command that never started as exit 0.
+
+  When execd cannot start a command it sends an `error` event whose `evalue` is a message
+  (`fork/exec /usr/bin/bash: argument list too long`), not an exit status. `ExecHandle` read only
+  numeric values, so the result stayed at its default exit 0 with no output. It is now exit 126,
+  with the message in `stderr`, so strict mode throws `CommandError`.
+
+  The usual cause is size. Linux allows 131,071 bytes in one argument, and `sb.exec()` sends the
+  command base64-encoded, so about 98 KB is the most it can carry. `ExecClient.executeCommand()`
+  now refuses a longer command before it sends it, with `INVALID_ARGUMENT` and a hint to use
+  `writeFile()`.
+
+- d55be76: Say how a command ended, and let a caller abort it.
+
+  - `ExecResult` gains optional `durationMs`, `killed`, `signal`, and `timedOut`. A command that a
+    signal ended is `killed` with the `signal` execd reported. It is `timedOut` when it was killed
+    after running for `timeoutMs`. A timeout and a kill from inside look the same on the wire, so
+    `timedOut` is a best guess from the elapsed time: a kill that lands close to the limit reads as a timeout. A command that exits non-zero on its own is none
+    of these.
+  - `ExecOptions.signal`: an `AbortSignal`. On abort the call rejects with the signal's reason
+    (`AbortError` by default) and execd is asked to interrupt the command, best effort. A signal that
+    is already aborted rejects before anything is sent.
+  - `exec.completed` records `durationMs`, `killed`, `signal`, and `timedOut` when they apply.
+    A row for an ordinary command is unchanged.
+  - `SSEEvent.error` types `ename` and `traceback`, which execd was already sending.
+
+- d55be76: Give the errors that had no code a code.
+
+  - `AGENT_NOT_FOUND`, `RUN_NOT_FOUND`, `AGENT_NOT_LIVE` and `AGENT_BUSY` are new codes. alineod's
+    404 and 409 answers for a missing agent, a missing run, an agent that is not live and an agent
+    still finishing a turn now carry them in `code`. Its 400 validation answers carry
+    `INVALID_ARGUMENT`, and a disabled memory store (501) carries `CAPABILITY_UNSUPPORTED`. Before,
+    only an unhandled error that was already an `AlineoError` had a `code` on the wire.
+  - A failure from the execd client (a command or a file call on a sandbox the server no longer
+    has, a failed upload or download) is an `OpenSandboxError` with an alineo code and the upstream
+    code in `.upstreamCode`. It was a plain `Error` whose message was the raw response body.
+
+- d55be76: Restore line endings that `execd` before 1.1.1 dropped from stdout and stderr.
+
+  `execd` v1.0.22 sends one event per line with the newline removed, and `ExecHandle` joined the
+  events with `""`, so `echo one; echo two` returned `"onetwo"`. An existing install keeps the
+  `execd_image` in its `server.toml`, so changing the pin only reaches new installs.
+
+  `OpenSandboxProvider` now recognises the dropped-ending shape and restores the endings in command
+  and session output, before core sees it. Core joins events as they are.
+
+  A stream with two or more ending-less events of one kind and no event of that kind that has an
+  ending can only be a server that dropped them, so those events are held until the stream's terminal
+  event and released with `\n`. The first event that carries an ending proves the server keeps them:
+  nothing is held, and nothing is changed. A lone ending-less event, a trailing fragment, a line split
+  across events (`"abc"` then `"def\n"`), and `\r`-terminated progress output are all left alone.
+  Each channel learns once: after a stream has proved the server drops endings, later output is
+  repaired as it arrives and not held.
+
+  Limit: on a server that drops endings, a final fragment printed on purpose without a newline gets
+  one added once the channel has learned. The events alone cannot tell the two apart.
+
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+  - @alineo-labs/provider@0.1.0
+  - @alineo-labs/errors@0.1.0
+
 ## 0.3.2
 
 ### Patch Changes
