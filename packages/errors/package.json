@@ -1,6 +1,6 @@
 {
   "name": "@alineo-labs/errors",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Stable error codes and the AlineoError base class shared by every alineo package",
   "license": "Apache-2.0",
   "repository": {
