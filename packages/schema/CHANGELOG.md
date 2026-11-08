@@ -1,5 +1,139 @@
 # @alineo-labs/schema
 
+## 0.3.0
+
+### Minor Changes
+
+- bd29bac: A restore from a gone container now says what it restored. alineod emits `agent.restored` with `oldSandboxId` and `checkpointTurn` right after `agent.provisioned`. `checkpointTurn` is `null` when the agent had no checkpoint and came back with a blank session. Before this, a restore from a checkpoint and a restore with nothing looked the same in the event stream.
+
+  The SDK adds `Alineo.restore` (`{ checkpointTurn: number | null }`), set by `resume()` and `reattach()` when they return an agent on a fresh sandbox, and the `AgentRestore` type.
+
+- d55be76: Add Claude Code as a second harness, driven through the Claude Agent SDK.
+
+  - Set `"harness": "claude-code"` in an agent spec. `harnessVersion` pins the
+    `@anthropic-ai/claude-agent-sdk` version. `model` is a Claude model id and the API key goes in
+    `env` as `ANTHROPIC_API_KEY`.
+  - A permission policy gates tool calls: `canUseTool` is parked as a `permission_request`, and
+    `agent.resolvePermission()` answers it. Claude's own read-only tools do not ask in `"ask"` mode.
+  - `steer`, `followUp` and `compact` are not available (the adapter declares them `false`).
+    `fork` is: `adapter.forkAt(messageId)`, with the `messageId` of a `message_start`.
+  - `ClaudeCodeAdapter` and `CLAUDE_CODE_CAPABILITIES` are exported and `@experimental`.
+  - `HarnessAdapter` gains `forkAt`, present when `capabilities.fork` is `true`.
+
+- d55be76: Add Codex as a third harness, driven through `codex app-server`.
+
+  - Set `"harness": "codex"` in an agent spec. `harnessVersion` pins `@openai/codex`. `model` is an
+    OpenAI model id and the key goes in `env` as `OPENAI_API_KEY`.
+  - `steer` (`turn/steer`), `compact` (`thread/compact/start`) and `forkAt` (`thread/fork`) work.
+    Fork granularity is the turn: every message of a turn has the turn id as its `messageId`.
+    `followUp` is not available.
+  - A permission policy gates command and file-change approvals. Codex asks for each one and the
+    bridge answers from the same policy as the other harnesses, parking the ones that need a human
+    as a `permission_request`.
+  - `HarnessAdapter` gains an optional `compact`, present when `capabilities.compact` is `true`.
+  - `CodexAdapter` and `CODEX_CAPABILITIES` are exported and `@experimental`.
+
+- 28f693f: Checkpoints can now be kept off the machine. Pass a `BlobStore` to `takeCheckpoint()` and each tarball is uploaded to it as well as written to the host disk, and `agent.checkpointed` gains `remoteRef` (where the object is) and `uploadError` (why an upload failed, when one was tried). `S3BlobStore` covers S3, R2 and MinIO through `Bun.S3Client`. `MemoryBlobStore` is a fake for tests.
+
+  `Alineo.resume()` and `Alineo.reattach()` take the same `blobStore` option. When the sandbox is gone and the host's own checkpoint file is gone too, the restore downloads the checkpoint, and if it cannot read the newest one it tries the next older one before it falls back to a blank session.
+
+  New exports: `BlobStore`, `S3BlobStore`, `MemoryBlobStore`, `findCheckpoints`, `fetchCheckpoint`, `pickRestorable`, `extractCheckpoint`, `pruneRemoteCheckpoints`.
+
+  Nothing changes unless you pass a store. A failed upload never fails a checkpoint.
+
+- d55be76: Let `harness` and `model` in an agent spec carry their own version and provider.
+
+  ```json
+  {
+    "harness": { "id": "codex", "version": "0.162.1" },
+    "model": { "provider": "openai", "id": "gpt-5-codex" }
+  }
+  ```
+
+  - `harness` is an id or `{ id, version }`. `model` is an id or `{ provider, id }`. The string forms
+    are unchanged and not deprecated.
+  - The top-level `harnessVersion` and `provider` still work and are **deprecated**: use
+    `harness.version` and `model.provider`. `validateAgentSpec()` logs one warning per spec and field.
+  - Setting both spellings to different values is an error, not a silent pick.
+  - `claude-code` runs on `anthropic` models and `codex` on `openai`. A spec that names another
+    provider with one of those harnesses is rejected, where it was ignored before. Pi is unchanged.
+  - `validateAgentSpec()` returns the flat `AgentSpec` the runtime reads. The new `AgentSpecInput`
+    is what an author may write, and `normalizeAgentSpec()` converts one to the other.
+
+### Patch Changes
+
+- d55be76: Carry error codes across the alineod wire.
+
+  - `agent.ended`, `agent.turn_failed`, and `agent.supervision_needed` events gain an optional
+    `errorCode` beside `error`. The old fields are unchanged.
+  - alineod HTTP error bodies gain an optional `code` beside `error`. A response with no
+    applicable code is unchanged.
+  - A failure that arrives only as text, such as a model provider's `429`, is classified with
+    `errorCodeFromText()` into `MODEL_RATE_LIMITED` or `MODEL_UNAVAILABLE`.
+  - `alineo-cli` telemetry reports the alineo error code as `errorClass` when the error has one,
+    and the class name otherwise.
+  - `alineo-mcp` surfaces `code` on `AlineodError` and names it in a tool's error text.
+
+- d55be76: Say how a command ended, and let a caller abort it.
+
+  - `ExecResult` gains optional `durationMs`, `killed`, `signal`, and `timedOut`. A command that a
+    signal ended is `killed` with the `signal` execd reported. It is `timedOut` when it was killed
+    after running for `timeoutMs`. A timeout and a kill from inside look the same on the wire, so
+    `timedOut` is a best guess from the elapsed time: a kill that lands close to the limit reads as a timeout. A command that exits non-zero on its own is none
+    of these.
+  - `ExecOptions.signal`: an `AbortSignal`. On abort the call rejects with the signal's reason
+    (`AbortError` by default) and execd is asked to interrupt the command, best effort. A signal that
+    is already aborted rejects before anything is sent.
+  - `exec.completed` records `durationMs`, `killed`, `signal`, and `timedOut` when they apply.
+    A row for an ordinary command is unchanged.
+  - `SSEEvent.error` types `ename` and `traceback`, which execd was already sending.
+
+- d55be76: Pick the sandbox provider from `alineo.config.json`, in the CLI and in alineod.
+
+  - `alineo.config.json` gains `provider`. It defaults to `"opensandbox"`, which is the only
+    provider today, so a file without the key behaves as before. `ALINEO_PROVIDER` overrides it.
+    `alineo init` writes the key into a new file and never rewrites an existing one.
+  - `@alineo-labs/sandbox` exports `providerFromConfig()` and `clientFromConfig()`. An unknown id
+    throws `INVALID_ARGUMENT` and names the known ids.
+  - Every CLI command and the agent runtime build their client through `clientFromConfig()`, so no
+    call site names OpenSandbox.
+  - A provider that declares it cannot enforce egress is refused before the approval listener
+    starts, with `CAPABILITY_UNSUPPORTED`.
+  - The leak check (`apps/alineod/scripts/sandbox-leaks.ts`) lists and deletes sandboxes through
+    the provider instead of calling the OpenSandbox REST API.
+
+- d55be76: Carry the sandbox provider through to alineod's agent view.
+
+  - `SandboxHandle.provider` reports the provider that owns the sandbox. The client that created the
+    handle sets it. The `alineo` package re-exports `DEFAULT_PROVIDER_ID`.
+  - `agent.provisioned` gains an optional `provider`. A event with none means `"opensandbox"`.
+  - The `agents` projection gains a `provider` column, derived from the ledger on `rebuild()`, and
+    `AgentView.provider` is in `GET /agents/:id` and the run tree (`null` until the agent has a sandbox).
+
+- d55be76: Record which sandbox provider owns each sandbox.
+
+  - `sandbox.created` gains an optional `provider` (`"opensandbox"` today). A row with no
+    `provider` means `"opensandbox"`. There is no migration: readers apply the default.
+  - `SandboxDetails.provider` and `ListSandboxOptions.provider` (core). Both SQLite and Postgres
+    adapters derive it from the `sandbox.created` payload, the same way they derive `runId`.
+    `DEFAULT_PROVIDER_ID` is exported from core.
+  - `Sandbox.resume()` throws `PROVIDER_MISMATCH` (409) when the session was created on another
+    provider, instead of sending a sandbox id to a server that has never heard of it.
+  - `AgentSnapshotStore` includes the provider in its key. OpenSandbox keeps the legacy key, so
+    an existing `agent-snapshots.json` keeps working, and saving for one provider no longer
+    deletes another provider's snapshot of the same spec.
+
+- d55be76: alineod re-sends a turn that failed on a transient model-provider error.
+
+  A turn that ends on a `429` or a `5xx` is now retried before the agent's `onFailure` policy runs: up
+  to `ALINEOD_TRANSIENT_RETRY_MAX` times (default `3`), with a doubling backoff from
+  `ALINEOD_TRANSIENT_RETRY_BASE_MS` (default 2 s, 25% jitter, capped at 30 s). Each retry emits a
+  new `agent.turn_retried` event and does not count toward the circuit breaker. Set
+  `ALINEOD_TRANSIENT_RETRY_MAX=0` to restore the old behavior.
+
+  In a 20-agent test on a 1 vCPU host, half the turns failed on `429` with no retry; with a
+  concurrency cap and retry, 19 of 20 succeeded.
+
 ## 0.2.0
 
 ### Minor Changes
