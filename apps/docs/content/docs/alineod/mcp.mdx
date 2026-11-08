@@ -95,7 +95,7 @@ For Claude Code: `claude mcp add alineo --env NVIDIA_API_KEY=nvapi-... -- npx -y
 
 ## Start alineod
 
-Every `run_*`, `agent_*` and `result_*` tool needs alineod reachable at `ALINEOD_URL` (default `http://127.0.0.1:4600`). Either:
+Every tool except `init` and the `spec_*` ones needs alineod reachable at `ALINEOD_URL` (default `http://127.0.0.1:4600`). Either:
 
 - **Ask the client to call `init`.** It starts OpenSandbox and alineod in Docker, pulling images if
   needed, and writes `alineo.config.json` in the current directory if missing. It forwards any model provider
@@ -146,15 +146,16 @@ until other agents finish, and `idempotencyKey` so a retried call cannot create 
 
 `agent_prompt` starts a turn and `agent_steer` redirects one in flight.
 `agent_pause` and `agent_resume` freeze and thaw a container. To observe, use
-`run_get` for the whole tree or `run_watch` for events.
+`run_get` for the whole tree or `run_watch` for events. To _wait_, use `agent_await` or `run_await` rather than
+polling — see [Wait instead of polling](#wait-instead-of-polling).
 
 </Step>
 <Step>
 
 ### Collect and tear down
 
-`result_get` returns a settled agent's output. `agent_stop` stops one agent and
-`run_stop` aborts and closes every live agent in the run. The ledger is kept.
+`result_get` returns a settled agent's output, and `transcript_get` returns the full conversation behind it.
+`agent_stop` stops one agent and `run_stop` aborts and closes every live agent in the run. The ledger is kept.
 
 </Step>
 </Steps>
@@ -162,6 +163,123 @@ until other agents finish, and `idempotencyKey` so a retried call cannot create 
 For a complete, runnable version of this flow, see the [MCP Agent Swarm](/docs/cookbooks/mcp-agent-swarm)
 cookbook: a lead agent forks two reviewers, one is paused and the other steered, and an editor merges their
 findings, all through these tools.
+
+## Recipes
+
+Each recipe shows the tool call a client makes. You rarely write these yourself — ask for the outcome in chat and
+the client picks the tools — but they show what to ask for and what comes back.
+
+### Wait instead of polling
+
+A swarm takes minutes. Rather than calling `run_get` in a loop, hold the request on the server:
+
+- **`agent_await`** blocks until an agent _and every descendant_ are quiescent (nothing left running), or
+  `waitSeconds` passes. Use it on a lead agent that fans out, to know when the whole subtree is done.
+- **`run_await`** blocks until a set of agents meets a wait regime. Give it either `agents` or a `subtree`, never both.
+
+```json
+{
+  "name": "run_await",
+  "arguments": {
+    "runId": "r1",
+    "agents": ["reviewer-security", "reviewer-correctness"],
+    "mode": "all",
+    "waitSeconds": 120
+  }
+}
+```
+
+| `mode`    | Satisfied when                                    |
+| --------- | ------------------------------------------------- |
+| `settled` | every agent is terminal, whatever its outcome     |
+| `all`     | every agent finished successfully                 |
+| `any`     | the first agent settles                           |
+| `quorum`  | `k` agents finished successfully (give `k`)       |
+
+The reply's `outcome` is `satisfied`, `partial`, `depfail` or `pending`. **`pending` means the wait timed out, not
+that anything failed** — `settled` and `pending` in the body show who is done and who is not, so call again with the
+same arguments to keep waiting. `waitSeconds` is capped at 240; set `onDepFailure` to `proceed` to carry on when a
+dependency fails. Then read each result with `result_get`, or the whole conversation with `transcript_get`.
+
+### Read what an agent actually did
+
+`result_get` gives the final output. When it looks wrong, or you want to review the work, ask for the conversation:
+
+```json
+{ "name": "transcript_get", "arguments": { "agentId": "reviewer-security" } }
+```
+
+It returns user messages, assistant text with its tool calls, and the tool results. Add `"full": true` to include
+the model's thinking.
+
+### Let agents hear about each other
+
+By default an agent only knows what its prompt says. To have one react when others finish, subscribe it, then
+deliver:
+
+```json
+{
+  "name": "notify_add",
+  "arguments": { "agentId": "editor", "agents": ["reviewer-security", "reviewer-correctness"], "wake": true }
+}
+```
+
+When a watched agent settles, a notification lands in the editor's inbox. With `wake: true`, an idle editor starts
+a turn with it instead of queueing it. `inbox_list` shows what is `pending` and what was `delivered`, and
+`inbox_deliver` hands over everything pending right now. Its reply says how it arrived: `steer` (into a running turn),
+`turn` (the agent was idle, so a new turn started) or `queued` (the agent is paused and gets it on resume). See
+[Coordination](/docs/alineod/concepts/coordination) for the model behind this.
+
+### Seed and inspect memory
+
+Each agent has a durable **working memory** (key/value) and, when enabled, **semantic memory** (facts). From the
+client you can set state before a run, or check what an agent learned after it:
+
+```json
+{ "name": "memory_set", "arguments": { "agentId": "lead", "key": "repo", "value": { "url": "https://github.com/expressjs/cors", "branch": "main" } } }
+```
+
+| Goal                              | Tool                                              |
+| --------------------------------- | ------------------------------------------------- |
+| Write or overwrite a key          | `memory_set` (any JSON value; size-capped)        |
+| Read one key                      | `memory_get` (an unset key is an error)           |
+| Page through every key            | `memory_list`, passing `nextAfter` as `after`     |
+| Delete a key                      | `memory_remove`                                   |
+| Store a fact                      | `fact_add`; add a `sourceRef` to mark it verified |
+| Recall facts about a topic        | `fact_list` with `query` (closest `topK`)         |
+| See the newest facts              | `fact_list` without `query` (newest `limit`)      |
+| Trim old or excess facts          | `compaction_start` with `maxFacts` / `maxAgeMs`   |
+
+`fact_add`, `fact_list` and `compaction_start` need semantic memory enabled on alineod. If it is not, they return
+an error rather than an empty list. `compaction_start` with neither limit removes nothing. Background:
+[Memory](/docs/alineod/concepts/memory) and [Memory in practice](/docs/alineod/concepts/memory-in-practice).
+
+### Control a whole subtree
+
+`agent_steer`, `agent_pause`, `agent_resume` and `agent_stop` act on one agent by default. Pass `"scope": "subtree"`
+to act on the agent and every descendant:
+
+```json
+{ "name": "agent_pause", "arguments": { "agentId": "lead", "scope": "subtree" } }
+```
+
+Pause goes parents first and resume goes children first; stop goes leaves first. The reply lists one result per
+member — `applied`, `skipped` or `failed` — so check it for stragglers. A subtree `agent_steer` delivers **one**
+message to the named agent plus a roster of its direct children, so it re-plans and redirects them itself; it is
+never a broadcast. See [Steering and pausing](/docs/alineod/concepts/steering-and-pausing).
+
+## Which tool for what
+
+| I want to…                                      | Use                                         |
+| ----------------------------------------------- | ------------------------------------------- |
+| Start a swarm and watch it live                 | `run_start`, then `run_watch`               |
+| Block until work is finished                    | `agent_await` or `run_await`                |
+| Get the answer from one agent                   | `result_get`                                |
+| Audit how an agent got there                    | `transcript_get`                            |
+| Redirect an agent mid-turn                      | `agent_steer`                               |
+| Have one agent react to others finishing        | `notify_add`, `inbox_deliver`               |
+| Give an agent state, or read what it kept       | `memory_*`, `fact_*`                        |
+| Stop everything under a lead agent              | `agent_stop` with `scope: "subtree"`        |
 
 ## Tools
 
