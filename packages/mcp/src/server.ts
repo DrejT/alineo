@@ -53,7 +53,11 @@ const CloseWhen = z
       "run closes itself the moment every agent in it is done.",
   );
 
-const AgentSpecInput = z
+const Scope = z
+  .enum(["agent", "subtree"])
+  .describe('"agent" (default): the named agent only. "subtree": it and every descendant.');
+
+const AgentSpecInput =z
   .record(z.string(), z.unknown())
   .describe("An alineo AgentSpec object (validated server-side by alineod's own SDK call).");
 
@@ -71,8 +75,11 @@ export function buildServer(
         "OpenSandbox + alineod locally) → spec_add / spec_list to get an " +
         "AgentSpec → run_start to start a swarm → agent_spawn to fan out " +
         "children → agent_prompt / agent_steer to drive them → " +
-        "run_watch or run_get to observe progress → result_get to " +
-        "read a settled agent's output → agent_stop / run_stop to tear down. " +
+        "run_watch or run_get to observe progress, or agent_await / run_await to block until " +
+        "agents settle → result_get to read a settled agent's output (transcript_get for the " +
+        "full conversation) → agent_stop / run_stop to tear down. Agents can message each " +
+        "other via notify_add / inbox_list / inbox_deliver, and carry state in memory_* and " +
+        "fact_* tools. " +
         "alineod must be reachable (default http://127.0.0.1:4600, override with ALINEOD_URL) " +
         "for every run_*, agent_* and result_* tool; init starts it.",
     },
@@ -239,11 +246,15 @@ export function buildServer(
       title: "Steer an agent's current turn",
       description:
         "POST /agents/:agentId/steer — inject a message into the agent's in-flight turn (lands at the next turn boundary). The named agent only, never a subtree.",
-      inputSchema: z.object({ agentId: z.string().min(1), message: z.string().min(1) }),
+      inputSchema: z.object({
+        agentId: z.string().min(1),
+        message: z.string().min(1),
+        scope: Scope.optional(),
+      }),
     },
-    safe(async ({ agentId, message }) => {
-      await client.steerAgent(agentId, message);
-      return ok(`Steer message accepted for agent ${agentId}.`);
+    safe(async ({ agentId, message, scope }) => {
+      const res = await client.steerAgent(agentId, message, scope);
+      return res === undefined ? ok(`Steer message accepted for agent ${agentId}.`) : ok(res);
     }),
   );
 
@@ -251,12 +262,14 @@ export function buildServer(
     "agent_pause",
     {
       title: "Pause an agent",
-      description: "POST /agents/:agentId/pause — freeze the agent's sandbox container.",
-      inputSchema: z.object({ agentId: z.string().min(1) }),
+      description:
+        "POST /agents/:agentId/pause — freeze the agent's sandbox container. " +
+        'scope "subtree" pauses it and every descendant, parents first.',
+      inputSchema: z.object({ agentId: z.string().min(1), scope: Scope.optional() }),
     },
-    safe(async ({ agentId }) => {
-      await client.pauseAgent(agentId);
-      return ok(`Agent ${agentId} pausing.`);
+    safe(async ({ agentId, scope }) => {
+      const res = await client.pauseAgent(agentId, scope);
+      return res === undefined ? ok(`Agent ${agentId} pausing.`) : ok(res);
     }),
   );
 
@@ -264,12 +277,14 @@ export function buildServer(
     "agent_resume",
     {
       title: "Resume a paused agent",
-      description: "POST /agents/:agentId/resume — thaw a paused sandbox container.",
-      inputSchema: z.object({ agentId: z.string().min(1) }),
+      description:
+        "POST /agents/:agentId/resume — thaw a paused sandbox container. " +
+        'scope "subtree" resumes it and every descendant, children first.',
+      inputSchema: z.object({ agentId: z.string().min(1), scope: Scope.optional() }),
     },
-    safe(async ({ agentId }) => {
-      await client.resumeAgent(agentId);
-      return ok(`Agent ${agentId} resuming.`);
+    safe(async ({ agentId, scope }) => {
+      const res = await client.resumeAgent(agentId, scope);
+      return res === undefined ? ok(`Agent ${agentId} resuming.`) : ok(res);
     }),
   );
 
@@ -278,15 +293,17 @@ export function buildServer(
     {
       title: "Stop an agent",
       description:
-        'POST /agents/:agentId/stop — abort and close one agent. mode defaults to "abort" ("drain" currently behaves the same).',
+        'POST /agents/:agentId/stop — abort and close one agent. mode defaults to "abort" ("drain" currently behaves the same). ' +
+        'scope "subtree" stops it and every descendant, leaves first, with one result per member.',
       inputSchema: z.object({
         agentId: z.string().min(1),
         mode: z.enum(["abort", "drain"]).optional(),
+        scope: Scope.optional(),
       }),
     },
-    safe(async ({ agentId, mode }) => {
-      await client.stopAgent(agentId, mode);
-      return ok(`Agent ${agentId} stopping (mode: ${mode ?? "abort"}).`);
+    safe(async ({ agentId, mode, scope }) => {
+      const res = await client.stopAgent(agentId, mode, scope);
+      return res === undefined ? ok(`Agent ${agentId} stopping (mode: ${mode ?? "abort"}).`) : ok(res);
     }),
   );
 
@@ -310,6 +327,225 @@ export function buildServer(
       }),
     },
     safe(async ({ agentId, waitSeconds }) => ok(await client.getResult(agentId, waitSeconds))),
+  );
+
+  // ── alineod: waits ────────────────────────────────────────────────────────
+
+  server.registerTool(
+    "agent_await",
+    {
+      title: "Wait for an agent's subtree to settle",
+      description:
+        "GET /agents/:agentId/await?scope=subtree — server-held long-poll until the agent and " +
+        "every descendant are quiescent, or waitSeconds elapses. Use instead of polling " +
+        "run_get. Returns each member's outcome and whether the subtree is quiescent.",
+      inputSchema: z.object({
+        agentId: z.string().min(1),
+        waitSeconds: z.number().int().min(0).max(240).optional().describe("Capped at 240."),
+      }),
+    },
+    safe(async ({ agentId, waitSeconds }) => ok(await client.awaitAgent(agentId, waitSeconds))),
+  );
+
+  server.registerTool(
+    "run_await",
+    {
+      title: "Wait on a set of agents in a run",
+      description:
+        "POST /runs/:runId/await — hold until a wait regime over `agents` is met, or until " +
+        "`subtree`'s agent is quiescent (give exactly one of the two). mode: settled (every " +
+        "agent terminal), all (every one succeeded), any (the first to settle), quorum (k " +
+        "successes). outcome is satisfied, partial, depfail or pending (timed out).",
+      inputSchema: z.object({
+        runId: z.string().min(1),
+        agents: z.array(z.string().min(1)).min(1).optional(),
+        subtree: z.string().min(1).optional(),
+        mode: z.enum(["settled", "all", "any", "quorum"]).optional(),
+        k: z.number().int().positive().optional().describe('Required when mode is "quorum".'),
+        onDepFailure: z.enum(["fail", "proceed"]).optional(),
+        waitSeconds: z.number().min(0).max(240).optional().describe("Capped at 240."),
+      }),
+    },
+    safe(async ({ runId, waitSeconds, ...rest }) =>
+      ok(await client.awaitRun(runId, { ...rest, wait: waitSeconds })),
+    ),
+  );
+
+  // ── alineod: records a run leaves behind ──────────────────────────────────
+
+  server.registerTool(
+    "transcript_get",
+    {
+      title: "Read an agent's transcript",
+      description:
+        "GET /agents/:agentId/transcript — the agent's conversation: user messages, assistant " +
+        "text with tool calls, and tool results. Pass full to include the model's thinking.",
+      inputSchema: z.object({ agentId: z.string().min(1), full: z.boolean().optional() }),
+    },
+    safe(async ({ agentId, full }) => ok(await client.getTranscript(agentId, full))),
+  );
+
+  // ── alineod: agent-to-agent messaging ─────────────────────────────────────
+
+  server.registerTool(
+    "notify_add",
+    {
+      title: "Subscribe an agent to others' results",
+      description:
+        "POST /agents/:agentId/notify-on — when any of `agents` settles, a notification lands " +
+        "in this agent's inbox. With wake, an idle subscriber starts a turn with it instead of " +
+        "queueing it.",
+      inputSchema: z.object({
+        agentId: z.string().min(1).describe("The subscriber."),
+        agents: z.array(z.string().min(1)).min(1).describe("The agents to be told about."),
+        wake: z.boolean().optional(),
+      }),
+    },
+    safe(async ({ agentId, agents, wake }) => ok(await client.notifyOn(agentId, { agents, wake }))),
+  );
+
+  server.registerTool(
+    "inbox_list",
+    {
+      title: "List an agent's inbox",
+      description:
+        "GET /agents/:agentId/inbox — notifications waiting for the agent (`pending`) and ones " +
+        "already handed over (`delivered`).",
+      inputSchema: z.object({ agentId: z.string().min(1) }),
+    },
+    safe(async ({ agentId }) => ok(await client.getInbox(agentId))),
+  );
+
+  server.registerTool(
+    "inbox_deliver",
+    {
+      title: "Deliver an agent's pending inbox",
+      description:
+        "POST /agents/:agentId/inbox/deliver — hand every pending notification to the agent now, " +
+        "waking it with a turn if it is idle. The response says how it was delivered " +
+        "(steer / turn / queued).",
+      inputSchema: z.object({ agentId: z.string().min(1) }),
+    },
+    safe(async ({ agentId }) => ok(await client.deliverInbox(agentId))),
+  );
+
+  // ── alineod: agent memory ─────────────────────────────────────────────────
+
+  server.registerTool(
+    "memory_list",
+    {
+      title: "List an agent's working memory",
+      description:
+        "GET /agents/:agentId/memory — key/value working memory in key order, paged. Pass the " +
+        "response's `nextAfter` as `after` for the next page.",
+      inputSchema: z.object({
+        agentId: z.string().min(1),
+        limit: z.number().int().min(1).optional(),
+        after: z.string().optional().describe("Return keys after this one."),
+      }),
+    },
+    safe(async ({ agentId, limit, after }) => ok(await client.listMemory(agentId, { limit, after }))),
+  );
+
+  server.registerTool(
+    "memory_get",
+    {
+      title: "Read one working-memory key",
+      description: "GET /agents/:agentId/memory/:key — 404 if the key is not set.",
+      inputSchema: z.object({ agentId: z.string().min(1), key: z.string().min(1) }),
+    },
+    safe(async ({ agentId, key }) => ok(await client.getMemory(agentId, key))),
+  );
+
+  server.registerTool(
+    "memory_set",
+    {
+      title: "Write one working-memory key",
+      description:
+        "PUT /agents/:agentId/memory/:key — create or overwrite. The value is any JSON " +
+        "(size-capped by alineod); use it to seed an agent with state before it runs.",
+      inputSchema: z.object({
+        agentId: z.string().min(1),
+        key: z.string().min(1),
+        value: z.unknown().describe("Any JSON-serializable value."),
+      }),
+    },
+    safe(async ({ agentId, key, value }) => ok(await client.setMemory(agentId, key, value))),
+  );
+
+  server.registerTool(
+    "memory_remove",
+    {
+      title: "Delete one working-memory key",
+      description: "DELETE /agents/:agentId/memory/:key.",
+      inputSchema: z.object({ agentId: z.string().min(1), key: z.string().min(1) }),
+    },
+    safe(async ({ agentId, key }) => {
+      await client.deleteMemory(agentId, key);
+      return ok(`Memory key '${key}' removed for agent ${agentId}.`);
+    }),
+  );
+
+  server.registerTool(
+    "fact_add",
+    {
+      title: "Remember a fact",
+      description:
+        "POST /agents/:agentId/facts — store one item of the agent's semantic memory. A fact " +
+        "with a sourceRef (the sandbox and ledger entry it came from) is marked verified. " +
+        "Needs semantic memory enabled on alineod.",
+      inputSchema: z.object({
+        agentId: z.string().min(1),
+        content: z.string().min(1),
+        sourceRef: z
+          .object({
+            sandboxId: z.string().min(1),
+            entryIndex: z.number().int().nonnegative(),
+          })
+          .optional(),
+      }),
+    },
+    safe(async ({ agentId, content, sourceRef }) =>
+      ok(await client.addFact(agentId, { content, sourceRef })),
+    ),
+  );
+
+  server.registerTool(
+    "fact_list",
+    {
+      title: "Recall or list facts",
+      description:
+        "GET /agents/:agentId/facts — with `query`, the topK facts most similar to it; without, " +
+        "the newest `limit` facts.",
+      inputSchema: z.object({
+        agentId: z.string().min(1),
+        query: z.string().optional(),
+        topK: z.number().int().min(1).optional(),
+        limit: z.number().int().min(1).optional(),
+      }),
+    },
+    safe(async ({ agentId, query, topK, limit }) =>
+      ok(await client.listFacts(agentId, { query, topK, limit })),
+    ),
+  );
+
+  server.registerTool(
+    "compaction_start",
+    {
+      title: "Compact an agent's semantic memory",
+      description:
+        "POST /agents/:agentId/compactions — drop facts beyond maxFacts (oldest first) or older " +
+        "than maxAgeMs. Both are optional and combinable; with neither, nothing is removed. " +
+        "Returns how many were removed and remain.",
+      inputSchema: z.object({
+        agentId: z.string().min(1),
+        maxFacts: z.number().int().positive().optional(),
+        maxAgeMs: z.number().int().positive().optional(),
+      }),
+    },
+    safe(async ({ agentId, maxFacts, maxAgeMs }) =>
+      ok(await client.compactMemory(agentId, { maxFacts, maxAgeMs })),
+    ),
   );
 
   // ── alineo: local spec management + bootstrap ─────────────────────────────

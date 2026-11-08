@@ -49,7 +49,10 @@ import type {
   BudgetOverride as BudgetOverrideSchema,
   CloseWhen as CloseWhenSchema,
   CreateRunResponse as CreateRunResponseSchema,
+  QuiescenceView as QuiescenceViewSchema,
   ResultResponse as ResultResponseSchema,
+  RunAwaitBody as RunAwaitBodySchema,
+  RunAwaitResponse as RunAwaitResponseSchema,
   SpawnAgentResponse as SpawnAgentResponseSchema,
   TreeView as TreeViewSchema,
 } from "@alineo-labs/schema/alineod";
@@ -61,6 +64,11 @@ export type SpawnAgentResponse = z.infer<typeof SpawnAgentResponseSchema>;
 export type AgentDetail = z.infer<typeof AgentDetailSchema>;
 export type TreeView = z.infer<typeof TreeViewSchema>;
 export type ResultResponse = z.infer<typeof ResultResponseSchema>;
+/** "subtree" fans the control out to the agent and every descendant. */
+export type ControlScope = "agent" | "subtree";
+export type QuiescenceView =z.infer<typeof QuiescenceViewSchema>;
+export type RunAwaitInput = z.input<typeof RunAwaitBodySchema>;
+export type RunAwaitResponse = z.infer<typeof RunAwaitResponseSchema>;
 
 /**
  * The two request bodies keep `spec: Record<string, unknown>` rather than reusing the wire
@@ -170,29 +178,124 @@ export class AlineodClient {
     return this.request("POST", `/agents/${encodeURIComponent(agentId)}/prompt`, { text });
   }
 
-  steerAgent(agentId: string, message: string): Promise<void> {
-    return this.request("POST", `/agents/${encodeURIComponent(agentId)}/steer`, { message });
+  /** Resolves with the per-member result for `scope: "subtree"`, and `undefined` (a 202) otherwise. */
+  steerAgent(agentId: string, message: string, scope?: ControlScope): Promise<unknown> {
+    return this.request("POST", `/agents/${encodeURIComponent(agentId)}/steer`, {
+      message,
+      ...(scope ? { scope } : {}),
+    });
   }
 
-  pauseAgent(agentId: string): Promise<void> {
-    return this.request("POST", `/agents/${encodeURIComponent(agentId)}/pause`);
+  pauseAgent(agentId: string, scope?: ControlScope): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/agents/${encodeURIComponent(agentId)}/pause`,
+      scope ? { scope } : undefined,
+    );
   }
 
-  resumeAgent(agentId: string): Promise<void> {
-    return this.request("POST", `/agents/${encodeURIComponent(agentId)}/resume`);
+  resumeAgent(agentId: string, scope?: ControlScope): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/agents/${encodeURIComponent(agentId)}/resume`,
+      scope ? { scope } : undefined,
+    );
   }
 
-  stopAgent(agentId: string, mode?: "abort" | "drain"): Promise<void> {
+  stopAgent(agentId: string, mode?: "abort" | "drain", scope?: ControlScope): Promise<unknown> {
+    const body = { ...(mode ? { mode } : {}), ...(scope ? { scope } : {}) };
     return this.request(
       "POST",
       `/agents/${encodeURIComponent(agentId)}/stop`,
-      mode ? { mode } : undefined,
+      Object.keys(body).length > 0 ? body : undefined,
     );
   }
 
   getResult(agentId: string, waitSeconds?: number): Promise<ResultResponse> {
     const qs = waitSeconds ? `?wait=${encodeURIComponent(String(waitSeconds))}` : "";
     return this.request("GET", `/agents/${encodeURIComponent(agentId)}/result${qs}`);
+  }
+
+  /** Long-polls until the agent's whole subtree is quiescent, or `waitSeconds` elapses. */
+  awaitAgent(agentId: string, waitSeconds?: number): Promise<QuiescenceView> {
+    const qs = new URLSearchParams({ scope: "subtree" });
+    if (waitSeconds) qs.set("wait", String(waitSeconds));
+    return this.request("GET", `/agents/${encodeURIComponent(agentId)}/await?${qs}`);
+  }
+
+  awaitRun(runId: string, body: RunAwaitInput): Promise<RunAwaitResponse> {
+    return this.request("POST", `/runs/${encodeURIComponent(runId)}/await`, body);
+  }
+
+  getTranscript(agentId: string, full?: boolean): Promise<unknown> {
+    const qs = full ? "?full=1" : "";
+    return this.request("GET", `/agents/${encodeURIComponent(agentId)}/transcript${qs}`);
+  }
+
+  getInbox(agentId: string): Promise<unknown> {
+    return this.request("GET", `/agents/${encodeURIComponent(agentId)}/inbox`);
+  }
+
+  deliverInbox(agentId: string): Promise<unknown> {
+    return this.request("POST", `/agents/${encodeURIComponent(agentId)}/inbox/deliver`);
+  }
+
+  notifyOn(agentId: string, body: { agents: string[]; wake?: boolean }): Promise<unknown> {
+    return this.request("POST", `/agents/${encodeURIComponent(agentId)}/notify-on`, body);
+  }
+
+  listMemory(agentId: string, opts: { limit?: number; after?: string } = {}): Promise<unknown> {
+    const qs = new URLSearchParams();
+    if (opts.limit !== undefined) qs.set("limit", String(opts.limit));
+    if (opts.after !== undefined) qs.set("after", opts.after);
+    const suffix = qs.size > 0 ? `?${qs}` : "";
+    return this.request("GET", `/agents/${encodeURIComponent(agentId)}/memory${suffix}`);
+  }
+
+  getMemory(agentId: string, key: string): Promise<unknown> {
+    return this.request(
+      "GET",
+      `/agents/${encodeURIComponent(agentId)}/memory/${encodeURIComponent(key)}`,
+    );
+  }
+
+  setMemory(agentId: string, key: string, value: unknown): Promise<unknown> {
+    return this.request(
+      "PUT",
+      `/agents/${encodeURIComponent(agentId)}/memory/${encodeURIComponent(key)}`,
+      { value },
+    );
+  }
+
+  deleteMemory(agentId: string, key: string): Promise<void> {
+    return this.request(
+      "DELETE",
+      `/agents/${encodeURIComponent(agentId)}/memory/${encodeURIComponent(key)}`,
+    );
+  }
+
+  addFact(
+    agentId: string,
+    body: { content: string; sourceRef?: { sandboxId: string; entryIndex: number } },
+  ): Promise<unknown> {
+    return this.request("POST", `/agents/${encodeURIComponent(agentId)}/facts`, body);
+  }
+
+  /** With `query`, a semantic recall of the top `topK`; without, the newest `limit` facts. */
+  listFacts(
+    agentId: string,
+    opts: { query?: string; topK?: number; limit?: number } = {},
+  ): Promise<unknown> {
+    const qs = new URLSearchParams();
+    if (opts.query) qs.set("query", opts.query);
+    if (opts.topK !== undefined) qs.set("topK", String(opts.topK));
+    if (opts.limit !== undefined) qs.set("limit", String(opts.limit));
+    const suffix = qs.size > 0 ? `?${qs}` : "";
+    return this.request("GET", `/agents/${encodeURIComponent(agentId)}/facts${suffix}`);
+  }
+
+  compactMemory(agentId: string, body: { maxFacts?: number; maxAgeMs?: number }): Promise<unknown> {
+    return this.request("POST", `/agents/${encodeURIComponent(agentId)}/compactions`, body);
   }
 
   /**

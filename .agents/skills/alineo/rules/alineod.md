@@ -103,7 +103,9 @@ which is why it survives container loss.
 `packages/mcp` exposes alineod to MCP clients as `{subject}_{verb}` tools: `init`, `spec_add`,
 `spec_list`, `spec_remove`, `run_start`, `run_get`, `run_watch`, `run_stop`, `agent_spawn`,
 `agent_get`, `agent_prompt`, `agent_steer`, `agent_pause`, `agent_resume`, `agent_stop`,
-`result_get`. It needs alineod reachable at `ALINEOD_URL` (default `http://127.0.0.1:4600`);
+`result_get`, `agent_await`, `run_await`, `transcript_get`, `notify_add`, `inbox_list`,
+`inbox_deliver`, `memory_list`, `memory_get`, `memory_set`, `memory_remove`, `fact_add`,
+`fact_list`, `compaction_start`. It needs alineod reachable at `ALINEOD_URL` (default `http://127.0.0.1:4600`);
 `init` starts OpenSandbox + alineod locally. Its stdout is the JSON-RPC channel, so anything it
 logs is collected, never printed.
 
