@@ -1,5 +1,125 @@
 # drej
 
+## 0.6.0
+
+### Minor Changes
+
+- d55be76: Refuse, before anything is sent, what the provider has declared it cannot do.
+
+  - `requireCapability(provider, capability)` throws `CAPABILITY_UNSUPPORTED`, naming the capability
+    and the provider. Only an explicit `false` is a refusal: `"unverified"` goes ahead and may still
+    fail at the call, and a provider with no descriptor is not second-guessed.
+  - `sb.checkpoint()` and `sb.fork()` check `snapshot`, `sb.pause()` checks `pause`, and `sb.egress.*`
+    checks `egress`.
+  - `Sandbox.sandbox()` refuses a `networkPolicy` with rules on a provider with no egress control and
+    a `credentialProxy` on one with no credential injection, before a container exists.
+  - `Sandbox.provider` exposes the provider. `alineo agents` uses it to list live sandboxes, and
+    `alineo-cli` no longer depends on `@alineo-labs/opensandbox`.
+
+  OpenSandbox declares egress and credentials as `"unverified"`, so nothing changes for it today.
+
+- d55be76: Core and the SDK now run on a `SandboxProvider`, not on OpenSandbox's HTTP clients.
+
+  - `@alineo-labs/core` no longer imports `@alineo-labs/opensandbox`. `SandboxDeps.control` is
+    `SandboxDeps.provider`, and `SandboxDeps.useServerProxy` is gone (it is the provider's own
+    setting). `SandboxState` (a string union) replaces OpenSandbox's state enums, and `ExecEvent` replaces `SSEEvent`.
+  - `resolveExecClient(control, id, ...)` is replaced by `resolveExecChannel(provider, id)`. The
+    provider owns the wait. An `EXEC_NOT_READY` from it is re-thrown as `ExecConnectionError`.
+  - `sb.egress.*` and `exec(cmd, { interactive: true })` throw `CAPABILITY_UNSUPPORTED` on a
+    provider that has no egress control or no terminal.
+  - `Sandbox` takes an optional `provider`. `baseUrl` is optional when one is given. Without it,
+    `baseUrl`, `apiKey`, and `useServerProxy` build an `OpenSandboxProvider`, so existing callers
+    change nothing.
+  - `@alineo-labs/vault` takes any object with a `getEndpoint` (`EndpointSource`), and no longer
+    depends on `@alineo-labs/opensandbox`.
+
+- d55be76: Record which sandbox provider owns each sandbox.
+
+  - `sandbox.created` gains an optional `provider` (`"opensandbox"` today). A row with no
+    `provider` means `"opensandbox"`. There is no migration: readers apply the default.
+  - `SandboxDetails.provider` and `ListSandboxOptions.provider` (core). Both SQLite and Postgres
+    adapters derive it from the `sandbox.created` payload, the same way they derive `runId`.
+    `DEFAULT_PROVIDER_ID` is exported from core.
+  - `Sandbox.resume()` throws `PROVIDER_MISMATCH` (409) when the session was created on another
+    provider, instead of sending a sandbox id to a server that has never heard of it.
+  - `AgentSnapshotStore` includes the provider in its key. OpenSandbox keeps the legacy key, so
+    an existing `agent-snapshots.json` keeps working, and saving for one provider no longer
+    deletes another provider's snapshot of the same spec.
+
+- d55be76: Add `@alineo-labs/errors`: stable error codes and an `AlineoError` base class.
+
+  Every error alineo raises on purpose now carries a `code` (`SANDBOX_NOT_FOUND`,
+  `EXEC_NOT_READY`, `PROVIDER_RATE_LIMITED`, and so on) plus `category`, `retryable`, `hint`, and
+  `details`. Branch on `code`, not on the class name or the message.
+
+  - `ExecConnectionError` keeps its name and leading message text, and now carries `cause`,
+    `attempts`, and `waitedMs`, so a first-run failure says why execd never answered.
+  - `OpenSandboxError.code` is now the alineo code. OpenSandbox's own code
+    (`DOCKER::SANDBOX_NOT_FOUND`) moved to `OpenSandboxError.upstreamCode`. This is a breaking
+    change for anything that read the old `.code`.
+  - `WorkflowError`, `SandboxError`, `CommandError`, `StepTimeoutError`, and `SandboxClientError`
+    extend `AlineoError`. `instanceof` and `err.name` are unchanged.
+  - `isSandboxGone` decides by code first and keeps the message match as a fallback.
+  - `@alineo-labs/core` re-exports `AlineoError`, `errorCodeOf`, and `isRetryable`.
+
+### Patch Changes
+
+- ed0d9e6: Fix a fresh Pi 1.2.x install, and rebuild an environment whose snapshot image is gone.
+
+  - `alineo`: installing Pi `1.2.x` named an AWS SDK version the npm registry no longer serves, so every fresh agent start failed with `ETARGET`. The install command now also names `@aws-sdk/credential-provider-http@3.972.76` for `1.2.x` specifiers.
+  - `@alineo-labs/sandbox`: `env.sandbox()` threw `SANDBOX_IMAGE_PULL_FAILED` when the server still listed the snapshot but its image was gone. It now rebuilds the environment once, as alineod already does.
+
+- d55be76: Pick the sandbox provider from `alineo.config.json`, in the CLI and in alineod.
+
+  - `alineo.config.json` gains `provider`. It defaults to `"opensandbox"`, which is the only
+    provider today, so a file without the key behaves as before. `ALINEO_PROVIDER` overrides it.
+    `alineo init` writes the key into a new file and never rewrites an existing one.
+  - `@alineo-labs/sandbox` exports `providerFromConfig()` and `clientFromConfig()`. An unknown id
+    throws `INVALID_ARGUMENT` and names the known ids.
+  - Every CLI command and the agent runtime build their client through `clientFromConfig()`, so no
+    call site names OpenSandbox.
+  - A provider that declares it cannot enforce egress is refused before the approval listener
+    starts, with `CAPABILITY_UNSUPPORTED`.
+  - The leak check (`apps/alineod/scripts/sandbox-leaks.ts`) lists and deletes sandboxes through
+    the provider instead of calling the OpenSandbox REST API.
+
+- d55be76: Carry the sandbox provider through to alineod's agent view.
+
+  - `SandboxHandle.provider` reports the provider that owns the sandbox. The client that created the
+    handle sets it. The `alineo` package re-exports `DEFAULT_PROVIDER_ID`.
+  - `agent.provisioned` gains an optional `provider`. A event with none means `"opensandbox"`.
+  - The `agents` projection gains a `provider` column, derived from the ledger on `rebuild()`, and
+    `AgentView.provider` is in `GET /agents/:id` and the run tree (`null` until the agent has a sandbox).
+
+- d55be76: Export `AlineoError`, `errorCodeOf`, `isAlineoError`, `isRetryable` and the `ErrorCode` type from
+  `@alineo-labs/sandbox`, so a caller can branch on an error's code without installing
+  `@alineo-labs/errors` as well. They are the same values, not copies.
+- Updated dependencies [bd29bac]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [ed0d9e6]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [28f693f]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+- Updated dependencies [d55be76]
+  - @alineo-labs/schema@0.3.0
+  - @alineo-labs/core@0.6.0
+  - @alineo-labs/vault@0.4.0
+  - @alineo-labs/provider@0.1.0
+  - @alineo-labs/errors@0.1.0
+  - @alineo-labs/opensandbox@0.4.0
+
 ## 0.5.0
 
 ### Minor Changes
