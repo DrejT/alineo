@@ -69,7 +69,7 @@ equivalent:
 </Tab>
 </Tabs>
 
-Restart the client and it will list 16 tools, named `{subject}_{verb}` — `run_start`, `agent_spawn`, `spec_add` and so on.
+Restart the client and it will list 29 tools, named `{subject}_{verb}` — `run_start`, `agent_spawn`, `spec_add` and so on.
 
 ### Pass environment variables through the client
 
@@ -181,6 +181,39 @@ findings, all through these tools.
 | `agent_resume` | `POST /agents/:agentId/resume`  | Thaw a paused container.                                          |
 | `agent_stop`   | `POST /agents/:agentId/stop`    | Abort and close one agent.                                        |
 | `result_get`   | `GET /agents/:agentId/result`   | A settled agent's output. `waitSeconds` (max 240) long-polls.     |
+
+`agent_steer`, `agent_pause`, `agent_resume` and `agent_stop` take an optional `scope: "subtree"` to act on the agent
+and every descendant; the reply then lists one result per member.
+
+### Waiting and reading back (need alineod)
+
+| Tool             | alineod route                    | What it does                                                                                                 |
+| ---------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `agent_await`    | `GET /agents/:agentId/await`     | Hold until the agent's whole subtree is quiescent. `waitSeconds` (max 240).                                  |
+| `run_await`      | `POST /runs/:runId/await`        | Hold until `agents` meet a regime (`settled`, `all`, `any`, `quorum` + `k`), or a `subtree` is quiescent.    |
+| `transcript_get` | `GET /agents/:agentId/transcript` | The agent's conversation: messages, tool calls and tool results. `full` adds the model's thinking.          |
+
+### Agent-to-agent messaging (need alineod)
+
+| Tool            | alineod route                       | What it does                                                                     |
+| --------------- | ----------------------------------- | -------------------------------------------------------------------------------- |
+| `notify_add`    | `POST /agents/:agentId/notify-on`   | Tell an agent when others settle. `wake` starts a turn if it is idle.            |
+| `inbox_list`    | `GET /agents/:agentId/inbox`        | Notifications `pending` for the agent and ones already `delivered`.              |
+| `inbox_deliver` | `POST /agents/:agentId/inbox/deliver` | Hand the pending notifications over now, waking the agent if needed.           |
+
+### Memory (need alineod)
+
+| Tool               | alineod route                         | What it does                                                          |
+| ------------------ | ------------------------------------- | --------------------------------------------------------------------- |
+| `memory_list`      | `GET /agents/:agentId/memory`         | Working memory in key order, paged with `limit` / `after`.            |
+| `memory_get`       | `GET /agents/:agentId/memory/:key`    | One key.                                                              |
+| `memory_set`       | `PUT /agents/:agentId/memory/:key`    | Create or overwrite a key with any JSON value.                        |
+| `memory_remove`    | `DELETE /agents/:agentId/memory/:key` | Delete a key.                                                         |
+| `fact_add`         | `POST /agents/:agentId/facts`         | Remember a fact; with a `sourceRef` it is marked verified.            |
+| `fact_list`        | `GET /agents/:agentId/facts`          | With `query`, the `topK` closest facts; without, the newest `limit`.  |
+| `compaction_start` | `POST /agents/:agentId/compactions`   | Drop facts beyond `maxFacts` or older than `maxAgeMs`.                |
+
+`fact_*` and `compaction_start` need semantic memory enabled on alineod; without it they return an error.
 
 ### Setup and specs (work without alineod)
 

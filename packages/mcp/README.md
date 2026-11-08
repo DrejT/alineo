@@ -28,6 +28,27 @@ with `ALINEOD_URL`):
 | `agent_stop`   | `POST /agents/:agentId/stop`    | Abort + close one agent                                 |
 | `result_get`   | `GET /agents/:agentId/result`   | Resolve a settled agent's output (optional long-poll)   |
 
+`agent_steer`, `agent_pause`, `agent_resume` and `agent_stop` accept `scope: "subtree"` to act on the
+agent and every descendant.
+
+**alineod — waits, messaging and memory** (same requirements):
+
+| Tool               | Route                                 |                                                          |
+| ------------------ | ------------------------------------- | -------------------------------------------------------- |
+| `agent_await`      | `GET /agents/:agentId/await`          | Long-poll until the agent's subtree is quiescent         |
+| `run_await`        | `POST /runs/:runId/await`             | Long-poll until a set of agents meets a wait regime      |
+| `transcript_get`   | `GET /agents/:agentId/transcript`     | Read an agent's conversation (`full` adds thinking)      |
+| `notify_add`       | `POST /agents/:agentId/notify-on`     | Notify an agent when others settle                       |
+| `inbox_list`       | `GET /agents/:agentId/inbox`          | Pending and delivered notifications                      |
+| `inbox_deliver`    | `POST /agents/:agentId/inbox/deliver` | Deliver pending notifications now, waking the agent      |
+| `memory_list`      | `GET /agents/:agentId/memory`         | Working memory, paged                                    |
+| `memory_get`       | `GET /agents/:agentId/memory/:key`    | Read one key                                             |
+| `memory_set`       | `PUT /agents/:agentId/memory/:key`    | Write one key                                            |
+| `memory_remove`    | `DELETE /agents/:agentId/memory/:key` | Delete one key                                           |
+| `fact_add`         | `POST /agents/:agentId/facts`         | Remember a fact (semantic memory)                        |
+| `fact_list`        | `GET /agents/:agentId/facts`          | Recall by `query`, or list the newest                    |
+| `compaction_start` | `POST /agents/:agentId/compactions`   | Drop old or excess facts                                 |
+
 **alineo — local bootstrap + spec management** (no alineod required for these):
 
 | Tool          |                                                              |

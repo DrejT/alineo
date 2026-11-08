@@ -94,6 +94,7 @@ export const VERBS = [
   "watch",
   "init",
   "deliver",
+  "set",
 ] as const;
 
 export type Subject = (typeof SUBJECTS)[number];

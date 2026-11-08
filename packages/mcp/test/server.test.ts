@@ -26,6 +26,19 @@ const EXPECTED_TOOLS = [
   "agent_resume",
   "agent_stop",
   "result_get",
+  "agent_await",
+  "run_await",
+  "transcript_get",
+  "notify_add",
+  "inbox_list",
+  "inbox_deliver",
+  "memory_list",
+  "memory_get",
+  "memory_set",
+  "memory_remove",
+  "fact_add",
+  "fact_list",
+  "compaction_start",
   "init",
   "spec_add",
   "spec_list",
@@ -146,6 +159,222 @@ describe("alineo-mcp server", () => {
       expect(result.isError).toBe(true);
       const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
       expect(text).toContain("runId");
+    } finally {
+      await close();
+    }
+  });
+});
+
+type Seen = { method: string; url: string; body: unknown };
+
+/** Connects a server whose fake alineod records every request and answers with `respond`. */
+async function recording(respond: () => Response) {
+  const seen: Seen[] = [];
+  const fetchImpl = stubFetch(async (url, init) => {
+    seen.push({
+      method: init?.method ?? "GET",
+      url: String(url),
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    });
+    return respond();
+  });
+  return { seen, ...(await connectedClient(fetchImpl)) };
+}
+
+const json = (data: unknown, status = 200) => () =>
+  new Response(JSON.stringify(data), { status });
+
+const textOf = (r: { content?: unknown }) =>
+  (r.content as { type: string; text: string }[])[0]?.text ?? "";
+
+describe("alineo-mcp server wait, messaging and memory tools", () => {
+  const B = "http://test.local:4600";
+
+  it("agent_await long-polls the subtree endpoint", async () => {
+    const { seen, client, close } = await recording(
+      json({ rootAgentId: "a1", quiescent: true, members: [] }),
+    );
+    try {
+      const r = await client.callTool({
+        name: "agent_await",
+        arguments: { agentId: "a1", waitSeconds: 30 },
+      });
+      expect(r.isError).toBeFalsy();
+      expect(seen).toEqual([
+        { method: "GET", url: `${B}/agents/a1/await?scope=subtree&wait=30`, body: undefined },
+      ]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("run_await maps waitSeconds to wait and passes the regime through", async () => {
+    const { seen, client, close } = await recording(
+      json({ outcome: "satisfied", selected: ["a2"], settled: [], pending: [] }),
+    );
+    try {
+      await client.callTool({
+        name: "run_await",
+        arguments: { runId: "r1", agents: ["a2", "a3"], mode: "any", waitSeconds: 10 },
+      });
+      expect(seen).toEqual([
+        {
+          method: "POST",
+          url: `${B}/runs/r1/await`,
+          body: { agents: ["a2", "a3"], mode: "any", wait: 10 },
+        },
+      ]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("transcript_get asks for the full transcript only when told to", async () => {
+    const { seen, client, close } = await recording(json({ messages: [] }));
+    try {
+      await client.callTool({ name: "transcript_get", arguments: { agentId: "a1" } });
+      await client.callTool({ name: "transcript_get", arguments: { agentId: "a1", full: true } });
+      expect(seen.map((s) => s.url)).toEqual([
+        `${B}/agents/a1/transcript`,
+        `${B}/agents/a1/transcript?full=1`,
+      ]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("notify_add, inbox_list and inbox_deliver hit the messaging routes", async () => {
+    const { seen, client, close } = await recording(json({}));
+    try {
+      await client.callTool({
+        name: "notify_add",
+        arguments: { agentId: "a1", agents: ["a2"], wake: true },
+      });
+      await client.callTool({ name: "inbox_list", arguments: { agentId: "a1" } });
+      await client.callTool({ name: "inbox_deliver", arguments: { agentId: "a1" } });
+      expect(seen).toEqual([
+        {
+          method: "POST",
+          url: `${B}/agents/a1/notify-on`,
+          body: { agents: ["a2"], wake: true },
+        },
+        { method: "GET", url: `${B}/agents/a1/inbox`, body: undefined },
+        { method: "POST", url: `${B}/agents/a1/inbox/deliver`, body: undefined },
+      ]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("memory tools URL-encode the key and wrap the value", async () => {
+    const { seen, client, close } = await recording(json({ key: "a/b", value: 1 }));
+    try {
+      await client.callTool({
+        name: "memory_set",
+        arguments: { agentId: "a1", key: "a/b", value: { n: 1 } },
+      });
+      await client.callTool({ name: "memory_get", arguments: { agentId: "a1", key: "a/b" } });
+      await client.callTool({
+        name: "memory_list",
+        arguments: { agentId: "a1", limit: 5, after: "k" },
+      });
+      expect(seen).toEqual([
+        { method: "PUT", url: `${B}/agents/a1/memory/a%2Fb`, body: { value: { n: 1 } } },
+        { method: "GET", url: `${B}/agents/a1/memory/a%2Fb`, body: undefined },
+        { method: "GET", url: `${B}/agents/a1/memory?limit=5&after=k`, body: undefined },
+      ]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("memory_remove treats a 204 as success", async () => {
+    const { seen, client, close } = await recording(() => new Response(null, { status: 204 }));
+    try {
+      const r = await client.callTool({
+        name: "memory_remove",
+        arguments: { agentId: "a1", key: "k" },
+      });
+      expect(r.isError).toBeFalsy();
+      expect(textOf(r)).toContain("'k' removed");
+      expect(seen).toEqual([{ method: "DELETE", url: `${B}/agents/a1/memory/k`, body: undefined }]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("fact_add, fact_list and compaction_start hit the semantic-memory routes", async () => {
+    const { seen, client, close } = await recording(json({}));
+    try {
+      await client.callTool({
+        name: "fact_add",
+        arguments: { agentId: "a1", content: "x", sourceRef: { sandboxId: "s", entryIndex: 2 } },
+      });
+      await client.callTool({
+        name: "fact_list",
+        arguments: { agentId: "a1", query: "hello world", topK: 3 },
+      });
+      await client.callTool({ name: "fact_list", arguments: { agentId: "a1" } });
+      await client.callTool({
+        name: "compaction_start",
+        arguments: { agentId: "a1", maxFacts: 10 },
+      });
+      expect(seen).toEqual([
+        {
+          method: "POST",
+          url: `${B}/agents/a1/facts`,
+          body: { content: "x", sourceRef: { sandboxId: "s", entryIndex: 2 } },
+        },
+        { method: "GET", url: `${B}/agents/a1/facts?query=hello+world&topK=3`, body: undefined },
+        { method: "GET", url: `${B}/agents/a1/facts`, body: undefined },
+        { method: "POST", url: `${B}/agents/a1/compactions`, body: { maxFacts: 10 } },
+      ]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("pause, resume, stop and steer send scope only when given, and return the subtree result", async () => {
+    const { seen, client, close } = await recording(json({ asOf: 1, results: [] }, 200));
+    try {
+      const r = await client.callTool({
+        name: "agent_stop",
+        arguments: { agentId: "a1", scope: "subtree" },
+      });
+      expect(JSON.parse(textOf(r))).toEqual({ asOf: 1, results: [] });
+      await client.callTool({ name: "agent_pause", arguments: { agentId: "a1" } });
+      await client.callTool({
+        name: "agent_steer",
+        arguments: { agentId: "a1", message: "go", scope: "subtree" },
+      });
+      expect(seen.map((s) => s.body)).toEqual([
+        { scope: "subtree" },
+        undefined,
+        { message: "go", scope: "subtree" },
+      ]);
+    } finally {
+      await close();
+    }
+  });
+
+  it("a 202 from a single-agent control reads as a plain acknowledgement", async () => {
+    const { client, close } = await recording(() => new Response(null, { status: 202 }));
+    try {
+      const r = await client.callTool({ name: "agent_pause", arguments: { agentId: "a1" } });
+      expect(textOf(r)).toBe("Agent a1 pausing.");
+    } finally {
+      await close();
+    }
+  });
+
+  it("run_await rejects a call that names neither agents nor subtree via alineod's 400", async () => {
+    const { client, close } = await recording(
+      json({ error: "give exactly one of agents or subtree", code: "INVALID_ARGUMENT" }, 400),
+    );
+    try {
+      const r = await client.callTool({ name: "run_await", arguments: { runId: "r1" } });
+      expect(r.isError).toBe(true);
+      expect(textOf(r)).toContain("give exactly one of agents or subtree");
     } finally {
       await close();
     }
