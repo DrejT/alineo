@@ -11,6 +11,7 @@
     "packages/config-shared",
     "packages/schema",
     "packages/ledger",
+    "packages/graph",
     "packages/sdks/typescript",
     "packages/workflow",
     "packages/adapters/postgres",
