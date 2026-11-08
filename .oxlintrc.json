@@ -67,6 +67,7 @@
       "files": [
         "packages/logger/**",
         "packages/cli/**",
+        "packages/bench/**",
         "**/test/**",
         "**/*.test.ts",
         "**/pi-bridge.ts",

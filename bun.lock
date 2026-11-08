@@ -559,6 +559,19 @@
         "typescript": "6.0.3",
       },
     },
+    "packages/bench": {
+      "name": "@alineo-labs/bench",
+      "version": "0.0.0",
+      "dependencies": {
+        "@alineo-labs/sandbox": "workspace:*",
+        "@alineo-labs/sqlite": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "1.4.2",
+        "typescript": "6.0.3",
+        "vitest": "5.0.0",
+      },
+    },
     "packages/cli": {
       "name": "alineo-cli",
       "version": "0.4.0",
@@ -838,6 +851,8 @@
     "@alineo-labs/agent-browser": ["@alineo-labs/agent-browser@workspace:packages/agent-browser"],
 
     "@alineo-labs/alineod": ["@alineo-labs/alineod@workspace:apps/alineod"],
+
+    "@alineo-labs/bench": ["@alineo-labs/bench@workspace:packages/bench"],
 
     "@alineo-labs/cli-shared": ["@alineo-labs/cli-shared@workspace:packages/cli-shared"],
 
