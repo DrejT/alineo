@@ -5,15 +5,17 @@ import { parseBody } from "./http";
 import { createRun } from "../engine/runs";
 import { deleteRun } from "../engine/lifecycle";
 import { getRun, getRunAgentViews, listRuns, runAsOf } from "../state/projection";
-import { admitSpec, tenantOf } from "../access";
+import { admitSpec, limitsFor, tenantOf } from "../access";
 import { DEFAULT_TENANT } from "../auth";
 import { HttpError } from "../engine/errors";
 import { sseResponse } from "./sse";
 
 export const runsRoutes = new Elysia({ prefix: "/runs" })
-  .post("/", ({ body, set, request }) => {
+  .post("/", async ({ body, set, request }) => {
     const parsed = parseBody(CreateRunBody, body);
     const spec = admitSpec(request, parsed.spec);
+    const check = await limitsFor(request);
+    check({ runs: 1, agents: 1 }); // no `await` between this check and createRun's synchronous emit
     set.status = 202; // async — provisioning happens in the background, poll for real state
     return createRun({ ...parsed, spec }, tenantOf(request));
   })

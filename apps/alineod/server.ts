@@ -6,7 +6,14 @@
  * See research/daemon.md for the design.
  */
 import { getLogger, installLoggerFromEnv } from "@alineo-labs/logger";
-import { AUTH_TOKEN, LEASE_TTL_MS, PORT, SPEC_ENV_ALLOW, configWarnings } from "./config";
+import {
+  AUTH_TOKEN,
+  LEASE_TTL_MS,
+  PORT,
+  SPEC_ENV_ALLOW,
+  SWEEP_INTERVAL_MS,
+  configWarnings,
+} from "./config";
 import "./src/state/db"; // side effect: open the db, create tables
 import { acquireLease, LeaseHeldError } from "./src/state/lease";
 import { connectSdkAdapter } from "./src/engine/registry";
@@ -14,6 +21,8 @@ import { rehydrate } from "./src/engine/rehydrate";
 import { initMemory } from "./src/engine/memory";
 import { createApp } from "./src/app";
 import { tokenAuthenticate } from "./src/auth";
+import { Limits } from "./src/limits";
+import { startSweeper } from "./src/engine/sweeper";
 
 // A daemon logs by default; ALINEO_LOG_LEVEL / ALINEO_LOG / ALINEO_LOG_FORMAT adjust it
 // (see @alineo-labs/logger). The libraries it drives stay silent unless told otherwise.
@@ -49,10 +58,15 @@ await connectSdkAdapter();
 initMemory();
 await rehydrate();
 
+const limits = new Limits();
 const app = createApp({
   authenticate: AUTH_TOKEN ? tokenAuthenticate(AUTH_TOKEN) : undefined,
   specEnvAllow: SPEC_ENV_ALLOW,
+  limits,
 }).listen(PORT);
+
+// Only when there is something to sweep: a run-age limit, or a way to suspend a tenant.
+const sweeper = limits.needsSweep ? startSweeper(limits, SWEEP_INTERVAL_MS) : undefined;
 
 log.info("listening", {
   url: `http://localhost:${PORT}`,
@@ -65,6 +79,7 @@ log.info("listening", {
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     log.info("shutting down (agents keep running; state is durable)", { signal: sig });
+    sweeper?.stop();
     app.stop();
     lease.release();
     process.exit(0);

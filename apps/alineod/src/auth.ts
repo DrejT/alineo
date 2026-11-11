@@ -13,6 +13,7 @@
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Elysia } from "elysia";
+import type { Limits } from "./limits";
 
 /** Who is calling. `tenantId` names the owner of the runs this caller creates and may read. */
 export interface Principal {
@@ -33,6 +34,8 @@ interface RequestContext {
   principal: Principal | null;
   /** Env names a spec may interpolate, or `null` for no restriction. */
   specEnvAllow: readonly string[] | null;
+  /** Per-tenant limits and the kill switch, or `null` for none. */
+  limits: Limits | null;
 }
 
 const contexts = new WeakMap<Request, RequestContext>();
@@ -40,6 +43,11 @@ const contexts = new WeakMap<Request, RequestContext>();
 /** The principal the hook returned for this request, or `null` when no hook is set. */
 export function principalOf(request: Request): Principal | null {
   return contexts.get(request)?.principal ?? null;
+}
+
+/** The limits in force for this request, or `null` when there are none. */
+export function limitsOf(request: Request): Limits | null {
+  return contexts.get(request)?.limits ?? null;
 }
 
 /** The env-name allowlist in force for this request, or `null` when specs are unrestricted. */
@@ -86,11 +94,13 @@ export interface AccessOptions {
    * caller can write `${A_SECRET_ALINEOD_HOLDS}` into a spec and read it inside its sandbox.
    */
   specEnvAllow?: readonly string[];
+  /** Per-tenant limits and the kill switch. See `limits.ts`. Unset means none. */
+  limits?: Limits;
 }
 
 /** An Elysia plugin that applies `AccessOptions` to every request. */
 export function authPlugin(options: AccessOptions) {
-  const { authenticate, specEnvAllow = null } = options;
+  const { authenticate, specEnvAllow = null, limits = null } = options;
   return new Elysia({ name: "alineod-auth" }).onRequest(async ({ request }) => {
     if (request.method === "GET" && new URL(request.url).pathname === "/health") return;
     let principal: Principal | null = null;
@@ -102,7 +112,7 @@ export function authPlugin(options: AccessOptions) {
       }
       if (principal === null) return unauthenticated();
     }
-    contexts.set(request, { principal, specEnvAllow });
+    contexts.set(request, { principal, specEnvAllow, limits });
     return;
   });
 }

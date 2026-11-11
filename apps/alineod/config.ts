@@ -55,6 +55,47 @@ const ENV_VARS = {
     schema: z.string(),
     default: "",
   }),
+  MAX_OPEN_RUNS: defineEnv({
+    name: "ALINEOD_MAX_OPEN_RUNS",
+    description:
+      "Most runs one tenant may have open at once. A request to create another gets a `429` with code `LIMIT_EXCEEDED`. With no authentication every caller counts as one tenant. `0` (the default) means no limit.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  MAX_LIVE_AGENTS: defineEnv({
+    name: "ALINEOD_MAX_LIVE_AGENTS",
+    description:
+      "Most agents one tenant may have holding a sandbox at once, across all its runs. A finished agent keeps its sandbox until its run closes, so it still counts. A request to create or spawn another gets a `429` with code `LIMIT_EXCEEDED`. `0` (the default) means no limit.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  MAX_AGENTS_PER_WINDOW: defineEnv({
+    name: "ALINEOD_MAX_AGENTS_PER_WINDOW",
+    description:
+      "Most agents one tenant may create within `ALINEOD_AGENT_WINDOW_MS`, whether or not they are still alive. This bounds how fast sandboxes are created, which is most of the cost of running agents. It does not count model tokens, which alineod does not measure. `0` (the default) means no limit.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  AGENT_WINDOW_MS: defineEnv({
+    name: "ALINEOD_AGENT_WINDOW_MS",
+    description: "The rolling window for `ALINEOD_MAX_AGENTS_PER_WINDOW`. Default one day.",
+    schema: ms,
+    default: 24 * 60 * 60_000,
+  }),
+  MAX_RUN_AGE_MS: defineEnv({
+    name: "ALINEOD_MAX_RUN_AGE_MS",
+    description:
+      "An open run older than this is torn down, as if a client had deleted it. The ledger is kept. `0` (the default) means runs live until a client closes them.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  SWEEP_INTERVAL_MS: defineEnv({
+    name: "ALINEOD_SWEEP_INTERVAL_MS",
+    description:
+      "How often alineod checks for runs past `ALINEOD_MAX_RUN_AGE_MS` and for suspended tenants whose runs must come down. The sweep runs only when a run-age limit or a suspension hook is set.",
+    schema: ms,
+    default: 30_000,
+  }),
   DB_PATH: defineEnv({
     name: "ALINEOD_DB_PATH",
     description:
@@ -314,6 +355,12 @@ export const SPEC_ENV_ALLOW: readonly string[] | undefined = (() => {
     .map((n) => n.trim())
     .filter((n) => n.length > 0);
 })();
+export const MAX_OPEN_RUNS = env.MAX_OPEN_RUNS;
+export const MAX_LIVE_AGENTS = env.MAX_LIVE_AGENTS;
+export const MAX_AGENTS_PER_WINDOW = env.MAX_AGENTS_PER_WINDOW;
+export const AGENT_WINDOW_MS = env.AGENT_WINDOW_MS;
+export const MAX_RUN_AGE_MS = env.MAX_RUN_AGE_MS;
+export const SWEEP_INTERVAL_MS = env.SWEEP_INTERVAL_MS;
 export const DB_PATH = env.DB_PATH;
 export const SDK_LEDGER_PATH = env.SDK_LEDGER_PATH;
 export const WORK_DIR = env.WORK_DIR;

@@ -35,6 +35,12 @@ safe, replicas are not (see [Scaling](#scaling)).
 | `ALINEOD_BACKUP_BUCKET` and `ALINEOD_BACKUP_*` | empty (off)                    | Off-box checkpoints and backups in an S3-compatible bucket. The full list is in [Back up and restore](/docs/alineod/restore#configure).                                                                        |
 | `ALINEOD_AUTH_TOKEN`                           | empty (off)                    | A shared secret. When set, every request except `GET /health` needs `Authorization: Bearer <token>`. See [Security](#security).                                                                                |
 | `ALINEOD_SPEC_ENV_ALLOW`                       | empty (no limit)               | Which `${NAME}` references a spec's `env` may use. A comma list of names or `PREFIX*`, or `none`. See [Security](#security).                                                                                   |
+| `ALINEOD_MAX_OPEN_RUNS`                        | `0` (no limit)                 | Most runs one tenant may have open at once. See [Limits and suspension](#limits-and-suspension).                                                                                                               |
+| `ALINEOD_MAX_LIVE_AGENTS`                      | `0` (no limit)                 | Most agents one tenant may have holding a sandbox at once.                                                                                                                                                     |
+| `ALINEOD_MAX_AGENTS_PER_WINDOW`                | `0` (no limit)                 | Most agents one tenant may create within `ALINEOD_AGENT_WINDOW_MS`.                                                                                                                                            |
+| `ALINEOD_AGENT_WINDOW_MS`                      | `86400000`                     | The rolling window for the limit above. One day.                                                                                                                                                               |
+| `ALINEOD_MAX_RUN_AGE_MS`                       | `0` (no limit)                 | An open run older than this is torn down.                                                                                                                                                                      |
+| `ALINEOD_SWEEP_INTERVAL_MS`                    | `30000`                        | How often the sweep looks for runs to tear down.                                                                                                                                                               |
 
 Every variable is declared in `apps/alineod/config.ts`, and a bad value is rejected at startup rather than silently
 becoming `NaN`.
@@ -94,6 +100,47 @@ cannot see them.
 
 For a named tenant, alineod puts the tenant in front of each spec's `resourceId` and `teamId` (`acme:researcher`), so two
 tenants who pick the same agent name do not share memory.
+
+### Limits and suspension
+
+alineo ships limits and a kill switch and sets no numbers. Every limit is off until you set it, so nothing changes
+for a deployment that sets none. With authentication off, all callers count as one tenant.
+
+| Limit                           | Counts                                                                                                 | Refuses with              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------- |
+| `ALINEOD_MAX_OPEN_RUNS`         | Runs a tenant has open.                                                                                | `429 LIMIT_EXCEEDED`      |
+| `ALINEOD_MAX_LIVE_AGENTS`       | Agents holding a sandbox. A finished agent keeps its sandbox until its run closes, so it still counts. | `429 LIMIT_EXCEEDED`      |
+| `ALINEOD_MAX_AGENTS_PER_WINDOW` | Agents created in a rolling window, alive or not.                                                      | `429 LIMIT_EXCEEDED`      |
+| `ALINEOD_MAX_RUN_AGE_MS`        | Age of an open run. An older run is torn down, and the ledger is kept.                                 | (the sweep tears it down) |
+
+These limits cap sandboxes, which are most of the cost of running agents. alineod does not measure model tokens or
+money, so no limit caps those. Cap them at the model provider.
+
+The check and the create happen with no `await` between them, so concurrent requests cannot all pass a limit
+that has room for one.
+
+To give tenants different limits, or to suspend one, build a `Limits` and pass it to `createApp()`. The functions
+may be async:
+
+```ts
+import { createApp } from "./src/app";
+import { Limits } from "./src/limits";
+
+const limits = new Limits({
+  defaults: { maxOpenRuns: 3, maxLiveAgents: 10 },
+  limitsFor: async (tenantId) =>
+    (await plan(tenantId)) === "pro" ? { maxLiveAgents: 40 } : undefined,
+  isSuspended: async (tenantId) => await isBlocked(tenantId),
+});
+
+const app = createApp({ authenticate, limits });
+```
+
+`limitsFor` is merged over `defaults` field by field. While `isSuspended` answers `true` for a tenant, its requests that
+start or continue work (create a run, spawn, prompt, steer, resume, write memory) get `403 TENANT_SUSPENDED`, and the
+sweep tears down its open runs. Reads, `stop`, `pause`, `await` and `DELETE /runs/:runId` still work. A `limitsFor`
+or `isSuspended` that throws refuses the request, so a broken switch fails closed. During the sweep, a function that
+throws leaves the run alone, so a broken policy function cannot tear runs down by accident.
 
 ### Keep secrets out of specs
 

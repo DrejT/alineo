@@ -10,7 +10,8 @@
  * With no hook there is no principal, nothing here refuses, and alineod behaves as it always has.
  */
 import { Elysia } from "elysia";
-import { DEFAULT_TENANT, principalOf, specEnvAllowOf } from "./auth";
+import { DEFAULT_TENANT, limitsOf, principalOf, specEnvAllowOf } from "./auth";
+import { enforce, type Demand } from "./limits";
 import { HttpError } from "./engine/errors";
 import { getAgentRow, getRun } from "./state/projection";
 
@@ -51,12 +52,42 @@ function assertAgentAccess(request: Request, agentId: string): void {
  */
 export const accessPlugin = new Elysia({ name: "alineod-access" }).onBeforeHandle(
   { as: "global" },
-  ({ request, params }) => {
+  async ({ request, params }) => {
     const p = (params ?? {}) as Record<string, string | undefined>;
     if (p.runId !== undefined) assertRunAccess(request, p.runId);
     if (p.agentId !== undefined) assertAgentAccess(request, p.agentId);
+    await assertNotSuspended(request);
   },
 );
+
+// What a suspended tenant may still do: read, and bring its own work down. `await` only waits, so
+// it stays open too. Everything else that writes is refused.
+const STILL_ALLOWED_WHEN_SUSPENDED = [/^\/agents\/[^/]+\/(stop|pause)$/, /^\/runs\/[^/]+\/await$/];
+
+async function assertNotSuspended(request: Request): Promise<void> {
+  const limits = limitsOf(request);
+  const tenant = tenantOf(request);
+  if (!limits || tenant === null) return;
+  if (request.method === "GET" || request.method === "HEAD" || request.method === "DELETE") return;
+  const path = new URL(request.url).pathname;
+  if (STILL_ALLOWED_WHEN_SUSPENDED.some((re) => re.test(path))) return;
+  if (await limits.suspended(tenant)) {
+    throw new HttpError(403, "this tenant is suspended", "TENANT_SUSPENDED");
+  }
+}
+
+/**
+ * Refuse a request that would start work past the caller's limits. The limits may need an `await`
+ * to read, so that happens first and the count and the check that follow it are synchronous.
+ * Call this, then create the run or agent in the same tick with no `await` in between.
+ */
+export async function limitsFor(request: Request): Promise<(demand: Demand) => void> {
+  const limits = limitsOf(request);
+  if (!limits) return () => {};
+  const tenant = tenantOf(request);
+  const resolved = await limits.resolve(tenant);
+  return (demand) => enforce(tenant, resolved, demand);
+}
 
 const ENV_REF = /\$\{([^}]+)\}/g;
 

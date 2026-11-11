@@ -232,6 +232,20 @@ export const ERROR_CODES = {
     summary: "The agent is still finishing its previous turn.",
     hint: "Wait for the turn to end, or steer it, then send the prompt again.",
   },
+  LIMIT_EXCEEDED: {
+    category: "transient",
+    retryable: true,
+    httpStatus: 429,
+    summary: "A per-tenant limit set by the daemon's operator stops this request.",
+    hint: "Wait for a run or agent to finish, or stop one, then try again.",
+  },
+  TENANT_SUSPENDED: {
+    category: "permanent",
+    retryable: false,
+    httpStatus: 403,
+    summary: "The daemon's operator has suspended this tenant. New work is refused.",
+    hint: "Contact whoever runs the daemon. Reads and stopping work still go through.",
+  },
   INTERNAL: {
     category: "internal",
     retryable: false,

@@ -23,7 +23,9 @@ export function createApp(options: CreateAppOptions = {}) {
     serve: { idleTimeout: IDLE_TIMEOUT_SECONDS },
   });
   // First, so the check runs before routing and covers every route below, plugins included.
-  if (options.authenticate || options.specEnvAllow) app.use(authPlugin(options));
+  if (options.authenticate || options.specEnvAllow || options.limits?.active) {
+    app.use(authPlugin(options));
+  }
   // Tenant checks only mean something when there is a caller to check.
   if (options.authenticate) app.use(accessPlugin);
   return app

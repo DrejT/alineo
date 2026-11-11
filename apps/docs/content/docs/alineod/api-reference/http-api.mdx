@@ -18,6 +18,8 @@ A body without `code` means no code applies.
 | `RUN_NOT_FOUND`          | 404    | No run with that id, or it belongs to another tenant.                                       |
 | `AGENT_NOT_LIVE`         | 409    | The agent exists but is not live in this daemon (ended, released, or the daemon restarted). |
 | `AGENT_BUSY`             | 409    | The agent is still finishing its previous turn. Retryable.                                  |
+| `LIMIT_EXCEEDED`         | 429    | A per-tenant limit stops the request: too many runs, live agents, or agents created lately. |
+| `TENANT_SUSPENDED`       | 403    | The operator has suspended this tenant. Reads and stopping still work.                      |
 | `CAPABILITY_UNSUPPORTED` | 501    | The daemon setup lacks what the route needs, for example memory when it is disabled.        |
 
 Sandbox and model failures use the codes in [Error codes](/docs/core/api-reference/errors#error-codes).
