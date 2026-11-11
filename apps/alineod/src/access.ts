@@ -127,8 +127,23 @@ export function admitSpec<T extends Record<string, unknown>>(request: Request, s
     }
   }
   const tenant = tenantOf(request);
-  if (tenant === null || tenant === DEFAULT_TENANT) return spec;
+  if (tenant === null) return spec;
   const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+  if (tenant === DEFAULT_TENANT) {
+    // The default tenant keeps its scopes unprefixed, so existing memory stays reachable. A named
+    // tenant's scope always starts `<tenant>:`, and a tenant id has no colon (`authPlugin` checks).
+    // So a default-tenant caller must not be able to write a name that looks like one.
+    for (const field of ["name", "resourceId", "teamId"] as const) {
+      if (str(spec[field])?.includes(":")) {
+        throw new HttpError(
+          400,
+          `spec ${field} may not contain ':' on this daemon (the colon separates a tenant from its memory scope)`,
+          "INVALID_ARGUMENT",
+        );
+      }
+    }
+    return spec;
+  }
   return {
     ...spec,
     resourceId: `${tenant}:${str(spec.resourceId) ?? str(spec.name) ?? "agent"}`,

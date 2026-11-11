@@ -251,11 +251,35 @@ describe("alineo-mcp server in remote mode", () => {
     (result.content as { type: string; text: string }[])[0]?.text ?? "";
   const validSpec = { name: "writer", harness: "pi", model: "some-model" };
 
-  it("has every tool except init", async () => {
-    const { client, close } = await connectedClient(idle(), { mode: "remote" });
+  it("with a store it has every tool except init", async () => {
+    const { MemorySpecStore } = await import("../src/spec-store.js");
+    const { client, close } = await connectedClient(idle(), {
+      mode: "remote",
+      specs: new MemorySpecStore(),
+    });
     try {
       const names = (await client.listTools()).tools.map((t) => t.name).sort();
       expect(names).toEqual(EXPECTED_TOOLS.filter((t) => t !== "init").sort());
+    } finally {
+      await close();
+    }
+  });
+
+  it("with no store it validates specs but offers no tool to recall them", async () => {
+    const { client, close } = await connectedClient(idle(), { mode: "remote" });
+    try {
+      const tools = (await client.listTools()).tools;
+      const names = tools.map((t) => t.name);
+      expect(names).toContain("spec_add");
+      for (const gone of ["init", "spec_list", "spec_get", "spec_remove"]) {
+        expect(names).not.toContain(gone);
+      }
+      const add = tools.find((t) => t.name === "spec_add");
+      expect(add?.description).toContain("NOT kept");
+      const added = await client.callTool({ name: "spec_add", arguments: { spec: validSpec } });
+      expect((JSON.parse(textOf(added)) as { spec: { model: string } }).spec.model).toBe(
+        "some-model",
+      );
     } finally {
       await close();
     }
@@ -271,7 +295,11 @@ describe("alineo-mcp server in remote mode", () => {
   });
 
   it("takes an inline spec, then lists, gets and removes it", async () => {
-    const { client, close } = await connectedClient(idle(), { mode: "remote" });
+    const { MemorySpecStore } = await import("../src/spec-store.js");
+    const { client, close } = await connectedClient(idle(), {
+      mode: "remote",
+      specs: new MemorySpecStore(),
+    });
     try {
       const added = await client.callTool({ name: "spec_add", arguments: { spec: validSpec } });
       expect(added.isError).toBeFalsy();

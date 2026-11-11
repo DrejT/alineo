@@ -305,6 +305,36 @@ describe("memory is scoped by tenant", () => {
   });
 });
 
+describe("memory scopes cannot collide across tenants", () => {
+  const tokenApp = createApp({ authenticate: tokenAuthenticate("s3cret") });
+  const asDefault = (extra: Record<string, unknown>) =>
+    as("s3cret", "POST", "/runs", { spec: spec("d", extra) }, tokenApp);
+
+  test("a default-tenant caller may not write a scope that looks like a named tenant's", async () => {
+    for (const extra of [{ resourceId: "a:shared" }, { teamId: "a:crew" }, { name: "a:agent" }]) {
+      const res = await asDefault(extra);
+      expect(res.status, JSON.stringify(extra)).toBe(400);
+    }
+  });
+
+  test("a default-tenant caller with ordinary ids is unaffected", async () => {
+    expect((await asDefault({ resourceId: "shared", teamId: "crew" })).status).toBe(202);
+  });
+
+  test("a named tenant's colon in its own ids stays inside its prefix", async () => {
+    const a = await startAs("key-a", "colon", { resourceId: "b:x" });
+    const stored = JSON.parse(getAgentRow(a.rootAgentId)!.spec_json) as { resourceId: string };
+    expect(stored.resourceId).toBe("a:b:x");
+  });
+
+  test("a tenant id with a colon, or an empty one, is refused as a credential", async () => {
+    for (const tenantId of ["a:b", ""]) {
+      const bad = createApp({ authenticate: () => ({ tenantId }) });
+      expect((await as("x", "GET", "/runs", undefined, bad)).status, tenantId).toBe(401);
+    }
+  });
+});
+
 describe("spec env allowlist", () => {
   const guarded = createApp({
     authenticate: byHeader,

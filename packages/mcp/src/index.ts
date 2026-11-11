@@ -18,10 +18,23 @@ function flag(name: string): string | undefined {
   return i === -1 ? undefined : process.argv[i + 1];
 }
 
+/** A TCP port, or an exit with a message. `undefined` when the flag is absent. */
+function portFlag(): number | undefined {
+  const raw = flag("--port");
+  if (raw === undefined) return undefined;
+  const port = Number(raw);
+  if (!/^\d+$/.test(raw) || port > 65535) {
+    // oxlint-disable-next-line no-console
+    console.error(`[alineo-mcp] --port needs a whole number from 0 to 65535, got '${raw}'`);
+    process.exit(2);
+  }
+  return port;
+}
+
 if (process.argv.includes("--http")) {
   // Served to other people: streamable HTTP, remote mode. See http.ts for what that changes.
   const { port } = serveHttp({
-    port: flag("--port") ? Number(flag("--port")) : undefined,
+    port: portFlag(),
     hostname: flag("--host"),
     requireAuthorization: !process.argv.includes("--allow-anonymous"),
   });

@@ -45,13 +45,14 @@ describe("createHttpMcp", () => {
     await mcp.close();
   });
 
-  it("lists the remote tool set: everything but init", async () => {
+  it("lists the remote tool set. With no store: no init and no spec recall", async () => {
     const { client, close } = await connect({}, { authorization: "Bearer user-1" });
     try {
       const names = (await client.listTools()).tools.map((t) => t.name);
       expect(names).toContain("run_start");
       expect(names).toContain("run_list");
-      expect(names).toContain("spec_get");
+      expect(names).toContain("spec_add");
+      expect(names).not.toContain("spec_get");
       expect(names).not.toContain("init");
     } finally {
       await close();

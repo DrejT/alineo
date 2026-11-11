@@ -113,6 +113,25 @@ describe("maxLiveAgents", () => {
     expect(third.body.code).toBe("LIMIT_EXCEEDED");
   });
 
+  test("counts a spawn that is waiting on waitFor, so a queue cannot get past the limit", async () => {
+    const s = serve({ defaults: { maxLiveAgents: 3 } });
+    const run = await s.start("lim-live-queue");
+    const queued = async () =>
+      s.call("lim-live-queue", "POST", `/runs/${run.runId}/agents`, {
+        spec: spec("waiting"),
+        parentAgentId: run.rootAgentId,
+        // The root never settles, so these stay `spawning` with no sandbox.
+        waitFor: [run.rootAgentId],
+      });
+    const first = await queued();
+    expect(first.status).toBe(202);
+    expect(first.body.state).toBe("spawning");
+    expect((await queued()).status).toBe(202);
+    const third = await queued();
+    expect(third.status).toBe(429);
+    expect(third.body.code).toBe("LIMIT_EXCEEDED");
+  });
+
   test("is across runs, not per run", async () => {
     const s = serve({ defaults: { maxLiveAgents: 2 } });
     await s.start("lim-live-x");

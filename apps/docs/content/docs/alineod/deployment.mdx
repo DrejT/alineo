@@ -101,6 +101,24 @@ cannot see them.
 For a named tenant, alineod puts the tenant in front of each spec's `resourceId` and `teamId` (`acme:researcher`), so two
 tenants who pick the same agent name do not share memory.
 
+A tenant id may not be empty or contain `:`, because the colon separates a tenant from its memory scope. alineod refuses
+a credential whose tenant id breaks this and logs an error, since the fault is in your `authenticate` function. For the
+same reason, a caller in the `default` tenant may not use `:` in a spec's `name`, `resourceId` or `teamId` once
+authentication is on. Otherwise it could write `acme:shared` and reach tenant `acme`'s memory.
+
+### Network isolation is part of the security model
+
+Two checks cannot be made complete inside alineod, so the network around it has to back them up:
+
+- **Spawns from inside a sandbox.** An agent that runs the `alineo spawn` command inside its sandbox uses the SDK
+  and does not call alineod's HTTP API. It does not go through `POST /runs/:runId/agents`, so alineod's tenant check,
+  `limitsFor` and `admitSpec` do not see it. The spec's `spawnDepth` and `maxAgents` still bound it. Do not let
+  sandboxes reach the OpenSandbox server or alineod. Block both with the sandbox egress policy and your firewall. What a
+  sandbox can reach depends on your setup, so test it on yours.
+- **Fetching a spec by URL (the remote MCP).** The MCP resolves a name, checks the addresses, and then `fetch` resolves
+  it again, so a hostile DNS server can answer differently the second time. Run the MCP server where it cannot reach
+  private addresses at all, such as a host or container with no route to your internal network.
+
 ### Limits and suspension
 
 alineo ships limits and a kill switch and sets no numbers. Every limit is off until you set it, so nothing changes
@@ -151,6 +169,12 @@ credential binding's `credential` value too.
 Set `ALINEOD_SPEC_ENV_ALLOW` (or pass `specEnvAllow` to `createApp()`) whenever people you do not trust can create
 runs. List the names a spec may read, for example `NVIDIA_API_KEY,OPENAI_*`. A trailing `*` matches a prefix. `none`
 allows no `${NAME}` at all, so a spec carries only literal values. A spec that breaks the rule is refused with `400`.
+
+An allowed name is still readable inside the sandbox when a spec uses it as a plain value, as in
+`{ "X": "${NVIDIA_API_KEY}" }`. That value becomes a container environment variable, and the agent, or code it runs,
+can print it. If your daemon pays for the model, do not hand tenants a plain-string key. Put the key on the allowlist
+and tell tenants to use a credential binding (`{ "credential": "${NVIDIA_API_KEY}", "host": ..., "injection": ... }`).
+A binding keeps the real value out of the sandbox and injects it into matching outbound requests only.
 
 The limit applies to `env` only. A shell command in a setup step runs inside the sandbox and cannot read alineod's
 environment.

@@ -344,9 +344,11 @@ export function getRun(runId: string): RunRow | null {
 const TENANT_FILTER = `($tenant IS NULL OR COALESCE(r.tenant_id, $legacy) = $tenant)`;
 // An agent holds a sandbox from when it starts provisioning until it is released. A finished
 // agent keeps its sandbox open (see `reconnectableTerminalAgents`), so "done" does not free it.
+// A spawn waiting on `waitFor` is `spawning` and has no sandbox yet, but it will take one the
+// moment its dependencies settle, so it counts. Leaving it out would let a tenant queue any number.
 const HOLDS_SANDBOX = `a.released_at IS NULL
   AND COALESCE(a.outcome, '') NOT IN ('aborted', 'lost')
-  AND (a.sandbox_id IS NOT NULL OR a.state = 'provisioning')`;
+  AND (a.sandbox_id IS NOT NULL OR a.state IN ('provisioning', 'spawning'))`;
 
 type CountParams = Record<string, string | number | null>;
 const qOpenRunCount = db.query<{ n: number }, CountParams>(

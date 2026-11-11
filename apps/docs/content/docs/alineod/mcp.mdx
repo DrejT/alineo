@@ -232,8 +232,9 @@ Remote mode differs from the local server in four ways:
   use port 443 and resolve only to public addresses. Redirects are checked at every hop, and the body is capped at
   1 MiB. A URL that points at the server's own network is refused. `registryDependencies` are fetched the same way,
   up to 20.
-- **Specs live in a `SpecStore`, not on the server's disk.** The default is an in-memory store per request, so a spec
-  added in one request is gone in the next. To keep specs, pass a store that persists, one per caller.
+- **Specs live in a `SpecStore`, not on the server's disk.** With no store passed, the server keeps nothing between
+  requests, so it offers `spec_add` as a validator only (it returns the spec, and you pass that object to `run_start`)
+  and leaves out `spec_list`, `spec_get` and `spec_remove`. Pass a store that persists, one per caller, to get all four.
 
 To embed it in your own program, import from `alineo-mcp/server`:
 

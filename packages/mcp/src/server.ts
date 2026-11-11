@@ -77,6 +77,9 @@ export interface BuildServerOptions extends AlineodClientOptions {
 export function buildServer(options: BuildServerOptions = {}): McpServer {
   const { mode = "local", specs, fetchOptions, ...clientOpts } = options;
   const remote = mode === "remote";
+  // A remote server with no store of its own keeps nothing between requests, so offering
+  // spec_list / spec_get / spec_remove would only let a caller add a spec and then fail to find it.
+  const persistent = remote && specs !== undefined;
   const store = remote ? (specs ?? new MemorySpecStore()) : undefined;
   const client = new AlineodClient(clientOpts);
 
@@ -85,8 +88,8 @@ export function buildServer(options: BuildServerOptions = {}): McpServer {
     {
       instructions: remote
         ? "Orchestrate swarms of sandboxed coding agents through a hosted alineod. Typical flow: " +
-          "spec_add (an inline spec, or a public https URL) / spec_list / spec_get to get an " +
-          "AgentSpec → run_start to start a swarm → agent_spawn to fan out children → " +
+          "spec_add (an inline spec, or a public https URL) validates an AgentSpec, and " +
+          "spec_list / spec_get recall saved ones where this server keeps them → run_start to start a swarm → agent_spawn to fan out children → " +
           "agent_prompt / agent_steer to drive them → run_watch, run_get or run_list to observe " +
           "progress → result_get to read a settled agent's output → agent_stop / run_stop to " +
           "tear down. There is nothing to install or start: the daemon is already running."
@@ -383,10 +386,13 @@ export function buildServer(options: BuildServerOptions = {}): McpServer {
       {
         title: "Add an agent spec",
         description:
-          "Validates an AgentSpec and saves it. Pass the spec itself in `spec`, or a public https " +
-          "URL to one in `url` (not both). registryDependencies are fetched the same way. Local " +
-          "file paths are not accepted. Use the saved spec's object as `spec` in run_start / " +
-          "agent_spawn.",
+          (persistent
+            ? "Validates an AgentSpec and saves it. "
+            : "Validates an AgentSpec and returns it. It is NOT kept: this server stores no specs, " +
+              "so pass the returned object as `spec` to run_start / agent_spawn yourself. ") +
+          "Pass the spec itself in `spec`, or a public https URL to one in `url` (not both). " +
+          "registryDependencies are fetched the same way. Local file paths are not accepted." +
+          (persistent ? " Use the saved spec's object as `spec` in run_start / agent_spawn." : ""),
         inputSchema: z.object({
           spec: z.record(z.string(), z.unknown()).optional().describe("The AgentSpec object."),
           url: z
@@ -409,42 +415,44 @@ export function buildServer(options: BuildServerOptions = {}): McpServer {
       }),
     );
 
-    server.registerTool(
-      "spec_list",
-      {
-        title: "List saved agent specs",
-        description: "Lists every AgentSpec saved with spec_add.",
-        inputSchema: z.object({}),
-      },
-      safe(async () => ok(await store.list())),
-    );
+    if (persistent) {
+      server.registerTool(
+        "spec_list",
+        {
+          title: "List saved agent specs",
+          description: "Lists every AgentSpec saved with spec_add.",
+          inputSchema: z.object({}),
+        },
+        safe(async () => ok(await store.list())),
+      );
 
-    server.registerTool(
-      "spec_get",
-      {
-        title: "Get a saved agent spec",
-        description: "Returns one saved AgentSpec, ready to pass as `spec` to run_start.",
-        inputSchema: z.object({ name: z.string().min(1) }),
-      },
-      safe(async ({ name }) => {
-        const spec = await store.get(name);
-        if (!spec) throw new Error(`No agent spec named '${name}'.`);
-        return ok(spec);
-      }),
-    );
+      server.registerTool(
+        "spec_get",
+        {
+          title: "Get a saved agent spec",
+          description: "Returns one saved AgentSpec, ready to pass as `spec` to run_start.",
+          inputSchema: z.object({ name: z.string().min(1) }),
+        },
+        safe(async ({ name }) => {
+          const spec = await store.get(name);
+          if (!spec) throw new Error(`No agent spec named '${name}'.`);
+          return ok(spec);
+        }),
+      );
 
-    server.registerTool(
-      "spec_remove",
-      {
-        title: "Remove a saved agent spec",
-        description: "Deletes a saved AgentSpec by name.",
-        inputSchema: z.object({ name: z.string().min(1) }),
-      },
-      safe(async ({ name }) => {
-        if (!(await store.remove(name))) throw new Error(`No agent spec named '${name}'.`);
-        return ok(`Removed agent spec '${name}'.`);
-      }),
-    );
+      server.registerTool(
+        "spec_remove",
+        {
+          title: "Remove a saved agent spec",
+          description: "Deletes a saved AgentSpec by name.",
+          inputSchema: z.object({ name: z.string().min(1) }),
+        },
+        safe(async ({ name }) => {
+          if (!(await store.remove(name))) throw new Error(`No agent spec named '${name}'.`);
+          return ok(`Removed agent spec '${name}'.`);
+        }),
+      );
+    }
     return server;
   }
 
