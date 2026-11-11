@@ -6,13 +6,14 @@
  * See research/daemon.md for the design.
  */
 import { getLogger, installLoggerFromEnv } from "@alineo-labs/logger";
-import { LEASE_TTL_MS, PORT, configWarnings } from "./config";
+import { AUTH_TOKEN, LEASE_TTL_MS, PORT, SPEC_ENV_ALLOW, configWarnings } from "./config";
 import "./src/state/db"; // side effect: open the db, create tables
 import { acquireLease, LeaseHeldError } from "./src/state/lease";
 import { connectSdkAdapter } from "./src/engine/registry";
 import { rehydrate } from "./src/engine/rehydrate";
 import { initMemory } from "./src/engine/memory";
 import { createApp } from "./src/app";
+import { tokenAuthenticate } from "./src/auth";
 
 // A daemon logs by default; ALINEO_LOG_LEVEL / ALINEO_LOG / ALINEO_LOG_FORMAT adjust it
 // (see @alineo-labs/logger). The libraries it drives stay silent unless told otherwise.
@@ -48,9 +49,18 @@ await connectSdkAdapter();
 initMemory();
 await rehydrate();
 
-const app = createApp().listen(PORT);
+const app = createApp({
+  authenticate: AUTH_TOKEN ? tokenAuthenticate(AUTH_TOKEN) : undefined,
+  specEnvAllow: SPEC_ENV_ALLOW,
+}).listen(PORT);
 
-log.info("listening", { url: `http://localhost:${PORT}`, openapi: "/openapi" });
+log.info("listening", {
+  url: `http://localhost:${PORT}`,
+  openapi: "/openapi",
+  auth: AUTH_TOKEN ? "token" : "none",
+  specEnv:
+    SPEC_ENV_ALLOW === undefined ? "unrestricted" : SPEC_ENV_ALLOW.length ? "allowlist" : "none",
+});
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {

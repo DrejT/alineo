@@ -33,6 +33,8 @@ safe, replicas are not (see [Scaling](#scaling)).
 | `ALINEOD_REHYDRATE_CONCURRENCY`                | host vCPUs − 1 (at least 1)    | How many agents are reconnected or restored at once on boot. `1` restores one at a time. See [Back up and restore](/docs/alineod/restore).                                                                     |
 | `ALINEOD_INSTANCE_ID`                          | `default`                      | A stable name for this alineod, used as its folder in the backup bucket.                                                                                                                                       |
 | `ALINEOD_BACKUP_BUCKET` and `ALINEOD_BACKUP_*` | empty (off)                    | Off-box checkpoints and backups in an S3-compatible bucket. The full list is in [Back up and restore](/docs/alineod/restore#configure).                                                                        |
+| `ALINEOD_AUTH_TOKEN`                           | empty (off)                    | A shared secret. When set, every request except `GET /health` needs `Authorization: Bearer <token>`. See [Security](#security).                                                                                |
+| `ALINEOD_SPEC_ENV_ALLOW`                       | empty (no limit)               | Which `${NAME}` references a spec's `env` may use. A comma list of names or `PREFIX*`, or `none`. See [Security](#security).                                                                                   |
 
 Every variable is declared in `apps/alineod/config.ts`, and a bad value is rejected at startup rather than silently
 becoming `NaN`.
@@ -49,6 +51,62 @@ Fixed limits, set in `apps/alineod/config.ts`:
 - Socket idle timeout: **255 s** (Bun's maximum — its ~10 s default would kill SSE and long-polls).
 - SSE heartbeat: every **10 s**.
 - `GET /agents/:id/result?wait=` is capped at **240 s**.
+
+## Security
+
+alineod has no login by default. It answers every request, so run it on a trusted interface (`127.0.0.1`, or a
+private network) unless you turn one of the options below on. Put your own TLS in front of it when it must be
+reachable over a network. It speaks plain HTTP.
+
+| Mode                        | How                                  | What it protects                                                                                  |
+| --------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| No authentication (default) | nothing to set                       | Nothing. Fine for one user on one machine.                                                        |
+| One shared secret           | `ALINEOD_AUTH_TOKEN`                 | Keeps out callers without the token. Everyone with it is one tenant and sees every run.           |
+| Several isolated tenants    | pass `authenticate` to `createApp()` | Each tenant sees only its own runs. A caller cannot tell another tenant's run from a missing one. |
+
+With authentication on, every route except `GET /health` answers `401` with `{ "error": ..., "code": "UNAUTHENTICATED" }`
+until the caller sends a valid credential. `GET /health` stays open so a load balancer can probe it.
+
+### Tenants
+
+`createApp({ authenticate })` takes a function that receives the request and returns `{ tenantId }`, or `null` to
+refuse it. It may be async. alineo does not store keys or users. You write that part:
+
+```ts
+import { createApp } from "./src/app";
+
+const app = createApp({
+  authenticate: async (request) => {
+    const key = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+    const tenantId = key ? await lookupTenantByKey(key) : null; // your key store
+    return tenantId ? { tenantId } : null;
+  },
+});
+```
+
+A run belongs to the tenant that created it. Everything under a run (its agents, results, events, inbox and memory)
+follows it. A request for a run or agent that belongs to another tenant gets the same `404` as one that does not
+exist. `GET /runs` lists only the caller's runs.
+
+Runs made before you turned authentication on, or with no authentication, belong to the `default` tenant. The
+`ALINEOD_AUTH_TOKEN` mode uses that tenant, so turning the token on does not hide existing runs. A named tenant
+cannot see them.
+
+For a named tenant, alineod puts the tenant in front of each spec's `resourceId` and `teamId` (`acme:researcher`), so two
+tenants who pick the same agent name do not share memory.
+
+### Keep secrets out of specs
+
+alineod fills `${NAME}` in a spec's `env` from its own environment. Without a limit, anyone who can create a run can
+write `"env": { "X": "${SOME_SECRET_ALINEOD_HOLDS}" }` and read that secret inside their sandbox. This applies to a
+credential binding's `credential` value too.
+
+Set `ALINEOD_SPEC_ENV_ALLOW` (or pass `specEnvAllow` to `createApp()`) whenever people you do not trust can create
+runs. List the names a spec may read, for example `NVIDIA_API_KEY,OPENAI_*`. A trailing `*` matches a prefix. `none`
+allows no `${NAME}` at all, so a spec carries only literal values. A spec that breaks the rule is refused with `400`.
+
+The limit applies to `env` only. A shell command in a setup step runs inside the sandbox and cannot read alineod's
+environment.
 
 ## Logging
 

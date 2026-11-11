@@ -148,6 +148,7 @@ for (const alter of [
   "ALTER TABLE agents ADD COLUMN released_at INTEGER",
   "ALTER TABLE agents ADD COLUMN provider TEXT",
   "ALTER TABLE runs ADD COLUMN closing_at INTEGER",
+  "ALTER TABLE runs ADD COLUMN tenant_id TEXT",
 ]) {
   try {
     db.exec(alter);

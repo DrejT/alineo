@@ -4,14 +4,45 @@ import { CreateRunBody } from "../schema";
 import { parseBody } from "./http";
 import { createRun } from "../engine/runs";
 import { deleteRun } from "../engine/lifecycle";
-import { getRun, getRunAgentViews, runAsOf } from "../state/projection";
+import { getRun, getRunAgentViews, listRuns, runAsOf } from "../state/projection";
+import { admitSpec, tenantOf } from "../access";
+import { DEFAULT_TENANT } from "../auth";
 import { HttpError } from "../engine/errors";
 import { sseResponse } from "./sse";
 
 export const runsRoutes = new Elysia({ prefix: "/runs" })
-  .post("/", ({ body, set }) => {
+  .post("/", ({ body, set, request }) => {
+    const parsed = parseBody(CreateRunBody, body);
+    const spec = admitSpec(request, parsed.spec);
     set.status = 202; // async — provisioning happens in the background, poll for real state
-    return createRun(parseBody(CreateRunBody, body));
+    return createRun({ ...parsed, spec }, tenantOf(request));
+  })
+
+  // Only the caller's runs when authentication is on, every run when it is off.
+  .get("/", ({ query, request }) => {
+    const limit = Number(query.limit ?? "100");
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+      throw new HttpError(400, "limit must be an integer between 1 and 500", "INVALID_ARGUMENT");
+    }
+    const state = query.state ?? null;
+    if (state !== null && state !== "open" && state !== "closed") {
+      throw new HttpError(400, 'state must be "open" or "closed"', "INVALID_ARGUMENT");
+    }
+    const rows = listRuns({
+      tenant: tenantOf(request),
+      legacyTenant: DEFAULT_TENANT,
+      state,
+      limit,
+    });
+    return {
+      runs: rows.map((r) => ({
+        runId: r.run_id,
+        rootAgentId: r.root_id,
+        state: r.state,
+        closeWhen: r.close_when,
+        createdAt: r.created_at,
+      })),
+    };
   })
 
   .get("/:runId", ({ params }) => {

@@ -6,7 +6,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import pkg from "../package.json" with { type: "json" };
-import { AlineodClient, AlineodError } from "./alineod-client.js";
+import { AlineodClient, AlineodError, type AlineodClientOptions } from "./alineod-client.js";
 import { init } from "./init.js";
 import { addSpec, listSpecs, removeSpec } from "./specs.js";
 
@@ -57,9 +57,7 @@ const AgentSpecInput = z
   .record(z.string(), z.unknown())
   .describe("An alineo AgentSpec object (validated server-side by alineod's own SDK call).");
 
-export function buildServer(
-  clientOpts: { baseUrl?: string; fetchImpl?: typeof fetch } = {},
-): McpServer {
+export function buildServer(clientOpts: AlineodClientOptions = {}): McpServer {
   const client = new AlineodClient(clientOpts);
 
   const server = new McpServer(
@@ -71,7 +69,7 @@ export function buildServer(
         "OpenSandbox + alineod locally) → spec_add / spec_list to get an " +
         "AgentSpec → run_start to start a swarm → agent_spawn to fan out " +
         "children → agent_prompt / agent_steer to drive them → " +
-        "run_watch or run_get to observe progress → result_get to " +
+        "run_watch, run_get or run_list to observe progress → result_get to " +
         "read a settled agent's output → agent_stop / run_stop to tear down. " +
         "alineod must be reachable (default http://127.0.0.1:4600, override with ALINEOD_URL) " +
         "for every run_*, agent_* and result_* tool; init starts it.",
@@ -101,6 +99,28 @@ export function buildServer(
     safe(async ({ spec, prompt, budget, closeWhen }) =>
       ok(await client.createRun({ spec, prompt, budget, closeWhen })),
     ),
+  );
+
+  server.registerTool(
+    "run_list",
+    {
+      title: "List runs",
+      description:
+        "GET /runs — your runs, newest first, with each run's root agent, state and start time. " +
+        "Use it to find a run id you no longer have. When the daemon requires authentication it " +
+        "lists only the runs that belong to you.",
+      inputSchema: z.object({
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe("At most this many (default 100)."),
+        state: z.enum(["open", "closed"]).optional().describe("Only runs in this state."),
+      }),
+    },
+    safe(async ({ limit, state }) => ok(await client.listRuns({ limit, state }))),
   );
 
   server.registerTool(

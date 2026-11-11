@@ -15,6 +15,7 @@ import { stubFetch } from "./fetch-stub.js";
 
 const EXPECTED_TOOLS = [
   "run_start",
+  "run_list",
   "run_get",
   "run_stop",
   "run_watch",
@@ -75,6 +76,32 @@ describe("alineo-mcp server", () => {
       expect(result.isError).toBeFalsy();
       const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
       expect(JSON.parse(text)).toEqual({ runId: "r1", rootAgentId: "a1", state: "provisioning" });
+    } finally {
+      await close();
+    }
+  });
+
+  it("round-trips run_list", async () => {
+    const fetchImpl = stubFetch(async (url) => {
+      expect(String(url)).toBe("http://test.local:4600/runs?limit=2&state=open");
+      return new Response(
+        JSON.stringify({
+          runs: [
+            { runId: "r1", rootAgentId: "a1", state: "open", closeWhen: "explicit", createdAt: 1 },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const { client, close } = await connectedClient(fetchImpl);
+    try {
+      const result = await client.callTool({
+        name: "run_list",
+        arguments: { limit: 2, state: "open" },
+      });
+      expect(result.isError).toBeFalsy();
+      const text = (result.content as { type: string; text: string }[])[0]?.text ?? "";
+      expect((JSON.parse(text) as { runs: Array<{ runId: string }> }).runs[0]?.runId).toBe("r1");
     } finally {
       await close();
     }

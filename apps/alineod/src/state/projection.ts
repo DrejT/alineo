@@ -63,7 +63,7 @@ const upsertHandlePending = db.query(
 );
 
 const insertRun = db.query(
-  `INSERT INTO runs (run_id, close_when, state) VALUES ($runId, $closeWhen, 'open')
+  `INSERT INTO runs (run_id, close_when, state, tenant_id) VALUES ($runId, $closeWhen, 'open', $tenantId)
    ON CONFLICT(run_id) DO NOTHING`,
 );
 
@@ -106,6 +106,7 @@ export function apply(row: LedgerRow): void {
       insertRun.run({
         $runId: row.run_id,
         $closeWhen: (p.closeWhen as string) ?? "explicit",
+        $tenantId: (p.tenantId as string | undefined) ?? null,
       });
       break;
     case "run.closed":
@@ -327,12 +328,50 @@ export interface RunRow {
   close_when: "explicit" | "quiescent";
   state: "open" | "closed";
   closed_at: number | null;
+  /** The tenant that created the run. `null` for a run made with no authentication. */
+  tenant_id: string | null;
 }
 
 const qRun = db.query<RunRow, [string]>(`SELECT * FROM runs WHERE run_id = ?`);
 
 export function getRun(runId: string): RunRow | null {
   return qRun.get(runId) ?? null;
+}
+
+export interface RunListRow {
+  run_id: string;
+  close_when: "explicit" | "quiescent";
+  state: "open" | "closed";
+  root_id: string | null;
+  created_at: number | null;
+}
+
+const qListRuns = db.query<RunListRow, Record<string, string | number | null>>(
+  `SELECT r.run_id, r.close_when, r.state, a.agent_id AS root_id, a.created_at
+   FROM runs r
+   LEFT JOIN agents a ON a.run_id = r.run_id AND a.parent_agent_id IS NULL
+   WHERE ($tenant IS NULL OR COALESCE(r.tenant_id, $legacy) = $tenant)
+     AND ($state IS NULL OR r.state = $state)
+   ORDER BY a.created_at DESC, r.run_id
+   LIMIT $limit`,
+);
+
+/**
+ * Runs, newest first. `tenant: null` lists every run (authentication off). Otherwise only that
+ * tenant's, where a run with no recorded tenant counts as `legacyTenant`'s.
+ */
+export function listRuns(opts: {
+  tenant: string | null;
+  legacyTenant: string;
+  state: "open" | "closed" | null;
+  limit: number;
+}): RunListRow[] {
+  return qListRuns.all({
+    $tenant: opts.tenant,
+    $legacy: opts.legacyTenant,
+    $state: opts.state,
+    $limit: opts.limit,
+  });
 }
 
 /**

@@ -14,6 +14,7 @@ export {
   ControlScopeBody,
   CreateRunBody,
   CreateRunResponse,
+  ListRunsResponse,
   FactsResponse,
   MEMORY_KEY_MAX_CHARS,
   MemoryValueBody,

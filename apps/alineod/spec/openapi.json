@@ -19,6 +19,100 @@
   ],
   "paths": {
     "/runs": {
+      "get": {
+        "summary": "List runs",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Runs, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "runId": {
+                            "type": "string"
+                          },
+                          "rootAgentId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "open",
+                              "closed"
+                            ]
+                          },
+                          "closeWhen": {
+                            "type": "string",
+                            "enum": [
+                              "explicit",
+                              "quiescent"
+                            ]
+                          },
+                          "createdAt": {
+                            "nullable": true,
+                            "description": "Epoch ms the root agent was created.",
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "runId",
+                          "rootAgentId",
+                          "state",
+                          "closeWhen",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "Newest first."
+                    }
+                  },
+                  "required": [
+                    "runs"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad limit or state"
+          }
+        },
+        "operationId": "listRuns",
+        "description": "List runs, newest first. When the daemon requires authentication, this returns only the caller's runs. Use it to find a run id you no longer have. Filter with state=open or state=closed."
+      },
       "post": {
         "summary": "Create a run (load the root agent)",
         "requestBody": {

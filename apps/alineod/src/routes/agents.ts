@@ -20,11 +20,14 @@ import { get } from "../engine/registry";
 import { getAgentView } from "../state/projection";
 import { HttpError } from "../engine/errors";
 import { buildTranscript } from "../engine/transcript";
+import { admitSpec } from "../access";
 
 export const agentsRoutes = new Elysia()
-  .post("/runs/:runId/agents", ({ params, body, set }) => {
+  .post("/runs/:runId/agents", ({ params, body, set, request }) => {
+    const parsed = parseBody(SpawnAgentBody, body);
+    const spec = admitSpec(request, parsed.spec);
     set.status = 202; // async — the fork (and any waitFor hold) happens in the background
-    return spawnAgent(params.runId, parseBody(SpawnAgentBody, body));
+    return spawnAgent(params.runId, { ...parsed, spec });
   })
 
   .get("/agents/:agentId", async ({ params }) => {

@@ -41,6 +41,20 @@ const ENV_VARS = {
     schema: z.coerce.number().int().positive().max(65535),
     default: 4600,
   }),
+  AUTH_TOKEN: defineEnv({
+    name: "ALINEOD_AUTH_TOKEN",
+    description:
+      "A shared secret. When set, every request except `GET /health` must send `Authorization: Bearer <token>`, or it gets a 401. Everyone who holds the token is one tenant, so this is authentication and not isolation. Leave it empty (the default) for no authentication, which is only safe when alineod listens on a trusted interface. A deployer who needs several isolated tenants passes an `authenticate` function to `createApp()` instead.",
+    schema: z.string(),
+    default: "",
+  }),
+  SPEC_ENV_ALLOW: defineEnv({
+    name: "ALINEOD_SPEC_ENV_ALLOW",
+    description:
+      "Which environment variables a spec may read with `${NAME}` in `AgentSpec.env`. alineod fills `${NAME}` from its own environment, so without a list any caller can write the name of a secret alineod holds into a spec and read it inside its sandbox. Give a comma list of exact names or prefixes ending in `*` (`NVIDIA_API_KEY,OPENAI_*`). `none` allows no `${NAME}` at all, so a spec carries only literal values. Empty (the default) puts no limit on specs, which is right when every caller is trusted. Set it whenever people you do not trust can create runs.",
+    schema: z.string(),
+    default: "",
+  }),
   DB_PATH: defineEnv({
     name: "ALINEOD_DB_PATH",
     description:
@@ -287,6 +301,19 @@ const env = readEnvGroup(ENV_VARS, { onWarning: (message) => configWarnings.push
 
 /** HTTP + SSE listen port. */
 export const PORT = env.PORT;
+export const AUTH_TOKEN = env.AUTH_TOKEN;
+/**
+ * The spec env allowlist as the app takes it: `undefined` for no limit, `[]` for none, or the names.
+ */
+export const SPEC_ENV_ALLOW: readonly string[] | undefined = (() => {
+  const raw = env.SPEC_ENV_ALLOW.trim();
+  if (raw === "") return undefined;
+  if (raw.toLowerCase() === "none") return [];
+  return raw
+    .split(",")
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+})();
 export const DB_PATH = env.DB_PATH;
 export const SDK_LEDGER_PATH = env.SDK_LEDGER_PATH;
 export const WORK_DIR = env.WORK_DIR;

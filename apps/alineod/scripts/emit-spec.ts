@@ -17,6 +17,7 @@ import { z } from "zod";
 import {
   CreateRunBody,
   CreateRunResponse,
+  ListRunsResponse,
   SpawnAgentBody,
   SpawnAgentResponse,
   TreeView,
@@ -66,6 +67,30 @@ const openapi = {
   ],
   paths: {
     "/runs": {
+      get: {
+        summary: "List runs",
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 500, default: 100 },
+          },
+          {
+            name: "state",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["open", "closed"] },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Runs, newest first",
+            content: { "application/json": { schema: json(ListRunsResponse) } },
+          },
+          "400": { description: "Bad limit or state" },
+        },
+      },
       post: {
         summary: "Create a run (load the root agent)",
         requestBody: {
@@ -509,6 +534,11 @@ const OPERATIONS: Record<string, { operationId: string; description: string }> =
     operationId: "createRun",
     description:
       "Start a run by loading a root agent from an agent spec. Returns the run id and the root agent id. Call this first; every other operation needs the ids it returns.",
+  },
+  "GET /runs": {
+    operationId: "listRuns",
+    description:
+      "List runs, newest first. When the daemon requires authentication, this returns only the caller's runs. Use it to find a run id you no longer have. Filter with state=open or state=closed.",
   },
   "GET /runs/{runId}": {
     operationId: "getRunTree",
