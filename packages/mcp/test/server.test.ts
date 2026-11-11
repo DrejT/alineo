@@ -30,13 +30,15 @@ const EXPECTED_TOOLS = [
   "init",
   "spec_add",
   "spec_list",
+  "spec_get",
   "spec_remove",
 ];
 
 async function connectedClient(
   fetchImpl: typeof fetch,
+  extra: Partial<Parameters<typeof buildServer>[0]> = {},
 ): Promise<{ client: Client; close: () => Promise<void> }> {
-  const server = buildServer({ baseUrl: "http://test.local:4600", fetchImpl });
+  const server = buildServer({ baseUrl: "http://test.local:4600", fetchImpl, ...extra });
   const client = new Client({ name: "test-client", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -237,6 +239,117 @@ describe("alineo-mcp server local spec tools", () => {
       expect(
         JSON.parse((listedAfter.content as { type: string; text: string }[])[0]?.text ?? "[]"),
       ).toEqual([]);
+    } finally {
+      await close();
+    }
+  });
+});
+
+describe("alineo-mcp server in remote mode", () => {
+  const idle = () => stubFetch(async () => new Response(null, { status: 204 }));
+  const textOf = (result: { content?: unknown }) =>
+    (result.content as { type: string; text: string }[])[0]?.text ?? "";
+  const validSpec = { name: "writer", harness: "pi", model: "some-model" };
+
+  it("has every tool except init", async () => {
+    const { client, close } = await connectedClient(idle(), { mode: "remote" });
+    try {
+      const names = (await client.listTools()).tools.map((t) => t.name).sort();
+      expect(names).toEqual(EXPECTED_TOOLS.filter((t) => t !== "init").sort());
+    } finally {
+      await close();
+    }
+  });
+
+  it("keeps init in local mode", async () => {
+    const { client, close } = await connectedClient(idle(), { mode: "local" });
+    try {
+      expect((await client.listTools()).tools.map((t) => t.name)).toContain("init");
+    } finally {
+      await close();
+    }
+  });
+
+  it("takes an inline spec, then lists, gets and removes it", async () => {
+    const { client, close } = await connectedClient(idle(), { mode: "remote" });
+    try {
+      const added = await client.callTool({ name: "spec_add", arguments: { spec: validSpec } });
+      expect(added.isError).toBeFalsy();
+      expect((JSON.parse(textOf(added)) as { name: string }).name).toBe("writer");
+
+      const listed = await client.callTool({ name: "spec_list", arguments: {} });
+      expect(JSON.parse(textOf(listed))).toEqual([
+        { name: "writer", harness: "pi", description: "" },
+      ]);
+
+      const got = await client.callTool({ name: "spec_get", arguments: { name: "writer" } });
+      expect((JSON.parse(textOf(got)) as { model: string }).model).toBe("some-model");
+
+      const removed = await client.callTool({ name: "spec_remove", arguments: { name: "writer" } });
+      expect(removed.isError).toBeFalsy();
+      const gone = await client.callTool({ name: "spec_get", arguments: { name: "writer" } });
+      expect(gone.isError).toBe(true);
+    } finally {
+      await close();
+    }
+  });
+
+  it("refuses a local file path and does not read it", async () => {
+    const { client, close } = await connectedClient(idle(), { mode: "remote" });
+    try {
+      for (const url of ["/etc/passwd", "file:///etc/passwd", "../secrets.json"]) {
+        const result = await client.callTool({ name: "spec_add", arguments: { url } });
+        expect(result.isError, url).toBe(true);
+        expect(textOf(result), url).not.toContain("root:");
+      }
+    } finally {
+      await close();
+    }
+  });
+
+  it("refuses a URL aimed at the server's own network", async () => {
+    const fetchImpl = idle();
+    const { client, close } = await connectedClient(fetchImpl, { mode: "remote" });
+    try {
+      for (const url of [
+        "https://127.0.0.1/v1/sandboxes",
+        "https://169.254.169.254/latest/meta-data",
+        "https://[::1]/x",
+        "http://example.com/spec.json",
+      ]) {
+        const result = await client.callTool({ name: "spec_add", arguments: { url } });
+        expect(result.isError, url).toBe(true);
+      }
+      expect(fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      await close();
+    }
+  });
+
+  it("needs exactly one of spec and url", async () => {
+    const { client, close } = await connectedClient(idle(), { mode: "remote" });
+    try {
+      expect((await client.callTool({ name: "spec_add", arguments: {} })).isError).toBe(true);
+      expect(
+        (
+          await client.callTool({
+            name: "spec_add",
+            arguments: { spec: validSpec, url: "https://example.com/a.json" },
+          })
+        ).isError,
+      ).toBe(true);
+    } finally {
+      await close();
+    }
+  });
+
+  it("uses the store it is given", async () => {
+    const { MemorySpecStore } = await import("../src/spec-store.js");
+    const store = new MemorySpecStore();
+    const { client, close } = await connectedClient(idle(), { mode: "remote", specs: store });
+    try {
+      await client.callTool({ name: "spec_add", arguments: { spec: validSpec } });
+      expect((await store.get("writer"))?.name).toBe("writer");
     } finally {
       await close();
     }

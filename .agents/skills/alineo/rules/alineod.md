@@ -101,7 +101,7 @@ which is why it survives container loss.
 ## MCP server (`alineo-mcp`)
 
 `packages/mcp` exposes alineod to MCP clients as `{subject}_{verb}` tools: `init`, `spec_add`,
-`spec_list`, `spec_remove`, `run_start`, `run_get`, `run_watch`, `run_stop`, `agent_spawn`,
+`spec_list`, `spec_get`, `spec_remove`, `run_start`, `run_list`, `run_get`, `run_watch`, `run_stop`, `agent_spawn`,
 `agent_get`, `agent_prompt`, `agent_steer`, `agent_pause`, `agent_resume`, `agent_stop`,
 `result_get`. It needs alineod reachable at `ALINEOD_URL` (default `http://127.0.0.1:4600`);
 `init` starts OpenSandbox + alineod locally. Its stdout is the JSON-RPC channel, so anything it

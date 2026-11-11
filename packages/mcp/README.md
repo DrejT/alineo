@@ -16,6 +16,7 @@ with `ALINEOD_URL`):
 | Tool           | Route                           |                                                         |
 | -------------- | ------------------------------- | ------------------------------------------------------- |
 | `run_start`    | `POST /runs`                    | Load the root agent from an AgentSpec, start a run      |
+| `run_list`     | `GET /runs`                     | Your runs, newest first                                 |
 | `run_get`      | `GET /runs/:runId`              | The spawn tree — every agent, state, parent pointers    |
 | `run_stop`     | `DELETE /runs/:runId`           | Abort + close every live agent in the run               |
 | `run_watch`    | `GET /runs/:runId/events` (SSE) | Collect lifecycle + harness events for a bounded window |
@@ -35,6 +36,7 @@ with `ALINEOD_URL`):
 | `init`        | Start OpenSandbox + alineod locally via Docker               |
 | `spec_add`    | Fetch an AgentSpec (URL or local file), validate it, save it |
 | `spec_list`   | List saved agent specs                                       |
+| `spec_get`    | Return one saved spec                                        |
 | `spec_remove` | Remove a saved agent spec                                    |
 
 This mirrors alineod's core swarm-control routes and every `alineo-cli` subcommand except `telemetry`
@@ -46,6 +48,15 @@ swarm run through the daemon, which is what an MCP client actually talks to.
 Not exposed as tools yet: `scope: "subtree"` on pause/resume/stop/steer, `GET
 /agents/:id/transcript`, and the coordination routes (`await`, `notify-on`, inbox) that alineod
 gained after this server was written. They are available over alineod's HTTP API.
+
+## Serving it to other people
+
+`alineo-mcp --http [--port 4700] [--host 127.0.0.1] [--allow-anonymous]` serves the same tools over
+streamable HTTP in **remote mode**: no `init`, no local files in `spec_add` (an inline `spec` or a
+public https `url`), specs in a `SpecStore`, and the caller's own `Authorization` header forwarded
+to alineod, which decides who they are. A request with no header is refused. To embed it, import
+`createHttpMcp` from `alineo-mcp/server`. See the
+[docs](https://docs.alineo.tech/docs/alineod/mcp#serve-it-to-other-people).
 
 ## Install
 

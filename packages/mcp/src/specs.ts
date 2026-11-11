@@ -8,6 +8,7 @@ import { mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { validateAgentSpec, type AgentSpec, type AgentSpecInput } from "alineo";
 import { readConfig } from "@alineo-labs/cli-shared";
+import { SPEC_NAME, summarize, type SpecSummary } from "./spec-store.js";
 
 export interface AddSpecResult {
   name: string;
@@ -65,11 +66,7 @@ async function fetchSpec(url: string): Promise<AgentSpec> {
   return validateAgentSpec(await file.json());
 }
 
-export interface SpecSummary {
-  name: string;
-  harness: string;
-  description: string;
-}
+export type { SpecSummary };
 
 export async function listSpecs(): Promise<SpecSummary[]> {
   const config = await readConfig();
@@ -81,11 +78,7 @@ export async function listSpecs(): Promise<SpecSummary[]> {
   for (const file of files) {
     try {
       const spec = (await Bun.file(join(dir, file)).json()) as Partial<AgentSpecInput>;
-      specs.push({
-        name: spec.name ?? file.replace(/\.json$/, ""),
-        harness: (typeof spec.harness === "object" ? spec.harness.id : spec.harness) ?? "?",
-        description: spec.description ?? spec.title ?? "",
-      });
+      specs.push(summarize(spec.name ?? file.replace(/\.json$/, ""), spec));
     } catch {
       specs.push({ name: file.replace(/\.json$/, ""), harness: "?", description: "(unreadable)" });
     }
@@ -102,4 +95,15 @@ export async function removeSpec(name: string): Promise<void> {
     throw new Error(`No agent spec named '${name}' in '${config.agentsDir}'.`);
   }
   await unlink(dest);
+}
+
+/** One saved spec, by name. The name is checked first, so it cannot walk out of `agentsDir`. */
+export async function getSpec(name: string): Promise<AgentSpec> {
+  if (!SPEC_NAME.test(name)) throw new Error(`'${name}' is not a usable spec name.`);
+  const config = await readConfig();
+  const file = Bun.file(join(config.agentsDir, `${name}.json`));
+  if (!(await file.exists())) {
+    throw new Error(`No agent spec named '${name}' in '${config.agentsDir}'.`);
+  }
+  return validateAgentSpec(await file.json());
 }
