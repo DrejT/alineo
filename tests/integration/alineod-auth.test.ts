@@ -25,7 +25,7 @@ function agentSpec(name: string, env: Record<string, string>) {
   return {
     name,
     harness: { id: "pi", version: "1.2.0" },
-    model: { provider: "nvidia", id: "nvidia/nemotron-3-super-120b-a12b" },
+    model: { provider: "nvidia", id: "nvidia/nemotron-3.5-lightning-30b-a3b" },
     env,
     resources: { cpu: "500m", memory: "1Gi" },
   };
