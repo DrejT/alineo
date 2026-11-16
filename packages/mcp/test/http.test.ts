@@ -123,6 +123,38 @@ describe("createHttpMcp", () => {
     }
   });
 
+  it("spec_add returns the nested spec shape, so run_start gets no deprecated fields", async () => {
+    const c = await connect({}, { authorization: "Bearer a" });
+    try {
+      const spec = {
+        name: "helper",
+        harness: { id: "pi", version: "1.2.0" },
+        model: { provider: "nvidia", id: "some-model" },
+      };
+      const added = JSON.parse(
+        textOf(await c.client.callTool({ name: "spec_add", arguments: { spec } })),
+      ) as { spec: Record<string, unknown> };
+      expect(added.spec).toEqual(spec);
+      expect(added.spec).not.toHaveProperty("provider");
+      expect(added.spec).not.toHaveProperty("harnessVersion");
+    } finally {
+      await c.close();
+    }
+  });
+
+  it("names spec_list and spec_get in its instructions only when it keeps specs", async () => {
+    const plain = await connect({}, { authorization: "Bearer a" });
+    const store = new MemorySpecStore();
+    const kept = await connect({ specsFor: () => store }, { authorization: "Bearer a" });
+    try {
+      expect(plain.client.getInstructions()).not.toContain("spec_list");
+      expect(kept.client.getInstructions()).toContain("spec_list");
+    } finally {
+      await plain.close();
+      await kept.close();
+    }
+  });
+
   it("asks specsFor for a store per caller, so users do not share specs", async () => {
     const stores = new Map<string, SpecStore>();
     const specsFor = (authorization: string | undefined): SpecStore => {

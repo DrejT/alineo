@@ -9,7 +9,7 @@ import pkg from "../package.json" with { type: "json" };
 import { AlineodClient, AlineodError, type AlineodClientOptions } from "./alineod-client.js";
 import { init } from "./init.js";
 import { addSpec, getSpec, listSpecs, removeSpec } from "./specs.js";
-import { addRemoteSpec, MemorySpecStore, type SpecStore } from "./spec-store.js";
+import { addRemoteSpec, MemorySpecStore, specForCaller, type SpecStore } from "./spec-store.js";
 import { PublicFetchError, type PublicFetchOptions } from "./public-fetch.js";
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
@@ -88,8 +88,11 @@ export function buildServer(options: BuildServerOptions = {}): McpServer {
     {
       instructions: remote
         ? "Orchestrate swarms of sandboxed coding agents through a hosted alineod. Typical flow: " +
-          "spec_add (an inline spec, or a public https URL) validates an AgentSpec, and " +
-          "spec_list / spec_get recall saved ones where this server keeps them → run_start to start a swarm → agent_spawn to fan out children → " +
+          "spec_add (an inline spec, or a public https URL) validates an AgentSpec" +
+          (persistent
+            ? ", and spec_list / spec_get recall saved ones"
+            : " and returns it (this server keeps no specs)") +
+          " → run_start to start a swarm → agent_spawn to fan out children → " +
           "agent_prompt / agent_steer to drive them → run_watch, run_get or run_list to observe " +
           "progress → result_get to read a settled agent's output → agent_stop / run_stop to " +
           "tear down. There is nothing to install or start: the daemon is already running."
@@ -405,7 +408,8 @@ export function buildServer(options: BuildServerOptions = {}): McpServer {
       },
       safe(async ({ spec, url, name }) => {
         try {
-          return ok(await addRemoteSpec(store, { spec, url, name }, fetchOptions));
+          const added = await addRemoteSpec(store, { spec, url, name }, fetchOptions);
+          return ok({ ...added, spec: specForCaller(added.spec) });
         } catch (err) {
           // Fetch refusals are the caller's to see, not an internal failure.
           if (err instanceof PublicFetchError)
@@ -436,7 +440,7 @@ export function buildServer(options: BuildServerOptions = {}): McpServer {
         safe(async ({ name }) => {
           const spec = await store.get(name);
           if (!spec) throw new Error(`No agent spec named '${name}'.`);
-          return ok(spec);
+          return ok(specForCaller(spec));
         }),
       );
 

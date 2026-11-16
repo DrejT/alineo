@@ -64,6 +64,21 @@ export class MemorySpecStore implements SpecStore {
   }
 }
 
+/**
+ * A stored spec in the shape a caller writes: `harness: { id, version }` and
+ * `model: { provider, id }`. The store keeps the normalized form, whose flat `provider` and
+ * `harnessVersion` are deprecated input. A caller that passes a spec back to run_start would
+ * otherwise get a deprecation warning for fields it never wrote.
+ */
+export function specForCaller(spec: AgentSpec): AgentSpecInput {
+  const { harness, harnessVersion, model, provider, ...rest } = spec;
+  return {
+    ...rest,
+    harness: harnessVersion === undefined ? harness : { id: harness, version: harnessVersion },
+    model: provider === undefined ? model : { provider, id: model },
+  } as AgentSpecInput;
+}
+
 export interface AddRemoteSpecInput {
   /** The spec itself. */
   spec?: unknown;
