@@ -13,8 +13,7 @@
  *   5. a second open run                        429 LIMIT_EXCEEDED
  *   6. close the first run, start the second    204, then 202
  *
- * Before it closes a run, the script waits for the run's sandbox to exist (about a minute the first
- * time, while Pi installs). No model call is made, so it needs no model key. No SDK either: plain HTTP. See README for how to
+ * No model call is made, so it needs no model key. No SDK either: plain HTTP. See README for how to
  * start alineod with these variables.
  */
 const BASE = process.env.ALINEOD_URL ?? "http://localhost:4600";
@@ -71,20 +70,6 @@ function expectStatus(step: string, reply: Reply, status: number, code?: string)
   console.log(`  ${step.padEnd(44)} ${got}`);
 }
 
-/**
- * Wait until the run's root agent holds its sandbox (or has ended). A run closed while its first
- * sandbox is still being created can leave that sandbox running, so this script never does that.
- */
-async function waitForSandbox(run: { runId: string; rootAgentId: string }): Promise<void> {
-  const deadline = Date.now() + 240_000;
-  while (Date.now() < deadline) {
-    const { body } = await call("GET", `/agents/${run.rootAgentId}`);
-    if (body?.sandboxId || body?.outcome) return;
-    await Bun.sleep(2_000);
-  }
-  throw new Error(`${run.rootAgentId} had no sandbox after 240 s`);
-}
-
 const opened: Array<{ runId: string; rootAgentId: string }> = [];
 
 try {
@@ -135,8 +120,6 @@ try {
   console.log(`  -> ${second.body.error}`);
 
   console.log("\n6. Close the first run, and there is room again");
-  console.log("  (waiting for its sandbox, about a minute the first time)");
-  await waitForSandbox(first.body);
   opened.shift();
   expectStatus(
     `DELETE /runs/${first.body.runId}`,
@@ -153,7 +136,6 @@ try {
 } finally {
   // Close what this script opened, so the next run starts under the limit.
   for (const run of opened) {
-    await waitForSandbox(run).catch(() => {});
     await call("DELETE", `/runs/${run.runId}`);
   }
 }

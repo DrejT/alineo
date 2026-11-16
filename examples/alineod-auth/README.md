@@ -47,8 +47,8 @@ bun start
 ```
 
 Set `ALINEOD_URL` if the daemon is not on `http://localhost:4600`, and `ALINEOD_API_KEY` if you
-chose a token other than `demo-token`. A run takes about two minutes. The script waits for each
-run's sandbox before it closes the run.
+chose a token other than `demo-token`. The script takes a few seconds. alineod closes each
+sandbox it started, also one that is still being made when its run is closed.
 
 See [Security](https://docs.alineo.tech/docs/alineod/deployment#security) and
 [Limits and suspension](https://docs.alineo.tech/docs/alineod/deployment#limits-and-suspension).

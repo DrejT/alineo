@@ -10,6 +10,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Subprocess } from "bun";
+import { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -68,20 +69,22 @@ async function until(fn: () => Promise<boolean>, what: string, timeoutMs: number
   throw new Error(`timed out waiting for ${what}`);
 }
 
-/** A run closed while its first sandbox is still being made can leave that sandbox running. */
-async function waitForSandbox(rootAgentId: string): Promise<void> {
-  await until(
-    async () => {
-      const { body } = await api("GET", `/agents/${rootAgentId}`);
-      return Boolean(body.sandboxId || body.outcome);
-    },
-    `${rootAgentId} to hold a sandbox`,
-    300_000,
-  );
+/** Whether alineod has closed this agent's sandbox. The HTTP view does not show it, the ledger does. */
+function released(agentId: string): boolean {
+  const db = new Database(join(DATA, "alineod.db"), { readonly: true });
+  try {
+    const row = db.query("SELECT released_at FROM agents WHERE agent_id = ?").get(agentId) as {
+      released_at: number | null;
+    } | null;
+    return row?.released_at != null;
+  } finally {
+    db.close();
+  }
 }
 
 let server: Subprocess | undefined;
 const opened: Array<{ runId: string; rootAgentId: string }> = [];
+const closed: Array<{ runId: string; rootAgentId: string }> = [];
 
 beforeAll(async () => {
   server = Bun.spawn(["bun", SERVER], {
@@ -108,9 +111,16 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  for (const run of opened) {
-    await waitForSandbox(run.rootAgentId).catch(() => {});
-    await api("DELETE", `/runs/${run.runId}`).catch(() => {});
+  for (const run of opened) await api("DELETE", `/runs/${run.runId}`).catch(() => {});
+  closed.push(...opened.splice(0));
+  // A run deleted while its sandbox is still being made gets that sandbox closed once it exists.
+  // Wait for that, so this test leaves no container behind.
+  for (const run of closed) {
+    await until(
+      () => Promise.resolve(released(run.rootAgentId)),
+      `${run.rootAgentId}'s release`,
+      300_000,
+    );
   }
   server?.kill();
   rmSync(DATA, { recursive: true, force: true });
@@ -155,9 +165,9 @@ describe("alineod with a token, an env allowlist and an open-run limit", () => {
     expect(second.status).toBe(429);
     expect(second.body.code).toBe("LIMIT_EXCEEDED");
 
-    await waitForSandbox(first.body.rootAgentId);
+    // Deleted while its sandbox is still being made: alineod closes it when it arrives.
     expect((await api("DELETE", `/runs/${first.body.runId}`)).status).toBe(204);
-    opened.shift();
+    closed.push(...opened.splice(0));
 
     const third = await api("POST", "/runs", {
       body: { spec: agentSpec("third", { NVIDIA_API_KEY: "${NVIDIA_API_KEY}" }) },
