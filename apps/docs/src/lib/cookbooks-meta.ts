@@ -6,6 +6,7 @@ import {
   KeyRound,
   ListChecks,
   Network,
+  Plug,
   ShieldCheck,
   Users,
 } from "lucide-react";
@@ -97,6 +98,15 @@ export const cookbooksMeta: CookbookMetaEntry[] = [
     difficulty: "Advanced",
     time: "~15 min",
     icon: Network,
+  },
+  {
+    slug: "mcp-agent-swarm",
+    title: "MCP Agent Swarm",
+    description:
+      "The same swarm code review, driven through alineo-mcp's tools instead of raw alineod HTTP calls.",
+    difficulty: "Advanced",
+    time: "~15 min",
+    icon: Plug,
   },
   {
     slug: "hosted-mcp",
