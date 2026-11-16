@@ -7,6 +7,7 @@ import {
   ListChecks,
   Network,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CookbookDifficulty } from "@/components/cookbook/meta";
@@ -96,5 +97,14 @@ export const cookbooksMeta: CookbookMetaEntry[] = [
     difficulty: "Advanced",
     time: "~15 min",
     icon: Network,
+  },
+  {
+    slug: "hosted-mcp",
+    title: "Hosted MCP for a Team",
+    description:
+      "Serve alineo-mcp over HTTP to several people, each with their own key, and keep their runs apart.",
+    difficulty: "Advanced",
+    time: "~10 min",
+    icon: Users,
   },
 ];

@@ -1,0 +1,171 @@
+---
+title: Hosted MCP for a Team
+description: Serve alineo-mcp over HTTP to several people, each with their own key, and keep their runs, agents and memory apart.
+---
+
+<CookbookMeta
+  difficulty="Advanced"
+  time="~10 min"
+  primitives={["startDaemon", "authenticate", "specEnvAllow", "Limits", "serveHttp", "run_list"]}
+/>
+
+[`alineo-mcp`](/docs/alineod/mcp) usually runs on one person's machine over stdio. This recipe serves it over HTTP to
+two people, Alice and Bob, from one alineod. Each has their own key. Each sees only their own runs, and a run id that
+belongs to the other person answers `404`, the same as an id that does not exist.
+
+```
+alice ─┐                                       ┌─ tenant "alice": her runs, agents, memory
+       ├─ alineo-mcp --http ── alineod ────────┤
+bob ───┘   (forwards each caller's key)        └─ tenant "bob": his
+```
+
+The recipe has one file for each side. `serve.ts` is what an operator writes: about 40 lines that hold the policy
+(who has which key, the limit numbers). `index.ts` plays Alice and Bob as two MCP clients.
+
+## Setup
+
+<Steps>
+<Step>
+
+Start OpenSandbox in Docker (one-time setup), build the workspace, and build `alineo-mcp`:
+
+```bash
+bunx alineo-cli init
+bun install && bun run build
+bun run --cwd packages/mcp build
+```
+
+</Step>
+<Step>
+
+Get a free API key from [build.nvidia.com](https://build.nvidia.com) and start the server with it in **its**
+environment:
+
+```bash
+cd cookbooks/hosted-mcp
+NVIDIA_API_KEY=nvapi-... bun run serve
+```
+
+alineod listens on `:4601`, and the MCP on `http://127.0.0.1:4700/mcp`.
+
+</Step>
+</Steps>
+
+## Run it
+
+<CookbookPlayground
+  cwd="cookbooks/hosted-mcp"
+  repoHref="https://github.com/DrejT/alineo/tree/main/cookbooks/hosted-mcp"
+  commands={[{ command: "bun start" }]}
+  output={`1. No key, no MCP
+   POST /mcp with no Authorization header → 401
+
+2. alice validates her spec
+   spec_add → 'helper' is valid
+
+3. alice starts a run
+   run_start → run r_691ef76d1cf64bce, root agent a_528d5ba8
+
+4. bob cannot see it
+   bob run_list → 0 run(s)
+   bob run_get r_691ef76d1cf64bce → run_get → alineod error (404, RUN_NOT_FOUND): no run r_691ef76d1cf64bce
+   bob agent_get a_528d5ba8 → agent_get → alineod error (404, AGENT_NOT_FOUND): no agent a_528d5ba8
+
+5. alice reads her answer (the sandbox and the first turn take a minute or two)
+   result_get → success: <the agent's one-sentence answer>
+
+6. alice sees her run, then closes it
+   alice run_list → r_691ef76d1cf64bce
+   run_stop → closed`}
+   />
+
+Steps 1 to 4 and 6 are copied from a real run. The answer in step 5 is whatever the model writes.
+
+## What it does
+
+<Steps>
+<Step>
+
+### Start alineod with an `authenticate` function
+
+`serve.ts` calls `startDaemon()`, the same boot sequence `apps/alineod/server.ts` runs, with three options the
+environment cannot express on its own:
+
+```ts
+const daemon = await startDaemon({
+  port: ALINEOD_PORT,
+  authenticate: (request) => {
+    const key = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+    const tenantId = key ? KEYS.get(key) : undefined;
+    return tenantId ? { tenantId } : null;
+  },
+  specEnvAllow: ["NVIDIA_API_KEY"],
+  limits: new Limits({ defaults: { maxOpenRuns: 2, maxLiveAgents: 4 } }),
+});
+```
+
+`authenticate` maps a key to a tenant, or returns `null` for a `401`. Here the keys come from `TEAM_KEYS`. In your
+own deployment, this is where your key store goes. `specEnvAllow` stops a spec from reading any other secret out of
+alineod's environment. `limits` caps how many runs and sandboxes each tenant holds at once.
+
+</Step>
+<Step>
+
+### Serve the MCP in front of it
+
+```ts
+const mcp = serveHttp({ port: MCP_PORT, baseUrl: `http://127.0.0.1:${daemon.port}` });
+```
+
+`serveHttp` (from `alineo-mcp/server`) runs the MCP in remote mode. It holds no credential, and it forwards each
+caller's `Authorization` header to alineod unchanged. alineod is the one place that decides who the caller is. A
+request with no header gets `401` from the MCP itself, so the endpoint is never an open door.
+
+</Step>
+<Step>
+
+### Connect as two people
+
+`index.ts` connects two clients with `StreamableHTTPClientTransport`, one with each key:
+
+```ts
+new StreamableHTTPClientTransport(new URL(MCP_URL), {
+  requestInit: { headers: { authorization: `Bearer ${key}` } },
+});
+```
+
+A chat client does the same thing when you give it the URL and a header. For Claude Code:
+
+```bash
+claude mcp add --transport http alineo http://127.0.0.1:4700/mcp \
+  --header "Authorization: Bearer alice-demo-key"
+```
+
+</Step>
+<Step>
+
+### Alice works, and Bob sees none of it
+
+Alice calls `spec_add` with the spec inline. With no `SpecStore` passed to `serveHttp`, the server keeps nothing
+between requests, so `spec_add` validates the spec and returns it, and she passes it to `run_start`. Bob's
+`run_list` comes back empty. His `run_get` on her run id and his `agent_get` on her agent id both get `404`. A `403`
+would tell him the id is real. Alice reads her answer with `result_get`, lists her run with `run_list`, and closes it
+with `run_stop`.
+
+</Step>
+</Steps>
+
+<Callout type="warn" title="Before you serve it to strangers">
+  This recipe is for a team you trust. The spec passes the model key as a plain env value, so each
+  agent can read it inside its sandbox. For people you do not trust, read [Keep secrets out of
+  specs](/docs/alineod/deployment#keep-secrets-out-of-specs) and [Network isolation is part of the
+  security model](/docs/alineod/deployment#network-isolation-is-part-of-the-security-model) first.
+  Put TLS in front of both ports, and keep alineod's port reachable only from the MCP.
+</Callout>
+
+<Callout title="Where to go next">
+  [Security](/docs/alineod/deployment#security) covers tenants, limits and the kill switch in full.
+  [Serve it to other people](/docs/alineod/mcp#serve-it-to-other-people) covers remote mode and
+  `SpecStore`. To keep specs per person, pass `specsFor` to `serveHttp`. For one shared token
+  instead of tenants, see the `alineod-auth` example.
+</Callout>

@@ -22,6 +22,7 @@ Every recipe below is also published on the [docs site](https://docs.alineo.tech
 | [`credential-scoped-agent`](credential-scoped-agent)   | An agent that calls an authenticated API with a token it can never read — injected at the egress layer        |
 | [`swarm-code-review`](swarm-code-review)               | A swarm of reviewers forked from one checkout, steered and paused mid-review, merged by an editor via alineod |
 | [`mcp-agent-swarm`](mcp-agent-swarm)                   | The same swarm review, driven through `alineo-mcp`'s tools over stdio instead of raw alineod HTTP calls       |
+| [`hosted-mcp`](hosted-mcp)                             | `alineo-mcp` served over HTTP to two people with their own keys, each seeing only their own runs              |
 
 ## Setup
 

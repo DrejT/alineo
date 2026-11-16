@@ -147,6 +147,14 @@
         "alineo": "workspace:*",
       },
     },
+    "cookbooks/hosted-mcp": {
+      "name": "alineo-cookbook-hosted-mcp",
+      "version": "0.0.1",
+      "dependencies": {
+        "@alineo-labs/logger": "workspace:*",
+        "@modelcontextprotocol/client": "^2.0.0",
+      },
+    },
     "cookbooks/mcp-agent-swarm": {
       "name": "alineo-cookbook-mcp-agent-swarm",
       "version": "0.0.1",
@@ -199,6 +207,10 @@
         "@alineo-labs/sqlite": "workspace:*",
         "alineo": "workspace:*",
       },
+    },
+    "examples/alineod-auth": {
+      "name": "alineo-example-alineod-auth",
+      "version": "0.0.1",
     },
     "examples/alineod-coordination": {
       "name": "alineo-example-alineod-coordination",
@@ -2064,6 +2076,8 @@
 
     "alineo-cookbook-credential-scoped-agent": ["alineo-cookbook-credential-scoped-agent@workspace:cookbooks/credential-scoped-agent"],
 
+    "alineo-cookbook-hosted-mcp": ["alineo-cookbook-hosted-mcp@workspace:cookbooks/hosted-mcp"],
+
     "alineo-cookbook-mcp-agent-swarm": ["alineo-cookbook-mcp-agent-swarm@workspace:cookbooks/mcp-agent-swarm"],
 
     "alineo-cookbook-parallel-test-shards": ["alineo-cookbook-parallel-test-shards@workspace:cookbooks/parallel-test-shards"],
@@ -2077,6 +2091,8 @@
     "alineo-cookbook-untrusted-code-execution": ["alineo-cookbook-untrusted-code-execution@workspace:cookbooks/untrusted-code-execution"],
 
     "alineo-example-agent-egress-approval": ["alineo-example-agent-egress-approval@workspace:examples/agent-egress-approval"],
+
+    "alineo-example-alineod-auth": ["alineo-example-alineod-auth@workspace:examples/alineod-auth"],
 
     "alineo-example-alineod-coordination": ["alineo-example-alineod-coordination@workspace:examples/alineod-coordination"],
 

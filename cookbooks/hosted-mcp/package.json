@@ -1,0 +1,13 @@
+{
+  "name": "alineo-cookbook-hosted-mcp",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "serve": "bun serve.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "@alineo-labs/logger": "workspace:*",
+    "@modelcontextprotocol/client": "^2.0.0"
+  }
+}
