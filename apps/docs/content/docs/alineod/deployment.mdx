@@ -64,31 +64,41 @@ alineod has no login by default. It answers every request, so run it on a truste
 private network) unless you turn one of the options below on. Put your own TLS in front of it when it must be
 reachable over a network. It speaks plain HTTP.
 
-| Mode                        | How                                  | What it protects                                                                                  |
-| --------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| No authentication (default) | nothing to set                       | Nothing. Fine for one user on one machine.                                                        |
-| One shared secret           | `ALINEOD_AUTH_TOKEN`                 | Keeps out callers without the token. Everyone with it is one tenant and sees every run.           |
-| Several isolated tenants    | pass `authenticate` to `createApp()` | Each tenant sees only its own runs. A caller cannot tell another tenant's run from a missing one. |
+| Mode                        | How                                    | What it protects                                                                                  |
+| --------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| No authentication (default) | nothing to set                         | Nothing. Fine for one user on one machine.                                                        |
+| One shared secret           | `ALINEOD_AUTH_TOKEN`                   | Keeps out callers without the token. Everyone with it is one tenant and sees every run.           |
+| Several isolated tenants    | pass `authenticate` to `startDaemon()` | Each tenant sees only its own runs. A caller cannot tell another tenant's run from a missing one. |
 
 With authentication on, every route except `GET /health` answers `401` with `{ "error": ..., "code": "UNAUTHENTICATED" }`
 until the caller sends a valid credential. `GET /health` stays open so a load balancer can probe it.
 
 ### Tenants
 
-`createApp({ authenticate })` takes a function that receives the request and returns `{ tenantId }`, or `null` to
-refuse it. It may be async. alineo does not store keys or users. You write that part:
+An `authenticate` function cannot be set from the environment, so you write a small entry file of your own in place
+of `server.ts`. It calls `startDaemon()` from `src/daemon.ts`, which runs the same boot sequence as `server.ts` (the
+lease, the SDK ledger, memory, rehydrate, the HTTP app and the sweep). `authenticate` receives the request and returns
+`{ tenantId }`, or `null` to refuse it. It may be async. alineo does not store keys or users. You write that part:
 
 ```ts
-import { createApp } from "./src/app";
+import { startDaemon } from "./src/daemon";
 
-const app = createApp({
+const daemon = await startDaemon({
   authenticate: async (request) => {
     const key = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
     const tenantId = key ? await lookupTenantByKey(key) : null; // your key store
     return tenantId ? { tenantId } : null;
   },
 });
+
+process.on("SIGTERM", () => {
+  daemon.stop();
+  process.exit(0);
+});
 ```
+
+Every other setting still comes from the `ALINEOD_*` variables above. The
+[Hosted MCP for a Team](/docs/cookbooks/hosted-mcp) cookbook runs a complete entry file like this with two tenants.
 
 A run belongs to the tenant that created it. Everything under a run (its agents, results, events, inbox and memory)
 follows it. A request for a run or agent that belongs to another tenant gets the same `404` as one that does not
@@ -137,11 +147,11 @@ money, so no limit caps those. Cap them at the model provider.
 The check and the create happen with no `await` between them, so concurrent requests cannot all pass a limit
 that has room for one.
 
-To give tenants different limits, or to suspend one, build a `Limits` and pass it to `createApp()`. The functions
+To give tenants different limits, or to suspend one, build a `Limits` and pass it to `startDaemon()`. The functions
 may be async:
 
 ```ts
-import { createApp } from "./src/app";
+import { startDaemon } from "./src/daemon";
 import { Limits } from "./src/limits";
 
 const limits = new Limits({
@@ -151,7 +161,7 @@ const limits = new Limits({
   isSuspended: async (tenantId) => await isBlocked(tenantId),
 });
 
-const app = createApp({ authenticate, limits });
+const daemon = await startDaemon({ authenticate, limits });
 ```
 
 `limitsFor` is merged over `defaults` field by field. While `isSuspended` answers `true` for a tenant, its requests that
@@ -166,7 +176,7 @@ alineod fills `${NAME}` in a spec's `env` from its own environment. Without a li
 write `"env": { "X": "${SOME_SECRET_ALINEOD_HOLDS}" }` and read that secret inside their sandbox. This applies to a
 credential binding's `credential` value too.
 
-Set `ALINEOD_SPEC_ENV_ALLOW` (or pass `specEnvAllow` to `createApp()`) whenever people you do not trust can create
+Set `ALINEOD_SPEC_ENV_ALLOW` (or pass `specEnvAllow` to `startDaemon()`) whenever people you do not trust can create
 runs. List the names a spec may read, for example `NVIDIA_API_KEY,OPENAI_*`. A trailing `*` matches a prefix. `none`
 allows no `${NAME}` at all, so a spec carries only literal values. A spec that breaks the rule is refused with `400`.
 

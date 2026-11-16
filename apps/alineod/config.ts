@@ -44,7 +44,7 @@ const ENV_VARS = {
   AUTH_TOKEN: defineEnv({
     name: "ALINEOD_AUTH_TOKEN",
     description:
-      "A shared secret. When set, every request except `GET /health` must send `Authorization: Bearer <token>`, or it gets a 401. Everyone who holds the token is one tenant, so this is authentication and not isolation. Leave it empty (the default) for no authentication, which is only safe when alineod listens on a trusted interface. A deployer who needs several isolated tenants passes an `authenticate` function to `createApp()` instead.",
+      "A shared secret. When set, every request except `GET /health` must send `Authorization: Bearer <token>`, or it gets a 401. Everyone who holds the token is one tenant, so this is authentication and not isolation. Leave it empty (the default) for no authentication, which is only safe when alineod listens on a trusted interface. A deployer who needs several isolated tenants passes an `authenticate` function to `startDaemon()` (src/daemon.ts) instead.",
     schema: z.string(),
     default: "",
   }),
