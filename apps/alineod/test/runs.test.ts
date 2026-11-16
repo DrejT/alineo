@@ -156,6 +156,26 @@ describe("DELETE /runs/:runId", () => {
     expect(events(runId).filter((e) => e.event === "agent.ended")).toHaveLength(1);
   });
 
+  test("closes a sandbox that finishes provisioning after the run was deleted", async () => {
+    const gate = deferred();
+    fakeSdk.startGate = gate.promise;
+    const res = await call("POST", "/runs", { spec: spec("slow") });
+    const { runId, rootAgentId } = res.body;
+
+    expect((await call("DELETE", `/runs/${runId}`)).status).toBe(204);
+    gate.resolve();
+
+    await until(
+      () => events(runId).some((e) => e.event === "agent.released"),
+      "the late sandbox to be released",
+    );
+    expect(fakeSdk.calls.start).toBe(1);
+    // FakeAgent.close() drops the sandbox from the map, so an empty match means it was closed.
+    expect([...fakeSdk.sandboxes.values()].filter((a) => a.runId === runId)).toHaveLength(0);
+    expect(events(runId).map((e) => e.event)).not.toContain("agent.provisioned");
+    expect(getAgentRow(rootAgentId)).toMatchObject({ state: "aborted", outcome: "aborted" });
+  });
+
   test("404 for an unknown run", async () => {
     expect((await call("DELETE", "/runs/r_missing")).status).toBe(404);
   });
