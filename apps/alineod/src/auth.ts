@@ -115,7 +115,9 @@ export function authPlugin(options: AccessOptions) {
       // A colon in a tenant id would let two tenants' memory scopes collide (`a:b` + `x` and `a` +
       // `b:x` both read `a:b:x`). That is a bug in the deployer's authenticate function, so say so.
       if (principal.tenantId === "" || principal.tenantId.includes(":")) {
-        getLogger("alineod").error("authenticate returned a tenant id that is empty or has a colon");
+        getLogger("alineod").error(
+          "authenticate returned a tenant id that is empty or has a colon",
+        );
         return unauthenticated();
       }
     }
