@@ -131,3 +131,27 @@ ui/
 └── tests/
     └── usecase.test.ts       # End-to-end integration test
 ```
+
+---
+
+## Frontend (React + UI SDK)
+
+The dashboard UI lives in `web/`. It is a Vite + React 19 app built with [UI SDK](https://ui-sdk.dev) (`@ui-sdk/react`) and
+styled to match the docs site: Inter + Geist Mono, the same zinc neutrals, the maroon `#7a1b48` brand color and the same
+radius scale. Light mode only. The theme is in `web/src/styles.css`.
+
+```bash
+cd ui
+bun run build:web   # builds web/ into ui/dist, which the server serves
+bun run start       # http://localhost:4600
+
+# Frontend development with hot reload (proxies /api to the server on :4600):
+bun run dev         # terminal 1: the server
+bun run dev:web     # terminal 2: Vite on http://localhost:5173
+```
+
+If `ui/dist` does not exist, the server falls back to the old static UI in `public/`.
+UI SDK is in beta, so its APIs may still change.
+
+Sandboxes are real OpenSandbox containers created through `@alineo-labs/sandbox`
+(see `server/runtime.ts`). Set `OPENSANDBOX_URL` to point at a different OpenSandbox server.

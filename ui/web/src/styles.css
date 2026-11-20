@@ -1,0 +1,254 @@
+/* alineo control plane — styled to match the docs site (apps/docs/src/app/globals.css):
+   same Inter + Geist Mono, same zinc neutrals, same maroon brand color, same radius scale.
+   Light mode only, no gradients. Components come from @ui-sdk/react (unstyled parts). */
+@layer ui-sdk;
+
+@import "tailwindcss";
+@import "@ui-sdk/core/web.css" layer(components);
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Radius scale from the docs: lg = 6px chrome, md = 8px inputs, xl = 12px cards. */
+  --radius-lg: 6px;
+  --radius-md: 8px;
+  --radius-pill: 9999px;
+
+  /* Docs light-theme tokens, same names as the docs site. */
+  --color-fd-background: #ffffff;
+  --color-fd-foreground: #111111;
+  --color-fd-muted: #f4f4f5;
+  --color-fd-muted-foreground: #71717a;
+  --color-fd-card: #fafafa;
+  --color-fd-border: #e4e4e7;
+  --color-fd-primary: #7a1b48;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-primary-soft: #f9eef3;
+  --color-fd-accent: #e4e4e7;
+
+  /* Status colors keep their meaning (running, paused, blocked, info). */
+  --color-ok: #059669;
+  --color-ok-soft: #ecfdf5;
+  --color-warn: #d97706;
+  --color-warn-soft: #fffbeb;
+  --color-bad: #e11d48;
+  --color-bad-soft: #fff1f2;
+  --color-info: #0284c7;
+  --color-info-soft: #f0f9ff;
+}
+
+:root {
+  color-scheme: light;
+  /* Map the docs tokens onto ui-sdk's variables. Unlayered, so they beat web.css. */
+  --ui-background: #ffffff;
+  --ui-foreground: #111111;
+  --ui-muted: #f4f4f5;
+  --ui-muted-foreground: #71717a;
+  --ui-border: #e4e4e7;
+  --ui-input: #d4d4d8;
+  --ui-primary: #7a1b48;
+  --ui-primary-foreground: #ffffff;
+  --ui-destructive: #e11d48;
+  --ui-ring: rgb(122 27 72 / 0.16);
+  --ui-ring-border: #7a1b48;
+  --ui-overlay: rgb(17 17 17 / 0.32);
+  --ui-radius: 6px;
+  --ui-font-size: 0.875rem;
+  --ui-font-sans: var(--font-sans);
+  --ui-font-mono: var(--font-mono);
+  --ui-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px -8px rgb(0 0 0 / 0.16);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fd-background);
+  color: var(--color-fd-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+}
+
+/* Heading rhythm from the docs: semibold, tight tracking. */
+.h-page {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+.h-section {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+/* Inline code chips, as in the docs prose: muted chip, brand-colored text. */
+.chip-code {
+  font-family: var(--font-mono);
+  font-size: 0.8125em;
+  background: var(--color-fd-muted);
+  color: var(--color-fd-primary);
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+  word-break: break-word;
+}
+
+::selection {
+  background: var(--color-fd-primary);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 4px;
+}
+
+/* --- ui-sdk part tweaks (state hooks come from data-* attributes) ---------- */
+[data-slot="button"][data-variant="solid"] {
+  background: var(--color-fd-primary);
+  color: var(--color-fd-primary-foreground);
+  border-color: var(--color-fd-primary);
+}
+[data-slot="button"][data-variant="solid"]:hover:not([data-disabled]) {
+  background: #651539;
+  border-color: #651539;
+}
+[data-slot="button"] {
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+[data-slot="button"][data-size="sm"],
+.btn-sm[data-slot="button"] {
+  padding-block: 0.2rem;
+  font-size: 0.8125rem;
+}
+
+/* Tabs: underline style, brand color on the selected tab. */
+[data-slot="tabs-list"] {
+  display: flex;
+  gap: 1.25rem;
+  border-bottom: 1px solid var(--color-fd-border);
+}
+[data-slot="tabs-tab"] {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0.5rem 0;
+  margin-bottom: -1px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-fd-muted-foreground);
+  cursor: pointer;
+}
+[data-slot="tabs-tab"][data-selected],
+[data-slot="tabs-tab"][aria-selected="true"] {
+  color: var(--color-fd-foreground);
+  border-bottom-color: var(--color-fd-primary);
+}
+[data-slot="tabs-panel"] {
+  padding-top: 1rem;
+}
+
+/* Segmented control with a sliding indicator. */
+[data-slot="segmented-control"] {
+  position: relative;
+  display: inline-flex;
+  isolation: isolate;
+  padding: 2px;
+  background: var(--color-fd-muted);
+  border-radius: var(--radius-md);
+}
+[data-slot="segmented-control-item"] {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-fd-muted-foreground);
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+}
+[data-slot="segmented-control-item"][data-checked],
+[data-slot="segmented-control-item"][aria-checked="true"] {
+  color: var(--color-fd-foreground);
+}
+[data-slot="segmented-control-indicator"] {
+  position: absolute;
+  z-index: -1;
+  top: var(--segmented-control-indicator-top);
+  left: var(--segmented-control-indicator-left);
+  width: var(--segmented-control-indicator-width);
+  height: var(--segmented-control-indicator-height);
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  transition: all 180ms ease;
+}
+[data-slot="segmented-control-indicator"][data-activation-direction="none"] {
+  transition: none;
+}
+
+/* Dialog / drawer chrome. */
+[data-slot="dialog-content"],
+[data-slot="drawer-content"] {
+  background: var(--color-fd-background);
+  border: 1px solid var(--color-fd-border);
+  border-radius: 12px;
+}
+[data-slot="dialog-content"] [data-slot="stack"],
+[data-slot="drawer-content"] [data-slot="stack"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+[data-slot="dialog-content"] [data-slot="row"],
+[data-slot="drawer-content"] [data-slot="row"] {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* Toasts. */
+[data-slot="toast"] {
+  border: 1px solid var(--color-fd-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+[data-slot="toast"][data-type="error"] {
+  border-color: #fecdd3;
+}
+[data-slot="toast"][data-type="success"] {
+  border-color: #a7f3d0;
+}
+
+.live-dot {
+  animation: livePulse 2.4s infinite ease-in-out;
+}
+@keyframes livePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}

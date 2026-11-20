@@ -11,7 +11,7 @@ export interface CliExecutionResult {
   durationMs: number;
 }
 
-export function executeOneCliCommand(userId: string, rawCmd: string): CliExecutionResult {
+export async function executeOneCliCommand(userId: string, rawCmd: string): Promise<CliExecutionResult> {
   const start = performance.now();
   const trimmed = rawCmd.trim();
 
@@ -41,7 +41,7 @@ export function executeOneCliCommand(userId: string, rawCmd: string): CliExecuti
       const cpu = cpuMatch ? parseInt(cpuMatch[1], 10) : 500;
       const mem = memMatch ? parseInt(memMatch[1], 10) : 512;
 
-      const sb = spawnSandbox(userId, { role, cpuLimitMilli: cpu, memLimitMi: mem });
+      const sb = await spawnSandbox(userId, { role, cpuLimitMilli: cpu, memLimitMi: mem });
       output = `✓ Provisioned sandbox container ${sb.id} (${sb.role})
   PID: ${sb.pid}
   Allocated: ${sb.cpuLimitMilli}m CPU / ${sb.memLimitMi}Mi RAM
@@ -52,7 +52,7 @@ export function executeOneCliCommand(userId: string, rawCmd: string): CliExecuti
       const parentId = parts[2];
       if (!parentId) throw new Error("Missing parent sandbox ID: alineo fork <sandboxId>");
       const roleMatch = trimmed.match(/--role\s+([^\s]+)/);
-      const child = forkSandbox(userId, parentId, roleMatch ? roleMatch[1] : undefined);
+      const child = await forkSandbox(userId, parentId, roleMatch ? roleMatch[1] : undefined);
       output = `✓ Forked child container ${child.id} (${child.role})
   Parent: ${parentId}@${child.checkpointId}
   Inherited Copy-on-Write overlay active.`;
@@ -61,19 +61,19 @@ export function executeOneCliCommand(userId: string, rawCmd: string): CliExecuti
       const targetId = parts[2];
       if (!targetId) throw new Error("Missing sandbox ID: alineo checkpoint <sandboxId>");
       const tagMatch = trimmed.match(/--tag\s+([^\s]+)/);
-      const cp = checkpointSandbox(userId, targetId, tagMatch ? tagMatch[1] : undefined);
+      const cp = await checkpointSandbox(userId, targetId, tagMatch ? tagMatch[1] : undefined);
       output = `✓ Committed immutable snapshot ${cp} for sandbox ${targetId} to SQLite ledger.`;
     } else if (trimmed.startsWith('alineo pause')) {
       const parts = trimmed.split(/\s+/);
       const targetId = parts[2];
       if (!targetId) throw new Error("Missing sandbox ID: alineo pause <sandboxId>");
-      pauseSandbox(userId, targetId);
+      await pauseSandbox(userId, targetId);
       output = `✓ Paused sandbox ${targetId}.`;
     } else if (trimmed.startsWith('alineo resume')) {
       const parts = trimmed.split(/\s+/);
       const targetId = parts[2];
       if (!targetId) throw new Error("Missing sandbox ID: alineo resume <sandboxId>");
-      resumeSandbox(userId, targetId);
+      await resumeSandbox(userId, targetId);
       output = `✓ Resumed sandbox ${targetId}.`;
     } else if (trimmed.startsWith('alineo steer')) {
       const targetMatch = trimmed.match(/alineo\s+steer\s+([^\s]+)\s+"([^"]+)"/);
@@ -112,13 +112,13 @@ export function executeOneCliCommand(userId: string, rawCmd: string): CliExecuti
       const parts = trimmed.split(/\s+/);
       const gateId = parts[3];
       if (!gateId) throw new Error("Usage: alineo egress approve <gateId>");
-      const g = decideEgressGate(userId, gateId, 'allowed');
+      const g = await decideEgressGate(userId, gateId, 'allowed');
       output = `✓ Approved outbound egress gate ${gateId} to ${g?.targetHost}. Sandbox resumed.`;
     } else if (trimmed.startsWith('alineo egress deny')) {
       const parts = trimmed.split(/\s+/);
       const gateId = parts[3];
       if (!gateId) throw new Error("Usage: alineo egress deny <gateId>");
-      const g = decideEgressGate(userId, gateId, 'denied');
+      const g = await decideEgressGate(userId, gateId, 'denied');
       output = `✓ Denied outbound egress gate ${gateId} to ${g?.targetHost}.`;
     } else if (trimmed === 'alineo workflow flush') {
       const res = flushWorkflowPipeline(userId);

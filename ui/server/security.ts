@@ -30,7 +30,7 @@ export function listEgressGates(userId: string): EgressGateItem[] {
   }));
 }
 
-export function decideEgressGate(userId: string, gateId: string, decision: 'allowed' | 'denied', decidedBy = 'operator'): EgressGateItem | null {
+export async function decideEgressGate(userId: string, gateId: string, decision: 'allowed' | 'denied', decidedBy = 'operator'): Promise<EgressGateItem | null> {
   const now = Date.now();
   const gate = db.query(`SELECT * FROM egress_gates WHERE user_id = ? AND gate_id = ?`).get(userId, gateId) as any;
   if (!gate) return null;
@@ -45,7 +45,7 @@ export function decideEgressGate(userId: string, gateId: string, decision: 'allo
   if (decision === 'allowed') {
     const sb = getSandbox(userId, gate.sandbox_id);
     if (sb && sb.status === 'paused') {
-      resumeSandbox(userId, gate.sandbox_id);
+      await resumeSandbox(userId, gate.sandbox_id);
     }
   }
 
