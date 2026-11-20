@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { createHandle, getHandle, trackHandle, dropHandle, withTimeout, SANDBOX_IMAGE, EXEC_TIMEOUT_MS } from "./runtime";
 
 export interface SandboxRecord {
   id: string;
@@ -121,7 +122,51 @@ export function getSandbox(userId: string, id: string): SandboxRecord | null {
   };
 }
 
-export function spawnSandbox(userId: string, params: {
+// ---------------------------------------------------------------------------
+// Lifecycle. Every operation acts on a REAL OpenSandbox container through the
+// Alineo SDK (see runtime.ts). SQLite below is only the dashboard index + ledger.
+// ---------------------------------------------------------------------------
+
+function stamp(ts: number): string {
+  return new Date(ts).toISOString().substring(11, 23);
+}
+
+function addLog(userId: string, sandboxId: string, type: string, text: string, ts: number): void {
+  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
+    userId, sandboxId, type, `[${stamp(ts)}] ${text}`, ts
+  );
+}
+
+function addLedger(
+  userId: string, ts: number, type: string, sandboxId: string, tool: string,
+  detail: string, branch: string, shortLabel: string, payload: unknown
+): void {
+  db.prepare(`
+    INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(userId, ts, type, sandboxId, tool, detail, branch, shortLabel, JSON.stringify(payload));
+}
+
+function insertSandboxRow(userId: string, row: {
+  id: string; role: string; parentId: string | null; depth: number; cpu: number; mem: number;
+  tools: string[]; summary: string; model: string; checkpointId: string | null; egressPolicy?: string;
+}, now: number): void {
+  db.prepare(`
+    INSERT INTO sandboxes (
+      id, user_id, role, status, parent_id, depth, uptime_start, egress_policy,
+      cpu_limit_milli, mem_limit_mi, cpu_current_milli, mem_current_mi,
+      pid, checkpoint_id, checkpoint_ts, mcp_tools, summary, model_provider
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    row.id, userId, row.role, 'running', row.parentId, row.depth, now,
+    row.egressPolicy || 'allowlist-enforced', row.cpu, row.mem,
+    0, 0, 0, // no live metrics wired yet: show zero, never invented numbers
+    row.checkpointId, row.checkpointId ? now : null,
+    JSON.stringify(row.tools), row.summary, row.model
+  );
+}
+
+export async function spawnSandbox(userId: string, params: {
   role: string;
   parentId?: string | null;
   cpuLimitMilli?: number;
@@ -129,359 +174,140 @@ export function spawnSandbox(userId: string, params: {
   mcpTools?: string[];
   modelProvider?: string;
   summary?: string;
-}): SandboxRecord {
-  const now = Date.now();
-  const newId = 'sbx_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+}): Promise<SandboxRecord> {
   const parent = params.parentId ? getSandbox(userId, params.parentId) : null;
-  const depth = parent ? parent.depth + 1 : 0;
   const cpu = params.cpuLimitMilli || 500;
   const mem = params.memLimitMi || 512;
-  const pid = Math.floor(4400 + Math.random() * 600);
+  const role = params.role || 'custom-agent';
   const tools = params.mcpTools && params.mcpTools.length > 0 ? params.mcpTools : ['Filesystem'];
   const model = params.modelProvider || 'gemini-3.8-flash';
-  const summary = params.summary || `Provisioned isolated OpenSandbox (${cpu}m CPU, ${mem}Mi RAM, ${model}) with exec-time credential injection.`;
 
-  db.prepare(`
-    INSERT INTO sandboxes (
-      id, user_id, role, status, parent_id, depth, uptime_start, egress_policy,
-      cpu_limit_milli, mem_limit_mi, cpu_current_milli, mem_current_mi,
-      pid, checkpoint_id, checkpoint_ts, mcp_tools, summary, model_provider
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    newId,
-    userId,
-    params.role || 'custom-agent',
-    'running',
-    parent ? parent.id : null,
-    depth,
-    now,
-    'allowlist-enforced',
-    cpu,
-    mem,
-    Math.round(cpu * 0.25),
-    Math.round(mem * 0.30),
-    pid,
-    'cp_0001',
-    now,
-    JSON.stringify(tools),
-    summary,
-    model
-  );
+  const handle = await createHandle({ cpuMilli: cpu, memMi: mem, name: `${role}-${crypto.randomUUID().slice(0, 6)}` });
+  const id = handle.sandboxId;
+  const now = Date.now();
 
-  // Add initial logs
-  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
-    userId,
-    newId,
-    'exec_start',
-    `[${new Date(now).toISOString().substring(11, 23)}] sandbox_ready: allocated ${cpu}m CPU / ${mem}Mi RAM (pid=${pid})`,
-    now
-  );
+  insertSandboxRow(userId, {
+    id, role, parentId: parent ? parent.id : null, depth: parent ? parent.depth + 1 : 0, cpu, mem, tools,
+    summary: params.summary || `OpenSandbox container ${id} (${SANDBOX_IMAGE}, ${cpu}m CPU, ${mem}Mi RAM).`,
+    model, checkpointId: null,
+  }, now);
+  addLog(userId, id, 'exec_start', `sandbox_ready: OpenSandbox ${id} running ${SANDBOX_IMAGE} (${cpu}m CPU / ${mem}Mi RAM)`, now);
+  addLedger(userId, now, 'exec_start', id, 'SPAWN', `Spawned sandbox ${id} (${role}) with ${cpu}m CPU / ${mem}Mi RAM`,
+    parent ? 'fork' : 'main', `spawn ${role}`, { cpu, mem, image: SANDBOX_IMAGE, parentId: parent?.id, tools });
 
-  // Record Ledger event
-  db.prepare(`
-    INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    now,
-    'exec_start',
-    newId,
-    'SPAWN',
-    `Spawned sandbox ${newId} (${params.role}) with ${cpu}m CPU / ${mem}Mi RAM`,
-    parent ? 'fork' : 'main',
-    `spawn ${params.role}`,
-    JSON.stringify({ cpu, mem, pid, parentId: parent?.id, tools })
-  );
-
-  return getSandbox(userId, newId)!;
+  return getSandbox(userId, id)!;
 }
 
-export function pauseSandbox(userId: string, id: string): boolean {
+export async function pauseSandbox(userId: string, id: string): Promise<boolean> {
   const sb = getSandbox(userId, id);
   if (!sb) return false;
+  const handle = await getHandle(id, sb.role);
+  await handle.pause();
   const now = Date.now();
   db.prepare(`UPDATE sandboxes SET status = 'paused', cpu_current_milli = 0 WHERE user_id = ? AND id = ?`).run(userId, id);
-
-  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
-    userId,
-    id,
-    'exec_event',
-    `[${new Date(now).toISOString().substring(11, 23)}] sandbox_paused: container execution frozen at ${sb.checkpointId || 'head'}`,
-    now
-  );
-
-  db.prepare(`
-    INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    now,
-    'exec_event',
-    id,
-    'LIFECYCLE',
-    `Paused sandbox container ${id}`,
-    sb.parentId ? 'fork' : 'main',
-    'pause',
-    JSON.stringify({ status: 'paused' })
-  );
-
+  addLog(userId, id, 'exec_event', `sandbox_paused: container frozen`, now);
+  addLedger(userId, now, 'exec_event', id, 'LIFECYCLE', `Paused sandbox container ${id}`,
+    sb.parentId ? 'fork' : 'main', 'pause', { status: 'paused' });
   return true;
 }
 
-export function resumeSandbox(userId: string, id: string): boolean {
+export async function resumeSandbox(userId: string, id: string): Promise<boolean> {
   const sb = getSandbox(userId, id);
   if (!sb) return false;
+  const handle = await getHandle(id, sb.role);
+  await handle.resume();
   const now = Date.now();
-  db.prepare(`UPDATE sandboxes SET status = 'running', cpu_current_milli = ? WHERE user_id = ? AND id = ?`).run(
-    Math.round(sb.cpuLimitMilli * 0.4),
-    userId,
-    id
-  );
-
-  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
-    userId,
-    id,
-    'exec_start',
-    `[${new Date(now).toISOString().substring(11, 23)}] sandbox_resumed: container unpaused and listening`,
-    now
-  );
-
-  db.prepare(`
-    INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    now,
-    'exec_start',
-    id,
-    'LIFECYCLE',
-    `Resumed sandbox container ${id}`,
-    sb.parentId ? 'fork' : 'main',
-    'resume',
-    JSON.stringify({ status: 'running' })
-  );
-
+  db.prepare(`UPDATE sandboxes SET status = 'running' WHERE user_id = ? AND id = ?`).run(userId, id);
+  addLog(userId, id, 'exec_start', `sandbox_resumed: container unfrozen`, now);
+  addLedger(userId, now, 'exec_start', id, 'LIFECYCLE', `Resumed sandbox container ${id}`,
+    sb.parentId ? 'fork' : 'main', 'resume', { status: 'running' });
   return true;
 }
 
-export function forkSandbox(userId: string, parentId: string, childRole?: string, modelProvider?: string): SandboxRecord {
+export async function forkSandbox(userId: string, parentId: string, childRole?: string, modelProvider?: string): Promise<SandboxRecord> {
   const parent = getSandbox(userId, parentId);
   if (!parent) throw new Error(`Parent sandbox ${parentId} not found`);
 
-  const now = Date.now();
-  const childId = 'sbx_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const parentHandle = await getHandle(parentId, parent.role);
   const role = childRole || `${parent.role}-fork`;
-  const checkpointId = parent.checkpointId || 'cp_0141';
-  const childModel = modelProvider || parent.modelProvider || 'gemini-3.8-flash';
+  // Real fork: snapshots the parent's filesystem and restores it into a new container.
+  const child = await parentHandle.fork(role);
+  trackHandle(child);
+  const childId = child.sandboxId;
+  const now = Date.now();
 
-  db.prepare(`
-    INSERT INTO sandboxes (
-      id, user_id, role, status, parent_id, depth, uptime_start, egress_policy,
-      cpu_limit_milli, mem_limit_mi, cpu_current_milli, mem_current_mi,
-      pid, checkpoint_id, checkpoint_ts, mcp_tools, summary, model_provider
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    childId,
-    userId,
-    role,
-    'running',
-    parent.id,
-    parent.depth + 1,
-    now,
-    'allowlist-enforced',
-    parent.cpuLimitMilli,
-    parent.memLimitMi,
-    Math.round(parent.cpuLimitMilli * 0.35),
-    Math.round(parent.memLimitMi * 0.35),
-    Math.floor(4500 + Math.random() * 500),
-    checkpointId,
-    now,
-    JSON.stringify(parent.mcpTools),
-    `Forked Copy-on-Write child inheriting rootfs state from ${parent.id}@${checkpointId}.`,
-    childModel
-  );
-
-  // Logs on parent and child
-  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
-    userId,
-    parent.id,
-    'exec_event',
-    `[${new Date(now).toISOString().substring(11, 23)}] fork_spawn: created child sandbox ${childId} (${role})`,
-    now
-  );
-  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
-    userId,
-    childId,
-    'exec_start',
-    `[${new Date(now).toISOString().substring(11, 23)}] fork_init: cloned CoW rootfs from ${parent.id}@${checkpointId}`,
-    now
-  );
-
-  // Record ledger
-  db.prepare(`
-    INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    now,
-    'checkpoint',
-    parent.id,
-    'FORK',
-    `Forked child sandbox ${childId} (${role}) from ${parent.id}@${checkpointId}`,
-    'fork',
-    'fork node',
-    JSON.stringify({ parentId: parent.id, childId, checkpoint: checkpointId, cowBytes: 152000 })
-  );
+  insertSandboxRow(userId, {
+    id: childId, role, parentId: parent.id, depth: parent.depth + 1,
+    cpu: parent.cpuLimitMilli, mem: parent.memLimitMi, tools: parent.mcpTools,
+    summary: `Forked from ${parent.id}: filesystem snapshot restored into a new container.`,
+    model: modelProvider || parent.modelProvider || 'gemini-3.8-flash', checkpointId: null,
+  }, now);
+  addLog(userId, parent.id, 'exec_event', `fork_spawn: created child sandbox ${childId} (${role})`, now);
+  addLog(userId, childId, 'exec_start', `fork_init: restored snapshot of ${parent.id}`, now);
+  addLedger(userId, now, 'checkpoint', parent.id, 'FORK', `Forked child sandbox ${childId} (${role}) from ${parent.id}`,
+    'fork', 'fork node', { parentId: parent.id, childId });
 
   return getSandbox(userId, childId)!;
 }
 
-export function checkpointSandbox(userId: string, id: string, tag?: string): string {
+export async function checkpointSandbox(userId: string, id: string, tag?: string): Promise<string> {
   const sb = getSandbox(userId, id);
   if (!sb) throw new Error(`Sandbox ${id} not found`);
-
+  const handle = await getHandle(id, sb.role);
+  const snapshotId = await handle.checkpoint(tag);
   const now = Date.now();
-  const cpId = tag || `cp_${Math.floor(100 + Math.random() * 900)}`;
-
-  db.prepare(`UPDATE sandboxes SET checkpoint_id = ?, checkpoint_ts = ? WHERE user_id = ? AND id = ?`).run(cpId, now, userId, id);
-
-  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
-    userId,
-    id,
-    'exec_complete',
-    `[${new Date(now).toISOString().substring(11, 23)}] checkpoint_saved: immutable snapshot ${cpId} persisted to SQLite ledger`,
-    now
-  );
-
-  db.prepare(`
-    INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    now,
-    'checkpoint',
-    id,
-    'CHECKPOINT',
-    `Saved immutable checkpoint ${cpId} for sandbox ${id}`,
-    sb.parentId ? 'fork' : 'main',
-    'snapshot',
-    JSON.stringify({ checkpoint: cpId, adapter: 'SQLiteAdapter', secretsExposed: 0, ts: now })
-  );
-
-  return cpId;
+  db.prepare(`UPDATE sandboxes SET checkpoint_id = ?, checkpoint_ts = ? WHERE user_id = ? AND id = ?`).run(snapshotId, now, userId, id);
+  addLog(userId, id, 'exec_complete', `checkpoint_saved: filesystem snapshot ${snapshotId}`, now);
+  addLedger(userId, now, 'checkpoint', id, 'CHECKPOINT', `Saved checkpoint ${snapshotId} for sandbox ${id}`,
+    sb.parentId ? 'fork' : 'main', 'snapshot', { checkpoint: snapshotId, tag: tag ?? null, ts: now });
+  return snapshotId;
 }
 
-export function terminateSandbox(userId: string, id: string): boolean {
+export async function terminateSandbox(userId: string, id: string): Promise<boolean> {
   const sb = getSandbox(userId, id);
   if (!sb) return false;
+  try {
+    const handle = await getHandle(id, sb.role);
+    await handle.close();
+  } catch {
+    // The container may already be gone (expired or removed by hand). The record is closed either way.
+  }
+  dropHandle(id);
   const now = Date.now();
-
   db.prepare(`UPDATE sandboxes SET status = 'terminated', cpu_current_milli = 0, mem_current_mi = 0 WHERE user_id = ? AND id = ?`).run(userId, id);
-
-  db.prepare(`
-    INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    now,
-    'exec_complete',
-    id,
-    'LIFECYCLE',
-    `Terminated sandbox container ${id}`,
-    sb.parentId ? 'fork' : 'main',
-    'terminate',
-    JSON.stringify({ status: 'terminated' })
-  );
-
+  addLedger(userId, now, 'exec_complete', id, 'LIFECYCLE', `Terminated sandbox container ${id}`,
+    sb.parentId ? 'fork' : 'main', 'terminate', { status: 'terminated' });
   return true;
 }
 
+/** Run a command inside the sandbox container. Nothing ever runs on the host. */
 export async function execInSandbox(userId: string, id: string, cmd: string): Promise<{ stdout: string; exitCode: number; durationMs: number }> {
   const sb = getSandbox(userId, id);
   if (!sb) throw new Error(`Sandbox ${id} not found`);
+  if (sb.status !== 'running') throw new Error(`Sandbox ${id} is ${sb.status}. Resume it before running commands.`);
 
+  const handle = await getHandle(id, sb.role);
   const start = performance.now();
-  const now = Date.now();
+  const startTs = Date.now();
   let stdout = '';
   let exitCode = 0;
-
-  // Real shell execution logic
-  const normalized = cmd.trim();
-  if (normalized === 'bun --version' || normalized === 'bun -v') {
-    stdout = '1.3.14 (x64-windows)';
-    exitCode = 0;
-  } else if (normalized.startsWith('git status')) {
-    stdout = 'On branch ui-final-google\nnothing to commit, working tree clean (CoW overlay active)';
-    exitCode = 0;
-  } else if (normalized.startsWith('git diff')) {
-    stdout = ' src/auth/jwt.ts       | 18 +++++++++---------\n packages/memory/src/ |  4 ++--\n 2 files changed, 11 insertions(+), 11 deletions(-)';
-    exitCode = 0;
-  } else if (normalized === 'env') {
-    stdout = `ALINEO_USER_ID=${userId}\nALINEO_SANDBOX_ID=${sb.id}\nALINEO_CHECKPOINT=${sb.checkpointId}\nALINEO_ROLE=${sb.role}\nGITHUB_TOKEN=[REDACTED_EXEC_TIME]\nPOSTGRES_READONLY_URL=[REDACTED_EXEC_TIME]`;
-    exitCode = 0;
-  } else if (normalized === 'ls' || normalized === 'ls -la') {
-    stdout = 'drwxr-xr-x  src/\n-rw-r--r--  package.json\n-rw-r--r--  alineo.config.ts\n-rw-r--r--  tsconfig.json\n-rw-r--r--  control-plane.db';
-    exitCode = 0;
-  } else if (normalized.startsWith('pytest') || normalized.startsWith('bun test')) {
-    stdout = '✓ tests/auth.test.ts (14 passed)\n✓ tests/memory.test.ts (8 passed)\nRan 22 tests across 2 suites. 0 failures.';
-    exitCode = 0;
-  } else {
-    try {
-      const proc = Bun.spawn(cmd.split(' '), {
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
-      const output = await new Response(proc.stdout).text();
-      const err = await new Response(proc.stderr).text();
-      exitCode = await proc.exited;
-      stdout = output || err || `exit_code=${exitCode}`;
-    } catch {
-      stdout = `[alineo-exec] executed: "${cmd}" in isolated sandbox ${id}\nstatus: completed\nexit_code=0`;
-      exitCode = 0;
-    }
+  try {
+    const res = await withTimeout(handle.exec(cmd), EXEC_TIMEOUT_MS, `exec "${cmd}"`);
+    exitCode = res.exitCode;
+    stdout = [res.stdout, res.stderr].filter(Boolean).join(res.stdout && res.stderr ? '\n' : '') || `exit_code=${exitCode}`;
+  } catch (err) {
+    exitCode = 1;
+    stdout = `[exec error] ${err instanceof Error ? err.message : String(err)}`;
   }
-
   const durationMs = Math.round(performance.now() - start);
 
-  // Store in database
   db.prepare(`INSERT INTO sandbox_execs (user_id, sandbox_id, cmd, exit_code, duration_ms, ts) VALUES (?, ?, ?, ?, ?, ?)`).run(
-    userId,
-    id,
-    cmd,
-    exitCode,
-    durationMs,
-    now
+    userId, id, cmd, exitCode, durationMs, startTs
   );
-
-  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
-    userId,
-    id,
-    'exec_start',
-    `[${new Date(now).toISOString().substring(11, 23)}] $ ${cmd}`,
-    now
-  );
-  db.prepare(`INSERT INTO sandbox_logs (user_id, sandbox_id, type, text, ts) VALUES (?, ?, ?, ?, ?)`).run(
-    userId,
-    id,
-    'exec_complete',
-    `[${new Date(now).toISOString().substring(11, 23)}] ${stdout.split('\n')[0]}`,
-    now + durationMs
-  );
-
-  db.prepare(`
-    INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    userId,
-    now,
-    'exec_complete',
-    id,
-    'SHELL',
-    `Executed "${cmd}" inside ${id} (duration=${durationMs}ms)`,
-    sb.parentId ? 'fork' : 'main',
-    'exec',
-    JSON.stringify({ cmd, exitCode, durationMs, stdout: stdout.substring(0, 300) })
-  );
+  addLog(userId, id, 'exec_start', `$ ${cmd}`, startTs);
+  addLog(userId, id, 'exec_complete', stdout.split('\n')[0].slice(0, 200), startTs + durationMs);
+  addLedger(userId, startTs, 'exec_complete', id, 'SHELL', `Executed "${cmd}" inside ${id} (duration=${durationMs}ms)`,
+    sb.parentId ? 'fork' : 'main', 'exec', { cmd, exitCode, durationMs, stdout: stdout.substring(0, 300) });
 
   return { stdout, exitCode, durationMs };
 }

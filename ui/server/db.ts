@@ -206,6 +206,9 @@ export function initDefaultUsersAndData() {
 }
 
 export function seedUserWorkspace(userId: string) {
+  // The seed is a fictional PR #418 swarm: fake sandboxes, logs, execs and gates with no containers
+  // behind them. Off by default now that sandboxes are real. Set ALINEO_UI_DEMO_SEED=1 to bring it back.
+  if (process.env.ALINEO_UI_DEMO_SEED !== '1') return;
   const now = Date.now();
   const tMinus15m = now - 14 * 60 * 1000;
   const tMinus11m = now - 11 * 60 * 1000;

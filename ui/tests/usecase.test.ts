@@ -77,7 +77,7 @@ test("End-to-End Use Case: PR #418 Automated Code Review & Security Swarm", asyn
   // 1. Initial State & Fleet check
   const initialFleet = listSandboxes(userId);
   expect(initialFleet.length).toBeGreaterThanOrEqual(1);
-  const root = initialFleet.find(s => s.role === 'code-reviewer-root') || spawnSandbox(userId, {
+  const root = initialFleet.find(s => s.role === 'code-reviewer-root') || await spawnSandbox(userId, {
     role: 'code-reviewer-root',
     cpuLimitMilli: 500,
     memLimitMi: 512,
@@ -93,7 +93,7 @@ test("End-to-End Use Case: PR #418 Automated Code Review & Security Swarm", asyn
   expect(execResult.durationMs).toBeGreaterThanOrEqual(0);
 
   // 3. CoW Fork Child Sub-Agent
-  const secChild = forkSandbox(userId, root.id, 'reviewer-security');
+  const secChild = await forkSandbox(userId, root.id, 'reviewer-security');
   expect(secChild.parentId).toBe(root.id);
   expect(secChild.depth).toBe(root.depth + 1);
   expect(secChild.status).toBe('running');
@@ -128,10 +128,10 @@ test("End-to-End Use Case: PR #418 Automated Code Review & Security Swarm", asyn
     reason: 'Vulnerability check for PR #418 dependencies',
   });
   expect(gate.status).toBe('pending');
-  pauseSandbox(userId, secChild.id);
+  await pauseSandbox(userId, secChild.id);
 
   // Operator approves gate
-  const decided = decideEgressGate(userId, gate.gateId, 'allowed', 'security-operator');
+  const decided = await decideEgressGate(userId, gate.gateId, 'allowed', 'security-operator');
   expect(decided?.status).toBe('allowed');
 
   // Verifies child was automatically unpaused
@@ -154,7 +154,7 @@ test("End-to-End Use Case: PR #418 Automated Code Review & Security Swarm", asyn
   expect(flushRes.flushedCount).toBeGreaterThanOrEqual(0);
 
   // 9. Immutable Checkpoint committed to SQLite Ledger
-  const cpTag = checkpointSandbox(userId, root.id, 'cp_0145');
+  const cpTag = await checkpointSandbox(userId, root.id, 'cp_0145');
   expect(cpTag).toBe('cp_0145');
 
   // Check ledger record
@@ -162,11 +162,11 @@ test("End-to-End Use Case: PR #418 Automated Code Review & Security Swarm", asyn
   expect(ledgerRows.length).toBeGreaterThanOrEqual(1);
 
   // 10. OneCLI Command Execution
-  const cliStatus = executeOneCliCommand(userId, 'alineo status');
+  const cliStatus = await executeOneCliCommand(userId, 'alineo status');
   expect(cliStatus.exitCode).toBe(0);
   expect(cliStatus.output).toContain('Alineo Swarm Fleet Status');
 
-  const cliRecall = executeOneCliCommand(userId, 'alineo memory recall "jwt"');
+  const cliRecall = await executeOneCliCommand(userId, 'alineo memory recall "jwt"');
   expect(cliRecall.exitCode).toBe(0);
   expect(cliRecall.output).toContain('Recall results');
 });

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { db, seedUserWorkspace } from "./db";
 import {
   signup,
@@ -37,6 +37,7 @@ import { executeOneCliCommand } from "./cli";
 
 const PORT = Number(process.env.PORT || (process.env.NODE_ENV === "test" ? 4699 : 4600));
 const PUBLIC_DIR = join(import.meta.dir, "..", "public");
+const DIST_DIR = join(import.meta.dir, "..", "dist");
 
 let storageAdapter: 'SQLiteAdapter' | 'PostgresAdapter' = 'SQLiteAdapter';
 let daemonOnline = true;
@@ -175,7 +176,7 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/sandboxes" && method === "POST") {
       const body = await req.json().catch(() => ({}));
-      const sb = spawnSandbox(userId, body);
+      const sb = await spawnSandbox(userId, body);
       return jsonResponse(sb, 201);
     }
 
@@ -186,33 +187,33 @@ const server = Bun.serve({
       return jsonResponse(sb);
     }
     if (sbMatch && method === "DELETE") {
-      const ok = terminateSandbox(userId, sbMatch[1]);
+      const ok = await terminateSandbox(userId, sbMatch[1]);
       return jsonResponse({ ok });
     }
 
     const sbPauseMatch = url.pathname.match(/^\/api\/sandboxes\/([^\/]+)\/pause$/);
     if (sbPauseMatch && method === "POST") {
-      const ok = pauseSandbox(userId, sbPauseMatch[1]);
+      const ok = await pauseSandbox(userId, sbPauseMatch[1]);
       return jsonResponse({ ok });
     }
 
     const sbResumeMatch = url.pathname.match(/^\/api\/sandboxes\/([^\/]+)\/resume$/);
     if (sbResumeMatch && method === "POST") {
-      const ok = resumeSandbox(userId, sbResumeMatch[1]);
+      const ok = await resumeSandbox(userId, sbResumeMatch[1]);
       return jsonResponse({ ok });
     }
 
     const sbForkMatch = url.pathname.match(/^\/api\/sandboxes\/([^\/]+)\/fork$/);
     if (sbForkMatch && method === "POST") {
       const body = await req.json().catch(() => ({}));
-      const child = forkSandbox(userId, sbForkMatch[1], body.role, body.modelProvider);
+      const child = await forkSandbox(userId, sbForkMatch[1], body.role, body.modelProvider);
       return jsonResponse(child, 201);
     }
 
     const sbCpMatch = url.pathname.match(/^\/api\/sandboxes\/([^\/]+)\/checkpoint$/);
     if (sbCpMatch && method === "POST") {
       const body = await req.json().catch(() => ({}));
-      const cpId = checkpointSandbox(userId, sbCpMatch[1], body.tag);
+      const cpId = await checkpointSandbox(userId, sbCpMatch[1], body.tag);
       return jsonResponse({ checkpointId: cpId });
     }
 
@@ -313,7 +314,7 @@ const server = Bun.serve({
       if (!body.decision || (body.decision !== "allowed" && body.decision !== "denied")) {
         return jsonResponse({ error: "Invalid decision: must be 'allowed' or 'denied'" }, 400);
       }
-      const gate = decideEgressGate(userId, gateDecideMatch[1], body.decision, currentUser?.username || "operator");
+      const gate = await decideEgressGate(userId, gateDecideMatch[1], body.decision, currentUser?.username || "operator");
       return jsonResponse(gate);
     }
 
@@ -382,7 +383,7 @@ const server = Bun.serve({
     if (url.pathname === "/api/cli/run" && method === "POST") {
       const body = await req.json().catch(() => ({}));
       if (!body.command) return jsonResponse({ error: "Missing command" }, 400);
-      const res = executeOneCliCommand(userId, body.command);
+      const res = await executeOneCliCommand(userId, body.command);
       return jsonResponse(res);
     }
 
@@ -404,7 +405,7 @@ const server = Bun.serve({
       const sandboxes = listSandboxes(userId);
       let root = sandboxes.find(s => s.role === 'code-reviewer-root');
       if (!root) {
-        root = spawnSandbox(userId, {
+        root = await spawnSandbox(userId, {
           role: 'code-reviewer-root',
           cpuLimitMilli: 500,
           memLimitMi: 512,
@@ -414,7 +415,7 @@ const server = Bun.serve({
       }
 
       const execDiff = await execInSandbox(userId, root.id, 'git diff origin/main...HEAD --stat');
-      const secChild = forkSandbox(userId, root.id, 'reviewer-security');
+      const secChild = await forkSandbox(userId, root.id, 'reviewer-security');
 
       setWorkingMemory(userId, root.id, 'pr_target', '418', 'swarm');
       setWorkingMemory(userId, secChild.id, 'jwt_algorithm', 'RS256', 'local');
@@ -425,7 +426,7 @@ const server = Bun.serve({
         tags: ['review', 'security', 'auth'],
       });
 
-      const cpId = checkpointSandbox(userId, root.id, 'cp_0142');
+      const cpId = await checkpointSandbox(userId, root.id, 'cp_0142');
 
       const gate = createEgressGate(userId, {
         sandboxId: secChild.id,
@@ -433,7 +434,7 @@ const server = Bun.serve({
         protocol: 'HTTPS',
         reason: 'Automated vulnerability advisory check for PR #418',
       });
-      pauseSandbox(userId, secChild.id);
+      await pauseSandbox(userId, secChild.id);
 
       steerAgent(userId, root.id, 'Verify RS256 token signing and enforce 900s expiry', 'subtree');
 
@@ -452,6 +453,22 @@ const server = Bun.serve({
     // -------------------------------------------------------------
     // STATIC ASSETS SERVING
     // -------------------------------------------------------------
+    // New React dashboard (ui/web, built to ui/dist). The old static UI in ui/public stays as a fallback
+    // when no build exists, and keeps serving its own assets (login.html, recordings.html, screenshots).
+    const distIndex = join(DIST_DIR, "index.html");
+    if (existsSync(distIndex)) {
+      const rel = url.pathname === "/" || url.pathname === "/login" ? "/index.html" : url.pathname;
+      const candidate = join(DIST_DIR, rel);
+      if (candidate.startsWith(DIST_DIR + "/") && existsSync(candidate) && statSync(candidate).isFile()) {
+        return new Response(Bun.file(candidate));
+      }
+      const legacy = join(PUBLIC_DIR, url.pathname);
+      if (url.pathname !== "/" && legacy.startsWith(PUBLIC_DIR + "/") && existsSync(legacy) && statSync(legacy).isFile()) {
+        return new Response(Bun.file(legacy));
+      }
+      return new Response(Bun.file(distIndex));
+    }
+
     if (url.pathname === "/login") {
       const loginFile = Bun.file(join(PUBLIC_DIR, "login.html"));
       return new Response(loginFile);
