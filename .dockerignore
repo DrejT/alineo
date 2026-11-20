@@ -21,3 +21,6 @@ apps/sandbox/data/
 coverage/
 .config/
 scratchpad/
+**/node_modules/
+ui/dist/
+ui/data/
