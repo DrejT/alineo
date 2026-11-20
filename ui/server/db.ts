@@ -2,7 +2,8 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const DATA_DIR = join(import.meta.dir, "..", "data");
+// ALINEO_UI_DATA_DIR lets a second instance (for example one shared through a tunnel) keep its own database.
+const DATA_DIR = process.env.ALINEO_UI_DATA_DIR ?? join(import.meta.dir, "..", "data");
 mkdirSync(DATA_DIR, { recursive: true });
 
 const DB_PATH = join(DATA_DIR, "control-plane.db");
@@ -181,7 +182,8 @@ try {
 
 // Auto-seed default user if not exists
 const defaultUser = db.query(`SELECT id FROM users WHERE username = 'test'`).get() as any;
-if (!defaultUser) {
+// The seeded `test` user has a known password and a fixed session token. Never create it on an exposed instance.
+if (!defaultUser && process.env.ALINEO_UI_NO_TEST_USER !== '1') {
   initDefaultUsersAndData();
 }
 
