@@ -296,8 +296,17 @@ export async function execInSandbox(userId: string, id: string, cmd: string): Pr
     exitCode = res.exitCode;
     stdout = [res.stdout, res.stderr].filter(Boolean).join(res.stdout && res.stderr ? '\n' : '') || `exit_code=${exitCode}`;
   } catch (err) {
-    exitCode = 1;
-    stdout = `[exec error] ${err instanceof Error ? err.message : String(err)}`;
+    // The SDK throws CommandError for any non-zero exit. That is a normal result (grep with no match,
+    // a failing test run), so return the command's own exit code and output instead of an error string.
+    const e = err as { exitCode?: unknown; stdout?: unknown; stderr?: unknown };
+    if (typeof e.exitCode === 'number' && typeof e.stdout === 'string') {
+      exitCode = e.exitCode;
+      stdout = [e.stdout, typeof e.stderr === 'string' ? e.stderr : ''].filter(Boolean).join(e.stdout && e.stderr ? '\n' : '') || `exit_code=${exitCode}`;
+    } else {
+      // A real failure to run the command: timeout, sandbox gone, execd unreachable.
+      exitCode = 1;
+      stdout = `[exec error] ${err instanceof Error ? err.message : String(err)}`;
+    }
   }
   const durationMs = Math.round(performance.now() - start);
 
