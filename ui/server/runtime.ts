@@ -8,7 +8,7 @@ import { mkdirSync } from "node:fs";
 import { Sandbox, type SandboxHandle } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 
-const DATA_DIR = join(import.meta.dir, "..", "data");
+const DATA_DIR = process.env.ALINEO_UI_DATA_DIR ?? join(import.meta.dir, "..", "data");
 mkdirSync(DATA_DIR, { recursive: true });
 
 // 127.0.0.1, not "localhost": OpenSandbox listens on IPv4 only.
