@@ -6,8 +6,8 @@
 #
 #   docker compose -f ui/docker-compose.yml up -d --build
 #
-# Host networking (see docker-compose.yml) lets the default OPENSANDBOX_URL
-# http://127.0.0.1:8080 reach the host's OpenSandbox unchanged.
+# docker-compose.yml uses bridge networking with host.docker.internal mapped to the host gateway,
+# like apps/alineod. Host networking breaks exec where that name resolves to ::1 (see the compose file).
 
 FROM oven/bun:1.3.14
 

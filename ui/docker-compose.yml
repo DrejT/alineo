@@ -1,20 +1,31 @@
 # Control plane dashboard. Run from anywhere:
 #   docker compose -f ui/docker-compose.yml up -d --build
 #
-# Host networking: the dashboard talks to the host's OpenSandbox on 127.0.0.1:8080 with the server
-# proxy on, exactly like apps/sandbox does. It serves on PORT (default 4610) on the host.
+# Bridge networking with host.docker.internal mapped to the host's IPv4 gateway, the same way
+# apps/alineod does it. Do NOT switch this to host networking on a host where `host.docker.internal`
+# resolves to ::1: OpenSandbox hands out proxy URLs on that name (its `eip`), and the IPv6 path to
+# its published port is dead, so every exec fails with "execd not ready".
+#
+# Variables:
+#   ALINEO_UI_BIND            host address to publish on (default 127.0.0.1). A reverse proxy in
+#                             another container, such as Caddy, needs the docker gateway, e.g. 172.18.0.1.
+#   ALINEO_UI_PORT            host port (default 4610)
+#   OPENSANDBOX_URL           the OpenSandbox server (default http://host.docker.internal:8080)
+#   ALINEO_UI_MAX_SANDBOXES   how many sandboxes can exist at once (default 8)
 services:
   ui:
     build:
       context: ..
       dockerfile: ui/Dockerfile
     container_name: alineo-ui
-    network_mode: host
     restart: unless-stopped
+    ports:
+      - "${ALINEO_UI_BIND:-127.0.0.1}:${ALINEO_UI_PORT:-4610}:4610"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       PORT: "4610"
-      OPENSANDBOX_URL: ${OPENSANDBOX_URL:-http://127.0.0.1:8080}
-      # Raise or lower the number of sandboxes that can exist at once.
+      OPENSANDBOX_URL: ${OPENSANDBOX_URL:-http://host.docker.internal:8080}
       ALINEO_UI_MAX_SANDBOXES: ${ALINEO_UI_MAX_SANDBOXES:-8}
     volumes:
       - ./data:/data
