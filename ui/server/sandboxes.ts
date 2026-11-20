@@ -69,7 +69,7 @@ export function listSandboxes(userId = 'usr_test'): SandboxRecord[] {
       checkpointAgo: timeAgo(row.checkpoint_ts),
       checkpointTs: row.checkpoint_ts,
       mcpTools: JSON.parse(row.mcp_tools || '[]'),
-      modelProvider: row.model_provider || 'gemini-2.0-flash',
+      modelProvider: row.model_provider || 'gemini-3.8-flash',
       summary: row.summary,
       recentExecs: execs.map(e => ({
         cmd: e.cmd,
@@ -109,7 +109,7 @@ export function getSandbox(userId: string, id: string): SandboxRecord | null {
     checkpointAgo: timeAgo(row.checkpoint_ts),
     checkpointTs: row.checkpoint_ts,
     mcpTools: JSON.parse(row.mcp_tools || '[]'),
-    modelProvider: row.model_provider || 'gemini-2.0-flash',
+    modelProvider: row.model_provider || 'gemini-3.8-flash',
     summary: row.summary,
     recentExecs: execs.map(e => ({
       cmd: e.cmd,
@@ -138,7 +138,7 @@ export function spawnSandbox(userId: string, params: {
   const mem = params.memLimitMi || 512;
   const pid = Math.floor(4400 + Math.random() * 600);
   const tools = params.mcpTools && params.mcpTools.length > 0 ? params.mcpTools : ['Filesystem'];
-  const model = params.modelProvider || 'gemini-2.0-flash';
+  const model = params.modelProvider || 'gemini-3.8-flash';
   const summary = params.summary || `Provisioned isolated OpenSandbox (${cpu}m CPU, ${mem}Mi RAM, ${model}) with exec-time credential injection.`;
 
   db.prepare(`
@@ -272,7 +272,7 @@ export function forkSandbox(userId: string, parentId: string, childRole?: string
   const childId = 'sbx_' + Math.random().toString(36).substring(2, 8).toUpperCase();
   const role = childRole || `${parent.role}-fork`;
   const checkpointId = parent.checkpointId || 'cp_0141';
-  const childModel = modelProvider || parent.modelProvider || 'gemini-2.0-flash';
+  const childModel = modelProvider || parent.modelProvider || 'gemini-3.8-flash';
 
   db.prepare(`
     INSERT INTO sandboxes (

@@ -965,7 +965,7 @@ window.submitSpawnSandbox = async function (e) {
   const mem = Number(document.getElementById('spawn-mem-select').value);
   const parentId = document.getElementById('spawn-parent-select').value || undefined;
   const mcpTools = Array.from(document.querySelectorAll('.spawn-mcp-cb:checked')).map(cb => cb.value);
-  const modelProvider = document.getElementById('spawn-model-select')?.value || 'claude-3-5-sonnet';
+  const modelProvider = document.getElementById('spawn-model-select')?.value || 'gemini-3.8-flash';
 
   try {
     await api.spawnSandbox({ role, cpuLimitMilli: cpu, memLimitMi: mem, parentId, mcpTools, modelProvider });

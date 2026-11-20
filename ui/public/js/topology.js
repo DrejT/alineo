@@ -130,8 +130,8 @@ export function renderTopologyGraph(svgEl, sandboxes, selectedId, onSelectNode, 
     const memPct = Math.min(100, Math.round((sb.memCurrentMi / sb.memLimitMi) * 100)) || 0;
 
     const modelName = sb.modelProvider
-      ? (sb.modelProvider.includes('thinking') ? 'gemini-think' : (sb.modelProvider.includes('gemini-2') ? 'gemini-2.0' : (sb.modelProvider.includes('gemini-1.5') ? 'gemini-1.5' : (sb.modelProvider.includes('claude') ? 'claude-3.5' : (sb.modelProvider.includes('groq') ? 'groq-llama3' : 'custom-llm')))))
-      : 'gemini-2.0';
+      ? (sb.modelProvider.includes('3.8') ? 'gemini-3.8' : (sb.modelProvider.includes('gemma') ? 'gemma-2' : (sb.modelProvider.includes('thinking') ? 'gemini-think' : (sb.modelProvider.includes('gemini-2') ? 'gemini-2.0' : (sb.modelProvider.includes('gemini-1.5') ? 'gemini-1.5' : (sb.modelProvider.includes('claude') ? 'claude-3.5' : (sb.modelProvider.includes('groq') ? 'groq-llama3' : 'custom-llm')))))))
+      : 'gemini-3.8';
 
     svgHtml += `
       <g class="topo-node ${isSelected ? 'selected' : ''}" data-id="${id}" transform="translate(${pos.x}, ${pos.y})" style="cursor: pointer;">
