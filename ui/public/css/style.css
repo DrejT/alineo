@@ -1,0 +1,132 @@
+:root {
+  --ink: #18181B;
+  --muted: #71717A;
+  --subtle: #A1A1AA;
+  --hairline: #E4E4E7;
+  --surface: #FAFAFA;
+  --surface-alt: #F4F4F5;
+  --surface-border: #D4D4D8;
+  --canvas-bg: #FFFFFF;
+  --topo-bg: #FCFCFD;
+  --emerald: #059669;
+  --emerald-bg: #ECFDF5;
+  --emerald-border: #A7F3D0;
+  --amber: #D97706;
+  --amber-bg: #FFFBEB;
+  --amber-border: #FDE68A;
+  --rose: #E11D48;
+  --rose-bg: #FFF1F2;
+  --rose-border: #FECDD3;
+  --sky: #0284C7;
+  --sky-bg: #F0F9FF;
+  --sky-border: #BAE6FD;
+}
+
+body {
+  background-color: var(--canvas-bg);
+  color: var(--ink);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.topo-canvas {
+  background-color: var(--topo-bg);
+  background-image: radial-gradient(var(--hairline) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Custom crisp scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D4D4D8;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A1A1AA;
+}
+
+/* Topology node hover and selection */
+.topo-node {
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.topo-node:hover {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
+}
+
+.topo-node.selected rect {
+  stroke: var(--ink);
+  stroke-width: 2.2px;
+}
+
+/* Smooth SVG edges */
+.topo-link {
+  fill: none;
+  stroke: var(--subtle);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4, 3;
+}
+
+.topo-link.active {
+  stroke: var(--ink);
+  stroke-dasharray: none;
+  stroke-width: 1.8px;
+}
+
+/* Pulse animation for active agents */
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+.pulse-emerald {
+  animation: pulseGlow 2s infinite ease-in-out;
+  transform-origin: center;
+}
+
+/* Toast styling */
+.toast {
+  animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Code block highlight */
+.code-inline {
+  background: var(--surface-alt);
+  border: 1px solid var(--hairline);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+
+/* Segmented button transitions */
+.seg-btn {
+  transition: all 0.15s ease;
+}
+
+/* Modal and Drawer backdrop blur */
+.backdrop-glass {
+  background-color: rgba(24, 24, 27, 0.35);
+  backdrop-filter: blur(2px);
+}

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Alineo Control Plane — Execution Walkthrough Recording</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-[#09090B] text-white min-h-screen flex flex-col items-center p-6">
+  <div class="w-full max-w-6xl space-y-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-[#27272A] pb-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+          <h1 class="text-xl font-bold tracking-tight">Alineo Control Plane — Walkthrough Recording</h1>
+        </div>
+        <p class="text-sm text-[#A1A1AA] mt-1">New User Signup &rarr; Blank Slate &rarr; Custom Micro-Swarm Execution &rarr; Claude MCP Connector</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/" class="px-3 py-1.5 rounded-[4px] bg-[#18181B] border border-[#27272A] hover:border-white text-xs font-mono transition-colors">
+          &larr; Back to Live Dashboard
+        </a>
+      </div>
+    </div>
+
+    <!-- Main Player Card -->
+    <div class="bg-[#18181B] border border-[#27272A] rounded-lg overflow-hidden shadow-2xl flex flex-col">
+      <!-- Player Screen -->
+      <div class="relative bg-black aspect-[16/10] flex items-center justify-center overflow-hidden border-b border-[#27272A]">
+        <img id="current-frame" src="recordings/01_new_user_login.png" alt="Recording Frame" class="w-full h-full object-contain" />
+        <div class="absolute top-4 left-4 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded text-xs font-mono border border-white/10">
+          <span id="frame-counter" class="text-emerald-400 font-bold">Frame 1 / 10</span>: <span id="frame-title" class="text-white">Standalone Login/Signup Page</span>
+        </div>
+      </div>
+
+      <!-- Controls & Narrative -->
+      <div class="p-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-[#111113]">
+        <div class="space-y-1">
+          <h3 id="step-title" class="text-sm font-semibold text-white">1. Standalone Login &amp; Registration</h3>
+          <p id="step-desc" class="text-xs text-[#A1A1AA]">Clean standalone login page without background dashboard clutter or hardcoded credential buttons.</p>
+        </div>
+
+        <div class="flex items-center gap-2 font-mono text-xs shrink-0">
+          <button onclick="prevFrame()" class="px-3 py-1.5 rounded bg-[#27272A] hover:bg-[#3F3F46] text-white transition-colors">
+            &#9664; Previous
+          </button>
+          <button id="play-btn" onclick="togglePlay()" class="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors">
+            &#9654; Autoplay
+          </button>
+          <button onclick="nextFrame()" class="px-3 py-1.5 rounded bg-[#27272A] hover:bg-[#3F3F46] text-white transition-colors">
+            Next &#9654;
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thumbnail Strip -->
+    <div class="grid grid-cols-5 md:grid-cols-10 gap-2">
+      <button onclick="jumpTo(0)" class="thumb-btn border-2 border-emerald-500 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/01_new_user_login.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">1. Login</span>
+      </button>
+      <button onclick="jumpTo(1)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/02_new_user_blank_dashboard.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">2. Blank</span>
+      </button>
+      <button onclick="jumpTo(2)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/03_spawned_custom_topology.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">3. Topology</span>
+      </button>
+      <button onclick="jumpTo(3)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative military group">
+        <img src="recordings/04_terminal_steer_drawer.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">4. Terminal</span>
+      </button>
+      <button onclick="jumpTo(4)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/05_sandboxes_fleet.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">5. Fleet</span>
+      </button>
+      <button onclick="jumpTo(5)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/06_audit_replay_ledger.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">6. Ledger</span>
+      </button>
+      <button onclick="jumpTo(6)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/07_memory_core.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">7. Memory</span>
+      </button>
+      <button onclick="jumpTo(7)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/08_security_egress.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">8. Security</span>
+      </button>
+      <button onclick="jumpTo(8)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/09_alineo_runner.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">9. Runner</span>
+      </button>
+      <button onclick="jumpTo(9)" class="thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group">
+        <img src="recordings/10_mcp_connector_claude.png" class="w-full h-full object-cover" />
+        <span class="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] font-mono text-center py-0.5">10. MCP</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const frames = [
+      {
+        src: 'recordings/01_new_user_login.png',
+        title: 'Standalone Login/Signup Page',
+        step: '1. Standalone Login & Registration Screen',
+        desc: 'Dedicated /login page without background dashboard clutter or hardcoded credential buttons.'
+      },
+      {
+        src: 'recordings/02_new_user_blank_dashboard.png',
+        title: '100% Blank Dashboard on Fresh Account',
+        step: '2. Zero Dummy Data: Clean Slate',
+        desc: 'New user logs in to a clean canvas (0 sandboxes, 0 audit events, 0 memory records).'
+      },
+      {
+        src: 'recordings/03_spawned_custom_topology.png',
+        title: 'Custom Distributed-Tracer Swarm',
+        step: '3. Real Custom Swarm Execution',
+        desc: 'Spawned custom distributed-tracer container and forked anomaly-detector child node in live topology graph.'
+      },
+      {
+        src: 'recordings/04_terminal_steer_drawer.png',
+        title: 'Substrate Shell & Agent Steering Drawer',
+        step: '4. Terminal Attach & Mid-turn Steering',
+        desc: 'Real stdout from node -v, resource consumption telemetry, and interactive subtree steering directives.'
+      },
+      {
+        src: 'recordings/05_sandboxes_fleet.png',
+        title: 'Sandboxes Fleet Overview',
+        step: '5. Isolated Micro-Containers Fleet',
+        desc: 'Table of active sandboxes with CPU/memory limits, injected MCP tools, and lifecycle controls.'
+      },
+      {
+        src: 'recordings/06_audit_replay_ledger.png',
+        title: 'Checkpoint & Replay Ledger',
+        step: '6. Immutable Audit Trail & Scrubber',
+        desc: 'Visual commit track with exec_start, checkpoints, and replay controls synced to SQLite ledger.'
+      },
+      {
+        src: 'recordings/07_memory_core.png',
+        title: 'Memory Core Subsystem',
+        step: '7. Working, Episodic, and Semantic Memory',
+        desc: 'Persisted trace_sampling_rate, latency analysis episode, and semantic facts with vector search.'
+      },
+      {
+        src: 'recordings/08_security_egress.png',
+        title: 'Security Perimeter & Egress Gates',
+        step: '8. Outbound Zero-Trust Approval Gates',
+        desc: 'Egress gate controlling telemetry.datadoghq.com:443 network access and workflow concurrency slots.'
+      },
+      {
+        src: 'recordings/09_alineo_runner.png',
+        title: 'Alineo Runner Native Terminal',
+        step: '9. Native alineo-cli Runner Terminal',
+        desc: 'Embedded CLI runner executing native alineo-cli commands directly against the control plane.'
+      },
+      {
+        src: 'recordings/10_mcp_connector_claude.png',
+        title: 'MCP Connector for Claude & AI Agents',
+        step: '10. Model Context Protocol Bridge for Claude',
+        desc: 'Claude Desktop & Claude Code setup guide, copyable JSON configuration, and interactive MCP tool tester.'
+      }
+    ];
+
+    let current = 0;
+    let timer = null;
+
+    function render() {
+      const f = frames[current];
+      document.getElementById('current-frame').src = f.src;
+      document.getElementById('frame-counter').textContent = `Frame ${current + 1} / ${frames.length}`;
+      document.getElementById('frame-title').textContent = f.title;
+      document.getElementById('step-title').textContent = f.step;
+      document.getElementById('step-desc').textContent = f.desc;
+
+      document.querySelectorAll('.thumb-btn').forEach((btn, idx) => {
+        if (idx === current) {
+          btn.className = 'thumb-btn border-2 border-emerald-500 rounded overflow-hidden aspect-video relative group';
+        } else {
+          btn.className = 'thumb-btn border-2 border-transparent hover:border-white/40 rounded overflow-hidden aspect-video relative group';
+        }
+      });
+    }
+
+    function nextFrame() {
+      current = (current + 1) % frames.length;
+      render();
+    }
+
+    function prevFrame() {
+      current = (current - 1 + frames.length) % frames.length;
+      render();
+    }
+
+    function jumpTo(idx) {
+      current = idx;
+      render();
+    }
+
+    function togglePlay() {
+      const btn = document.getElementById('play-btn');
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+        btn.textContent = '▶ Autoplay';
+        btn.className = 'px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors';
+      } else {
+        timer = setInterval(nextFrame, 3000);
+        btn.textContent = '⏸ Pause';
+        btn.className = 'px-4 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors';
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
