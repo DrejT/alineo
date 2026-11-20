@@ -23,7 +23,10 @@ COPY cookbooks cookbooks
 COPY tests tests
 COPY tools tools
 COPY apps apps
-COPY ui ui
+# Only the manifest here: bun needs ui as a workspace member to install, but the rest of ui/ is copied
+# AFTER the slow install and package build below. A change under ui/ then rebuilds only the last steps
+# instead of reinstalling and rebuilding every workspace package (about 15 minutes on a 1-CPU host).
+COPY ui/package.json ui/package.json
 
 # apps/telemetry/node_modules is a symlink committed to git. It points at an absolute path on one
 # developer's machine, and `bun install` fails on it (ELOOP). Remove it here, not in the repo.
@@ -33,6 +36,8 @@ RUN bun install --frozen-lockfile
 
 # dist/ for every workspace package the server imports through its ESM `exports.import` condition.
 RUN bun run build
+
+COPY ui ui
 
 # ui/web is a standalone Vite app (not a workspace member) with its own lockfile.
 # It builds to ui/dist, which the server serves.
