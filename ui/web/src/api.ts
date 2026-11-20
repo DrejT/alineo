@@ -16,7 +16,7 @@ export interface Status {
   fleet: { total: number; running: number; paused: number; pendingGates: number; activeWorkflowSlots: number; queuedJobs: number };
 }
 export interface LedgerEvent {
-  seq: number; ts: number; type: string; sandbox_id: string; tool: string; detail: string;
+  seq: number; ts: number; type: string; sandbox_id: string | null; tool: string; detail: string;
   branch: string; short_label: string; payload: string;
 }
 export interface WorkingMemoryItem { id: number; sandboxId: string; key: string; value: string; scope: string; updatedAt: number }
