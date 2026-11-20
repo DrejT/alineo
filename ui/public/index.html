@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>alineo — Control Plane</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+          colors: {
+            ink: '#18181B', muted: '#71717A', hairline: '#E4E4E7', surface: '#FAFAFA',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { color-scheme: light; }
+    body { background: #fff; color: #18181B; font-family: 'Inter', sans-serif; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+    .topo-canvas { background: #FCFCFD; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D4D4D8; border-radius: 3px; }
+    @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .status-pulse { animation: livePulse 2.4s infinite ease-in-out; }
+    .nav-active { background: #18181B !important; color: #fff !important; }
+    .nav-active svg { color: #fff !important; }
+  </style>
+</head>
+<body class="min-h-screen flex bg-white text-[#18181B] selection:bg-[#18181B] selection:text-white">
+
+  <!-- Mobile Sidebar Backdrop -->
+  <div id="sidebar-backdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 z-30 bg-black/20 hidden lg:hidden"></div>
+
+  <!-- ========= SIDEBAR ========= -->
+  <aside id="app-sidebar"
+    class="fixed inset-y-0 left-0 z-40 w-[220px] bg-[#FAFAFA] border-r border-[#E4E4E7] flex flex-col justify-between transform -translate-x-full lg:translate-x-0 transition-transform duration-150 ease-out">
+    
+    <div class="flex flex-col min-h-0">
+      <!-- Brand -->
+      <div class="h-[52px] px-4 flex items-center justify-between border-b border-[#E4E4E7]">
+        <a href="#" onclick="switchSection('overview'); return false;" class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-[#18181B]" viewBox="0 0 18 18" fill="currentColor">
+            <circle cx="9" cy="4.2" r="2.2" />
+            <circle cx="4.8" cy="12.2" r="2.2" />
+            <circle cx="13.2" cy="12.2" r="2.2" />
+          </svg>
+          <span class="font-sans text-[15px] font-semibold tracking-tight text-[#18181B]">alineo</span>
+        </a>
+        <button onclick="toggleMobileSidebar()" class="lg:hidden p-1 rounded-[4px] text-[#71717A] hover:text-[#18181B]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Nav -->
+      <nav class="px-2.5 py-3 space-y-0.5" aria-label="Primary Navigation">
+        <button onclick="switchSection('overview')" id="nav-overview"
+          class="nav-active w-full flex items-center justify-between px-2.5 py-2 rounded-[5px] text-[13px] font-medium transition-colors">
+          <span class="flex items-center gap-2.5 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h10" />
+            </svg>
+            <span class="truncate">Overview</span>
+          </span>
+          <span id="nav-sb-count" class="font-mono text-[10.5px] opacity-60"></span>
+        </button>
+
+        <button onclick="switchSection('sandboxes')" id="nav-sandboxes"
+          class="w-full flex items-center justify-between px-2.5 py-2 rounded-[5px] text-[13px] font-medium text-[#52525B] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors">
+          <span class="flex items-center gap-2.5 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            <span class="truncate">Sandboxes Fleet</span>
+          </span>
+          <span id="nav-sb-badge" class="font-mono text-[10.5px] text-[#71717A] shrink-0"></span>
+        </button>
+
+        <button onclick="switchSection('ledger')" id="nav-ledger"
+          class="w-full flex items-center justify-between px-2.5 py-2 rounded-[5px] text-[13px] font-medium text-[#52525B] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors">
+          <span class="flex items-center gap-2.5 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="truncate">Audit &amp; Replay</span>
+          </span>
+          <span id="nav-ledger-count" class="font-mono text-[10.5px] text-[#71717A] shrink-0"></span>
+        </button>
+
+        <button onclick="switchSection('memory')" id="nav-memory"
+          class="w-full flex items-center justify-between px-2.5 py-2 rounded-[5px] text-[13px] font-medium text-[#52525B] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors">
+          <span class="flex items-center gap-2.5 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
+            </svg>
+            <span class="truncate">Memory Core</span>
+          </span>
+        </button>
+
+        <button onclick="switchSection('security')" id="nav-security"
+          class="w-full flex items-center justify-between px-2.5 py-2 rounded-[5px] text-[13px] font-medium text-[#52525B] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors">
+          <span class="flex items-center gap-2.5 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span class="truncate">Security &amp; Perimeter</span>
+          </span>
+          <span id="nav-approval-badge" class="hidden font-mono text-[10px] px-1.5 py-0.5 rounded-[4px] bg-amber-50 text-amber-800 border border-amber-200 shrink-0"></span>
+        </button>
+
+        <button onclick="switchSection('runner')" id="nav-runner"
+          class="w-full flex items-center justify-between px-2.5 py-2 rounded-[5px] text-[13px] font-medium text-[#52525B] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors">
+          <span class="flex items-center gap-2.5 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span class="truncate">Alineo Runner</span>
+          </span>
+          <span class="font-mono text-[10px] text-[#A1A1AA]">^M</span>
+        </button>
+
+        <button onclick="switchSection('mcp')" id="nav-mcp"
+          class="w-full flex items-center justify-between px-2.5 py-2 rounded-[5px] text-[13px] font-medium text-[#52525B] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors">
+          <span class="flex items-center gap-2.5 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span class="truncate">MCP Connector</span>
+          </span>
+          <span class="font-mono text-[10px] px-1.5 py-0.2 rounded-[4px] bg-amber-50 text-amber-800 border border-amber-200">Claude</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Sidebar Footer: user identity + sign out only -->
+    <div class="p-3.5 border-t border-[#E4E4E7]">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="w-6 h-6 rounded-full bg-[#18181B] flex items-center justify-center text-white text-[10px] font-mono font-bold shrink-0" id="user-avatar">?</span>
+          <span id="sidebar-username" class="font-mono text-[11.5px] text-[#18181B] truncate">user</span>
+        </div>
+        <button onclick="handleLogout()" title="Sign out"
+          class="p-1 rounded-[4px] text-[#71717A] hover:text-[#18181B] hover:bg-[#F4F4F5] transition-colors" aria-label="Sign out">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========= MAIN CONTENT ========= -->
+  <div class="flex-1 lg:pl-[220px] flex flex-col min-w-0 bg-white">
+
+    <!-- Header (52px, clean and clutter-free) -->
+    <header class="sticky top-0 z-20 h-[52px] bg-white/95 backdrop-blur-sm border-b border-[#E4E4E7] px-5 sm:px-7 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <button onclick="toggleMobileSidebar()"
+          class="lg:hidden p-1.5 rounded-[5px] border border-[#E4E4E7] text-[#18181B] hover:bg-[#FAFAFA]" aria-label="Open Menu">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <div class="flex items-center gap-2 text-[13px] truncate">
+          <span id="header-username" class="text-[#71717A] font-mono hidden sm:inline">workspace</span>
+          <span class="text-[#D4D4D8] hidden sm:inline">/</span>
+          <h1 id="header-page-title" class="font-semibold text-[#18181B] truncate">Overview</h1>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 shrink-0">
+        <button onclick="openLaunchModal()"
+          class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[5px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12.5px] font-medium transition-colors">
+          <span>+ Spawn Sandbox</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport -->
+    <main class="flex-1 flex flex-col min-w-0">
+
+      <!-- VIEW 1: OVERVIEW -->
+      <div id="section-overview" class="flex-1 flex flex-col">
+        <section class="flex-1 grid grid-cols-1 xl:grid-cols-12 min-h-[620px]">
+          <!-- Topology: left 62% -->
+          <div class="xl:col-span-7 flex flex-col border-b xl:border-b-0 xl:border-r border-[#E4E4E7]">
+            <div class="px-6 py-3.5 bg-white border-b border-[#E4E4E7] flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-3">
+                <h2 class="text-[13px] font-semibold text-[#18181B]">Execution Topology</h2>
+                <div class="inline-flex items-center bg-[#F4F4F5] p-0.5 rounded-[5px] border border-[#E4E4E7] text-[11px]">
+                  <button onclick="setTopoFilter('all')" id="topo-filter-all"
+                    class="px-2.5 py-0.5 rounded-[4px] bg-white text-[#18181B] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)]">All</button>
+                  <button onclick="setTopoFilter('running')" id="topo-filter-running"
+                    class="px-2.5 py-0.5 rounded-[4px] text-[#71717A] hover:text-[#18181B]">Running</button>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 font-mono text-[11px]">
+                <button onclick="forkSandbox(state.selectedSandboxId)"
+                  class="px-2.5 py-1 rounded-[5px] bg-white hover:bg-[#FAFAFA] text-[#18181B] border border-[#E4E4E7] transition-colors">Fork Node</button>
+                <button onclick="checkpointSandboxAction(state.selectedSandboxId)"
+                  class="px-2.5 py-1 rounded-[5px] bg-white hover:bg-[#FAFAFA] text-[#18181B] border border-[#E4E4E7] transition-colors">Checkpoint</button>
+              </div>
+            </div>
+            <div class="flex-1 topo-canvas relative flex items-center justify-center p-4 sm:p-6">
+              <svg id="overview-topology-svg" viewBox="0 0 680 420" preserveAspectRatio="xMidYMid meet"
+                class="w-full h-full max-h-[460px] block select-none"></svg>
+              <!-- Legend -->
+              <div class="absolute bottom-4 left-6 flex items-center gap-5 font-mono text-[11px] text-[#71717A]">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-600"></span>running</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>paused</span>
+                <span class="flex items-center gap-1.5"><span class="w-3.5 border-t border-dashed border-[#A1A1AA]"></span>forked</span>
+              </div>
+            </div>
+          </div>
+          <!-- Inspector: right 38% -->
+          <div id="overview-node-inspector" class="xl:col-span-5 bg-white flex flex-col justify-between">
+            <div class="flex-1 flex items-center justify-center p-8 text-center">
+              <div>
+                <svg class="w-10 h-10 text-[#E4E4E7] mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
+                </svg>
+                <p class="text-[13px] font-medium text-[#71717A]">No sandbox deployed</p>
+                <p class="text-[12px] text-[#A1A1AA] mt-1">Spawn a sandbox to start executing agents in isolation.</p>
+                <button onclick="openLaunchModal()" class="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[5px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12px] font-medium">+ Spawn Sandbox</button>
+                <button onclick="openDemoModal()" class="mt-3 block mx-auto text-[11px] text-[#71717A] hover:text-[#18181B] font-mono underline">or run sample PR #418 swarm</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- Egress Banner -->
+        <div id="overview-egress-banner" class="border-t border-[#E4E4E7] bg-[#FAFAFA] px-6 py-3 hidden"></div>
+      </div>
+
+      <!-- VIEW 2: SANDBOXES FLEET -->
+      <section id="section-sandboxes" class="hidden p-6 sm:p-8 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E4E4E7]">
+          <div>
+            <h2 class="text-[15px] font-semibold text-[#18181B]">Sandboxes Fleet</h2>
+            <p class="text-[12px] text-[#71717A] mt-1">Isolated OpenSandbox micro-containers with resource enforcement and lineage.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <div class="inline-flex items-center bg-[#F4F4F5] p-0.5 rounded-[4px] border border-[#E4E4E7] text-[11px] font-medium">
+              <button onclick="setSandboxFilter('all')" id="sb-filter-all" class="px-2.5 py-0.5 rounded-[3px] bg-white text-[#18181B] border border-[#E4E4E7]">All</button>
+              <button onclick="setSandboxFilter('running')" id="sb-filter-running" class="px-2.5 py-0.5 rounded-[3px] text-[#71717A] hover:text-[#18181B]">Running</button>
+              <button onclick="setSandboxFilter('paused')" id="sb-filter-paused" class="px-2.5 py-0.5 rounded-[3px] text-[#71717A] hover:text-[#18181B]">Paused</button>
+            </div>
+            <button onclick="openLaunchModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12px] font-medium">+ Spawn Sandbox</button>
+          </div>
+        </div>
+        <div class="border border-[#E4E4E7] rounded-[4px] overflow-x-auto bg-white">
+          <table class="w-full text-left border-collapse min-w-[700px]">
+            <thead>
+              <tr class="border-b border-[#E4E4E7] bg-[#FAFAFA] text-[11px] font-medium text-[#71717A]">
+                <th class="py-3 px-5">Sandbox</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4">Compute</th>
+                <th class="py-3 px-4">MCP Tools</th>
+                <th class="py-3 px-5 text-right">Controls</th>
+              </tr>
+            </thead>
+            <tbody id="full-sandboxes-tbody" class="divide-y divide-[#E4E4E7] text-[12px]">
+              <tr>
+                <td colspan="5" class="py-16 text-center">
+                  <div class="flex flex-col items-center gap-3">
+                    <svg class="w-8 h-8 text-[#E4E4E7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <p class="text-[13px] font-medium text-[#71717A]">No sandboxes yet</p>
+                    <p class="text-[12px] text-[#A1A1AA]">Spawn your first sandbox to get started.</p>
+                    <button onclick="openLaunchModal()" class="mt-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[5px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12px] font-medium">+ Spawn Sandbox</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW 3: AUDIT & REPLAY -->
+      <section id="section-ledger" class="hidden p-6 sm:p-8 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E4E4E7]">
+          <div>
+            <h2 class="text-[15px] font-semibold text-[#18181B]">Audit &amp; Replay Ledger</h2>
+            <p class="text-[12px] text-[#71717A] mt-1">Immutable execution frames with automatic secret scrubbing.</p>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <select id="ledger-type-filter" onchange="renderLedger()"
+              class="bg-white border border-[#E4E4E7] rounded-[4px] px-2.5 py-1.5 font-mono text-[11px] text-[#18181B] focus:outline-none">
+              <option value="all">All event types</option>
+              <option value="exec_start">exec_start</option>
+              <option value="exec_event">exec_event</option>
+              <option value="checkpoint">checkpoint</option>
+              <option value="exec_complete">exec_complete</option>
+            </select>
+            <button onclick="replayFromSelectedTimelineNode()"
+              class="px-3.5 py-1.5 rounded-[4px] bg-[#18181B] hover:bg-[#27272A] text-white font-mono text-[11px] font-medium">▶ Replay</button>
+          </div>
+        </div>
+
+        <!-- Scrubber -->
+        <div class="border border-[#E4E4E7] rounded-[4px] bg-white overflow-hidden">
+          <div class="px-5 py-2.5 bg-[#FAFAFA] border-b border-[#E4E4E7] flex flex-wrap items-center justify-between gap-2">
+            <span class="font-mono text-[11px] font-medium text-[#52525B]">Execution commit track</span>
+            <div class="flex flex-wrap items-center gap-4 font-mono text-[11px] text-[#71717A]">
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-600"></span>exec_start</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>exec_event</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rotate-45 bg-[#18181B] inline-block"></span>checkpoint</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-600"></span>exec_complete</span>
+            </div>
+          </div>
+          <div class="w-full overflow-x-auto topo-canvas">
+            <svg id="timeline-scrubber-svg" viewBox="0 0 860 175" class="w-full min-w-[720px] h-[175px] block select-none"></svg>
+          </div>
+          <div id="timeline-node-inspector" class="p-5 border-t border-[#E4E4E7] bg-white space-y-2.5"></div>
+        </div>
+
+        <div id="replay-banner" class="hidden rounded-[4px] bg-[#FAFAFA] border border-[#18181B] p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-[11px] font-semibold text-[#18181B]">Replay stream</span>
+            <button onclick="document.getElementById('replay-banner').classList.add('hidden')" class="font-mono text-[11px] text-[#71717A] hover:text-[#18181B]">Close</button>
+          </div>
+          <div id="replay-stream-output" class="font-mono text-[11px] text-[#18181B] space-y-1.5 max-h-40 overflow-y-auto pt-1"></div>
+        </div>
+
+        <div class="border border-[#E4E4E7] rounded-[4px] overflow-x-auto bg-white">
+          <table class="w-full text-left border-collapse min-w-[700px]">
+            <thead>
+              <tr class="border-b border-[#E4E4E7] bg-[#FAFAFA] text-[11px] font-medium text-[#71717A]">
+                <th class="py-3 px-5">Timestamp</th>
+                <th class="py-3 px-4">Event</th>
+                <th class="py-3 px-4">Sandbox</th>
+                <th class="py-3 px-4">Summary</th>
+                <th class="py-3 px-5 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="full-ledger-tbody" class="divide-y divide-[#E4E4E7] text-[12px]">
+              <tr><td colspan="5" class="py-12 text-center text-[12px] text-[#A1A1AA] font-mono">No audit events yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW 4: MEMORY CORE -->
+      <section id="section-memory" class="hidden p-6 sm:p-8 space-y-6">
+        <div class="pb-4 border-b border-[#E4E4E7]">
+          <h2 class="text-[15px] font-semibold text-[#18181B]">Memory Core</h2>
+          <p class="text-[12px] text-[#71717A] mt-1">Working context, episodic history, and semantic fact store for your agent swarm.</p>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="border border-[#E4E4E7] rounded-[4px] bg-white overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#E4E4E7] bg-[#FAFAFA] flex items-center justify-between">
+              <span class="font-mono text-[11.5px] font-semibold text-[#18181B]">Working Memory</span>
+              <span id="wm-count" class="font-mono text-[10.5px] text-[#71717A]">0 entries</span>
+            </div>
+            <div id="working-memory-container" class="p-4 min-h-[200px] flex items-center justify-center">
+              <p class="text-[12px] text-[#A1A1AA] font-mono text-center">Empty. Activate sandboxes to populate working memory.</p>
+            </div>
+          </div>
+          <div class="border border-[#E4E4E7] rounded-[4px] bg-white overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#E4E4E7] bg-[#FAFAFA] flex items-center justify-between">
+              <span class="font-mono text-[11.5px] font-semibold text-[#18181B]">Episodic Memory</span>
+              <span id="ep-count" class="font-mono text-[10.5px] text-[#71717A]">0 entries</span>
+            </div>
+            <div id="episodic-memory-container" class="p-4 min-h-[200px] flex items-center justify-center">
+              <p class="text-[12px] text-[#A1A1AA] font-mono text-center">No episodes recorded yet.</p>
+            </div>
+          </div>
+          <div class="border border-[#E4E4E7] rounded-[4px] bg-white overflow-hidden">
+            <div class="px-4 py-3 border-b border-[#E4E4E7] bg-[#FAFAFA]">
+              <div class="flex items-center justify-between">
+                <span class="font-mono text-[11.5px] font-semibold text-[#18181B]">Semantic Facts</span>
+                <span id="sf-count" class="font-mono text-[10.5px] text-[#71717A]">0 facts</span>
+              </div>
+              <div class="mt-2 flex items-center gap-1.5">
+                <input id="semantic-query-input" type="text" placeholder="Search facts…"
+                  class="flex-1 bg-white border border-[#E4E4E7] focus:border-[#18181B] rounded-[4px] px-2 py-1 font-mono text-[11px] text-[#18181B] focus:outline-none" />
+                <button onclick="searchSemanticFacts()"
+                  class="px-2 py-1 rounded-[4px] bg-[#18181B] text-white font-mono text-[10px]">Search</button>
+              </div>
+            </div>
+            <div id="semantic-facts-container" class="p-4 min-h-[200px] flex items-center justify-center">
+              <p class="text-[12px] text-[#A1A1AA] font-mono text-center">No semantic facts stored.</p>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-2">
+          <button onclick="compactMemoryAction()"
+            class="px-3 py-1.5 rounded-[4px] bg-white hover:bg-[#FAFAFA] text-[#18181B] border border-[#E4E4E7] font-mono text-[11px] font-medium">Compact Memory</button>
+        </div>
+      </section>
+
+      <!-- VIEW 5: SECURITY -->
+      <section id="section-security" class="hidden p-6 sm:p-8 space-y-6">
+        <div class="pb-4 border-b border-[#E4E4E7] flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-[15px] font-semibold text-[#18181B]">Security &amp; Egress Perimeter</h2>
+            <p class="text-[12px] text-[#71717A] mt-1">Outbound approval gates and workflow concurrency control.</p>
+          </div>
+          <div class="flex items-center gap-4 font-mono text-[11px] text-[#71717A]">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-emerald-600 inline-block"></span>Allowed</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-amber-500 inline-block"></span>Pending</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-rose-600 inline-block"></span>Denied</span>
+          </div>
+        </div>
+
+        <div class="border border-[#E4E4E7] rounded-[4px] bg-white overflow-hidden">
+          <div class="w-full overflow-x-auto topo-canvas border-b border-[#E4E4E7]">
+            <svg id="egress-perimeter-svg" viewBox="0 0 840 235" class="w-full min-w-[680px] h-[235px] block select-none"></svg>
+          </div>
+          <div id="full-egress-list" class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#E4E4E7]">
+            <div class="col-span-3 py-10 text-center text-[12px] text-[#A1A1AA] font-mono">No egress gates configured.</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 border border-[#E4E4E7] rounded-[4px] bg-white divide-y lg:divide-y-0 lg:divide-x divide-[#E4E4E7]">
+          <div class="lg:col-span-7 p-6 flex flex-col justify-between space-y-5">
+            <div class="space-y-3.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 class="text-[13px] font-semibold text-[#18181B] font-mono">@alineo-labs/workflow</h3>
+                  <p class="text-[12px] text-[#71717A] mt-0.5">Execution pipeline with <code class="font-mono text-[#18181B]">maxConcurrency: 4</code> semaphore slots.</p>
+                </div>
+                <div class="flex items-center gap-2 font-mono text-[11px]">
+                  <button onclick="enqueueWorkflowJob()" class="px-2.5 py-1 rounded-[4px] bg-white hover:bg-[#FAFAFA] text-[#18181B] border border-[#E4E4E7]">+ Enqueue</button>
+                  <button onclick="flushWorkflowPipeline()" class="px-3 py-1 rounded-[4px] bg-[#18181B] hover:bg-[#27272A] text-white font-medium">Flush Pipeline</button>
+                </div>
+              </div>
+              <div id="wf-semaphore-slots" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+            </div>
+            <div class="pt-3.5 border-t border-[#E4E4E7] flex items-center justify-between text-[11px] font-mono text-[#71717A]">
+              <span id="workflow-flush-status">0 active · 0 queued · 4 open slots</span>
+              <span class="text-[#18181B]">maxConcurrency: 4</span>
+            </div>
+          </div>
+          <div class="lg:col-span-5 p-6 flex flex-col justify-between space-y-5">
+            <div class="space-y-3.5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-[13px] font-semibold text-[#18181B]">Storage Adapter</h3>
+                  <p class="font-mono text-[11px] text-[#71717A] mt-0.5">127.0.0.1:4600 · HTTP</p>
+                </div>
+                <span id="daemon-view-badge" class="font-mono text-[11px] px-2 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-700 border border-emerald-200">Running</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <button onclick="setStorageAdapter('SQLiteAdapter')" id="btn-adapter-sqlite"
+                  class="p-3 rounded-[4px] border border-[#18181B] bg-[#FAFAFA] text-left transition-all">
+                  <div class="font-mono text-[11px] font-semibold text-[#18181B]">SQLiteAdapter</div>
+                  <div class="text-[11px] text-[#71717A] mt-0.5">Local ledger.db</div>
+                </button>
+                <button onclick="setStorageAdapter('PostgresAdapter')" id="btn-adapter-postgres"
+                  class="p-3 rounded-[4px] border border-[#E4E4E7] hover:border-[#D4D4D8] bg-white text-left transition-all">
+                  <div class="font-mono text-[11px] font-semibold text-[#18181B]">PostgresAdapter</div>
+                  <div class="text-[11px] text-[#71717A] mt-0.5">Multi-node prod</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vault & Exec-Time Credential Injection -->
+        <div class="border border-[#E4E4E7] rounded-[6px] bg-white overflow-hidden space-y-0">
+          <div class="px-6 py-4 bg-[#FAFAFA] border-b border-[#E4E4E7] flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-[13.5px] font-semibold text-[#18181B]">Vault &amp; Credential Injection</h3>
+                <span class="px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-800 border border-slate-200 font-mono text-[10px]">Zero Raw Secret Exposure</span>
+              </div>
+              <p class="text-[12px] text-[#71717A] mt-0.5">Inject secrets at network egress via sidecar headers or literal placeholder substitution.</p>
+            </div>
+            <button onclick="openVaultModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12px] font-medium transition-colors">
+              + Add Injected Secret
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[700px]">
+              <thead>
+                <tr class="border-b border-[#E4E4E7] bg-white text-[11px] font-medium text-[#71717A]">
+                  <th class="py-3 px-6">Secret Name</th>
+                  <th class="py-3 px-4">Target Host Scope</th>
+                  <th class="py-3 px-4">Injection Strategy</th>
+                  <th class="py-3 px-4">Masked Value</th>
+                  <th class="py-3 px-6 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="vault-credentials-tbody" class="divide-y divide-[#E4E4E7] text-[12px]">
+                <tr>
+                  <td colspan="5" class="py-8 text-center text-[#A1A1AA] font-mono text-[11.5px]">No credentials registered in vault. Add a secret to inject into micro-sandboxes.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 6: ALINEO RUNNER -->
+      <section id="section-runner" class="hidden p-6 sm:p-8 space-y-6">
+        <div class="pb-4 border-b border-[#E4E4E7] flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-[15px] font-semibold text-[#18181B]">Alineo Runner</h2>
+            <p class="text-[12px] text-[#71717A] mt-1">Execute native <code class="font-mono text-[#18181B]">alineo-cli</code> commands directly against your active swarms and sandboxes.</p>
+          </div>
+          <div class="flex items-center gap-2 font-mono text-[11px] text-[#71717A]">
+            <span>daemon:</span><span class="text-emerald-700 font-semibold">:4600</span>
+          </div>
+        </div>
+
+        <!-- Terminal Card -->
+        <div class="border border-[#18181B] rounded-[6px] bg-[#18181B] text-white shadow-lg overflow-hidden font-mono">
+          <!-- Terminal Titlebar -->
+          <div class="px-4 py-2.5 bg-[#27272A] border-b border-[#3F3F46] flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-rose-500/80 inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+              <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+              <span class="text-[11.5px] text-[#A1A1AA] ml-2">alineo-cli v1.0.0 · control plane</span>
+            </div>
+            <span class="text-[10px] text-[#71717A]">Ctrl+Enter to Run</span>
+          </div>
+
+          <!-- Command Quick Chips -->
+          <div class="p-3 bg-[#1F1F23] border-b border-[#27272A] flex flex-wrap gap-1.5 items-center">
+            <span class="text-[10.5px] text-[#71717A] mr-1">Presets:</span>
+            <button onclick="setAndRunCli('alineo status')" class="px-2 py-0.5 rounded-[3px] bg-[#27272A] hover:bg-[#3F3F46] text-[#E4E4E7] text-[10.5px] transition-colors">status</button>
+            <button onclick="setAndRunCli('alineo spawn --role reviewer-auth --cpu 500 --mem 512')" class="px-2 py-0.5 rounded-[3px] bg-[#27272A] hover:bg-[#3F3F46] text-[#E4E4E7] text-[10.5px] transition-colors">spawn reviewer</button>
+            <button onclick="setAndRunCli('alineo memory recall \"auth\"')" class="px-2 py-0.5 rounded-[3px] bg-[#27272A] hover:bg-[#3F3F46] text-[#E4E4E7] text-[10.5px] transition-colors">memory recall</button>
+            <button onclick="setAndRunCli('alineo workflow flush')" class="px-2 py-0.5 rounded-[3px] bg-[#27272A] hover:bg-[#3F3F46] text-[#E4E4E7] text-[10.5px] transition-colors">workflow flush</button>
+            <button onclick="setAndRunCli('alineo egress list')" class="px-2 py-0.5 rounded-[3px] bg-[#27272A] hover:bg-[#3F3F46] text-[#E4E4E7] text-[10.5px] transition-colors">egress list</button>
+          </div>
+
+          <!-- Terminal Output -->
+          <div id="runner-terminal-output" class="p-4 min-h-[220px] max-h-[380px] overflow-y-auto text-[11.5px] space-y-2 leading-relaxed">
+            <div class="text-[#71717A]">$ Type an alineo command below or click any preset chip above...</div>
+          </div>
+
+          <!-- Terminal Prompt Bar -->
+          <form onsubmit="handleRunnerSubmit(event)" class="p-3 bg-[#1F1F23] border-t border-[#27272A] flex items-center gap-2">
+            <span class="text-emerald-400 font-bold text-[12px]">$</span>
+            <input id="runner-cli-input" type="text" value="alineo status" placeholder="alineo status | alineo spawn --role ... | alineo checkpoint"
+              class="flex-1 bg-transparent text-white text-[12px] placeholder-[#71717A] focus:outline-none font-mono" />
+            <button type="submit" class="px-3 py-1 rounded-[4px] bg-white text-[#18181B] text-[11px] font-semibold hover:bg-[#E4E4E7] transition-colors">
+              Execute
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- VIEW 7: MCP CONNECTOR (CONNECT TO CLAUDE) -->
+      <section id="section-mcp" class="hidden p-6 sm:p-8 space-y-6">
+        <div class="pb-4 border-b border-[#E4E4E7] flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-[15px] font-semibold text-[#18181B]">MCP Connector</h2>
+              <span class="px-2 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10.5px]">Model Context Protocol</span>
+            </div>
+            <p class="text-[12px] text-[#71717A] mt-1">Connect your sandboxes, memory ledger, and swarm execution tools directly to <strong class="text-[#18181B]">Claude Desktop</strong>, <strong class="text-[#18181B]">Claude Code CLI</strong>, or <strong class="text-[#18181B]">Cursor</strong>.</p>
+          </div>
+
+          <div class="flex items-center gap-2 font-mono text-[11px]">
+            <span class="w-2 h-2 rounded-full bg-emerald-600 status-pulse"></span>
+            <span class="text-[#18181B] font-medium">MCP SSE Bridge: 127.0.0.1:4600</span>
+          </div>
+        </div>
+
+        <!-- 3-Column Quick Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 rounded-[6px] border border-[#E4E4E7] bg-[#FAFAFA] space-y-1.5">
+            <div class="text-[11px] font-semibold text-[#71717A] uppercase font-mono">1. Protocol Bridge</div>
+            <div class="text-[13px] font-semibold text-[#18181B]">Model Context Protocol v1.0</div>
+            <p class="text-[11.5px] text-[#71717A]">Exposes 6 control-plane primitives as native tool calls to LLMs.</p>
+          </div>
+          <div class="p-4 rounded-[6px] border border-[#E4E4E7] bg-[#FAFAFA] space-y-1.5">
+            <div class="text-[11px] font-semibold text-[#71717A] uppercase font-mono">2. Supported Clients</div>
+            <div class="text-[13px] font-semibold text-[#18181B]">Claude Desktop &amp; Claude Code</div>
+            <p class="text-[11.5px] text-[#71717A]">Also compatible with Cursor, Antigravity IDE, and Cline.</p>
+          </div>
+          <div class="p-4 rounded-[6px] border border-[#E4E4E7] bg-[#FAFAFA] space-y-1.5">
+            <div class="text-[11px] font-semibold text-[#71717A] uppercase font-mono">3. Security Boundary</div>
+            <div class="text-[13px] font-semibold text-[#18181B]">Egress &amp; Memory Isolation</div>
+            <p class="text-[11.5px] text-[#71717A]">All Claude tool invocations execute inside isolated micro-sandboxes.</p>
+          </div>
+        </div>
+
+        <!-- Step-by-Step Connection Guide -->
+        <div class="border border-[#E4E4E7] rounded-[6px] bg-white overflow-hidden">
+          <div class="px-5 py-3.5 bg-[#FAFAFA] border-b border-[#E4E4E7] flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="font-semibold text-[13px] text-[#18181B]">Connect MCP to Claude Desktop</span>
+              <div class="inline-flex items-center bg-white p-0.5 rounded-[4px] border border-[#E4E4E7] text-[11px] font-mono">
+                <button onclick="setMcpOsTab('windows')" id="mcp-tab-win" class="px-2 py-0.5 rounded-[3px] bg-[#18181B] text-white">Windows</button>
+                <button onclick="setMcpOsTab('macos')" id="mcp-tab-mac" class="px-2 py-0.5 rounded-[3px] text-[#71717A] hover:text-[#18181B]">macOS</button>
+                <button onclick="setMcpOsTab('claudecode')" id="mcp-tab-cli" class="px-2 py-0.5 rounded-[3px] text-[#71717A] hover:text-[#18181B]">Claude Code CLI</button>
+              </div>
+            </div>
+            <button onclick="copyMcpConfigSnippet()" id="btn-copy-mcp"
+              class="inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] bg-[#18181B] hover:bg-[#27272A] text-white font-mono text-[11px] font-medium transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              <span>Copy Config JSON</span>
+            </button>
+          </div>
+
+          <!-- Step Instructions -->
+          <div class="p-5 border-b border-[#E4E4E7] space-y-3">
+            <div class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-full bg-[#18181B] text-white text-[11px] flex items-center justify-center font-bold shrink-0 mt-0.5">1</span>
+              <div>
+                <div class="text-[12.5px] font-medium text-[#18181B]">Open the Claude Desktop configuration file:</div>
+                <div id="mcp-config-path" class="mt-1 font-mono text-[11px] bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-2.5 py-1 text-[#52525B]">
+                  %APPDATA%\Claude\claude_desktop_config.json
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-full bg-[#18181B] text-white text-[11px] flex items-center justify-center font-bold shrink-0 mt-0.5">2</span>
+              <div>
+                <div class="text-[12.5px] font-medium text-[#18181B]">Paste the following snippet into <code class="font-mono text-[#18181B]">claude_desktop_config.json</code>:</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- JSON Snippet -->
+          <div class="p-5 bg-[#18181B] text-white overflow-x-auto font-mono text-[11.5px] leading-relaxed">
+            <pre id="mcp-json-preview"><code>{
+  "mcpServers": {
+    "alineo-control-plane": {
+      "command": "bunx",
+      "args": ["alineo-cli", "mcp", "--port", "4600"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "&lt;YOUR_TOKEN&gt;"
+      }
+    }
+  }
+}</code></pre>
+          </div>
+
+          <div class="p-5 bg-[#FAFAFA] border-t border-[#E4E4E7] flex items-start gap-3">
+            <span class="w-5 h-5 rounded-full bg-[#18181B] text-white text-[11px] flex items-center justify-center font-bold shrink-0 mt-0.5">3</span>
+            <div>
+              <div class="text-[12.5px] font-medium text-[#18181B]">Restart Claude Desktop</div>
+              <p class="text-[11.5px] text-[#71717A] mt-0.5">You will see the hammer tool icon in Claude. Claude can now directly trigger sandboxes, steer swarms, query memory, and manage security perimeter gates.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Tools Exposed to Claude -->
+        <div class="border border-[#E4E4E7] rounded-[6px] bg-white overflow-hidden">
+          <div class="px-5 py-3 bg-[#FAFAFA] border-b border-[#E4E4E7] flex items-center justify-between">
+            <h3 class="text-[13px] font-semibold text-[#18181B]">Tools Exposed to Claude via MCP</h3>
+            <span class="font-mono text-[11px] text-[#71717A]">6 active tools registered</span>
+          </div>
+          <div class="divide-y divide-[#E4E4E7] text-[12px]">
+            <div class="p-4 flex items-center justify-between hover:bg-[#FAFAFA]">
+              <div class="space-y-0.5">
+                <div class="font-mono font-semibold text-[#18181B] text-[12px]">alineo_spawn_sandbox(role, cpu, mem)</div>
+                <div class="text-[#71717A] text-[11.5px]">Allows Claude to provision isolated micro-containers with resource limits.</div>
+              </div>
+              <button onclick="testMcpTool('spawn')" class="px-2.5 py-1 rounded-[4px] border border-[#E4E4E7] hover:border-[#18181B] font-mono text-[10.5px]">Test Call</button>
+            </div>
+            <div class="p-4 flex items-center justify-between hover:bg-[#FAFAFA]">
+              <div class="space-y-0.5">
+                <div class="font-mono font-semibold text-[#18181B] text-[12px]">alineo_exec_command(sandboxId, command)</div>
+                <div class="text-[#71717A] text-[11.5px]">Executes shell commands in a sandbox and streams standard I/O back to Claude.</div>
+              </div>
+              <button onclick="testMcpTool('exec')" class="px-2.5 py-1 rounded-[4px] border border-[#E4E4E7] hover:border-[#18181B] font-mono text-[10.5px]">Test Call</button>
+            </div>
+            <div class="p-4 flex items-center justify-between hover:bg-[#FAFAFA]">
+              <div class="space-y-0.5">
+                <div class="font-mono font-semibold text-[#18181B] text-[12px]">alineo_checkpoint(sandboxId, tag)</div>
+                <div class="text-[#71717A] text-[11.5px]">Saves an immutable snapshot frame that can be deterministically replayed.</div>
+              </div>
+              <button onclick="testMcpTool('checkpoint')" class="px-2.5 py-1 rounded-[4px] border border-[#E4E4E7] hover:border-[#18181B] font-mono text-[10.5px]">Test Call</button>
+            </div>
+            <div class="p-4 flex items-center justify-between hover:bg-[#FAFAFA]">
+              <div class="space-y-0.5">
+                <div class="font-mono font-semibold text-[#18181B] text-[12px]">alineo_steer_agent(sandboxId, directive, scope)</div>
+                <div class="text-[#71717A] text-[11.5px]">Provides mid-turn steering and directives across single nodes or subtrees.</div>
+              </div>
+              <button onclick="testMcpTool('steer')" class="px-2.5 py-1 rounded-[4px] border border-[#E4E4E7] hover:border-[#18181B] font-mono text-[10.5px]">Test Call</button>
+            </div>
+            <div class="p-4 flex items-center justify-between hover:bg-[#FAFAFA]">
+              <div class="space-y-0.5">
+                <div class="font-mono font-semibold text-[#18181B] text-[12px]">alineo_query_memory(query, scope)</div>
+                <div class="text-[#71717A] text-[11.5px]">Recalls semantic facts, episodic episodes, and shared swarm context.</div>
+              </div>
+              <button onclick="testMcpTool('memory')" class="px-2.5 py-1 rounded-[4px] border border-[#E4E4E7] hover:border-[#18181B] font-mono text-[10.5px]">Test Call</button>
+            </div>
+            <div class="p-4 flex items-center justify-between hover:bg-[#FAFAFA]">
+              <div class="space-y-0.5">
+                <div class="font-mono font-semibold text-[#18181B] text-[12px]">alineo_egress_decide(gateId, decision)</div>
+                <div class="text-[#71717A] text-[11.5px]">Approves or blocks outbound network requests against zero-trust policy.</div>
+              </div>
+              <button onclick="testMcpTool('egress')" class="px-2.5 py-1 rounded-[4px] border border-[#E4E4E7] hover:border-[#18181B] font-mono text-[10.5px]">Test Call</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ========= ATTACH DRAWER ========= -->
+  <div id="attach-drawer" class="fixed inset-0 z-50 hidden justify-end bg-black/20">
+    <div class="w-full max-w-xl bg-white border-l border-[#E4E4E7] h-full flex flex-col shadow-xl">
+      <div class="px-5 py-3.5 bg-white border-b border-[#E4E4E7] flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-2 font-mono text-[11px] text-[#71717A]">
+            <span>sb.attach() · runtime console</span>
+            <span id="drawer-status-pill" class="px-1.5 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-700 border border-emerald-200">running</span>
+          </div>
+          <h3 id="drawer-sandbox-title" class="font-mono text-[14px] font-semibold text-[#18181B] mt-0.5">—</h3>
+        </div>
+        <button onclick="closeAttachDrawer()" class="p-1.5 rounded-[4px] text-[#71717A] hover:text-[#18181B] hover:bg-[#FAFAFA]" aria-label="Close">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Mode Switcher Tabs: Terminal Shell vs Browser Screencast (CDP) -->
+      <div class="px-5 py-2 bg-[#FAFAFA] border-b border-[#E4E4E7] flex items-center justify-between gap-2">
+        <div class="inline-flex items-center bg-white p-0.5 rounded-[4px] border border-[#E4E4E7] text-[11px] font-mono">
+          <button onclick="switchDrawerTab('shell')" id="drawer-tab-shell" class="px-2.5 py-0.5 rounded-[3px] bg-[#18181B] text-white">Shell Console</button>
+          <button onclick="switchDrawerTab('browser')" id="drawer-tab-browser" class="px-2.5 py-0.5 rounded-[3px] text-[#71717A] hover:text-[#18181B]">Browser Screencast (CDP)</button>
+        </div>
+        <div class="flex items-center gap-1.5 font-mono text-[11px]">
+          <button onclick="checkpointFromDrawer()" class="px-2 py-0.5 rounded-[4px] bg-white hover:bg-[#F4F4F5] text-[#18181B] border border-[#E4E4E7]">+ Checkpoint</button>
+          <button onclick="forkFromDrawer()" class="px-2 py-0.5 rounded-[4px] bg-white hover:bg-[#F4F4F5] text-[#18181B] border border-[#E4E4E7]">Fork Child</button>
+        </div>
+      </div>
+
+      <!-- TAB 1: RUNTIME SHELL -->
+      <div id="drawer-shell-view" class="flex-1 flex flex-col min-h-0">
+        <div id="drawer-meta-specs" class="px-5 py-1.5 bg-[#FAFAFA] border-b border-[#E4E4E7] text-[11px] font-mono text-[#52525B]">—</div>
+        <div id="drawer-terminal-log" class="flex-1 p-4 overflow-y-auto bg-[#FAFAFA] font-mono text-[11px] text-[#18181B] space-y-1.5"></div>
+        <div class="p-4 bg-white border-t border-[#E4E4E7] space-y-3">
+          <form onsubmit="submitDrawerSteer(event)" class="space-y-1.5">
+            <div class="flex items-center justify-between text-[11px] font-mono text-[#71717A]">
+              <span>Steer directive</span>
+              <select id="drawer-steer-scope" class="bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-1.5 py-0.5 text-[#18181B] focus:outline-none">
+                <option value="single">single</option>
+                <option value="subtree">subtree</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="drawer-steer-input" type="text" placeholder='e.g. "Focus on SQL injection paths in auth middleware"'
+                class="flex-1 bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[4px] px-3 py-1.5 text-[12px] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none" />
+              <button type="submit" class="px-3 py-1.5 rounded-[4px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12px] font-medium shrink-0">Steer</button>
+            </div>
+          </form>
+          <form onsubmit="submitDrawerCommand(event)" class="flex items-center gap-2 pt-2.5 border-t border-[#E4E4E7]">
+            <span class="font-mono text-[11px] text-[#71717A] shrink-0">sb.exec $</span>
+            <input id="drawer-cmd-input" type="text" placeholder="git status | pytest -q | env"
+              class="flex-1 bg-white border border-[#E4E4E7] focus:border-[#18181B] rounded-[4px] px-2.5 py-1 font-mono text-[11px] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none" />
+            <button type="submit" class="px-2.5 py-1 rounded-[4px] bg-white hover:bg-[#FAFAFA] text-[#18181B] border border-[#E4E4E7] font-mono text-[11px] font-medium shrink-0">Run</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- TAB 2: BROWSER SCREENCAST (CDP / DOM VIEW) -->
+      <div id="drawer-browser-view" class="hidden flex-1 flex flex-col min-h-0 bg-[#FAFAFA] overflow-hidden">
+        <!-- Address bar -->
+        <div class="px-4 py-2.5 bg-white border-b border-[#E4E4E7] flex items-center gap-2">
+          <div class="flex items-center gap-1.5 text-[#71717A] text-[12px]">
+            <button onclick="navigateScreencast('back')" title="Back" class="px-1 hover:text-[#18181B]">◀</button>
+            <button onclick="navigateScreencast('forward')" title="Forward" class="px-1 hover:text-[#18181B]">▶</button>
+            <button onclick="navigateScreencast('reload')" title="Reload" class="px-1 hover:text-[#18181B]">↻</button>
+          </div>
+          <div class="flex-1 bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-2.5 py-1 flex items-center gap-1.5 font-mono text-[11px] text-[#18181B]">
+            <span class="text-emerald-600 text-[10px]">🔒</span>
+            <input id="browser-url-input" type="text" value="https://github.com/pulls/418" class="flex-1 bg-transparent focus:outline-none" />
+          </div>
+          <button onclick="navigateScreencast('go')" class="px-2.5 py-1 bg-[#18181B] text-white text-[10.5px] font-mono rounded-[3px]">Go</button>
+        </div>
+
+        <!-- Simulated Viewport -->
+        <div class="flex-1 p-3 overflow-y-auto space-y-3">
+          <div class="border border-[#E4E4E7] rounded-[6px] bg-white shadow-sm overflow-hidden">
+            <!-- Simulated Browser Tab Page Content -->
+            <div id="browser-viewport-content" class="p-4 space-y-3 font-sans">
+              <div class="flex items-center justify-between pb-3 border-b border-[#E4E4E7]">
+                <div class="flex items-center gap-2">
+                  <span class="w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[9px] font-bold">✓</span>
+                  <span class="text-[13px] font-semibold text-[#18181B]">PR #418: Enforce RS256 token verification</span>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-mono border border-emerald-200">Open</span>
+              </div>
+              <div class="bg-[#FAFAFA] border border-[#E4E4E7] rounded p-3 text-[11.5px] font-mono text-[#52525B] space-y-1">
+                <div>+ files changed: 4 · insertions: +142 · deletions: -18</div>
+                <div class="text-emerald-700">+ const jwt = require('jsonwebtoken');</div>
+                <div class="text-emerald-700">+ const token = jwt.verify(raw, publicKey, { algorithms: ['RS256'] });</div>
+              </div>
+              <div class="p-2.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800 flex items-center gap-2">
+                <span>⚠️ Advisory Check: Automated security benchmark passing against OpenSandbox cgroup.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live CDP Event Stream -->
+          <div class="p-3 bg-[#18181B] text-white rounded-[5px] font-mono text-[10.5px] space-y-1 max-h-40 overflow-y-auto" id="cdp-stream-log">
+            <div class="text-emerald-400">[CDP] Target attached: chrome-headless (CDP port: 9222)</div>
+            <div class="text-[#A1A1AA]">[CDP] Page.navigate: "https://github.com/pulls/418" &rarr; 200 OK (284ms)</div>
+            <div class="text-[#A1A1AA]">[CDP] DOM.querySelector(".diff-view") &rarr; NodeId: 18</div>
+            <div class="text-sky-400">[CDP] Page.captureScreenshot &rarr; Viewport frame captured</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========= SPAWN MODAL ========= -->
+  <div id="launch-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/25">
+    <div class="w-full max-w-lg rounded-[6px] bg-white border border-[#E4E4E7] shadow-xl overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-[#E4E4E7] flex items-center justify-between">
+        <div>
+          <h3 class="text-[14px] font-semibold text-[#18181B]">Spawn Sandbox</h3>
+          <p class="text-[12px] text-[#71717A] mt-0.5">Configure CPU/memory limits and MCP tool access.</p>
+        </div>
+        <button onclick="closeLaunchModal()" class="p-1 rounded-[4px] text-[#71717A] hover:text-[#18181B] hover:bg-[#FAFAFA]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form onsubmit="submitSpawnSandbox(event)" class="p-5 space-y-4">
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1.5">Agent preset</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" onclick="applySpawnPreset('reviewer-deps', '500m', '256Mi', this)"
+              class="preset-btn p-2.5 rounded-[4px] border border-[#18181B] bg-[#FAFAFA] text-left">
+              <div class="text-[12px] font-semibold text-[#18181B]">Dependency Audit</div>
+              <div class="font-mono text-[10px] text-[#71717A] mt-0.5">500m · 256Mi</div>
+            </button>
+            <button type="button" onclick="applySpawnPreset('swarm-coordinator', '1000m', '1024Mi', this)"
+              class="preset-btn p-2.5 rounded-[4px] border border-[#E4E4E7] hover:border-[#D4D4D8] bg-white text-left">
+              <div class="text-[12px] font-semibold text-[#18181B]">Swarm Lead</div>
+              <div class="font-mono text-[10px] text-[#71717A] mt-0.5">1000m · 1024Mi</div>
+            </button>
+            <button type="button" onclick="applySpawnPreset('sql-query-agent', '500m', '512Mi', this)"
+              class="preset-btn p-2.5 rounded-[4px] border border-[#E4E4E7] hover:border-[#D4D4D8] bg-white text-left">
+              <div class="text-[12px] font-semibold text-[#18181B]">SQL Analyst</div>
+              <div class="font-mono text-[10px] text-[#71717A] mt-0.5">500m · 512Mi</div>
+            </button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[12px] font-medium text-[#18181B] mb-1">Sandbox role</label>
+            <input id="spawn-role-input" type="text" value="reviewer-deps"
+              class="w-full bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none" required />
+          </div>
+          <div>
+            <label class="block text-[12px] font-medium text-[#18181B] mb-1">Parent node</label>
+            <select id="spawn-parent-select"
+              class="w-full bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none">
+              <option value="">None (top-level root)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[12px] font-medium text-[#18181B] mb-1">CPU quota</label>
+            <select id="spawn-cpu-select" class="w-full bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none">
+              <option value="250">250m (0.25 vCPU)</option>
+              <option value="500" selected>500m (0.5 vCPU)</option>
+              <option value="1000">1000m (1.0 vCPU)</option>
+              <option value="2000">2000m (2.0 vCPU)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] font-medium text-[#18181B] mb-1">Memory quota</label>
+            <select id="spawn-mem-select" class="w-full bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none">
+              <option value="256" selected>256Mi</option>
+              <option value="512">512Mi</option>
+              <option value="1024">1024Mi (1Gi)</option>
+              <option value="2048">2048Mi (2Gi)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1.5">MCP tool access</label>
+          <div class="flex flex-wrap gap-2 text-[11px] font-mono">
+            <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[#FAFAFA] border border-[#E4E4E7] cursor-pointer">
+              <input type="checkbox" value="GitHub" checked class="spawn-mcp-cb accent-[#18181B]" /><span>mcp://github</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[#FAFAFA] border border-[#E4E4E7] cursor-pointer">
+              <input type="checkbox" value="Slack" class="spawn-mcp-cb accent-[#18181B]" /><span>mcp://slack</span>
+            </label>
+            <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[#FAFAFA] border border-[#E4E4E7] cursor-pointer">
+              <input type="checkbox" value="Postgres" class="spawn-mcp-cb accent-[#18181B]" /><span>pg://prod-ro</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1">LLM Model Provider</label>
+          <select id="spawn-model-select" class="w-full bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none">
+            <option value="gemini-2.0-flash" selected>Google Gemini 2.0 Flash (gemini-2.0-flash · Latest Default)</option>
+            <option value="gemini-2.0-flash-thinking">Google Gemini 2.0 Flash Thinking (gemini-2.0-flash-thinking-exp)</option>
+            <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (gemini-1.5-pro-latest · 2M context)</option>
+            <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (gemini-1.5-flash-latest · High Speed)</option>
+            <option value="claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet (claude-3-5-sonnet-20241022)</option>
+            <option value="groq-llama-3.3-70b">Groq Cloud (llama-3.3-70b-versatile)</option>
+            <option value="nvidia-llama-3.1-70b">Nvidia NIM (meta/llama-3.1-70b-instruct)</option>
+            <option value="ollama-local">Local Ollama (llama3:latest · offline)</option>
+          </select>
+        </div>
+        <div class="pt-3 border-t border-[#E4E4E7] flex items-center justify-end gap-2">
+          <button type="button" onclick="closeLaunchModal()" class="px-3 py-1.5 rounded-[4px] text-[12px] font-medium text-[#71717A] hover:text-[#18181B]">Cancel</button>
+          <button type="submit" class="px-3.5 py-1.5 rounded-[4px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12px] font-medium">Deploy Sandbox</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Demo Swarm Modal -->
+  <div id="demo-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/25">
+    <div class="w-full max-w-md rounded-[6px] bg-white border border-[#E4E4E7] shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-[#E4E4E7]">
+        <h3 class="text-[14px] font-semibold text-[#18181B]">Run Sample Review Swarm</h3>
+        <p class="text-[12px] text-[#71717A] mt-1">This runs the PR #418 Code Review &amp; Security Swarm to populate your dashboard with real sandboxes, memory records, audit replay events, and egress policies.</p>
+      </div>
+      <div class="p-5 flex items-center justify-end gap-2">
+        <button onclick="closeDemoModal()" class="px-3 py-1.5 rounded-[4px] text-[12px] font-medium text-[#71717A] hover:text-[#18181B]">Cancel</button>
+        <button onclick="confirmRunDemo()" class="px-4 py-1.5 rounded-[4px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12px] font-medium">Execute Swarm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vault Credential Modal -->
+  <div id="vault-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/25">
+    <div class="w-full max-w-md rounded-[6px] bg-white border border-[#E4E4E7] shadow-xl overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-[#E4E4E7] flex items-center justify-between">
+        <div>
+          <h3 class="text-[14px] font-semibold text-[#18181B]">Inject Credential Secret</h3>
+          <p class="text-[12px] text-[#71717A] mt-0.5">Store an encrypted secret for sidecar egress or placeholder injection.</p>
+        </div>
+        <button onclick="closeVaultModal()" class="p-1 rounded-[4px] text-[#71717A] hover:text-[#18181B] hover:bg-[#FAFAFA]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form onsubmit="submitAddVaultCredential(event)" class="p-5 space-y-4">
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1">Secret Key Name</label>
+          <input id="vault-key-input" type="text" placeholder="e.g. GITHUB_TOKEN or OPENAI_API_KEY"
+            class="w-full bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none" required />
+        </div>
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1">Raw Secret Value</label>
+          <input id="vault-value-input" type="password" placeholder="ghp_xxxxxxxxxxxx or sk-xxxxxxxx"
+            class="w-full bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none" required />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[12px] font-medium text-[#18181B] mb-1">Injection Scope</label>
+            <select id="vault-scope-select" class="w-full bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none">
+              <option value="api.github.com" selected>api.github.com</option>
+              <option value="api.openai.com">api.openai.com</option>
+              <option value="api.anthropic.com">api.anthropic.com</option>
+              <option value="slack.com">slack.com</option>
+              <option value="*">* (All Egress)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] font-medium text-[#18181B] mb-1">Injection Method</label>
+            <select id="vault-method-select" class="w-full bg-[#FAFAFA] border border-[#E4E4E7] rounded-[4px] px-2.5 py-1.5 font-mono text-[12px] text-[#18181B] focus:outline-none">
+              <option value="header" selected>Header (Bearer / Token)</option>
+              <option value="substitution">Placeholder Substitution</option>
+            </select>
+          </div>
+        </div>
+        <div class="pt-3 border-t border-[#E4E4E7] flex items-center justify-end gap-2">
+          <button type="button" onclick="closeVaultModal()" class="px-3 py-1.5 rounded-[4px] text-[12px] font-medium text-[#71717A] hover:text-[#18181B]">Cancel</button>
+          <button type="submit" class="px-3.5 py-1.5 rounded-[4px] bg-[#18181B] hover:bg-[#27272A] text-white text-[12px] font-medium">Store &amp; Inject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Root -->
+  <div id="toast-root" class="fixed bottom-4 right-4 z-50 flex flex-col gap-1.5 pointer-events-none"></div>
+
+  <script type="module" src="js/app.js"></script>
+  <script>
+    function toggleMobileSidebar() {
+      const sidebar = document.getElementById('app-sidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      sidebar.classList.toggle('-translate-x-full');
+      backdrop.classList.toggle('hidden');
+    }
+  </script>
+</body>
+</html>

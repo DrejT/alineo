@@ -1,0 +1,17 @@
+{
+  "name": "@alineo-labs/control-plane-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Alineo Swarm Control Plane Dashboard - Production Agentic UI & Orchestration Substrate",
+  "type": "module",
+  "scripts": {
+    "start": "bun server/index.ts",
+    "dev": "bun --watch server/index.ts",
+    "test": "bun test tests/usecase.test.ts",
+    "test:usecase": "bun tests/usecase.test.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "bun-types": "^1.3.14"
+  }
+}

@@ -38,9 +38,13 @@
     "apps/sandbox",
     "apps/telemetry",
     "apps/alineod",
+    "ui",
     "tools/oxlint/strict-ts"
   ],
   "scripts": {
+    "ui": "bun --cwd ui start",
+    "ui:dev": "bun --cwd ui dev",
+    "ui:test": "bun --cwd ui test",
     "setup": "bun scripts/setup.ts",
     "build": "bun scripts/workspace-run.ts build",
     "typecheck": "bun scripts/workspace-run.ts typecheck",

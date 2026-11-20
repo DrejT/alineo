@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>alineo — Sign in</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+  </style>
+</head>
+<body class="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4">
+
+  <div class="w-full max-w-[400px]">
+    <!-- Brand Header -->
+    <div class="flex items-center justify-center gap-2.5 mb-8">
+      <svg class="w-5 h-5 text-[#18181B]" viewBox="0 0 18 18" fill="currentColor">
+        <circle cx="9" cy="4.2" r="2.2" />
+        <circle cx="4.8" cy="12.2" r="2.2" />
+        <circle cx="13.2" cy="12.2" r="2.2" />
+      </svg>
+      <span class="font-sans text-[18px] font-semibold tracking-tight text-[#18181B]">alineo</span>
+    </div>
+
+    <!-- Auth Card -->
+    <div class="bg-white border border-[#E4E4E7] rounded-[8px] overflow-hidden shadow-sm">
+      <!-- Tabs -->
+      <div class="flex border-b border-[#E4E4E7]">
+        <button id="tab-login" onclick="switchTab('login')"
+          class="flex-1 py-3 text-[13px] font-medium text-[#18181B] border-b-2 border-[#18181B] transition-colors">
+          Sign in
+        </button>
+        <button id="tab-signup" onclick="switchTab('signup')"
+          class="flex-1 py-3 text-[13px] font-medium text-[#71717A] hover:text-[#18181B] border-b-2 border-transparent transition-colors">
+          Create account
+        </button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="form-login" onsubmit="handleLogin(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1.5">Username or email</label>
+          <input id="login-identity" type="text" autocomplete="username"
+            class="w-full bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[5px] px-3 py-2 text-[13px] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none transition-colors"
+            placeholder="Username or email address" required />
+        </div>
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1.5">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password"
+            class="w-full bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[5px] px-3 py-2 text-[13px] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none transition-colors"
+            placeholder="Password" required />
+        </div>
+
+        <div id="login-error" class="hidden px-3 py-2 rounded-[5px] bg-rose-50 border border-rose-200 text-[12px] text-rose-700 font-mono"></div>
+
+        <button type="submit" id="login-btn"
+          class="w-full py-2 rounded-[5px] bg-[#18181B] hover:bg-[#27272A] text-white text-[13px] font-medium transition-colors">
+          Sign in
+        </button>
+      </form>
+
+      <!-- Signup Form -->
+      <form id="form-signup" onsubmit="handleSignup(event)" class="hidden p-6 space-y-4">
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1.5">Username</label>
+          <input id="signup-username" type="text" autocomplete="username"
+            class="w-full bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[5px] px-3 py-2 text-[13px] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none transition-colors"
+            placeholder="username" required />
+        </div>
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1.5">Email</label>
+          <input id="signup-email" type="email" autocomplete="email"
+            class="w-full bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[5px] px-3 py-2 text-[13px] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none transition-colors"
+            placeholder="name@company.com" required />
+        </div>
+        <div>
+          <label class="block text-[12px] font-medium text-[#18181B] mb-1.5">Password</label>
+          <input id="signup-password" type="password" autocomplete="new-password"
+            class="w-full bg-[#FAFAFA] border border-[#E4E4E7] focus:border-[#18181B] rounded-[5px] px-3 py-2 text-[13px] text-[#18181B] placeholder-[#A1A1AA] focus:outline-none transition-colors"
+            placeholder="Password (minimum 6 characters)" required minlength="6" />
+        </div>
+
+        <div id="signup-error" class="hidden px-3 py-2 rounded-[5px] bg-rose-50 border border-rose-200 text-[12px] text-rose-700 font-mono"></div>
+
+        <button type="submit" id="signup-btn"
+          class="w-full py-2 rounded-[5px] bg-[#18181B] hover:bg-[#27272A] text-white text-[13px] font-medium transition-colors">
+          Create account
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-[11px] text-[#A1A1AA] mt-5 font-mono">alineo control plane</p>
+  </div>
+
+  <script>
+    // Redirect to dashboard if session token exists and is valid
+    const existingToken = localStorage.getItem('aln_token');
+    if (existingToken) {
+      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${existingToken}` } })
+        .then(r => { if (r.ok) window.location.href = '/'; })
+        .catch(() => {});
+    }
+
+    function switchTab(tab) {
+      const isLogin = tab === 'login';
+      document.getElementById('tab-login').className = `flex-1 py-3 text-[13px] font-medium transition-colors border-b-2 ${isLogin ? 'text-[#18181B] border-[#18181B]' : 'text-[#71717A] hover:text-[#18181B] border-transparent'}`;
+      document.getElementById('tab-signup').className = `flex-1 py-3 text-[13px] font-medium transition-colors border-b-2 ${!isLogin ? 'text-[#18181B] border-[#18181B]' : 'text-[#71717A] hover:text-[#18181B] border-transparent'}`;
+      document.getElementById('form-login').classList.toggle('hidden', !isLogin);
+      document.getElementById('form-signup').classList.toggle('hidden', isLogin);
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const errEl = document.getElementById('login-error');
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+      errEl.classList.add('hidden');
+
+      try {
+        const val = document.getElementById('login-identity').value.trim();
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            usernameOrEmail: val,
+            identity: val,
+            password: document.getElementById('login-password').value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Invalid credentials');
+        localStorage.setItem('aln_token', data.token);
+        window.location.href = '/';
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+    }
+
+    async function handleSignup(e) {
+      e.preventDefault();
+      const btn = document.getElementById('signup-btn');
+      const errEl = document.getElementById('signup-error');
+      btn.disabled = true;
+      btn.textContent = 'Creating account…';
+      errEl.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('signup-username').value.trim(),
+            email: document.getElementById('signup-email').value.trim(),
+            password: document.getElementById('signup-password').value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Signup failed');
+        localStorage.setItem('aln_token', data.token);
+        window.location.href = '/';
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+      }
+    }
+  </script>
+</body>
+</html>
