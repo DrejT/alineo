@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { createToaster } from "@ui-sdk/react/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui-sdk/react/tooltip";
 import { AuthError, clearToken } from "./api";
@@ -7,7 +7,8 @@ export const toast = createToaster();
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
-export const shortId = (id: string) => (id.length > 12 ? id.slice(0, 8) : id);
+/** Some ledger events (workflow jobs) belong to no sandbox, so the id can be null. */
+export const shortId = (id: string | null | undefined) => (!id ? "none" : id.length > 12 ? id.slice(0, 8) : id);
 
 export function timeAgo(ts: number | null | undefined): string {
   if (!ts) return "never";
@@ -122,4 +123,23 @@ export function IconButton({ label, children, onClick, disabled, destructive, cl
       <TooltipContent side={side} className="rounded-md bg-fd-foreground px-2 py-1 text-xs font-medium text-white">{label}</TooltipContent>
     </Tooltip>
   );
+}
+
+/** Catches a render error in one view so it cannot blank the whole app. Key it by view so that
+ *  switching to another view starts clean. */
+export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error("View crashed:", error, info.componentStack); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <Card className="p-6">
+        <h2 className="h-section">This view hit an error</h2>
+        <p className="mt-1 text-sm text-fd-muted-foreground">The rest of the app is fine. Use the menu to go elsewhere, or try again.</p>
+        <p className="mt-3 rounded-md bg-fd-muted p-3 font-mono text-xs">{this.state.error.message}</p>
+        <button type="button" onClick={() => this.setState({ error: null })} className="mt-4 rounded-md border border-fd-border bg-fd-background px-3 py-1.5 text-sm font-medium hover:bg-fd-muted">Try again</button>
+      </Card>
+    );
+  }
 }

@@ -5,7 +5,7 @@ import { Dialog, DialogBackdrop, DialogContent, DialogTitle } from "@ui-sdk/reac
 import { Toast, ToastDescription, ToastRegion, ToastTitle } from "@ui-sdk/react/toast";
 import { Boxes, Brain, LayoutDashboard, LogOut, Menu, Plug, Plus, ScrollText, Search, ShieldCheck, SquareTerminal, X } from "lucide-react";
 import { api, clearToken, hasToken, type Sandbox } from "./api";
-import { Badge, IconButton, act, cx, toast, usePoll } from "./lib";
+import { Badge, ErrorBoundary, IconButton, act, cx, toast, usePoll } from "./lib";
 import { Login, Logo } from "./views/Login";
 import { Overview } from "./views/Overview";
 import { Sandboxes, SpawnDialog } from "./views/Sandboxes";
@@ -164,6 +164,7 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
         </header>
 
         <main className="mx-auto w-full max-w-[1200px] flex-1 p-4 sm:p-6 lg:p-8">
+          <ErrorBoundary key={section}>
           <Section show={section === "overview"}>
             <Overview status={status.data} list={list} selected={selected} onSelect={setSelectedId} onTerminal={setTermId} onChange={refresh} go={go} loading={sandboxes.data === undefined} />
           </Section>
@@ -175,6 +176,7 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
           <Section show={section === "security"}><Security onChange={refresh} /></Section>
           <Section show={section === "runner"}><Runner onChange={refresh} /></Section>
           <Section show={section === "mcp"}><Mcp /></Section>
+          </ErrorBoundary>
         </main>
       </div>
 
