@@ -1,0 +1,20 @@
+# Control plane dashboard. Run from anywhere:
+#   docker compose -f ui/docker-compose.yml up -d --build
+#
+# Host networking: the dashboard talks to the host's OpenSandbox on 127.0.0.1:8080 with the server
+# proxy on, exactly like apps/sandbox does. It serves on PORT (default 4610) on the host.
+services:
+  ui:
+    build:
+      context: ..
+      dockerfile: ui/Dockerfile
+    container_name: alineo-ui
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      PORT: "4610"
+      OPENSANDBOX_URL: ${OPENSANDBOX_URL:-http://127.0.0.1:8080}
+      # Raise or lower the number of sandboxes that can exist at once.
+      ALINEO_UI_MAX_SANDBOXES: ${ALINEO_UI_MAX_SANDBOXES:-8}
+    volumes:
+      - ./data:/data
