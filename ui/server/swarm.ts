@@ -65,7 +65,7 @@ function masterPrompt(goal: string, maxAgents: number): string {
 
 ${goal}
 
-You work inside your own Linux sandbox (bash, file tools, Python 3 and Node are available, and you can install packages). You can also create more agents. Each one gets its own sandbox and its own task. Use the \`swarm\` command in bash:
+You work inside your own Linux sandbox (bash, file tools, Python 3 and Node are available, and you can install packages). You also have a real web browser, through the tools browser_open, browser_snapshot, browser_click, browser_fill and browser_screenshot. Use it to read live web pages and to check things you cannot know offline. A person can watch your browser live. You can also create more agents. Each one gets its own sandbox and its own task. Use the \`swarm\` command in bash:
 
   swarm spawn "<role>" "<task>"   create an agent in a new sandbox and start it on the task. Prints its id.
   swarm status                    show every agent in this run, its state and its last result
@@ -86,7 +86,7 @@ function workerPrompt(role: string, task: string): string {
 
 ${task}
 
-Work in your own sandbox. Finish the task yourself. Your final reply is sent back to your parent, so make it complete and short: what you did, the key results, and any file paths or numbers they need. If the task has parts that can run side by side you may create agents with \`swarm spawn "<role>" "<task>"\`, then use \`swarm wait <id>\`, but only when it clearly helps.`;
+Work in your own sandbox. You have a real web browser through the tools browser_open, browser_snapshot, browser_click, browser_fill and browser_screenshot, and a person can watch it live. Use it when the task needs a live web page. Finish the task yourself. Your final reply is sent back to your parent, so make it complete and short: what you did, the key results, and any file paths or numbers they need. If the task has parts that can run side by side you may create agents with \`swarm spawn "<role>" "<task>"\`, then use \`swarm wait <id>\`, but only when it clearly helps.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +183,7 @@ export function startRun(userId: string, input: { goal: string; modelProvider?: 
 
   void (async () => {
     try {
-      const master = await spawnSandbox(userId, { role: "master", modelProvider: model, runId: id, task: goal, agent: true, cpuLimitMilli: 1000, memLimitMi: 1024 });
+      const master = await spawnSandbox(userId, { role: "master", modelProvider: model, runId: id, task: goal, agent: true, cpuLimitMilli: 1000, memLimitMi: 1536 });
       db.prepare(`UPDATE runs SET master_id = ?, status = 'running' WHERE id = ?`).run(master.id, id);
       await installSwarm(userId, id, master.id);
       const reply = await driveTurn(userId, master.id, masterPrompt(goal, maxAgents));
@@ -253,7 +253,7 @@ export async function handleSwarm(req: Request, url: URL): Promise<Response> {
     if (used >= run.maxAgents) return json({ error: `The run is at its limit of ${run.maxAgents} agents.` }, 409);
     reserved.set(run.id, (reserved.get(run.id) ?? 0) + 1);
     try {
-      const child = await spawnSandbox(userId, { role, parentId: caller.id, modelProvider: run.model, runId: run.id, task, agent: true, cpuLimitMilli: 1000, memLimitMi: 1024 });
+      const child = await spawnSandbox(userId, { role, parentId: caller.id, modelProvider: run.model, runId: run.id, task, agent: true, cpuLimitMilli: 1000, memLimitMi: 1536 });
       db.prepare(`UPDATE sandboxes SET state = 'working' WHERE id = ?`).run(child.id);
       await installSwarm(userId, run.id, child.id);
       void driveTurn(userId, child.id, workerPrompt(role, task));

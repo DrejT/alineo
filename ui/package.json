@@ -13,6 +13,7 @@
     "dev:web": "cd web && bun run dev"
   },
   "dependencies": {
+    "@alineo-labs/agent-browser": "workspace:*",
     "@alineo-labs/config-shared": "workspace:*",
     "@alineo-labs/sandbox": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",

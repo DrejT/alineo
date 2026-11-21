@@ -80,6 +80,7 @@ export const api = {
   startRun: (b: { goal: string; modelProvider: string; maxAgents: number }) => request<Run>("POST", "/api/runs", b),
   stopRun: (id: string) => request("POST", `/api/runs/${id}/stop`),
   transcript: (id: string) => request<TranscriptRow[]>("GET", `/api/sandboxes/${id}/transcript`),
+  agentImage: () => request<{ state: "off" | "missing" | "building" | "ready" | "error"; detail?: string; builtAt?: number }>("GET", "/api/agents/image"),
   models: () => request<{ models: { id: string; label: string }[]; agents: boolean }>("GET", "/api/models"),
 
   ledger: (type?: string) => request<LedgerEvent[]>("GET", `/api/ledger${type && type !== "all" ? q({ type }) : ""}`),
@@ -142,4 +143,10 @@ export async function promptAgent(id: string, message: string, onFrame: (f: Agen
       if (line) { try { onFrame(JSON.parse(line.slice(6)) as AgentFrame); } catch { /* ignore a malformed frame */ } }
     }
   }
+}
+
+/** WebSocket URL for the live view of an agent's browser. A WebSocket cannot send headers, so the token goes in the query. */
+export function browserSocketUrl(id: string): string {
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}/api/sandboxes/${id}/browser?token=${encodeURIComponent(token())}`;
 }
