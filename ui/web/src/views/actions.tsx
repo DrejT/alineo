@@ -58,9 +58,9 @@ export function SandboxActions({ sb, onTerminal, onChange, compact }: { sb: Sand
       <ActionItem compact={compact} label="Checkpoint" icon={<Save className={ic} aria-hidden="true" />} onClick={() => void act("Checkpoint saved", () => api.checkpoint(sb.id), onChange)} disabled={!running} />
       <ActionItem compact={compact} label={compact ? "Fork into a new container" : "Fork"} icon={<GitFork className={ic} aria-hidden="true" />} onClick={() => void act("Forked into a new container", () => api.fork(sb.id), onChange)} disabled={!running} />
       {sb.agent && <ActionItem compact={compact} label={compact ? "Chat with the agent" : "Chat"} icon={<MessageSquare className={ic} aria-hidden="true" />} onClick={() => setChat(true)} disabled={!running} />}
-      {sb.agent && <ActionItem compact={compact} label={compact ? "Watch the browser live" : "Browser"} icon={<Globe className={ic} aria-hidden="true" />} onClick={() => setBrowser(true)} disabled={!running} />}
+      {sb.agent && sb.browser && <ActionItem compact={compact} label={compact ? "Watch the browser live" : "Browser"} icon={<Globe className={ic} aria-hidden="true" />} onClick={() => setBrowser(true)} disabled={!running} />}
       <ActionItem compact={compact} label="Terminate" icon={<Trash2 className={ic} aria-hidden="true" />} onClick={() => setConfirm(true)} destructive />
-      {sb.agent && <BrowserView sandbox={browser ? sb : null} onClose={() => setBrowser(false)} />}
+      {sb.agent && sb.browser && <BrowserView sandbox={browser ? sb : null} onClose={() => setBrowser(false)} />}
       {sb.agent && <ChatPanel sandbox={chat ? sb : null} onClose={() => setChat(false)} onChange={onChange} />}
       <ConfirmDialog
         open={confirm}

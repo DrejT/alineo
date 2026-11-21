@@ -25,6 +25,8 @@ export interface SandboxRecord {
   modelProvider: string;
   /** True when a Pi agent runs in this sandbox, so it accepts prompts and steering. */
   agent: boolean;
+  /** True once the agent has called a browser tool, so its live view has something to show. */
+  browser: boolean;
   /** The swarm run this sandbox belongs to, if any. */
   runId: string | null;
   /** What this agent was asked to do (swarm nodes only). */
@@ -36,6 +38,12 @@ export interface SandboxRecord {
   summary: string;
   recentExecs: Array<{ cmd: string; exit: number | string; dur: string; ts: string }>;
   logs: Array<{ type: string; text: string }>;
+}
+
+/** Has this agent used the browser? Read from the tool calls saved in its transcript. */
+function usedBrowser(userId: string, sandboxId: string): boolean {
+  const row = db.query(`SELECT 1 AS hit FROM agent_events WHERE user_id = ? AND sandbox_id = ? AND kind = 'tool' AND text LIKE '{"tool":"browser_%' LIMIT 1`).get(userId, sandboxId);
+  return row !== null;
 }
 
 function formatDuration(ms: number): string {
@@ -84,6 +92,7 @@ export function listSandboxes(userId = 'usr_test'): SandboxRecord[] {
       mcpTools: JSON.parse(row.mcp_tools || '[]'),
       modelProvider: resolveModel(row.model_provider).id,
       agent: row.is_agent === 1,
+      browser: row.is_agent === 1 && usedBrowser(userId, row.id),
       runId: row.run_id ?? null,
       task: row.task ?? '',
       state: row.state ?? 'idle',
@@ -129,6 +138,7 @@ export function getSandbox(userId: string, id: string): SandboxRecord | null {
     mcpTools: JSON.parse(row.mcp_tools || '[]'),
     modelProvider: resolveModel(row.model_provider).id,
     agent: row.is_agent === 1,
+    browser: row.is_agent === 1 && usedBrowser(userId, row.id),
     runId: row.run_id ?? null,
     task: row.task ?? '',
     state: row.state ?? 'idle',

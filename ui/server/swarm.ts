@@ -19,7 +19,7 @@ const CALLBACK_URL = process.env.ALINEO_UI_CALLBACK_URL ?? `http://172.17.0.1:${
 
 export interface RunNode {
   id: string; parentId: string | null; role: string; task: string; status: SandboxRecord["status"];
-  state: SandboxRecord["state"]; result: string; depth: number; model: string; startedAt: number;
+  state: SandboxRecord["state"]; result: string; depth: number; model: string; startedAt: number; browser: boolean;
 }
 export interface Run {
   id: string; goal: string; status: "starting" | "running" | "done" | "failed" | "stopped"; model: string;
@@ -126,7 +126,7 @@ function nodesOf(userId: string, runId: string): RunNode[] {
   const rows = db.query(`SELECT id FROM sandboxes WHERE user_id = ? AND run_id = ? ORDER BY uptime_start ASC`).all(userId, runId) as { id: string }[];
   return rows.map((r) => getSandbox(userId, r.id)!).filter(Boolean).map((s) => ({
     id: s.id, parentId: s.parentId, role: s.role, task: s.task, status: s.status, state: s.state,
-    result: s.result, depth: s.depth, model: s.modelProvider, startedAt: s.uptimeStart,
+    result: s.result, depth: s.depth, model: s.modelProvider, startedAt: s.uptimeStart, browser: s.browser,
   }));
 }
 

@@ -133,7 +133,7 @@ function NodeRows({ tree, depth, open, toggle, list, onChat, onTerminal, onBrows
         <Cell>
           <div className="flex items-center gap-1.5">
             <IconButton label="Chat and steer this agent" onClick={() => onChat(n.id)} disabled={!canAct}><MessageSquare className="size-3.5" aria-hidden="true" /></IconButton>
-            <IconButton label="Watch the browser live" onClick={() => onBrowser(n.id)} disabled={!canAct}><Globe className="size-3.5" aria-hidden="true" /></IconButton>
+            {n.browser && <IconButton label="Watch the browser live" onClick={() => onBrowser(n.id)} disabled={!canAct}><Globe className="size-3.5" aria-hidden="true" /></IconButton>}
             <IconButton label="Open terminal" onClick={() => onTerminal(n.id)} disabled={!canAct}><SquareTerminal className="size-3.5" aria-hidden="true" /></IconButton>
           </div>
         </Cell>
