@@ -104,20 +104,22 @@ void (async () => {
   for (const r of rows) await removeContainers(r.u, r.id);
 })();
 
-const NUDGE = "You stopped without a final reply. If the task is not finished, carry on and finish it. Then end with a short final reply that states the result.";
+const NUDGE = "You stopped before giving a final reply. If the task is not finished, carry on and finish it. Then end with a short final reply that states the result.";
 
 /**
  * Send a prompt to an agent and read the stream to its end. The frames are saved by promptAgent.
- * A model sometimes ends a turn with no text after using tools. Ask it to finish, up to twice.
+ * A model sometimes ends a turn early: with no text, or right after a tool call. Ask it to finish, up to
+ * three more times. A turn counts as finished only when the agent wrote text after its last tool call.
  */
 async function driveTurn(userId: string, sandboxId: string, message: string): Promise<string> {
-  const attempts = 3;
+  const attempts = 4;
   for (let i = 0; i < attempts; i++) {
-    let reply = "";
+    let answer = "";
     for await (const f of promptAgent(userId, sandboxId, i === 0 ? message : NUDGE, { keepWorking: i < attempts - 1 })) {
-      if (f.type === "text") reply += f.text;
+      if (f.type === "text") answer += f.text;
+      else if (f.type === "tool_start") answer = "";
     }
-    if (reply.trim()) return reply;
+    if (answer.trim()) return answer;
   }
   return "";
 }
