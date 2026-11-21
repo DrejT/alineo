@@ -18,6 +18,37 @@ export type AgentFrame =
 
 const MAX_TOOL_TEXT = 2000;
 const STEER_WAIT_MS = 120_000;
+/** How long to wait for an agent to finish by itself after its stream ends, and before a new prompt. */
+const IDLE_WAIT_MS = 240_000;
+
+/** Wait until Pi is neither streaming nor holding queued input. False if the time runs out. */
+async function waitIdle(agent: { getState(): Promise<{ isStreaming: boolean; pendingMessageCount: number }> }, ms: number): Promise<boolean> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const state = await agent.getState().catch(() => null);
+    if (state && !state.isStreaming && state.pendingMessageCount === 0) return true;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+/**
+ * The text of Pi's last assistant message, but only if that message is a plain reply. A message that also holds a
+ * tool call is a step in the work, not an answer, and an empty one is a failed model call.
+ */
+function finalAssistantText(messages: Array<{ role: string; [k: string]: unknown }>): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role !== "assistant") continue;
+    const c = m.content;
+    if (typeof c === "string") return c;
+    if (!Array.isArray(c)) return "";
+    const parts = c as Array<{ type?: string; text?: unknown }>;
+    if (parts.some((p) => p && p.type !== "text")) return "";
+    return parts.map((p) => String(p.text ?? "")).join("");
+  }
+  return "";
+}
 
 /** Plain text of Pi's last assistant message. */
 function lastAssistantText(messages: Array<{ role: string; [k: string]: unknown }>): string {
@@ -91,20 +122,26 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
     return;
   }
 
-  // Pi may still be finishing work from an earlier steer or follow-up. Wait for it, so a new
-  // prompt does not collide with it.
+  // Pi may still be finishing work from an earlier turn, a steer, or its own retry of a failed model call. A prompt
+  // sent now would be refused, so wait for it. If it never goes idle, say so and leave the agent as it is.
   entry.busy = true;
   entry.steered = false;
+  let free = await waitIdle(entry.agent, IDLE_WAIT_MS);
+  if (!free) {
+    // Busy for four minutes with no stream: most likely a model call that hung. Cancel it and take one more look.
+    await entry.agent.abort().catch(() => {});
+    free = await waitIdle(entry.agent, 10_000);
+  }
+  if (!free) {
+    entry.busy = false;
+    recordEvent(userId, sandboxId, "error", "The agent is still busy with earlier work.");
+    yield { type: "error", message: "The agent is still busy with earlier work. Try again in a moment." };
+    return;
+  }
   recordEvent(userId, sandboxId, "user", message);
   setState(userId, sandboxId, "working");
   let pendingText = "";
   const flushText = () => { if (pendingText) { recordEvent(userId, sandboxId, "agent", pendingText); pendingText = ""; } };
-  const settle = Date.now() + 60_000;
-  while (Date.now() < settle) {
-    const st = await entry.agent.getState().catch(() => null);
-    if (!st || !st.isStreaming) break;
-    await new Promise((r) => setTimeout(r, 1000));
-  }
   const start = Date.now();
   let chars = 0;
   let reply = "";
@@ -143,16 +180,23 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
       flushText();
       recordEvent(userId, sandboxId, "note", "Steered: the agent is working on your new instruction.");
       yield { type: "note", text: "Steered: the agent is working on your new instruction." };
-      const deadline = Date.now() + STEER_WAIT_MS;
-      while (Date.now() < deadline) {
-        const state = await entry.agent.getState().catch(() => null);
-        if (state && !state.isStreaming && state.pendingMessageCount === 0) break;
-        await new Promise((r) => setTimeout(r, 1000));
-      }
+      await waitIdle(entry.agent, STEER_WAIT_MS);
       const text = scrub(lastAssistantText(await entry.agent.getMessages().catch(() => [])), model);
       if (text) { chars += text.length; reply += text; lastSegment += text; yield { type: "text", text }; }
     }
     flushText();
+    // The stream can end while the agent is still working: Pi retries a failed model call by itself, and a dropped
+    // connection ends the stream but not the agent. Wait for it to finish, then take its answer from its own session.
+    if (lastSegment.trim().length === 0) {
+      // Still busy after four minutes: cancel it, so the nudge that follows can restart the work.
+      if (!(await waitIdle(entry.agent, IDLE_WAIT_MS))) await entry.agent.abort().catch(() => {});
+      const text = scrub(finalAssistantText(await entry.agent.getMessages().catch(() => [])), model).trim();
+      if (text) {
+        chars += text.length; reply += text; lastSegment += text;
+        recordEvent(userId, sandboxId, "agent", text);
+        yield { type: "text", text };
+      }
+    }
     const ms = Date.now() - start;
     // A turn is finished only if the agent wrote text after its last tool call. A turn that ends right after
     // a tool result, or after narration such as "Let me check...", was cut short (a model error, a rate limit,
