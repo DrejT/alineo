@@ -78,6 +78,8 @@ export const api = {
     request<{ results: { sandboxId: string; delivered: boolean; reason?: string }[] }>("POST", `/api/sandboxes/${id}/steer`, { directive, scope, mode }),
   runs: () => request<Run[]>("GET", "/api/runs"),
   startRun: (b: { goal: string; modelProvider: string; maxAgents: number }) => request<Run>("POST", "/api/runs", b),
+  /** Rewrite a goal so it suits a swarm. */
+  optimizeGoal: (b: { goal: string; maxAgents: number }) => request<{ optimized: string }>("POST", "/api/runs/optimize", b),
   stopRun: (id: string) => request("POST", `/api/runs/${id}/stop`),
   transcript: (id: string) => request<TranscriptRow[]>("GET", `/api/sandboxes/${id}/transcript`),
   agentImage: () => request<{ state: "off" | "missing" | "building" | "ready" | "error"; detail?: string; builtAt?: number }>("GET", "/api/agents/image"),
