@@ -18,6 +18,8 @@
 #   ALINEO_UI_CALLBACK_URL    how an agent's sandbox reaches this server, for the Agents page. Default
 #                             http://172.17.0.1:<port>. Untested behind Caddy or on a custom network.
 #   ALINEO_UI_MAX_AGENTS      most agents at once, across all users (default 3). Each reserves 1.5 GB.
+#   ALINEO_UI_LOG_LEVEL       debug, info, warn or error (default info). debug adds one line per tool call.
+#   ALINEO_LOG_LEVEL          the same for the agent SDK's own log (default info).
 #   ALINEO_UI_RUN_AGENTS      default most containers per goal (5, and never above the cap above). ALINEO_UI_RUN_KEEP_MINUTES (10) is how
 #                             long a finished goal keeps its containers before they are removed.
 services:
@@ -37,6 +39,14 @@ services:
       ALINEO_UI_MAX_SANDBOXES: ${ALINEO_UI_MAX_SANDBOXES:-8}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       ALINEO_UI_MAX_AGENTS: ${ALINEO_UI_MAX_AGENTS:-3}
+      ALINEO_UI_LOG_LEVEL: ${ALINEO_UI_LOG_LEVEL:-info}
+      ALINEO_LOG_LEVEL: ${ALINEO_LOG_LEVEL:-info}
       ALINEO_UI_CALLBACK_URL: ${ALINEO_UI_CALLBACK_URL:-}
+    # Keep the container log bounded. Each line is one JSON event; the same key events are also in the diag table.
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     volumes:
       - ./data:/data

@@ -4,6 +4,7 @@
  */
 import { resolveModel, scrub } from "./models";
 import { AGENTS_ENABLED, MAX_AGENTS } from "./runtime";
+import { log as slog, clipText, timer } from "./log";
 
 const CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 /** One try. A stalled call is cut at this point and tried once more, so the user waits about a minute at worst. */
@@ -52,7 +53,7 @@ function clean(text: string): string {
 }
 
 /** Send the request. A timeout, a network error, a 429 or a 5xx gets one more try after a short pause. */
-async function callModel(body: string): Promise<Response> {
+async function callModel(body: string, who: string): Promise<Response> {
   let last: unknown;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -64,8 +65,10 @@ async function callModel(body: string): Promise<Response> {
       });
       if (res.status !== 429 && res.status < 500) return res;
       last = res;
+      slog("warn", "optimize.retry", { user: who, attempt: attempt + 1, status: res.status }, true);
     } catch (err) {
       last = err;
+      slog("warn", "optimize.retry", { user: who, attempt: attempt + 1, error: clipText(err instanceof Error ? `${err.name}: ${err.message}` : String(err), 200) }, true);
     }
     if (attempt === 0) await new Promise((r) => setTimeout(r, 1000));
   }
@@ -92,7 +95,9 @@ export async function optimizeGoal(userId: string, input: { goal: string; maxAge
       { role: "user", content: `Goal to rewrite:\n\n${goal}` },
     ],
   });
-  const res = await callModel(body).catch((err) => {
+  const elapsed = timer();
+  const res = await callModel(body, userId).catch((err) => {
+    slog("error", "optimize.failed", { user: userId, ms: elapsed(), error: clipText(err instanceof Error ? `${err.name}: ${err.message}` : String(err), 300) }, true);
     throw new Error(err instanceof Error && err.name === "TimeoutError" ? "The rewrite took too long. Try again." : "The rewrite could not reach the model.");
   });
 
@@ -101,5 +106,6 @@ export async function optimizeGoal(userId: string, input: { goal: string; maxAge
   const data = (await res.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string | null } }> } | null;
   const text = clean(data?.choices?.[0]?.message?.content ?? "");
   if (!text) throw new Error("The model returned nothing. Try again, or pick another model.");
+  slog("info", "optimize", { user: userId, ms: elapsed(), goalChars: goal.length, outChars: text.length, status: res.status }, true);
   return scrub(text, model);
 }

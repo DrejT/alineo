@@ -6,6 +6,7 @@ import { db } from "./db";
 import { getSandbox } from "./sandboxes";
 import { getAgent } from "./runtime";
 import { resolveModel, scrub } from "./models";
+import { log as slog, clipText } from "./log";
 
 /** What the browser receives. Tool names and text only: no backend model ids. */
 export type AgentFrame =
@@ -21,15 +22,36 @@ const STEER_WAIT_MS = 120_000;
 /** How long to wait for an agent to finish by itself after its stream ends, and before a new prompt. */
 const IDLE_WAIT_MS = 240_000;
 
-/** Wait until Pi is neither streaming nor holding queued input. False if the time runs out. */
-async function waitIdle(agent: { getState(): Promise<{ isStreaming: boolean; pendingMessageCount: number }> }, ms: number): Promise<boolean> {
-  const deadline = Date.now() + ms;
+/** Where a wait happened, for the log. */
+interface WaitCtx { user: string; sandbox: string; run?: string | null; where: string }
+
+/** Wait until Pi is neither streaming nor holding queued input. False if the time runs out. Slow or failed waits are logged. */
+async function waitIdle(agent: { getState(): Promise<{ isStreaming: boolean; pendingMessageCount: number }> }, ms: number, ctx?: WaitCtx): Promise<boolean> {
+  const t0 = Date.now();
+  const deadline = t0 + ms;
+  let idle = false;
   while (Date.now() < deadline) {
     const state = await agent.getState().catch(() => null);
-    if (state && !state.isStreaming && state.pendingMessageCount === 0) return true;
+    if (state && !state.isStreaming && state.pendingMessageCount === 0) { idle = true; break; }
     await new Promise((r) => setTimeout(r, 1000));
   }
-  return false;
+  const waited = Date.now() - t0;
+  if (ctx && (!idle || waited > 3000)) {
+    slog(idle ? "info" : "warn", "wait.idle", { user: ctx.user, sandbox: ctx.sandbox, run: ctx.run, where: ctx.where, idle, waitedMs: waited, limitMs: ms }, true);
+  }
+  return idle;
+}
+
+/** What Pi itself says about its last step: the fields that explain why a turn ended. */
+async function piSnapshot(agent: { getState(): Promise<unknown>; getMessages(): Promise<Array<{ role: string; [k: string]: unknown }>> }): Promise<Record<string, unknown>> {
+  const state = (await agent.getState().catch(() => null)) as Record<string, unknown> | null;
+  const messages = await agent.getMessages().catch(() => [] as Array<{ role: string; [k: string]: unknown }>);
+  const last = [...messages].reverse().find((m) => m.role === "assistant");
+  const parts = Array.isArray(last?.content) ? (last!.content as Array<{ type?: string }>).map((p) => p?.type ?? "?") : typeof last?.content === "string" ? ["text"] : [];
+  return {
+    isStreaming: state?.isStreaming, pendingMessageCount: state?.pendingMessageCount, messageCount: state?.messageCount,
+    lastAssistant: last ? { stopReason: last.stopReason, errorMessage: last.errorMessage ? clipText(last.errorMessage, 400) : undefined, parts, usage: last.usage } : null,
+  };
 }
 
 /**
@@ -126,13 +148,16 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
   // sent now would be refused, so wait for it. If it never goes idle, say so and leave the agent as it is.
   entry.busy = true;
   entry.steered = false;
-  let free = await waitIdle(entry.agent, IDLE_WAIT_MS);
+  const ctx = (where: string): WaitCtx => ({ user: userId, sandbox: sandboxId, run: sb.runId, where });
+  let free = await waitIdle(entry.agent, IDLE_WAIT_MS, ctx("before prompt"));
   if (!free) {
     // Busy for four minutes with no stream: most likely a model call that hung. Cancel it and take one more look.
+    slog("warn", "agent.abort", { user: userId, sandbox: sandboxId, run: sb.runId, reason: "busy before a new prompt for four minutes", snapshot: await piSnapshot(entry.agent) }, true);
     await entry.agent.abort().catch(() => {});
-    free = await waitIdle(entry.agent, 10_000);
+    free = await waitIdle(entry.agent, 10_000, ctx("after abort, before prompt"));
   }
   if (!free) {
+    slog("error", "turn.refused", { user: userId, sandbox: sandboxId, run: sb.runId, reason: "still busy after abort" }, true);
     entry.busy = false;
     recordEvent(userId, sandboxId, "error", "The agent is still busy with earlier work.");
     yield { type: "error", message: "The agent is still busy with earlier work. Try again in a moment." };
@@ -147,12 +172,28 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
   let reply = "";
   // Text since the last tool call. This is the agent's answer; text before a tool call is narration.
   let lastSegment = "";
+  const seen: Record<string, number> = {};
+  let lastEventAt = start;
+  let toolCalls = 0;
+  slog("info", "turn.start", { user: userId, sandbox: sandboxId, run: sb.runId, role: sb.role, model: model.id, backend: model.backend, promptChars: message.length, prompt: clipText(message, 160) }, true);
   log(userId, sandboxId, "exec_start", `agent_prompt: ${clip(message, 200)}`, start);
   ledger(userId, start, sandboxId, "AGENT_PROMPT", `Prompted agent ${sandboxId}: "${clip(message, 120)}"`, branch, "prompt", { message: clip(message, 500), model: model.id });
 
   try {
     for await (const ev of entry.agent.prompt(message)) {
-      if (ev.type === "text") {
+      seen[ev.type] = (seen[ev.type] ?? 0) + 1;
+      lastEventAt = Date.now();
+      if (ev.type === "auto_retry_start") {
+        slog("warn", "pi.retry", { user: userId, sandbox: sandboxId, run: sb.runId, phase: "start", attempt: ev.attempt, maxAttempts: ev.maxAttempts, delayMs: ev.delayMs, error: clipText(ev.errorMessage, 400) }, true);
+      } else if (ev.type === "auto_retry_end") {
+        slog(ev.success ? "info" : "warn", "pi.retry", { user: userId, sandbox: sandboxId, run: sb.runId, phase: "end", attempt: ev.attempt, success: ev.success, error: ev.finalError ? clipText(ev.finalError, 400) : undefined }, true);
+      } else if (ev.type === "compaction_start" || ev.type === "compaction_end") {
+        slog("info", "pi.compaction", { user: userId, sandbox: sandboxId, run: sb.runId, event: ev.type, reason: ev.reason, ...(ev.type === "compaction_end" ? { aborted: ev.aborted, willRetry: ev.willRetry } : {}) }, true);
+      } else if (ev.type === "extension_error") {
+        slog("warn", "pi.extension_error", { user: userId, sandbox: sandboxId, run: sb.runId, extension: ev.extensionPath, event: ev.event, error: clipText(ev.error, 400) }, true);
+      } else if (ev.type === "agent_end") {
+        slog("debug", "pi.agent_end", { user: userId, sandbox: sandboxId, run: sb.runId });
+      } else if (ev.type === "text") {
         const text = scrub(ev.text, model);
         chars += text.length;
         reply += text;
@@ -160,6 +201,8 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
         pendingText += text;
         yield { type: "text", text };
       } else if (ev.type === "tool_start") {
+        toolCalls++;
+        slog("debug", "tool.start", { user: userId, sandbox: sandboxId, run: sb.runId, tool: ev.toolName });
         const input = scrub(clip(ev.args), model);
         log(userId, sandboxId, "exec_event", `tool ${ev.toolName}: ${clip(input, 160)}`, Date.now());
         ledger(userId, Date.now(), sandboxId, "AGENT_TOOL", `Agent ran ${ev.toolName}`, branch, `tool ${ev.toolName}`, { tool: ev.toolName, input: clip(input, 500) });
@@ -169,6 +212,7 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
         yield { type: "tool_start", id: ev.toolCallId, tool: ev.toolName, input };
       } else if (ev.type === "tool_end") {
         const output = scrub(clip(ev.result), model);
+        if (ev.isError) slog("warn", "tool.error", { user: userId, sandbox: sandboxId, run: sb.runId, tool: ev.toolName, output: clipText(output, 300) }, true);
         const row = db.query(`SELECT id, text FROM agent_events WHERE sandbox_id = ? AND kind = 'tool' AND ref = ? ORDER BY id DESC LIMIT 1`).get(sandboxId, ev.toolCallId) as { id: number; text: string } | null;
         if (row) db.prepare(`UPDATE agent_events SET text = ? WHERE id = ?`).run(JSON.stringify({ ...JSON.parse(row.text), output, isError: ev.isError }), row.id);
         yield { type: "tool_end", id: ev.toolCallId, tool: ev.toolName, output, isError: ev.isError };
@@ -180,17 +224,30 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
       flushText();
       recordEvent(userId, sandboxId, "note", "Steered: the agent is working on your new instruction.");
       yield { type: "note", text: "Steered: the agent is working on your new instruction." };
-      await waitIdle(entry.agent, STEER_WAIT_MS);
+      await waitIdle(entry.agent, STEER_WAIT_MS, ctx("after steer"));
       const text = scrub(lastAssistantText(await entry.agent.getMessages().catch(() => [])), model);
       if (text) { chars += text.length; reply += text; lastSegment += text; yield { type: "text", text }; }
     }
     flushText();
+    // What the stream looked like when it ended. This is the line to read first when a turn stops early.
+    const streamMs = Date.now() - start;
+    slog("info", "stream.end", {
+      user: userId, sandbox: sandboxId, run: sb.runId, ms: streamMs, events: seen, tools: toolCalls, chars,
+      lastSegmentChars: lastSegment.trim().length, msSinceLastEvent: Date.now() - lastEventAt, steered: entry.steered,
+    }, true);
     // The stream can end while the agent is still working: Pi retries a failed model call by itself, and a dropped
     // connection ends the stream but not the agent. Wait for it to finish, then take its answer from its own session.
     if (lastSegment.trim().length === 0) {
-      // Still busy after four minutes: cancel it, so the nudge that follows can restart the work.
-      if (!(await waitIdle(entry.agent, IDLE_WAIT_MS))) await entry.agent.abort().catch(() => {});
+      slog("warn", "turn.cut_short", { user: userId, sandbox: sandboxId, run: sb.runId, snapshot: await piSnapshot(entry.agent) }, true);
+      const idle = await waitIdle(entry.agent, IDLE_WAIT_MS, ctx("after stream ended without a reply"));
+      if (!idle) {
+        // Still busy after four minutes: cancel it, so the nudge that follows can restart the work.
+        slog("warn", "agent.abort", { user: userId, sandbox: sandboxId, run: sb.runId, reason: "busy four minutes after its stream ended", snapshot: await piSnapshot(entry.agent) }, true);
+        await entry.agent.abort().catch(() => {});
+      }
+      const snap = await piSnapshot(entry.agent);
       const text = scrub(finalAssistantText(await entry.agent.getMessages().catch(() => [])), model).trim();
+      slog(text ? "info" : "warn", "turn.recovery", { user: userId, sandbox: sandboxId, run: sb.runId, idle, recoveredChars: text.length, snapshot: snap }, true);
       if (text) {
         chars += text.length; reply += text; lastSegment += text;
         recordEvent(userId, sandboxId, "agent", text);
@@ -207,15 +264,18 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
       recordEvent(userId, sandboxId, "error", note);
       // A caller that will retry keeps the agent marked as working, so nobody sees a false failure.
       if (!opts.keepWorking) setState(userId, sandboxId, "failed", none ? "" : clip(reply, 4000));
+      slog("warn", "turn.end", { user: userId, sandbox: sandboxId, run: sb.runId, outcome: "unfinished", willRetry: Boolean(opts.keepWorking), ms, chars, tools: toolCalls }, true);
       yield { type: "error", message: `${note} Try again, or pick another model.` };
     } else {
       setState(userId, sandboxId, "done", clip(lastSegment.trim(), 4000));
+      slog("info", "turn.end", { user: userId, sandbox: sandboxId, run: sb.runId, outcome: "done", ms, chars, tools: toolCalls }, true);
       yield { type: "done", ms, chars };
     }
     log(userId, sandboxId, "exec_complete", `agent_reply (${ms}ms): ${clip(reply, 200)}`, Date.now());
     ledger(userId, Date.now(), sandboxId, "AGENT_REPLY", `Agent replied in ${ms}ms (${chars} chars)`, branch, "reply", { ms, chars, reply: clip(reply, 500) });
   } catch (err) {
     const msg = scrub(err instanceof Error ? err.message : String(err), model);
+    slog("error", "turn.error", { user: userId, sandbox: sandboxId, run: sb.runId, ms: Date.now() - start, events: seen, tools: toolCalls, error: clipText(err instanceof Error ? `${err.name}: ${err.message}` : String(err), 500) }, true);
     flushText();
     recordEvent(userId, sandboxId, "error", msg);
     setState(userId, sandboxId, "failed", "");

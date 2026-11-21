@@ -36,9 +36,12 @@ import { steerAgent } from "./steer";
 import { promptAgent, transcript } from "./agents";
 import { handleSwarm, listRuns, getRun, startRun, stopRun } from "./swarm";
 import { optimizeGoal } from "./optimize";
+import { log as slog, clipText } from "./log";
+import { installLoggerFromEnv } from "@alineo-labs/logger";
+import type { Server } from "bun";
 import { publicModels } from "./models";
 import { authorizeBrowser, browserSocket, type BrowserSocketData } from "./browser";
-import { AGENTS_ENABLED, agentImage, warmAgentImage } from "./runtime";
+import { AGENTS_ENABLED, MAX_AGENTS, MAX_SANDBOXES, agentImage, warmAgentImage } from "./runtime";
 import { executeOneCliCommand } from "./cli";
 
 const PORT = Number(process.env.PORT || (process.env.NODE_ENV === "test" ? 4699 : 4600));
@@ -89,11 +92,33 @@ function getAuthUser(req: Request): User | null {
   return null;
 }
 
+// The SDK logs through its own logger, silent until turned on. Turn it on at info, in JSON, unless the environment says otherwise.
+process.env.ALINEO_LOG_LEVEL ??= "info";
+process.env.ALINEO_LOG_FORMAT ??= "json";
+installLoggerFromEnv();
+
 const server = Bun.serve<BrowserSocketData>({
   port: PORT,
   idleTimeout: 255,
   websocket: browserSocket,
   async fetch(req, srv) {
+    const t0 = performance.now();
+    const path = new URL(req.url).pathname;
+    try {
+      const res = await handle(req, srv);
+      // Log writes and failures. Polling reads would drown everything else.
+      if (res && (req.method !== "GET" || res.status >= 400) && path.startsWith("/api/") && !path.startsWith("/api/swarm/")) {
+        slog(res.status >= 500 ? "error" : res.status >= 400 ? "warn" : "info", "http", { method: req.method, path: path.replace(/\/[0-9a-f]{8}-[0-9a-f-]{27}/g, "/:id"), status: res.status, ms: Math.round(performance.now() - t0) });
+      }
+      return res;
+    } catch (err) {
+      slog("error", "http.error", { method: req.method, path, error: clipText(err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ""}` : String(err), 800) }, true);
+      return new Response(JSON.stringify({ error: "Internal error" }), { status: 500, headers: { "Content-Type": "application/json" } });
+    }
+  },
+});
+
+async function handle(req: Request, srv: Server<BrowserSocketData>): Promise<Response | undefined> {
     const url = new URL(req.url);
     const method = req.method;
 
@@ -572,10 +597,21 @@ const server = Bun.serve<BrowserSocketData>({
     }
 
     return new Response("Not Found", { status: 404 });
-  },
-});
+}
 
 console.log(`[alineo-control-plane] listening on http://localhost:${PORT}`);
+slog("info", "server.start", {
+  port: PORT, agents: AGENTS_ENABLED, maxAgents: MAX_AGENTS, maxSandboxes: MAX_SANDBOXES, logLevel: process.env.ALINEO_UI_LOG_LEVEL ?? "info",
+  bun: Bun.version, node: process.version,
+}, true);
+// A crash that only reaches the console is gone once the container restarts. Keep it.
+process.on("unhandledRejection", (reason) => {
+  slog("error", "process.unhandled_rejection", { error: clipText(reason instanceof Error ? `${reason.name}: ${reason.message}\n${reason.stack ?? ""}` : String(reason), 800) }, true);
+});
+process.on("uncaughtException", (err) => {
+  slog("error", "process.uncaught_exception", { error: clipText(`${err.name}: ${err.message}\n${err.stack ?? ""}`, 800) }, true);
+});
+process.on("SIGTERM", () => { slog("info", "server.stop", { signal: "SIGTERM" }, true); process.exit(0); });
 // Build the cached agent image in the background if it is missing, so no one waits for it later.
 void warmAgentImage();
 export default server;

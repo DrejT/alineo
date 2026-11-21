@@ -10,6 +10,7 @@ import { getHandle, peekAgent, agentCount, AGENTS_ENABLED, MAX_AGENTS } from "./
 import { promptAgent, recordEvent } from "./agents";
 import { resolveModel } from "./models";
 import { steerAgent } from "./steer";
+import { log as slog, clipText, timer } from "./log";
 
 export const RUN_DEFAULT_AGENTS = Number(process.env.ALINEO_UI_RUN_AGENTS ?? 5);
 export const RUN_MAX_DEPTH = Number(process.env.ALINEO_UI_RUN_DEPTH ?? 3);
@@ -96,6 +97,10 @@ Work in your own sandbox. You have a real web browser through the tools browser_
 const reserved = new Map<string, number>();
 
 // A run cannot outlive the server process that drives it.
+{
+  const cut = (db.query(`SELECT COUNT(*) c FROM runs WHERE status IN ('starting', 'running')`).get() as { c: number }).c;
+  if (cut > 0) slog("warn", "run.cut_by_restart", { runs: cut }, true);
+}
 db.run(`UPDATE runs SET status = 'failed', summary = 'The server restarted during this run.', finished_at = ${Date.now()} WHERE status IN ('starting', 'running')`);
 db.run(`UPDATE sandboxes SET state = 'idle' WHERE state = 'working'`);
 // Containers of a run the restart cut short, and of runs that ended before it, would otherwise stay up until their timeout.
@@ -115,6 +120,7 @@ async function driveTurn(userId: string, sandboxId: string, message: string): Pr
   const attempts = 4;
   for (let i = 0; i < attempts; i++) {
     let answer = "";
+    if (i > 0) slog("warn", "turn.nudge", { user: userId, sandbox: sandboxId, run: (getSandbox(userId, sandboxId)?.runId) ?? undefined, attempt: i + 1, of: attempts }, true);
     for await (const f of promptAgent(userId, sandboxId, i === 0 ? message : NUDGE, { keepWorking: i < attempts - 1 })) {
       if (f.type === "text") answer += f.text;
       else if (f.type === "tool_start") answer = "";
@@ -153,6 +159,8 @@ export function getRun(userId: string, runId: string): Run | null {
 const KEEP_MINUTES = Number(process.env.ALINEO_UI_RUN_KEEP_MINUTES ?? 10);
 
 function finish(userId: string, runId: string, status: Run["status"], summary: string): void {
+  const created = (db.query(`SELECT created_at FROM runs WHERE id = ?`).get(runId) as { created_at: number } | null)?.created_at;
+  slog(status === "done" ? "info" : "warn", "run.finish", { user: userId, run: runId, status, ms: created ? Date.now() - created : undefined, summaryChars: summary.length, summary: clipText(summary, 200) }, true);
   db.prepare(`UPDATE runs SET status = ?, summary = ?, finished_at = ? WHERE id = ? AND status IN ('starting', 'running')`)
     .run(status, summary.slice(0, 4000), Date.now(), runId);
   // Containers cost memory. Remove them after a grace period instead of leaving them until the sandbox timeout.
@@ -163,12 +171,15 @@ function finish(userId: string, runId: string, status: Run["status"], summary: s
 async function removeContainers(userId: string, runId: string): Promise<void> {
   const run = getRun(userId, runId);
   if (!run) return;
+  let removed = 0;
   for (const n of run.nodes) {
     if (n.status === "terminated") continue;
     await peekAgent(n.id)?.agent.abort().catch(() => {});
     await terminateSandbox(userId, n.id).catch(() => {});
+    removed++;
   }
   db.prepare(`DELETE FROM swarm_tokens WHERE run_id = ?`).run(runId);
+  if (removed > 0) slog("info", "containers.removed", { user: userId, run: runId, count: removed }, true);
 }
 
 /**
@@ -177,6 +188,7 @@ async function removeContainers(userId: string, runId: string): Promise<void> {
  */
 async function makeRoom(needed: number): Promise<void> {
   if (agentCount() + needed <= MAX_AGENTS) return;
+  slog("info", "room.needed", { needed, agentsAlive: agentCount(), cap: MAX_AGENTS }, true);
   const ended = db.query(`SELECT user_id AS u, id FROM runs WHERE status IN ('done', 'failed', 'stopped') ORDER BY COALESCE(finished_at, created_at) ASC`).all() as { u: string; id: string }[];
   for (const r of ended) {
     if (agentCount() + needed <= MAX_AGENTS) return;
@@ -195,12 +207,15 @@ export function startRun(userId: string, input: { goal: string; modelProvider?: 
   const id = "run_" + crypto.randomUUID().slice(0, 8);
   db.prepare(`INSERT INTO runs (id, user_id, goal, status, model, max_agents, created_at) VALUES (?, ?, ?, 'starting', ?, ?, ?)`)
     .run(id, userId, goal, model, maxAgents, Date.now());
+  slog("info", "run.start", { user: userId, run: id, model, maxAgents, goalChars: goal.length, goal: clipText(goal, 160) }, true);
+  const elapsed = timer();
 
   void (async () => {
     try {
       await makeRoom(maxAgents);
       const master = await spawnSandbox(userId, { role: "master", modelProvider: model, runId: id, task: goal, agent: true, cpuLimitMilli: 1000, memLimitMi: 1536 });
       db.prepare(`UPDATE runs SET master_id = ?, status = 'running' WHERE id = ?`).run(master.id, id);
+      slog("info", "run.master_ready", { user: userId, run: id, sandbox: master.id, ms: elapsed() }, true);
       await installSwarm(userId, id, master.id);
       const reply = await driveTurn(userId, master.id, masterPrompt(goal, maxAgents));
       const run = db.query(`SELECT status FROM runs WHERE id = ?`).get(id) as { status: string } | null;
@@ -210,6 +225,7 @@ export function startRun(userId: string, input: { goal: string; modelProvider?: 
       if (reply) finish(userId, id, "done", answer); else finish(userId, id, "failed", "The master agent ended without a reply.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      slog("error", "run.error", { user: userId, run: id, error: clipText(err instanceof Error ? `${err.name}: ${err.message}` : String(err), 500) }, true);
       finish(userId, id, "failed", msg);
     }
   })();
@@ -257,24 +273,27 @@ export async function handleSwarm(req: Request, url: URL): Promise<Response> {
   }
 
   if (url.pathname === "/api/swarm/spawn") {
-    if (!live) return json({ error: `The run is ${run.status}; no more agents can be spawned.` }, 409);
+    if (!live) { slog("info", "swarm.spawn_refused", { user: userId, run: run.id, caller: t.sandbox_id, reason: `run is ${run.status}` }, true); return json({ error: `The run is ${run.status}; no more agents can be spawned.` }, 409); }
     const caller = getSandbox(userId, t.sandbox_id);
     if (!caller) return json({ error: "Caller not found" }, 404);
     const role = String(body.role ?? "").trim().slice(0, 60);
     const task = String(body.task ?? "").trim();
     if (!role || !task) return json({ error: "spawn needs a role and a task" }, 400);
     if (task.length > 6000) return json({ error: "The task is too long (6000 characters max)" }, 400);
-    if (caller.depth + 1 > RUN_MAX_DEPTH) return json({ error: `The run allows ${RUN_MAX_DEPTH} levels of agents; this one cannot spawn more.` }, 409);
+    if (caller.depth + 1 > RUN_MAX_DEPTH) { slog("info", "swarm.spawn_refused", { user: userId, run: run.id, caller: t.sandbox_id, reason: "depth" }, true); return json({ error: `The run allows ${RUN_MAX_DEPTH} levels of agents; this one cannot spawn more.` }, 409); }
     const used = run.nodes.filter((n) => n.status !== "terminated").length + (reserved.get(run.id) ?? 0);
-    if (used >= run.maxAgents) return json({ error: `The run is at its limit of ${run.maxAgents} agents.` }, 409);
+    if (used >= run.maxAgents) { slog("info", "swarm.spawn_refused", { user: userId, run: run.id, caller: t.sandbox_id, reason: "agent limit", used, max: run.maxAgents }, true); return json({ error: `The run is at its limit of ${run.maxAgents} agents.` }, 409); }
     reserved.set(run.id, (reserved.get(run.id) ?? 0) + 1);
+    const spawnMs = timer();
     try {
       const child = await spawnSandbox(userId, { role, parentId: caller.id, modelProvider: run.model, runId: run.id, task, agent: true, cpuLimitMilli: 1000, memLimitMi: 1536 });
       db.prepare(`UPDATE sandboxes SET state = 'working' WHERE id = ?`).run(child.id);
       await installSwarm(userId, run.id, child.id);
+      slog("info", "swarm.spawn", { user: userId, run: run.id, caller: caller.id, sandbox: child.id, role, depth: caller.depth + 1, ms: spawnMs(), taskChars: task.length }, true);
       void driveTurn(userId, child.id, workerPrompt(role, task));
       return json({ id: child.id, role, parent: caller.id, state: "working" });
     } catch (err) {
+      slog("error", "swarm.spawn_failed", { user: userId, run: run.id, caller: t.sandbox_id, ms: spawnMs(), error: clipText(err instanceof Error ? `${err.name}: ${err.message}` : String(err), 400) }, true);
       return json({ error: err instanceof Error ? err.message : String(err) }, 500);
     } finally {
       reserved.set(run.id, Math.max((reserved.get(run.id) ?? 1) - 1, 0));

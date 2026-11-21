@@ -3,6 +3,7 @@ import { getSandbox, listSandboxes } from "./sandboxes";
 import { peekAgent, getAgent } from "./runtime";
 import { resolveModel, scrub } from "./models";
 import { promptAgent, recordEvent } from "./agents";
+import { log as slog } from "./log";
 
 /**
  * How a message reaches the agent:
@@ -97,6 +98,7 @@ export async function steerAgent(
   }));
 
   const delivered = results.filter((r) => r.delivered).length;
+  slog("info", "steer", { user: userId, sandbox: sb.id, run: sb.runId ?? undefined, mode, scope, targets: results.length, delivered, notDelivered: results.filter((r) => !r.delivered).map((r) => ({ sandbox: r.sandboxId.slice(0, 8), reason: r.reason })) }, true);
   db.prepare(`
     INSERT INTO ledger (user_id, ts, type, sandbox_id, tool, detail, branch, short_label, payload)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)

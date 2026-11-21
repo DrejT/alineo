@@ -179,6 +179,47 @@ then starts from it in about 4 seconds. `GET /api/agents/image` reports `ready`,
 Changing a setup step in `server/runtime.ts` rebuilds it once. Allow about 2 GB of disk for it, and about 1.5 GB
 of memory per running agent.
 
+## Debugging a run
+
+Every agent turn leaves a trail, on the server only. It names the model behind each Gemini label, so no API route returns it.
+
+**One command for a whole run** (on the VPS, from `~/alineo-ui/ui`):
+
+```bash
+docker exec alineo-ui bun scripts/run-report.ts --latest             # the newest run of any user
+docker exec alineo-ui bun scripts/run-report.ts --latest test123     # the newest run of one user
+docker exec alineo-ui bun scripts/run-report.ts run_ab12cd34         # one run
+```
+
+It prints the run, its agents, and a time-ordered timeline of every transcript row and diagnostic event. Lines that
+start with `!!` are warnings or errors.
+
+**The events, in the order to read them when an agent stopped early**
+
+| Event | What it tells you |
+|---|---|
+| `turn.start` | A prompt was sent: which agent, run, model and backend. |
+| `pi.retry` | Pi is retrying a failed model call by itself. `error` holds the reason, for example a 429. `phase: end` says if the retry worked. |
+| `stream.end` | The stream to the agent ended. `events` counts each event type, `lastSegmentChars` is the text after the last tool call, `msSinceLastEvent` is the silence before it ended. |
+| `turn.cut_short` | The stream ended with no final reply. `snapshot` is Pi's own view: `isStreaming`, and the last assistant message's `stopReason` and `errorMessage`. This is the line that says why. |
+| `wait.idle` | The server waited for Pi to go idle. `idle: false` means it never did within `limitMs`. |
+| `agent.abort` | The server cancelled an agent that stayed busy for four minutes, with a snapshot of its state. |
+| `turn.recovery` | The answer was recovered from Pi's session after the stream ended. `recoveredChars: 0` means there was none. |
+| `turn.nudge` | The agent was asked to finish. `attempt` counts up to 4. |
+| `turn.end` | The outcome: `done` or `unfinished`, with `willRetry`. |
+| `run.start`, `run.finish` | The run's start and end, with status and duration. |
+| `swarm.spawn`, `swarm.spawn_refused`, `swarm.spawn_failed` | A worker was created, refused (limit, depth, run over) or failed. |
+| `steer` | A steer, queue or stop: how many agents got it and why others did not. |
+| `image.build.*`, `agent.start`, `agent.reconnect` | The agent image build, an agent start, a reconnect after a restart. |
+| `optimize`, `optimize.retry`, `optimize.failed` | The goal rewrite: time, retries, failure. |
+| `run.cut_by_restart`, `server.start` | A restart cut a run, and the settings the server started with. |
+| `process.unhandled_rejection`, `process.uncaught_exception` | A crash that would otherwise be lost. |
+
+**Raw logs.** One JSON object per line: `docker logs alineo-ui --since 30m | grep '"event":"turn.cut_short"'`.
+The log is capped at 5 files of 20 MB. The events above are also kept in the `diag` table for 7 days, which outlives that.
+`ALINEO_UI_LOG_LEVEL=debug` adds one line per tool call. `ALINEO_LOG_LEVEL` sets the agent SDK's own log.
+The model key never appears: it is replaced with `[hidden]` before a line is written.
+
 ## Frontend (React + UI SDK)
 
 The dashboard UI lives in `web/`. It is a Vite + React 19 app built with [UI SDK](https://ui-sdk.dev) (`@ui-sdk/react`) and

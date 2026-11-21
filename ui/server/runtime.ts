@@ -10,6 +10,7 @@ import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { Alineo, AgentSnapshotStore, computeSetupHash, snapshotsPath } from "alineo";
 import { loadProjectConfig } from "@alineo-labs/config-shared";
 import { resolveModel, scrubText } from "./models";
+import { log as slog, clipText, timer } from "./log";
 
 const DATA_DIR = process.env.ALINEO_UI_DATA_DIR ?? join(import.meta.dir, "..", "data");
 mkdirSync(DATA_DIR, { recursive: true });
@@ -171,10 +172,13 @@ export function warmAgentImage(): Promise<void> {
   building = (async () => {
     if ((await agentImage()).state === "ready") return;
     buildError = undefined;
+    const elapsed = timer();
+    slog("info", "image.build.start", {}, true);
     const agent = await Alineo.start(agentSpec("gemini-3.8-flash", 1000, 1536), { adapter, config: agentConfig });
     await agent.close().catch(() => {});
+    slog("info", "image.build.end", { ms: elapsed() }, true);
   })()
-    .catch((err) => { buildError = err instanceof Error ? err.message : String(err); })
+    .catch((err) => { buildError = err instanceof Error ? err.message : String(err); slog("error", "image.build.error", { error: clipText(buildError, 500) }, true); })
     .finally(() => { building = null; });
   return building;
 }
@@ -193,8 +197,10 @@ export async function startAgent(opts: { modelId: string; cpuMilli: number; memM
   // Build the cached image first if it is missing. Starting two agents on an empty cache would build it twice.
   await warmAgentImage();
   if (buildError) throw new Error(`The agent image could not be built: ${scrubText(buildError)}`);
+  const elapsed = timer();
   const agent = await Alineo.start(agentSpec(opts.modelId, opts.cpuMilli, opts.memMi), { adapter, config: agentConfig });
   const sb = agent.sandbox;
+  slog("info", "agent.start", { sandbox: sb.sandboxId, model: opts.modelId, ms: elapsed(), agentsAlive: agents.size + 1 }, true);
   handles.set(sb.sandboxId, sb);
   agents.set(sb.sandboxId, { agent, modelId: opts.modelId, busy: false, steered: false });
   return sb;
@@ -208,7 +214,9 @@ export async function getAgent(id: string, modelId: string, cpuMilli: number, me
   const opts = { adapter, config: agentConfig, spec: agentSpec(modelId, cpuMilli, memMi) };
   // Reattach keeps Pi's bridge, and any turn still running, alive. Resume restarts the bridge and
   // is the fallback for a bridge that died.
-  const agent = await Alineo.reattach(id, opts).catch(() => Alineo.resume(id, opts));
+  let how = "reattach";
+  const agent = await Alineo.reattach(id, opts).catch(() => { how = "resume"; return Alineo.resume(id, opts); });
+  slog("info", "agent.reconnect", { sandbox: id, how }, true);
   const entry = { agent, modelId, busy: false, steered: false };
   agents.set(id, entry);
   handles.set(id, agent.sandbox);

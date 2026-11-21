@@ -216,7 +216,23 @@ CREATE TABLE IF NOT EXISTS agent_events (
   text TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_agent_events_sb ON agent_events (sandbox_id, id);
+-- Diagnostics for debugging a run after the fact: why a turn ended, retries, waits, cancels. Server side only.
+CREATE TABLE IF NOT EXISTS diag (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts INTEGER NOT NULL,
+  level TEXT NOT NULL,
+  event TEXT NOT NULL,
+  user_id TEXT,
+  sandbox_id TEXT,
+  run_id TEXT,
+  data TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_diag_sb ON diag (sandbox_id, id);
+CREATE INDEX IF NOT EXISTS idx_diag_run ON diag (run_id, id);
 `);
+
+// Diagnostics older than a week are not worth keeping.
+db.run(`DELETE FROM diag WHERE ts < ?`, [Date.now() - 7 * 24 * 3600 * 1000]);
 
 // Auto-seed default user if not exists
 const defaultUser = db.query(`SELECT id FROM users WHERE username = 'test'`).get() as any;

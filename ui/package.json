@@ -15,6 +15,7 @@
   "dependencies": {
     "@alineo-labs/agent-browser": "workspace:*",
     "@alineo-labs/config-shared": "workspace:*",
+    "@alineo-labs/logger": "workspace:*",
     "@alineo-labs/sandbox": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
     "alineo": "workspace:*"
