@@ -6,7 +6,7 @@
  */
 import { db } from "./db";
 import { getSandbox, spawnSandbox, terminateSandbox, type SandboxRecord } from "./sandboxes";
-import { getHandle, peekAgent, AGENTS_ENABLED, MAX_SANDBOXES } from "./runtime";
+import { getHandle, peekAgent, AGENTS_ENABLED, MAX_AGENTS } from "./runtime";
 import { promptAgent, recordEvent } from "./agents";
 import { resolveModel } from "./models";
 import { steerAgent } from "./steer";
@@ -175,7 +175,7 @@ export function startRun(userId: string, input: { goal: string; modelProvider?: 
   const goal = input.goal.trim();
   if (!goal) throw new Error("Missing goal");
   if (goal.length > 4000) throw new Error("The goal is too long (4000 characters max)");
-  const maxAgents = Math.min(Math.max(Math.floor(input.maxAgents ?? RUN_DEFAULT_AGENTS), 1), MAX_SANDBOXES);
+  const maxAgents = Math.min(Math.max(Math.floor(input.maxAgents ?? RUN_DEFAULT_AGENTS), 1), MAX_AGENTS);
   const model = resolveModel(input.modelProvider).id;
   const id = "run_" + crypto.randomUUID().slice(0, 8);
   db.prepare(`INSERT INTO runs (id, user_id, goal, status, model, max_agents, created_at) VALUES (?, ?, ?, 'starting', ?, ?, ?)`)
