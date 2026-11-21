@@ -35,6 +35,7 @@ import { getWorkflowState, enqueueWorkflowJob, flushWorkflowPipeline } from "./w
 import { steerAgent } from "./steer";
 import { promptAgent, transcript } from "./agents";
 import { handleSwarm, listRuns, getRun, startRun, stopRun } from "./swarm";
+import { optimizeGoal } from "./optimize";
 import { publicModels } from "./models";
 import { authorizeBrowser, browserSocket, type BrowserSocketData } from "./browser";
 import { AGENTS_ENABLED, agentImage, warmAgentImage } from "./runtime";
@@ -289,6 +290,15 @@ const server = Bun.serve<BrowserSocketData>({
       const body = await req.json().catch(() => ({}));
       try {
         return jsonResponse(startRun(userId, { goal: String(body.goal ?? ""), modelProvider: body.modelProvider, maxAgents: body.maxAgents }), 201);
+      } catch (err) {
+        return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 400);
+      }
+    }
+    if (url.pathname === "/api/runs/optimize" && method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      try {
+        const optimized = await optimizeGoal(userId, { goal: String(body.goal ?? ""), maxAgents: Number(body.maxAgents) || undefined });
+        return jsonResponse({ optimized });
       } catch (err) {
         return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 400);
       }

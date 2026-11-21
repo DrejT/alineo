@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { Textarea } from "@ui-sdk/react/textarea";
-import { ChevronRight, Globe, MessageSquare, OctagonX, SquareTerminal } from "lucide-react";
+import { ChevronRight, Globe, MessageSquare, OctagonX, Sparkles, SquareTerminal, Undo2 } from "lucide-react";
 import { api, type Run, type RunNode, type Sandbox } from "../api";
-import { Badge, Card, Empty, IconButton, PageHeader, act, cx, shortId, usePoll } from "../lib";
+import { Badge, Card, Empty, IconButton, PageHeader, act, cx, shortId, toast, usePoll } from "../lib";
 import { ConfirmDialog } from "./actions";
 import { BrowserView } from "./BrowserView";
 import { ChatPanel } from "./ChatPanel";
@@ -61,6 +61,24 @@ function NewGoal({ onStarted }: { onStarted: () => void }) {
   const [model, setModel] = useState(MODELS[0]!.value);
   const [limit, setLimit] = useState("5");
   const [busy, setBusy] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
+  // The text before the last rewrite, so the rewrite can be undone.
+  const [before, setBefore] = useState<string | null>(null);
+
+  async function optimize() {
+    const text = goal.trim();
+    if (!text || optimizing) return;
+    setOptimizing(true);
+    try {
+      const r = await api.optimizeGoal({ goal: text, maxAgents: Number(limit) });
+      setBefore(goal);
+      setGoal(r.optimized);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setOptimizing(false);
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -80,7 +98,20 @@ function NewGoal({ onStarted }: { onStarted: () => void }) {
             A master agent starts in its own container. It decides how to split the goal, creates more containers with their own agents, and reports back.
           </p>
         </div>
-        <Textarea value={goal} onValueChange={setGoal} rows={3} aria-label="Goal" placeholder="Describe what the swarm should achieve…" />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium">Goal</span>
+          <div className="flex items-center gap-1.5">
+            {before !== null && !optimizing && (
+              <Button type="button" className="btn-sm inline-flex items-center gap-1.5" onClick={() => { setGoal(before); setBefore(null); }}>
+                <Undo2 className="size-3.5" aria-hidden="true" /><span>Undo</span>
+              </Button>
+            )}
+            <Button type="button" className="btn-sm inline-flex items-center gap-1.5" onClick={() => void optimize()} disabled={!goal.trim() || optimizing}>
+              <Sparkles className="size-3.5" aria-hidden="true" /><span>{optimizing ? "Optimizing…" : "Optimize for a swarm"}</span>
+            </Button>
+          </div>
+        </div>
+        <Textarea value={goal} onValueChange={(v) => { setGoal(v); setBefore(null); }} rows={before !== null || goal.length > 400 ? 10 : 3} aria-label="Goal" placeholder="Describe what the swarm should achieve…" disabled={optimizing} />
         <div className="flex flex-wrap gap-1.5">
           {GOAL_EXAMPLES.map((g) => (
             <button key={g} type="button" onClick={() => setGoal(g)} className="rounded-pill border border-fd-border px-2.5 py-1 text-left text-xs text-fd-muted-foreground hover:bg-fd-muted">
