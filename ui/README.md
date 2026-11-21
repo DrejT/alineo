@@ -201,12 +201,16 @@ start with `!!` are warnings or errors.
 | `turn.start` | A prompt was sent: which agent, run, model and backend. |
 | `pi.retry` | Pi is retrying a failed model call by itself. `error` holds the reason, for example a 429. `phase: end` says if the retry worked. |
 | `stream.end` | The stream to the agent ended. `events` counts each event type, `lastSegmentChars` is the text after the last tool call, `msSinceLastEvent` is the silence before it ended. |
-| `turn.cut_short` | The stream ended with no final reply. `snapshot` is Pi's own view: `isStreaming`, and the last assistant message's `stopReason` and `errorMessage`. This is the line that says why. |
-| `wait.idle` | The server waited for Pi to go idle. `idle: false` means it never did within `limitMs`. |
-| `agent.abort` | The server cancelled an agent that stayed busy for four minutes, with a snapshot of its state. |
+| `turn.cut_short` | The stream ended with no final reply. `snapshot` is Pi's own view: `isStreaming`, and the last assistant message's `stopReason` and `errorMessage`. `bridgeLog` is the last lines of the bridge's own log in the sandbox, which records what Pi was told before it ended its run. This is the line that says why. |
+| `turn.progress` | One line a minute during a long turn: elapsed time, tool calls, characters, event counts. A gap in these lines means a quiet agent. |
+| `wait.progress` | One line every 30 seconds during a wait: `messageCount`, `isStreaming`, `msSinceProgress`. Shows an agent that is still working after its stream ended. |
+| `turn.long` | A turn reached 100 tool calls. The goal may be too large, or the agent is looping. |
+| `tool.slow` | A tool call took more than 30 seconds. |
+| `wait.idle` | The server waited for Pi to go idle. `idle: false` has a `why`: `stalled` (no new message for 5 minutes) or `limit` (30 minutes passed). An agent that keeps gaining messages is never cut off for taking long. |
+| `agent.abort` | The server cancelled an agent that was stalled, with a snapshot of its state and the bridge log. |
 | `turn.recovery` | The answer was recovered from Pi's session after the stream ended. `recoveredChars: 0` means there was none. |
 | `turn.nudge` | The agent was asked to finish. `attempt` counts up to 4. |
-| `turn.end` | The outcome: `done` or `unfinished`, with `willRetry`. |
+| `turn.end` | The outcome: `done` or `unfinished`, with `willRetry`, the session's message count and the context size in tokens. |
 | `run.start`, `run.finish` | The run's start and end, with status and duration. |
 | `swarm.spawn`, `swarm.spawn_refused`, `swarm.spawn_failed` | A worker was created, refused (limit, depth, run over) or failed. |
 | `steer` | A steer, queue or stop: how many agents got it and why others did not. |

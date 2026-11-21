@@ -19,31 +19,65 @@ export type AgentFrame =
 
 const MAX_TOOL_TEXT = 2000;
 const STEER_WAIT_MS = 120_000;
-/** How long to wait for an agent to finish by itself after its stream ends, and before a new prompt. */
-const IDLE_WAIT_MS = 240_000;
+/** The most an agent may take to finish by itself after its stream ends, and before a new prompt. A hard ceiling only. */
+const IDLE_WAIT_MS = 30 * 60_000;
+/** An agent that has added no message to its session for this long while it claims to be working is stalled. A long tool call can take minutes. */
+const STALL_MS = 5 * 60_000;
+/** How often a wait writes a progress line. */
+const BEAT_MS = 30_000;
 
 /** Where a wait happened, for the log. */
 interface WaitCtx { user: string; sandbox: string; run?: string | null; where: string }
 
-/** Wait until Pi is neither streaming nor holding queued input. False if the time runs out. Slow or failed waits are logged. */
-async function waitIdle(agent: { getState(): Promise<{ isStreaming: boolean; pendingMessageCount: number }> }, ms: number, ctx?: WaitCtx): Promise<boolean> {
+type PiState = { isStreaming: boolean; pendingMessageCount: number; messageCount?: number };
+
+/**
+ * Wait until Pi is neither streaming nor holding queued input. It judges the agent by progress, not by elapsed time:
+ * an agent whose session keeps gaining messages is working, however long that takes. It gives up (false) only when no
+ * message has been added for `stallMs`, or when `maxMs` has passed. Slow, stalled and periodic progress lines are logged.
+ */
+export async function waitIdle(
+  agent: { getState(): Promise<PiState> },
+  maxMs: number,
+  ctx?: WaitCtx,
+  opts: { stallMs?: number; pollMs?: number; beatMs?: number } = {},
+): Promise<boolean> {
+  const stallMs = opts.stallMs ?? STALL_MS;
+  const pollMs = opts.pollMs ?? 1000;
+  const beatMs = opts.beatMs ?? BEAT_MS;
   const t0 = Date.now();
-  const deadline = t0 + ms;
+  let lastCount: number | undefined;
+  let lastProgress = t0;
+  let lastBeat = t0;
   let idle = false;
-  while (Date.now() < deadline) {
+  let why = "limit";
+  while (Date.now() - t0 < maxMs) {
     const state = await agent.getState().catch(() => null);
     if (state && !state.isStreaming && state.pendingMessageCount === 0) { idle = true; break; }
-    await new Promise((r) => setTimeout(r, 1000));
+    const now = Date.now();
+    if (state?.messageCount !== undefined && state.messageCount !== lastCount) { lastCount = state.messageCount; lastProgress = now; }
+    if (ctx && now - lastBeat >= beatMs) {
+      lastBeat = now;
+      slog("info", "wait.progress", { user: ctx.user, sandbox: ctx.sandbox, run: ctx.run, where: ctx.where, waitedMs: now - t0, messageCount: state?.messageCount, isStreaming: state?.isStreaming, msSinceProgress: now - lastProgress }, true);
+    }
+    if (now - lastProgress >= stallMs) { why = "stalled"; break; }
+    await new Promise((r) => setTimeout(r, pollMs));
   }
   const waited = Date.now() - t0;
   if (ctx && (!idle || waited > 3000)) {
-    slog(idle ? "info" : "warn", "wait.idle", { user: ctx.user, sandbox: ctx.sandbox, run: ctx.run, where: ctx.where, idle, waitedMs: waited, limitMs: ms }, true);
+    slog(idle ? "info" : "warn", "wait.idle", { user: ctx.user, sandbox: ctx.sandbox, run: ctx.run, where: ctx.where, idle, waitedMs: waited, limitMs: maxMs, ...(idle ? {} : { why, msSinceProgress: Date.now() - lastProgress, messageCount: lastCount }) }, true);
   }
   return idle;
 }
 
+/** The last lines of the bridge's own log inside the sandbox. It records what Pi was told right before it ended a run. */
+async function bridgeLog(agent: { getLogs(): Promise<string> }, lines = 25): Promise<string> {
+  const text = await agent.getLogs().catch((e) => `(could not read the bridge log: ${e instanceof Error ? e.message : String(e)})`);
+  return clipText(String(text).split("\n").filter(Boolean).slice(-lines).join("\n"), 2500);
+}
+
 /** What Pi itself says about its last step: the fields that explain why a turn ended. */
-async function piSnapshot(agent: { getState(): Promise<unknown>; getMessages(): Promise<Array<{ role: string; [k: string]: unknown }>> }): Promise<Record<string, unknown>> {
+async function piSnapshot(agent: { getState(): Promise<unknown>; getMessages(): Promise<Array<{ role: string; [k: string]: unknown }>> }): Promise<Record<string, unknown> & { lastAssistant: { usage?: { totalTokens?: number } } | null; messageCount?: number }> {
   const state = (await agent.getState().catch(() => null)) as Record<string, unknown> | null;
   const messages = await agent.getMessages().catch(() => [] as Array<{ role: string; [k: string]: unknown }>);
   const last = [...messages].reverse().find((m) => m.role === "assistant");
@@ -151,8 +185,8 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
   const ctx = (where: string): WaitCtx => ({ user: userId, sandbox: sandboxId, run: sb.runId, where });
   let free = await waitIdle(entry.agent, IDLE_WAIT_MS, ctx("before prompt"));
   if (!free) {
-    // Busy for four minutes with no stream: most likely a model call that hung. Cancel it and take one more look.
-    slog("warn", "agent.abort", { user: userId, sandbox: sandboxId, run: sb.runId, reason: "busy before a new prompt for four minutes", snapshot: await piSnapshot(entry.agent) }, true);
+    // No new message for five minutes while it claims to be working: most likely a hung model call. Cancel it and take one more look.
+    slog("warn", "agent.abort", { user: userId, sandbox: sandboxId, run: sb.runId, reason: "stalled before a new prompt: no new message for five minutes", snapshot: await piSnapshot(entry.agent), bridgeLog: await bridgeLog(entry.agent) }, true);
     await entry.agent.abort().catch(() => {});
     free = await waitIdle(entry.agent, 10_000, ctx("after abort, before prompt"));
   }
@@ -174,8 +208,12 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
   let lastSegment = "";
   const seen: Record<string, number> = {};
   let lastEventAt = start;
+  let lastBeat = start;
   let toolCalls = 0;
-  slog("info", "turn.start", { user: userId, sandbox: sandboxId, run: sb.runId, role: sb.role, model: model.id, backend: model.backend, promptChars: message.length, prompt: clipText(message, 160) }, true);
+  let longLogged = false;
+  const toolStarted = new Map<string, number>();
+  const startState = (await entry.agent.getState().catch(() => null)) as { messageCount?: number } | null;
+  slog("info", "turn.start", { user: userId, sandbox: sandboxId, run: sb.runId, role: sb.role, model: model.id, backend: model.backend, promptChars: message.length, prompt: clipText(message, 160), sessionMessages: startState?.messageCount }, true);
   log(userId, sandboxId, "exec_start", `agent_prompt: ${clip(message, 200)}`, start);
   ledger(userId, start, sandboxId, "AGENT_PROMPT", `Prompted agent ${sandboxId}: "${clip(message, 120)}"`, branch, "prompt", { message: clip(message, 500), model: model.id });
 
@@ -183,6 +221,11 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
     for await (const ev of entry.agent.prompt(message)) {
       seen[ev.type] = (seen[ev.type] ?? 0) + 1;
       lastEventAt = Date.now();
+      // A long turn writes one progress line a minute, so a quiet log means a quiet agent.
+      if (lastEventAt - lastBeat >= 60_000) {
+        lastBeat = lastEventAt;
+        slog("info", "turn.progress", { user: userId, sandbox: sandboxId, run: sb.runId, ms: lastEventAt - start, tools: toolCalls, chars, events: seen }, true);
+      }
       if (ev.type === "auto_retry_start") {
         slog("warn", "pi.retry", { user: userId, sandbox: sandboxId, run: sb.runId, phase: "start", attempt: ev.attempt, maxAttempts: ev.maxAttempts, delayMs: ev.delayMs, error: clipText(ev.errorMessage, 400) }, true);
       } else if (ev.type === "auto_retry_end") {
@@ -202,7 +245,12 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
         yield { type: "text", text };
       } else if (ev.type === "tool_start") {
         toolCalls++;
+        toolStarted.set(ev.toolCallId, Date.now());
         slog("debug", "tool.start", { user: userId, sandbox: sandboxId, run: sb.runId, tool: ev.toolName });
+        if (toolCalls === 100 && !longLogged) {
+          longLogged = true;
+          slog("warn", "turn.long", { user: userId, sandbox: sandboxId, run: sb.runId, ms: Date.now() - start, tools: toolCalls, note: "100 tool calls in one turn. The goal may be too large, or the agent is looping.", snapshot: await piSnapshot(entry.agent) }, true);
+        }
         const input = scrub(clip(ev.args), model);
         log(userId, sandboxId, "exec_event", `tool ${ev.toolName}: ${clip(input, 160)}`, Date.now());
         ledger(userId, Date.now(), sandboxId, "AGENT_TOOL", `Agent ran ${ev.toolName}`, branch, `tool ${ev.toolName}`, { tool: ev.toolName, input: clip(input, 500) });
@@ -212,6 +260,9 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
         yield { type: "tool_start", id: ev.toolCallId, tool: ev.toolName, input };
       } else if (ev.type === "tool_end") {
         const output = scrub(clip(ev.result), model);
+        const began = toolStarted.get(ev.toolCallId);
+        toolStarted.delete(ev.toolCallId);
+        if (began && Date.now() - began > 30_000) slog("warn", "tool.slow", { user: userId, sandbox: sandboxId, run: sb.runId, tool: ev.toolName, ms: Date.now() - began }, true);
         if (ev.isError) slog("warn", "tool.error", { user: userId, sandbox: sandboxId, run: sb.runId, tool: ev.toolName, output: clipText(output, 300) }, true);
         const row = db.query(`SELECT id, text FROM agent_events WHERE sandbox_id = ? AND kind = 'tool' AND ref = ? ORDER BY id DESC LIMIT 1`).get(sandboxId, ev.toolCallId) as { id: number; text: string } | null;
         if (row) db.prepare(`UPDATE agent_events SET text = ? WHERE id = ?`).run(JSON.stringify({ ...JSON.parse(row.text), output, isError: ev.isError }), row.id);
@@ -238,11 +289,11 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
     // The stream can end while the agent is still working: Pi retries a failed model call by itself, and a dropped
     // connection ends the stream but not the agent. Wait for it to finish, then take its answer from its own session.
     if (lastSegment.trim().length === 0) {
-      slog("warn", "turn.cut_short", { user: userId, sandbox: sandboxId, run: sb.runId, snapshot: await piSnapshot(entry.agent) }, true);
+      slog("warn", "turn.cut_short", { user: userId, sandbox: sandboxId, run: sb.runId, snapshot: await piSnapshot(entry.agent), bridgeLog: await bridgeLog(entry.agent) }, true);
       const idle = await waitIdle(entry.agent, IDLE_WAIT_MS, ctx("after stream ended without a reply"));
       if (!idle) {
-        // Still busy after four minutes: cancel it, so the nudge that follows can restart the work.
-        slog("warn", "agent.abort", { user: userId, sandbox: sandboxId, run: sb.runId, reason: "busy four minutes after its stream ended", snapshot: await piSnapshot(entry.agent) }, true);
+        // Stalled: cancel it, so the nudge that follows can restart the work.
+        slog("warn", "agent.abort", { user: userId, sandbox: sandboxId, run: sb.runId, reason: "stalled: no new message for five minutes after its stream ended", snapshot: await piSnapshot(entry.agent), bridgeLog: await bridgeLog(entry.agent) }, true);
         await entry.agent.abort().catch(() => {});
       }
       const snap = await piSnapshot(entry.agent);
@@ -264,11 +315,13 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
       recordEvent(userId, sandboxId, "error", note);
       // A caller that will retry keeps the agent marked as working, so nobody sees a false failure.
       if (!opts.keepWorking) setState(userId, sandboxId, "failed", none ? "" : clip(reply, 4000));
-      slog("warn", "turn.end", { user: userId, sandbox: sandboxId, run: sb.runId, outcome: "unfinished", willRetry: Boolean(opts.keepWorking), ms, chars, tools: toolCalls }, true);
+      const endSnap = await piSnapshot(entry.agent);
+      slog("warn", "turn.end", { user: userId, sandbox: sandboxId, run: sb.runId, outcome: "unfinished", willRetry: Boolean(opts.keepWorking), ms, chars, tools: toolCalls, sessionMessages: endSnap.messageCount, contextTokens: endSnap.lastAssistant?.usage?.totalTokens }, true);
       yield { type: "error", message: `${note} Try again, or pick another model.` };
     } else {
       setState(userId, sandboxId, "done", clip(lastSegment.trim(), 4000));
-      slog("info", "turn.end", { user: userId, sandbox: sandboxId, run: sb.runId, outcome: "done", ms, chars, tools: toolCalls }, true);
+      const endSnap = await piSnapshot(entry.agent);
+      slog("info", "turn.end", { user: userId, sandbox: sandboxId, run: sb.runId, outcome: "done", ms, chars, tools: toolCalls, sessionMessages: endSnap.messageCount, contextTokens: endSnap.lastAssistant?.usage?.totalTokens }, true);
       yield { type: "done", ms, chars };
     }
     log(userId, sandboxId, "exec_complete", `agent_reply (${ms}ms): ${clip(reply, 200)}`, Date.now());
