@@ -15,6 +15,10 @@
 #   NVIDIA_API_KEY            turns on agents (chat and steering). Empty means plain sandboxes only.
 #                             The key is passed into each agent's sandbox, so anyone who can open a
 #                             sandbox can read it. Use a key you can revoke, and not on an open-signup host.
+#   ALINEO_UI_CALLBACK_URL    how an agent's sandbox reaches this server, for the Agents page. Default
+#                             http://172.17.0.1:<port>. Untested behind Caddy or on a custom network.
+#   ALINEO_UI_RUN_AGENTS      default most containers per goal (5). ALINEO_UI_RUN_KEEP_MINUTES (10) is how
+#                             long a finished goal keeps its containers before they are removed.
 services:
   ui:
     build:
@@ -31,5 +35,6 @@ services:
       OPENSANDBOX_URL: ${OPENSANDBOX_URL:-http://host.docker.internal:8080}
       ALINEO_UI_MAX_SANDBOXES: ${ALINEO_UI_MAX_SANDBOXES:-8}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      ALINEO_UI_CALLBACK_URL: ${ALINEO_UI_CALLBACK_URL:-}
     volumes:
       - ./data:/data

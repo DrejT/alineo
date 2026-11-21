@@ -182,6 +182,41 @@ try {
 try {
   db.run(`ALTER TABLE sandboxes ADD COLUMN is_agent INTEGER NOT NULL DEFAULT 0`);
 } catch {}
+// Swarm runs: a goal, the master agent that pursues it, and every sandbox that agent spawns.
+for (const col of ["run_id TEXT", "task TEXT NOT NULL DEFAULT ''", "state TEXT NOT NULL DEFAULT 'idle'", "result TEXT NOT NULL DEFAULT ''"]) {
+  try { db.run(`ALTER TABLE sandboxes ADD COLUMN ${col}`); } catch {}
+}
+db.run(`
+CREATE TABLE IF NOT EXISTS runs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  goal TEXT NOT NULL,
+  status TEXT NOT NULL,               -- 'starting' | 'running' | 'done' | 'failed' | 'stopped'
+  model TEXT NOT NULL,
+  max_agents INTEGER NOT NULL,
+  master_id TEXT,
+  summary TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  finished_at INTEGER,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS swarm_tokens (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  sandbox_id TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS agent_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  sandbox_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  kind TEXT NOT NULL,                 -- 'user' | 'agent' | 'tool' | 'note' | 'error' | 'steer'
+  ref TEXT,                           -- tool call id
+  text TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agent_events_sb ON agent_events (sandbox_id, id);
+`);
 
 // Auto-seed default user if not exists
 const defaultUser = db.query(`SELECT id FROM users WHERE username = 'test'`).get() as any;

@@ -20,7 +20,7 @@ const CPUS = [{ value: "250", label: "250m (0.25 vCPU)" }, { value: "500", label
 const MEMS = [{ value: "256", label: "256Mi" }, { value: "512", label: "512Mi" }, { value: "1024", label: "1024Mi" }];
 const TOOLS = ["GitHub", "Slack", "Postgres", "Filesystem"];
 
-function Pick({ label, value, onChange, items }: { label: string; value: string; onChange: (v: string) => void; items: { value: string; label: string }[] }) {
+export function Pick({ label, value, onChange, items }: { label: string; value: string; onChange: (v: string) => void; items: { value: string; label: string }[] }) {
   return (
     // Select renders its label and trigger as siblings with no wrapper, so give them one.
     <div className="flex min-w-0 flex-col gap-1.5">

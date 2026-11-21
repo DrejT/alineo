@@ -4,7 +4,7 @@ import { Drawer, DrawerBackdrop, DrawerClose, DrawerContent, DrawerDescription, 
 import { Textarea } from "@ui-sdk/react/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui-sdk/react/tooltip";
 import { Square, X } from "lucide-react";
-import { api, promptAgent, type AgentFrame, type Sandbox } from "../api";
+import { api, promptAgent, type AgentFrame, type Sandbox, type TranscriptRow } from "../api";
 import { StatusBadge, toast } from "../lib";
 
 type Msg =
@@ -15,8 +15,28 @@ type Msg =
   | { kind: "steer"; label: string; text: string; results: { sandboxId: string; delivered: boolean; reason?: string }[] }
   | { kind: "error"; text: string };
 
-/** Conversations outlive the panel, so closing and reopening it keeps the thread. */
-const threads = new Map<string, Msg[]>();
+/** Turn the server's saved rows into messages. The server keeps every agent's thread, including a background agent's. */
+function fromRows(rows: TranscriptRow[]): Msg[] {
+  const out: Msg[] = [];
+  for (const r of rows) {
+    if (r.kind === "user") out.push({ kind: "user", text: r.text });
+    else if (r.kind === "agent") out.push({ kind: "agent", text: r.text });
+    else if (r.kind === "note") out.push({ kind: "note", text: r.text });
+    else if (r.kind === "error") out.push({ kind: "error", text: r.text });
+    else if (r.kind === "tool") {
+      try {
+        const d = JSON.parse(r.text) as { tool: string; input: string; output?: string; isError?: boolean };
+        out.push({ kind: "tool", id: r.ref ?? String(r.id), tool: d.tool, input: pretty(d.input), output: d.output === undefined ? undefined : pretty(d.output), isError: d.isError });
+      } catch { /* skip a malformed row */ }
+    } else if (r.kind === "steer") {
+      try {
+        const d = JSON.parse(r.text) as { label: string; text: string; results: { sandboxId: string; delivered: boolean; reason?: string }[] };
+        out.push({ kind: "steer", label: d.label, text: d.text, results: d.results });
+      } catch { /* skip a malformed row */ }
+    }
+  }
+  return out;
+}
 
 function modelLabel(id: string): string {
   return id.split("-").map((p, i) => (i === 0 ? "Gemini" : p === "flash" || p === "pro" || p === "medium" ? p[0]!.toUpperCase() + p.slice(1) : p)).join(" ");
@@ -46,10 +66,22 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
   const endRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Load the saved thread when the panel opens on a sandbox, and find its descendants.
+  // Load the saved thread when the panel opens on a sandbox, and keep it current while no local prompt is streaming.
+  const runningRef = useRef(false);
+  runningRef.current = running;
   useEffect(() => {
     if (!id) return;
-    setMsgs(threads.get(id) ?? []);
+    let live = true;
+    const load = () => api.transcript(id).then((rows) => { if (live && !runningRef.current) setMsgs(fromRows(rows)); }).catch(() => {});
+    setMsgs([]);
+    void load();
+    const t = setInterval(() => void load(), 2000);
+    return () => { live = false; clearInterval(t); };
+  }, [id]);
+
+  // Find the sandbox's descendants, for the steer-the-subtree option.
+  useEffect(() => {
+    if (!id) return;
     setText("");
     setWithChildren(false);
     let live = true;
@@ -66,11 +98,7 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [msgs]);
 
   function update(fn: (m: Msg[]) => Msg[]) {
-    setMsgs((cur) => {
-      const next = fn(cur);
-      if (id) threads.set(id, next);
-      return next;
-    });
+    setMsgs(fn);
   }
 
   function onFrame(f: AgentFrame) {
@@ -109,6 +137,8 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
     } finally {
       setRunning(false);
       abortRef.current = null;
+      // Show what the server saved, which now includes this turn.
+      api.transcript(id).then((rows) => setMsgs(fromRows(rows))).catch(() => {});
       onChange();
     }
   }
