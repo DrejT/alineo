@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui-sdk/react/tooltip";
 import { Square, X } from "lucide-react";
 import { api, promptAgent, type AgentFrame, type Sandbox, type TranscriptRow } from "../api";
 import { StatusBadge, toast } from "../lib";
+import { Markdown } from "./Markdown";
 
 type Msg =
   | { kind: "user"; text: string }
@@ -233,7 +234,7 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
             <div className="flex flex-col gap-2.5">
               {msgs.map((m, i) => {
                 if (m.kind === "user") return <div key={i} className="ml-8 self-end rounded-lg bg-fd-foreground px-3 py-2 text-sm text-white whitespace-pre-wrap">{m.text}</div>;
-                if (m.kind === "agent") return <div key={i} className="mr-8 rounded-lg border border-fd-border bg-fd-background px-3 py-2 text-sm whitespace-pre-wrap">{m.text}</div>;
+                if (m.kind === "agent") return <div key={i} className="mr-8 min-w-0 rounded-lg border border-fd-border bg-fd-background px-3 py-2 text-sm"><Markdown text={m.text} /></div>;
                 if (m.kind === "note") return <p key={i} className="text-center text-xs text-fd-muted-foreground">{m.text}</p>;
                 if (m.kind === "error") return <p key={i} role="alert" className="rounded-md border border-fd-border bg-fd-background px-3 py-2 text-sm text-fd-primary">{m.text}</p>;
                 if (m.kind === "steer") {

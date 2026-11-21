@@ -252,3 +252,30 @@ h3 {
     animation: none;
   }
 }
+
+/* Markdown in the agent chat. Sized for a narrow panel, in the docs colors. */
+.md { overflow-wrap: anywhere; line-height: 1.55; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: 0.5em 0; }
+.md h1, .md h2, .md h3, .md h4 { font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; margin: 0.9em 0 0.35em; }
+.md h1 { font-size: 1.125rem; }
+.md h2 { font-size: 1rem; }
+.md h3, .md h4 { font-size: 0.9375rem; }
+.md ul, .md ol { margin: 0.5em 0; padding-left: 1.35em; }
+.md ul { list-style: disc; }
+.md ol { list-style: decimal; }
+.md li { margin: 0.2em 0; }
+.md li > p { margin: 0.2em 0; }
+.md a { color: var(--color-fd-primary); text-decoration: underline; text-underline-offset: 2px; }
+.md strong { font-weight: 600; }
+.md hr { border: 0; border-top: 1px solid var(--color-fd-border); margin: 0.9em 0; }
+.md blockquote { margin: 0.6em 0; padding: 0.1em 0 0.1em 0.8em; border-left: 3px solid var(--color-fd-border); color: var(--color-fd-muted-foreground); }
+.md code { font-family: var(--font-mono); font-size: 0.8125em; background: var(--color-fd-muted); color: var(--color-fd-primary); border-radius: 4px; padding: 0.15em 0.4em; }
+.md pre { margin: 0.6em 0; padding: 0.7em 0.85em; background: var(--color-fd-muted); border: 1px solid var(--color-fd-border); border-radius: 8px; overflow-x: auto; }
+.md pre code { background: none; color: var(--color-fd-foreground); padding: 0; font-size: 0.78rem; white-space: pre; }
+.md .md-table { margin: 0.6em 0; overflow-x: auto; }
+.md table { border-collapse: collapse; font-size: 0.8125rem; }
+.md th, .md td { border: 1px solid var(--color-fd-border); padding: 0.3em 0.6em; text-align: left; vertical-align: top; }
+.md th { background: var(--color-fd-muted); font-weight: 600; }
+.md .md-img { color: var(--color-fd-muted-foreground); font-style: italic; }
