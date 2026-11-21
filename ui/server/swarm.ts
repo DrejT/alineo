@@ -171,7 +171,7 @@ async function removeContainers(userId: string, runId: string): Promise<void> {
 
 /** Start a run. Returns at once; the master sandbox starts in the background. */
 export function startRun(userId: string, input: { goal: string; modelProvider?: string; maxAgents?: number }): Run {
-  if (!AGENTS_ENABLED) throw new Error("Agents are off: NVIDIA_API_KEY is not set on the server.");
+  if (!AGENTS_ENABLED) throw new Error("Agents are not enabled on this server.");
   const goal = input.goal.trim();
   if (!goal) throw new Error("Missing goal");
   if (goal.length > 4000) throw new Error("The goal is too long (4000 characters max)");

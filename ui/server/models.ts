@@ -43,6 +43,17 @@ export function publicModels(): Array<{ id: string; label: string }> {
   return MODELS.map(({ id, label }) => ({ id, label }));
 }
 
+/**
+ * Text that reaches the UI must not name the provider or carry its key. This hides the key value, and
+ * renames the provider word, in anything an agent or a shell prints.
+ */
+export function scrubText(text: string): string {
+  const key = process.env.NVIDIA_API_KEY;
+  let out = key ? text.split(key).join("[hidden]") : text;
+  out = out.replace(/nvapi-[A-Za-z0-9_-]+/g, "[hidden]");
+  return out.replace(/nvidia/gi, "Gemini");
+}
+
 /** Replace backend model names in text with the Gemini label the user chose. */
 export function scrub(text: string, model: ModelOption): string {
   let out = text;
@@ -50,5 +61,5 @@ export function scrub(text: string, model: ModelOption): string {
     const short = m.backend.split("/")[1]!;
     out = out.split(m.backend).join(model.label).split(short).join(model.label);
   }
-  return out;
+  return scrubText(out);
 }
