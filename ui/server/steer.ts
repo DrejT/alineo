@@ -2,7 +2,7 @@ import { db } from "./db";
 import { getSandbox, listSandboxes } from "./sandboxes";
 import { peekAgent, getAgent } from "./runtime";
 import { resolveModel, scrub } from "./models";
-import { promptAgent } from "./agents";
+import { promptAgent, recordEvent } from "./agents";
 
 /**
  * How a message reaches the agent:
@@ -89,6 +89,12 @@ export async function steerAgent(
       : `[${stamp}] inherited ${verb} from ${sb.id} ${r.delivered ? "delivered" : `not delivered: ${r.reason}`}`;
     insertLog.run(userId, r.sandboxId, "steer", text, now);
   }
+
+  recordEvent(userId, sb.id, "steer", JSON.stringify({
+    label: mode === "abort" ? "Stopped" : mode === "followUp" ? "Queued" : "Steered",
+    text: mode === "abort" ? "" : directive,
+    results,
+  }));
 
   const delivered = results.filter((r) => r.delivered).length;
   db.prepare(`

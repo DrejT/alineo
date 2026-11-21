@@ -100,8 +100,8 @@ const agentConfig = loadProjectConfig({
 function agentSpec(modelId: string, cpuMilli: number, memMi: number) {
   const model = resolveModel(modelId);
   return {
-    // One stable name per model, so the first start builds a snapshot and later starts reuse it.
-    name: `dash-${model.id}`,
+    // One stable name per backend model, so the first start builds a snapshot and later starts reuse it.
+    name: `dash-${model.backend.replace(/[^a-z0-9]+/gi, "-")}`,
     harness: "pi",
     harnessVersion: "1.2.0",
     provider: "nvidia",

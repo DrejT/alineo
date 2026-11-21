@@ -6,10 +6,13 @@ export interface Sandbox {
   parentId: string | null; depth: number; uptime: string; uptimeStart: number; egressPolicy: string;
   cpuLimitMilli: number; memLimitMi: number; cpuCurrentMilli: number; memCurrentMi: number; pid: number;
   checkpointId: string | null; checkpointAgo: string; checkpointTs: number | null;
-  mcpTools: string[]; modelProvider: string; agent: boolean; summary: string;
+  mcpTools: string[]; modelProvider: string; agent: boolean; runId: string | null; task: string; state: "idle" | "working" | "done" | "failed"; result: string; summary: string;
   recentExecs: { cmd: string; exit: number | string; dur: string; ts: string }[];
   logs: { type: string; text: string }[];
 }
+export interface RunNode { id: string; parentId: string | null; role: string; task: string; status: "running" | "paused" | "terminated"; state: "idle" | "working" | "done" | "failed"; result: string; depth: number; model: string; startedAt: number }
+export interface Run { id: string; goal: string; status: "starting" | "running" | "done" | "failed" | "stopped"; model: string; maxAgents: number; masterId: string | null; summary: string; createdAt: number; finishedAt: number | null; nodes: RunNode[] }
+export interface TranscriptRow { id: number; ts: number; kind: "user" | "agent" | "tool" | "note" | "error" | "steer"; ref: string | null; text: string }
 export interface Status {
   user: User;
   daemon: { online: boolean; port: number; adapter: string; bootTime: number; uptimeSeconds: number };
@@ -73,6 +76,10 @@ export const api = {
   /** Steer, queue a follow-up, or stop. Reports, per agent, whether the message was delivered. */
   steerAgent: (id: string, directive: string, scope: "node" | "subtree", mode: "steer" | "followUp" | "abort") =>
     request<{ results: { sandboxId: string; delivered: boolean; reason?: string }[] }>("POST", `/api/sandboxes/${id}/steer`, { directive, scope, mode }),
+  runs: () => request<Run[]>("GET", "/api/runs"),
+  startRun: (b: { goal: string; modelProvider: string; maxAgents: number }) => request<Run>("POST", "/api/runs", b),
+  stopRun: (id: string) => request("POST", `/api/runs/${id}/stop`),
+  transcript: (id: string) => request<TranscriptRow[]>("GET", `/api/sandboxes/${id}/transcript`),
   models: () => request<{ models: { id: string; label: string }[]; agents: boolean }>("GET", "/api/models"),
 
   ledger: (type?: string) => request<LedgerEvent[]>("GET", `/api/ledger${type && type !== "all" ? q({ type }) : ""}`),

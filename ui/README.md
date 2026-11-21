@@ -145,6 +145,22 @@ and no API route returns the backend id. Without the key, sandboxes stay plain c
 
 The key is passed into each agent's sandbox, so anyone who can open a sandbox can read it.
 
+## Agents page: goals and swarms
+
+**Agents** in the sidebar starts a goal. A master agent starts in its own container. It can create more
+containers, each with its own agent and task, through a `swarm` command installed in every agent sandbox
+(`swarm spawn`, `status`, `wait`, `send`). The command calls back to `/api/swarm/*` with a token scoped to one run.
+
+Each run shows as a tree: the run, the master, then its workers, and their workers. Every row has Chat
+(steer, queue or stop that agent, or its subtree) and Terminal. Stopping a run removes all its containers.
+A finished run keeps them for `ALINEO_UI_RUN_KEEP_MINUTES` (10), then removes them.
+
+Limits per run: most containers (default 5), at most `ALINEO_UI_RUN_DEPTH` (3) levels deep. Agents in one run
+do not share files. A worker hands work back as its final reply.
+
+`server/models.ts` holds only backends that passed a real Pi turn and 12 parallel requests. A swarm runs several
+agents at once, and NVIDIA's free tier answers 429 to some models under that load.
+
 ## Frontend (React + UI SDK)
 
 The dashboard UI lives in `web/`. It is a Vite + React 19 app built with [UI SDK](https://ui-sdk.dev) (`@ui-sdk/react`) and

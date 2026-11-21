@@ -25,6 +25,14 @@ export interface SandboxRecord {
   modelProvider: string;
   /** True when a Pi agent runs in this sandbox, so it accepts prompts and steering. */
   agent: boolean;
+  /** The swarm run this sandbox belongs to, if any. */
+  runId: string | null;
+  /** What this agent was asked to do (swarm nodes only). */
+  task: string;
+  /** 'working' while a turn runs; 'done' or 'failed' after it. */
+  state: 'idle' | 'working' | 'done' | 'failed';
+  /** The agent's last reply, clipped. */
+  result: string;
   summary: string;
   recentExecs: Array<{ cmd: string; exit: number | string; dur: string; ts: string }>;
   logs: Array<{ type: string; text: string }>;
@@ -76,6 +84,10 @@ export function listSandboxes(userId = 'usr_test'): SandboxRecord[] {
       mcpTools: JSON.parse(row.mcp_tools || '[]'),
       modelProvider: resolveModel(row.model_provider).id,
       agent: row.is_agent === 1,
+      runId: row.run_id ?? null,
+      task: row.task ?? '',
+      state: row.state ?? 'idle',
+      result: row.result ?? '',
       summary: row.summary,
       recentExecs: execs.map(e => ({
         cmd: e.cmd,
@@ -117,6 +129,10 @@ export function getSandbox(userId: string, id: string): SandboxRecord | null {
     mcpTools: JSON.parse(row.mcp_tools || '[]'),
     modelProvider: resolveModel(row.model_provider).id,
     agent: row.is_agent === 1,
+    runId: row.run_id ?? null,
+    task: row.task ?? '',
+    state: row.state ?? 'idle',
+    result: row.result ?? '',
     summary: row.summary,
     recentExecs: execs.map(e => ({
       cmd: e.cmd,
@@ -155,20 +171,20 @@ function addLedger(
 
 function insertSandboxRow(userId: string, row: {
   id: string; role: string; parentId: string | null; depth: number; cpu: number; mem: number;
-  tools: string[]; summary: string; model: string; checkpointId: string | null; egressPolicy?: string; agent?: boolean;
+  tools: string[]; summary: string; model: string; checkpointId: string | null; egressPolicy?: string; agent?: boolean; runId?: string | null; task?: string;
 }, now: number): void {
   db.prepare(`
     INSERT INTO sandboxes (
       id, user_id, role, status, parent_id, depth, uptime_start, egress_policy,
       cpu_limit_milli, mem_limit_mi, cpu_current_milli, mem_current_mi,
-      pid, checkpoint_id, checkpoint_ts, mcp_tools, summary, model_provider, is_agent
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      pid, checkpoint_id, checkpoint_ts, mcp_tools, summary, model_provider, is_agent, run_id, task
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     row.id, userId, row.role, 'running', row.parentId, row.depth, now,
     row.egressPolicy || 'allowlist-enforced', row.cpu, row.mem,
     0, 0, 0, // no live metrics wired yet: show zero, never invented numbers
     row.checkpointId, row.checkpointId ? now : null,
-    JSON.stringify(row.tools), row.summary, row.model, row.agent ? 1 : 0
+    JSON.stringify(row.tools), row.summary, row.model, row.agent ? 1 : 0, row.runId ?? null, row.task ?? ''
   );
 }
 
@@ -182,6 +198,8 @@ export async function spawnSandbox(userId: string, params: {
   summary?: string;
   /** Run a Pi agent in the sandbox. Defaults to true when the server has a model key. */
   agent?: boolean;
+  runId?: string | null;
+  task?: string;
 }): Promise<SandboxRecord> {
   const parent = params.parentId ? getSandbox(userId, params.parentId) : null;
   const cpu = params.cpuLimitMilli || 500;
@@ -206,7 +224,7 @@ export async function spawnSandbox(userId: string, params: {
     summary: params.summary || (wantAgent
       ? `Agent sandbox ${id}: Pi running ${resolveModel(model).label}.`
       : `OpenSandbox container ${id} (${SANDBOX_IMAGE}, ${cpu}m CPU, ${mem}Mi RAM).`),
-    model, checkpointId: null, agent: wantAgent,
+    model, checkpointId: null, agent: wantAgent, runId: params.runId ?? null, task: params.task ?? '',
   }, now);
   addLog(userId, id, 'exec_start', wantAgent ? `agent_ready: Pi agent running ${resolveModel(model).label} in sandbox ${id}` : `sandbox_ready: OpenSandbox ${id} running ${SANDBOX_IMAGE} (${cpu}m CPU / ${mem}Mi RAM)`, now);
   addLedger(userId, now, 'exec_start', id, 'SPAWN', `Spawned sandbox ${id} (${role}) with ${cpu}m CPU / ${mem}Mi RAM`,

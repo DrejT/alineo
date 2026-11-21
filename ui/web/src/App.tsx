@@ -3,12 +3,13 @@ import { Button } from "@ui-sdk/react/button";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@ui-sdk/react/command";
 import { Dialog, DialogBackdrop, DialogContent, DialogTitle } from "@ui-sdk/react/dialog";
 import { Toast, ToastDescription, ToastRegion, ToastTitle } from "@ui-sdk/react/toast";
-import { Boxes, Brain, LayoutDashboard, LogOut, Menu, Plug, Plus, ScrollText, Search, ShieldCheck, SquareTerminal, X } from "lucide-react";
+import { Bot, Boxes, Brain, LayoutDashboard, LogOut, Menu, Plug, Plus, ScrollText, Search, ShieldCheck, SquareTerminal, X } from "lucide-react";
 import { api, clearToken, hasToken, type Sandbox } from "./api";
 import { Badge, ErrorBoundary, IconButton, act, cx, toast, usePoll } from "./lib";
 import { Login, Logo } from "./views/Login";
 import { Overview } from "./views/Overview";
 import { Sandboxes, SpawnDialog } from "./views/Sandboxes";
+import { Agents } from "./views/Agents";
 import { TerminalDrawer } from "./views/Terminal";
 import { Ledger } from "./views/Ledger";
 import { Memory } from "./views/Memory";
@@ -19,6 +20,7 @@ import { Mcp } from "./views/Mcp";
 const SECTIONS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "sandboxes", label: "Sandboxes", icon: Boxes },
+  { id: "agents", label: "Agents", icon: Bot },
   { id: "ledger", label: "Audit ledger", icon: ScrollText },
   { id: "memory", label: "Memory", icon: Brain },
   { id: "security", label: "Security", icon: ShieldCheck },
@@ -170,6 +172,9 @@ function Shell({ onSignOut }: { onSignOut: () => void }) {
           </Section>
           <Section show={section === "sandboxes"}>
             <Sandboxes list={list} onTerminal={setTermId} onChange={refresh} loading={sandboxes.data === undefined} />
+          </Section>
+          <Section show={section === "agents"}>
+            <Agents list={list} onTerminal={setTermId} onChange={refresh} />
           </Section>
           <Section show={section === "ledger"}><Ledger /></Section>
           <Section show={section === "memory"}><Memory list={list} /></Section>

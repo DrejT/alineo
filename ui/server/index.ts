@@ -33,7 +33,8 @@ import {
 import { listEgressGates, decideEgressGate, createEgressGate } from "./security";
 import { getWorkflowState, enqueueWorkflowJob, flushWorkflowPipeline } from "./workflow";
 import { steerAgent } from "./steer";
-import { promptAgent } from "./agents";
+import { promptAgent, transcript } from "./agents";
+import { handleSwarm, listRuns, getRun, startRun, stopRun } from "./swarm";
 import { publicModels } from "./models";
 import { AGENTS_ENABLED } from "./runtime";
 import { executeOneCliCommand } from "./cli";
@@ -132,6 +133,8 @@ const server = Bun.serve({
       if (!user) return jsonResponse({ error: "Unauthorized" }, 401);
       return jsonResponse({ user });
     }
+
+    if (url.pathname.startsWith("/api/swarm/") && method === "POST") return handleSwarm(req, url);
 
     if (url.pathname === "/health") {
       return jsonResponse({ ok: true, version: "1.0.0", daemon: daemonOnline ? "online" : "offline" });
@@ -263,6 +266,34 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/models" && method === "GET") {
       return jsonResponse({ models: publicModels(), agents: AGENTS_ENABLED });
+    }
+
+    // --- Agent runs ---
+    if (url.pathname === "/api/runs" && method === "GET") {
+      return jsonResponse(listRuns(userId));
+    }
+    if (url.pathname === "/api/runs" && method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      try {
+        return jsonResponse(startRun(userId, { goal: String(body.goal ?? ""), modelProvider: body.modelProvider, maxAgents: body.maxAgents }), 201);
+      } catch (err) {
+        return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 400);
+      }
+    }
+    const runMatch = url.pathname.match(/^\/api\/runs\/([^\/]+)$/);
+    if (runMatch && method === "GET") {
+      const run = getRun(userId, runMatch[1]);
+      return run ? jsonResponse(run) : jsonResponse({ error: "Not found" }, 404);
+    }
+    const runStopMatch = url.pathname.match(/^\/api\/runs\/([^\/]+)\/stop$/);
+    if (runStopMatch && method === "POST") {
+      const ok = await stopRun(userId, runStopMatch[1]);
+      return jsonResponse({ ok }, ok ? 200 : 404);
+    }
+    const trMatch = url.pathname.match(/^\/api\/sandboxes\/([^\/]+)\/transcript$/);
+    if (trMatch && method === "GET") {
+      if (!getSandbox(userId, trMatch[1])) return jsonResponse({ error: "Not found" }, 404);
+      return jsonResponse(transcript(userId, trMatch[1]));
     }
 
     // --- Ledger ---
