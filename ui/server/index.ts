@@ -33,6 +33,9 @@ import {
 import { listEgressGates, decideEgressGate, createEgressGate } from "./security";
 import { getWorkflowState, enqueueWorkflowJob, flushWorkflowPipeline } from "./workflow";
 import { steerAgent } from "./steer";
+import { promptAgent } from "./agents";
+import { publicModels } from "./models";
+import { AGENTS_ENABLED } from "./runtime";
 import { executeOneCliCommand } from "./cli";
 
 const PORT = Number(process.env.PORT || (process.env.NODE_ENV === "test" ? 4699 : 4600));
@@ -228,9 +231,38 @@ const server = Bun.serve({
     const sbSteerMatch = url.pathname.match(/^\/api\/sandboxes\/([^\/]+)\/steer$/);
     if (sbSteerMatch && method === "POST") {
       const body = await req.json().catch(() => ({}));
-      if (!body.directive) return jsonResponse({ error: "Missing directive" }, 400);
-      const res = steerAgent(userId, sbSteerMatch[1], body.directive, body.scope || 'node');
+      if (!body.directive && body.mode !== 'abort') return jsonResponse({ error: "Missing directive" }, 400);
+      const mode = ['steer', 'followUp', 'abort'].includes(body.mode) ? body.mode : 'steer';
+      const res = await steerAgent(userId, sbSteerMatch[1], body.directive ?? '', body.scope || 'node', mode);
       return jsonResponse(res);
+    }
+
+    const sbPromptMatch = url.pathname.match(/^\/api\/sandboxes\/([^\/]+)\/agent\/prompt$/);
+    if (sbPromptMatch && method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      const message = typeof body.message === "string" ? body.message.trim() : "";
+      if (!message) return jsonResponse({ error: "Missing message" }, 400);
+      if (message.length > 8000) return jsonResponse({ error: "Message is too long (8000 characters max)" }, 400);
+      const frames = promptAgent(userId, sbPromptMatch[1], message);
+      const enc = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          // A comment line every few seconds keeps proxies from closing a quiet stream.
+          const beat = setInterval(() => { try { controller.enqueue(enc.encode(": keepalive\n\n")); } catch {} }, 5000);
+          try {
+            for await (const frame of frames) controller.enqueue(enc.encode(`data: ${JSON.stringify(frame)}\n\n`));
+          } finally {
+            clearInterval(beat);
+            controller.close();
+          }
+        },
+        cancel() { void frames.return(undefined); },
+      });
+      return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" } });
+    }
+
+    if (url.pathname === "/api/models" && method === "GET") {
+      return jsonResponse({ models: publicModels(), agents: AGENTS_ENABLED });
     }
 
     // --- Ledger ---
@@ -410,6 +442,7 @@ const server = Bun.serve({
           cpuLimitMilli: 500,
           memLimitMi: 512,
           mcpTools: ['GitHub', 'Slack'],
+          agent: false,
           summary: 'Orchestrating PR #418 review across forked security and performance sub-agents.',
         });
       }
@@ -436,7 +469,7 @@ const server = Bun.serve({
       });
       await pauseSandbox(userId, secChild.id);
 
-      steerAgent(userId, root.id, 'Verify RS256 token signing and enforce 900s expiry', 'subtree');
+      await steerAgent(userId, root.id, 'Verify RS256 token signing and enforce 900s expiry', 'subtree');
 
       return jsonResponse({
         success: true,

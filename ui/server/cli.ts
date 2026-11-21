@@ -83,11 +83,13 @@ export async function executeOneCliCommand(userId: string, rawCmd: string): Prom
       const scopeMatch = trimmed.match(/--scope\s+(node|subtree|fleet)/);
       const scope = (scopeMatch ? scopeMatch[1] : 'node') as 'node' | 'subtree' | 'fleet';
 
-      const res = steerAgent(userId, targetId, directive, scope);
-      output = `✓ Delivered steering directive to ${res.affectedSandboxIds.length} sandbox node(s) (scope=${scope}):
+      const res = await steerAgent(userId, targetId, directive, scope);
+      const ok = res.results.filter(r => r.delivered).length;
+      output = `${ok}/${res.results.length} agent(s) received the steering directive (scope=${scope}):
   Target: ${targetId}
   Directive: "${directive}"
-  Affected: ${res.affectedSandboxIds.join(', ')}`;
+` +
+        res.results.map(r => `  ${r.sandboxId}: ${r.delivered ? 'delivered' : `not delivered (${r.reason})`}`).join('\n');
     } else if (trimmed.startsWith('alineo memory recall')) {
       const queryMatch = trimmed.match(/recall\s+"?([^"]+)"?/);
       const queryStr = queryMatch ? queryMatch[1] : '';

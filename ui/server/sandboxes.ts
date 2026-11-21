@@ -1,5 +1,6 @@
 import { db } from "./db";
-import { createHandle, getHandle, trackHandle, dropHandle, withTimeout, SANDBOX_IMAGE, EXEC_TIMEOUT_MS } from "./runtime";
+import { createHandle, getHandle, trackHandle, dropHandle, withTimeout, startAgent, closeAgent, AGENTS_ENABLED, SANDBOX_IMAGE, EXEC_TIMEOUT_MS } from "./runtime";
+import { resolveModel } from "./models";
 
 export interface SandboxRecord {
   id: string;
@@ -20,7 +21,10 @@ export interface SandboxRecord {
   checkpointAgo: string;
   checkpointTs: number | null;
   mcpTools: string[];
+  /** A Gemini model id. The model that runs behind it is never exposed. */
   modelProvider: string;
+  /** True when a Pi agent runs in this sandbox, so it accepts prompts and steering. */
+  agent: boolean;
   summary: string;
   recentExecs: Array<{ cmd: string; exit: number | string; dur: string; ts: string }>;
   logs: Array<{ type: string; text: string }>;
@@ -70,7 +74,8 @@ export function listSandboxes(userId = 'usr_test'): SandboxRecord[] {
       checkpointAgo: timeAgo(row.checkpoint_ts),
       checkpointTs: row.checkpoint_ts,
       mcpTools: JSON.parse(row.mcp_tools || '[]'),
-      modelProvider: row.model_provider || 'gemini-3.8-flash',
+      modelProvider: resolveModel(row.model_provider).id,
+      agent: row.is_agent === 1,
       summary: row.summary,
       recentExecs: execs.map(e => ({
         cmd: e.cmd,
@@ -110,7 +115,8 @@ export function getSandbox(userId: string, id: string): SandboxRecord | null {
     checkpointAgo: timeAgo(row.checkpoint_ts),
     checkpointTs: row.checkpoint_ts,
     mcpTools: JSON.parse(row.mcp_tools || '[]'),
-    modelProvider: row.model_provider || 'gemini-3.8-flash',
+    modelProvider: resolveModel(row.model_provider).id,
+    agent: row.is_agent === 1,
     summary: row.summary,
     recentExecs: execs.map(e => ({
       cmd: e.cmd,
@@ -149,20 +155,20 @@ function addLedger(
 
 function insertSandboxRow(userId: string, row: {
   id: string; role: string; parentId: string | null; depth: number; cpu: number; mem: number;
-  tools: string[]; summary: string; model: string; checkpointId: string | null; egressPolicy?: string;
+  tools: string[]; summary: string; model: string; checkpointId: string | null; egressPolicy?: string; agent?: boolean;
 }, now: number): void {
   db.prepare(`
     INSERT INTO sandboxes (
       id, user_id, role, status, parent_id, depth, uptime_start, egress_policy,
       cpu_limit_milli, mem_limit_mi, cpu_current_milli, mem_current_mi,
-      pid, checkpoint_id, checkpoint_ts, mcp_tools, summary, model_provider
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      pid, checkpoint_id, checkpoint_ts, mcp_tools, summary, model_provider, is_agent
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     row.id, userId, row.role, 'running', row.parentId, row.depth, now,
     row.egressPolicy || 'allowlist-enforced', row.cpu, row.mem,
     0, 0, 0, // no live metrics wired yet: show zero, never invented numbers
     row.checkpointId, row.checkpointId ? now : null,
-    JSON.stringify(row.tools), row.summary, row.model
+    JSON.stringify(row.tools), row.summary, row.model, row.agent ? 1 : 0
   );
 }
 
@@ -174,26 +180,37 @@ export async function spawnSandbox(userId: string, params: {
   mcpTools?: string[];
   modelProvider?: string;
   summary?: string;
+  /** Run a Pi agent in the sandbox. Defaults to true when the server has a model key. */
+  agent?: boolean;
 }): Promise<SandboxRecord> {
   const parent = params.parentId ? getSandbox(userId, params.parentId) : null;
   const cpu = params.cpuLimitMilli || 500;
   const mem = params.memLimitMi || 512;
   const role = params.role || 'custom-agent';
   const tools = params.mcpTools && params.mcpTools.length > 0 ? params.mcpTools : ['Filesystem'];
-  const model = params.modelProvider || 'gemini-3.8-flash';
+  const model = resolveModel(params.modelProvider).id;
+  const wantAgent = (params.agent ?? true) && AGENTS_ENABLED;
 
-  const handle = await createHandle({ cpuMilli: cpu, memMi: mem, name: `${role}-${crypto.randomUUID().slice(0, 6)}` });
+  // An agent needs room for Pi and a model session, so it never gets less than this.
+  const agentCpu = Math.max(cpu, 1000);
+  const agentMem = Math.max(mem, 1024);
+  const handle = wantAgent
+    ? await startAgent({ modelId: model, cpuMilli: agentCpu, memMi: agentMem })
+    : await createHandle({ cpuMilli: cpu, memMi: mem, name: `${role}-${crypto.randomUUID().slice(0, 6)}` });
   const id = handle.sandboxId;
   const now = Date.now();
 
   insertSandboxRow(userId, {
-    id, role, parentId: parent ? parent.id : null, depth: parent ? parent.depth + 1 : 0, cpu, mem, tools,
-    summary: params.summary || `OpenSandbox container ${id} (${SANDBOX_IMAGE}, ${cpu}m CPU, ${mem}Mi RAM).`,
-    model, checkpointId: null,
+    id, role, parentId: parent ? parent.id : null, depth: parent ? parent.depth + 1 : 0,
+    cpu: wantAgent ? agentCpu : cpu, mem: wantAgent ? agentMem : mem, tools,
+    summary: params.summary || (wantAgent
+      ? `Agent sandbox ${id}: Pi running ${resolveModel(model).label}.`
+      : `OpenSandbox container ${id} (${SANDBOX_IMAGE}, ${cpu}m CPU, ${mem}Mi RAM).`),
+    model, checkpointId: null, agent: wantAgent,
   }, now);
-  addLog(userId, id, 'exec_start', `sandbox_ready: OpenSandbox ${id} running ${SANDBOX_IMAGE} (${cpu}m CPU / ${mem}Mi RAM)`, now);
+  addLog(userId, id, 'exec_start', wantAgent ? `agent_ready: Pi agent running ${resolveModel(model).label} in sandbox ${id}` : `sandbox_ready: OpenSandbox ${id} running ${SANDBOX_IMAGE} (${cpu}m CPU / ${mem}Mi RAM)`, now);
   addLedger(userId, now, 'exec_start', id, 'SPAWN', `Spawned sandbox ${id} (${role}) with ${cpu}m CPU / ${mem}Mi RAM`,
-    parent ? 'fork' : 'main', `spawn ${role}`, { cpu, mem, image: SANDBOX_IMAGE, parentId: parent?.id, tools });
+    parent ? 'fork' : 'main', `spawn ${role}`, { cpu, mem, image: SANDBOX_IMAGE, parentId: parent?.id, tools, agent: wantAgent, model });
 
   return getSandbox(userId, id)!;
 }
@@ -240,7 +257,7 @@ export async function forkSandbox(userId: string, parentId: string, childRole?: 
     id: childId, role, parentId: parent.id, depth: parent.depth + 1,
     cpu: parent.cpuLimitMilli, mem: parent.memLimitMi, tools: parent.mcpTools,
     summary: `Forked from ${parent.id}: filesystem snapshot restored into a new container.`,
-    model: modelProvider || parent.modelProvider || 'gemini-3.8-flash', checkpointId: null,
+    model: resolveModel(modelProvider || parent.modelProvider).id, checkpointId: null,
   }, now);
   addLog(userId, parent.id, 'exec_event', `fork_spawn: created child sandbox ${childId} (${role})`, now);
   addLog(userId, childId, 'exec_start', `fork_init: restored snapshot of ${parent.id}`, now);
@@ -266,6 +283,7 @@ export async function checkpointSandbox(userId: string, id: string, tag?: string
 export async function terminateSandbox(userId: string, id: string): Promise<boolean> {
   const sb = getSandbox(userId, id);
   if (!sb) return false;
+  await closeAgent(id);
   try {
     const handle = await getHandle(id, sb.role);
     await handle.close();

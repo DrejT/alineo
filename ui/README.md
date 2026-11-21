@@ -134,6 +134,17 @@ ui/
 
 ---
 
+## Agents: chat and steering
+
+With `NVIDIA_API_KEY` set, each new sandbox runs a Pi agent. The sandbox list gets a **Chat** button next to
+Fork. The panel sends prompts, streams the agent's tool calls and reply, and lets you steer a running turn,
+queue a follow-up, or stop it. With the checkbox on, steer, queue and stop also reach every child sandbox.
+
+The UI shows only Gemini names. The map in `server/models.ts` sets which NVIDIA model runs behind each one,
+and no API route returns the backend id. Without the key, sandboxes stay plain containers.
+
+The key is passed into each agent's sandbox, so anyone who can open a sandbox can read it.
+
 ## Frontend (React + UI SDK)
 
 The dashboard UI lives in `web/`. It is a Vite + React 19 app built with [UI SDK](https://ui-sdk.dev) (`@ui-sdk/react`) and
