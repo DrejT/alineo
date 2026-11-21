@@ -18,6 +18,8 @@ mkdirSync(DATA_DIR, { recursive: true });
 export const OPENSANDBOX_URL = process.env.OPENSANDBOX_URL ?? "http://127.0.0.1:8080";
 export const SANDBOX_IMAGE = process.env.ALINEO_UI_SANDBOX_IMAGE ?? "node:22";
 export const MAX_SANDBOXES = Number(process.env.ALINEO_UI_MAX_SANDBOXES ?? 8);
+/** Agents run Pi and Chrome, about 1.5 GB each, so they have their own, lower cap. */
+export const MAX_AGENTS = Number(process.env.ALINEO_UI_MAX_AGENTS ?? 3);
 export const SANDBOX_TIMEOUT_SECONDS = Number(process.env.ALINEO_UI_SANDBOX_TIMEOUT ?? 60 * 60 * 4);
 export const EXEC_TIMEOUT_MS = Number(process.env.ALINEO_UI_EXEC_TIMEOUT_MS ?? 120_000);
 
@@ -184,6 +186,9 @@ export async function startAgent(opts: { modelId: string; cpuMilli: number; memM
   if (!AGENTS_ENABLED) throw new Error("Agents are not enabled on this server.");
   if (handles.size >= MAX_SANDBOXES) {
     throw new Error(`Sandbox limit reached (${MAX_SANDBOXES}). Terminate one first.`);
+  }
+  if (agents.size >= MAX_AGENTS) {
+    throw new Error(`Agent limit reached (${MAX_AGENTS} at a time). Stop a goal or terminate an agent first.`);
   }
   // Build the cached image first if it is missing. Starting two agents on an empty cache would build it twice.
   await warmAgentImage();
