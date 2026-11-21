@@ -191,16 +191,19 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (running) void steer("steer"); else void send();
+    if (working) void steer("steer"); else void send();
   }
   function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (running) void steer("steer"); else void send(); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (working) void steer("steer"); else void send(); }
   }
 
   const names = useMemo(() => new Map([[id, sandbox?.role ?? id], ...children.map((c) => [c.id, c.role] as [string, string])]), [id, sandbox?.role, children]);
   const hasAgent = Boolean(sandbox?.agent);
   const childAgents = children.filter((c) => c.agent).length;
   const canSend = sandbox?.status === "running" && hasAgent;
+  // Busy means a prompt from this panel is streaming, or the server says the agent is working. A goal's master works
+  // in the background, so only the second case applies to it, and steering must be offered for both.
+  const working = running || sandbox?.state === "working";
 
   return (
     <Drawer open={sandbox !== null} onOpenChange={(o) => { if (!o) onClose(); }} side="right">
@@ -259,7 +262,7 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
                   </div>
                 );
               })}
-              {running && <p className="text-xs text-fd-muted-foreground" aria-live="polite">Working…</p>}
+              {working && <p className="text-xs text-fd-muted-foreground" aria-live="polite">Working…</p>}
             </div>
           )}
         </div>
@@ -277,11 +280,11 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
             onKeyDown={onKey}
             rows={3}
             disabled={!canSend}
-            placeholder={!canSend ? (hasAgent ? "Resume the sandbox to chat" : "No agent in this sandbox") : running ? "Steer the agent while it works…" : "Ask the agent to do something…"}
+            placeholder={!canSend ? (hasAgent ? "Resume the sandbox to chat" : "No agent in this sandbox") : working ? "Steer the agent while it works…" : "Ask the agent to do something…"}
             aria-label="Message to the agent"
           />
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {running ? (
+            {working ? (
               <>
                 <Button type="button" className="btn-sm inline-flex items-center gap-1.5" onClick={() => void steer("abort")}><Square className="size-3.5" aria-hidden="true" /><span>Stop</span></Button>
                 <Button type="button" className="btn-sm" onClick={() => void steer("followUp")} disabled={!text.trim()}>Queue next</Button>
