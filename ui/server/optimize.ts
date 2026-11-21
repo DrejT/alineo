@@ -6,7 +6,8 @@ import { resolveModel, scrub } from "./models";
 import { AGENTS_ENABLED, MAX_AGENTS } from "./runtime";
 
 const CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-const TIMEOUT_MS = 90_000;
+/** One try. A stalled call is cut at this point and tried once more, so the user waits about a minute at worst. */
+const TIMEOUT_MS = 30_000;
 const MAX_GOAL = 4000;
 
 /** Calls per user per minute. Each call spends the server's model quota, and signup is open. */
@@ -50,6 +51,28 @@ function clean(text: string): string {
   return out;
 }
 
+/** Send the request. A timeout, a network error, a 429 or a 5xx gets one more try after a short pause. */
+async function callModel(body: string): Promise<Response> {
+  let last: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.NVIDIA_API_KEY}` },
+        body,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      if (res.status !== 429 && res.status < 500) return res;
+      last = res;
+    } catch (err) {
+      last = err;
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (last instanceof Response) return last;
+  throw last;
+}
+
 export async function optimizeGoal(userId: string, input: { goal: string; maxAgents?: number }): Promise<string> {
   if (!AGENTS_ENABLED) throw new Error("Agents are not enabled on this server.");
   const goal = input.goal.trim();
@@ -60,20 +83,18 @@ export async function optimizeGoal(userId: string, input: { goal: string; maxAge
   // The rewrite always runs on the strongest model. The user's pick sets the swarm, not this step.
   const model = resolveModel("gemini-3.8-pro");
   const maxAgents = Math.min(Math.max(Math.floor(input.maxAgents ?? 3), 1), MAX_AGENTS);
-  const res = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.NVIDIA_API_KEY}` },
-    body: JSON.stringify({
-      model: model.backend,
-      temperature: 0.3,
-      max_tokens: 2000,
-      messages: [
-        { role: "system", content: system(maxAgents) },
-        { role: "user", content: `Goal to rewrite:\n\n${goal}` },
-      ],
-    }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  }).catch((err) => { throw new Error(err instanceof Error && err.name === "TimeoutError" ? "The rewrite took too long. Try again." : "The rewrite could not reach the model."); });
+  const body = JSON.stringify({
+    model: model.backend,
+    temperature: 0.3,
+    max_tokens: 2000,
+    messages: [
+      { role: "system", content: system(maxAgents) },
+      { role: "user", content: `Goal to rewrite:\n\n${goal}` },
+    ],
+  });
+  const res = await callModel(body).catch((err) => {
+    throw new Error(err instanceof Error && err.name === "TimeoutError" ? "The rewrite took too long. Try again." : "The rewrite could not reach the model.");
+  });
 
   if (res.status === 429) throw new Error("The model is busy. Try again in a moment.");
   if (!res.ok) throw new Error("The rewrite failed. Try again.");
