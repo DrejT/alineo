@@ -215,6 +215,11 @@ export async function getAgent(id: string, modelId: string, cpuMilli: number, me
   return entry;
 }
 
+/** How many agents are alive right now. */
+export function agentCount(): number {
+  return agents.size;
+}
+
 export function peekAgent(id: string) {
   return agents.get(id);
 }
