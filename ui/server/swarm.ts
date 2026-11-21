@@ -6,7 +6,7 @@
  */
 import { db } from "./db";
 import { getSandbox, spawnSandbox, terminateSandbox, type SandboxRecord } from "./sandboxes";
-import { getHandle, peekAgent, AGENTS_ENABLED, MAX_AGENTS } from "./runtime";
+import { getHandle, peekAgent, agentCount, AGENTS_ENABLED, MAX_AGENTS } from "./runtime";
 import { promptAgent, recordEvent } from "./agents";
 import { resolveModel } from "./models";
 import { steerAgent } from "./steer";
@@ -169,6 +169,19 @@ async function removeContainers(userId: string, runId: string): Promise<void> {
   db.prepare(`DELETE FROM swarm_tokens WHERE run_id = ?`).run(runId);
 }
 
+/**
+ * A goal that has ended keeps its containers for a while so you can look at them. They also hold the agent
+ * cap, so a new goal reclaims them, oldest first, until it has room. Goals that are still running are never touched.
+ */
+async function makeRoom(needed: number): Promise<void> {
+  if (agentCount() + needed <= MAX_AGENTS) return;
+  const ended = db.query(`SELECT user_id AS u, id FROM runs WHERE status IN ('done', 'failed', 'stopped') ORDER BY COALESCE(finished_at, created_at) ASC`).all() as { u: string; id: string }[];
+  for (const r of ended) {
+    if (agentCount() + needed <= MAX_AGENTS) return;
+    await removeContainers(r.u, r.id);
+  }
+}
+
 /** Start a run. Returns at once; the master sandbox starts in the background. */
 export function startRun(userId: string, input: { goal: string; modelProvider?: string; maxAgents?: number }): Run {
   if (!AGENTS_ENABLED) throw new Error("Agents are not enabled on this server.");
@@ -183,6 +196,7 @@ export function startRun(userId: string, input: { goal: string; modelProvider?: 
 
   void (async () => {
     try {
+      await makeRoom(maxAgents);
       const master = await spawnSandbox(userId, { role: "master", modelProvider: model, runId: id, task: goal, agent: true, cpuLimitMilli: 1000, memLimitMi: 1536 });
       db.prepare(`UPDATE runs SET master_id = ?, status = 'running' WHERE id = ?`).run(master.id, id);
       await installSwarm(userId, id, master.id);
