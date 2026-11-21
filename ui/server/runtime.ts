@@ -9,7 +9,7 @@ import { Sandbox, type SandboxHandle } from "@alineo-labs/sandbox";
 import { SQLiteAdapter } from "@alineo-labs/sqlite";
 import { Alineo, AgentSnapshotStore, computeSetupHash, snapshotsPath } from "alineo";
 import { loadProjectConfig } from "@alineo-labs/config-shared";
-import { resolveModel } from "./models";
+import { resolveModel, scrubText } from "./models";
 
 const DATA_DIR = process.env.ALINEO_UI_DATA_DIR ?? join(import.meta.dir, "..", "data");
 mkdirSync(DATA_DIR, { recursive: true });
@@ -79,7 +79,7 @@ export async function withTimeout<T>(p: PromiseLike<T>, ms: number, what: string
 }
 
 // ---------------------------------------------------------------------------
-// Agents: a Pi agent running inside its own sandbox, driven by an NVIDIA NIM model.
+// Agents: a Pi agent running inside its own sandbox, driven by the model behind each Gemini name (see models.ts).
 // ---------------------------------------------------------------------------
 
 /** Agents need a model key. Without one every sandbox stays a plain container. */
@@ -153,7 +153,7 @@ let buildError: string | undefined;
 export async function agentImage(): Promise<ImageState> {
   if (!AGENTS_ENABLED) return { state: "off" };
   if (building) return { state: "building" };
-  if (buildError) return { state: "error", detail: buildError };
+  if (buildError) return { state: "error", detail: scrubText(buildError) };
   const spec = agentSpec("gemini-3.8-flash", 1000, 1536);
   const rec = await new AgentSnapshotStore(snapshotsPath(agentConfig.adapterPath)).get(spec.name, computeSetupHash(spec as never));
   return rec ? { state: "ready", builtAt: rec.createdAt } : { state: "missing" };
@@ -181,13 +181,13 @@ export function warmAgentImage(): Promise<void> {
 const agents = new Map<string, { agent: Alineo; modelId: string; busy: boolean; steered: boolean }>();
 
 export async function startAgent(opts: { modelId: string; cpuMilli: number; memMi: number }): Promise<SandboxHandle> {
-  if (!AGENTS_ENABLED) throw new Error("Agents are off: NVIDIA_API_KEY is not set on the server.");
+  if (!AGENTS_ENABLED) throw new Error("Agents are not enabled on this server.");
   if (handles.size >= MAX_SANDBOXES) {
     throw new Error(`Sandbox limit reached (${MAX_SANDBOXES}). Terminate one first.`);
   }
   // Build the cached image first if it is missing. Starting two agents on an empty cache would build it twice.
   await warmAgentImage();
-  if (buildError) throw new Error(`The agent image could not be built: ${buildError}`);
+  if (buildError) throw new Error(`The agent image could not be built: ${scrubText(buildError)}`);
   const agent = await Alineo.start(agentSpec(opts.modelId, opts.cpuMilli, opts.memMi), { adapter, config: agentConfig });
   const sb = agent.sandbox;
   handles.set(sb.sandboxId, sb);
@@ -199,7 +199,7 @@ export async function startAgent(opts: { modelId: string; cpuMilli: number; memM
 export async function getAgent(id: string, modelId: string, cpuMilli: number, memMi: number) {
   const known = agents.get(id);
   if (known) return known;
-  if (!AGENTS_ENABLED) throw new Error("Agents are off: NVIDIA_API_KEY is not set on the server.");
+  if (!AGENTS_ENABLED) throw new Error("Agents are not enabled on this server.");
   const opts = { adapter, config: agentConfig, spec: agentSpec(modelId, cpuMilli, memMi) };
   // Reattach keeps Pi's bridge, and any turn still running, alive. Resume restarts the bridge and
   // is the fallback for a bridge that died.

@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { createHandle, getHandle, trackHandle, dropHandle, withTimeout, startAgent, closeAgent, AGENTS_ENABLED, SANDBOX_IMAGE, EXEC_TIMEOUT_MS } from "./runtime";
-import { resolveModel } from "./models";
+import { resolveModel, scrubText } from "./models";
 
 export interface SandboxRecord {
   id: string;
@@ -354,6 +354,7 @@ export async function execInSandbox(userId: string, id: string, cmd: string): Pr
       stdout = `[exec error] ${err instanceof Error ? err.message : String(err)}`;
     }
   }
+  stdout = scrubText(stdout);
   const durationMs = Math.round(performance.now() - start);
 
   db.prepare(`INSERT INTO sandbox_execs (user_id, sandbox_id, cmd, exit_code, duration_ms, ts) VALUES (?, ?, ?, ?, ?, ?)`).run(
