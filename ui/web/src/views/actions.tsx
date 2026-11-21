@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { Dialog, DialogBackdrop, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@ui-sdk/react/dialog";
-import { GitFork, Pause, Play, Save, SquareTerminal, Trash2 } from "lucide-react";
+import { GitFork, MessageSquare, Pause, Play, Save, SquareTerminal, Trash2 } from "lucide-react";
 import { api, type Sandbox } from "../api";
 import { IconButton, act } from "../lib";
+import { ChatPanel } from "./ChatPanel";
 
 export function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, onConfirm }: {
   open: boolean; onOpenChange: (o: boolean) => void; title: string; description: ReactNode; confirmLabel: string; onConfirm: () => void;
@@ -43,6 +44,7 @@ function ActionItem({ compact, label, icon, onClick, disabled, destructive }: {
 /** Lifecycle buttons for one sandbox. Every action calls the real OpenSandbox container through the API. */
 export function SandboxActions({ sb, onTerminal, onChange, compact }: { sb: Sandbox; onTerminal: (id: string) => void; onChange: () => void; compact?: boolean }) {
   const [confirm, setConfirm] = useState(false);
+  const [chat, setChat] = useState(false);
   const running = sb.status === "running";
   const ic = "size-3.5";
   return (
@@ -53,7 +55,9 @@ export function SandboxActions({ sb, onTerminal, onChange, compact }: { sb: Sand
         : <ActionItem compact={compact} label="Resume" icon={<Play className={ic} aria-hidden="true" />} onClick={() => void act("Sandbox resumed", () => api.resume(sb.id), onChange)} />}
       <ActionItem compact={compact} label="Checkpoint" icon={<Save className={ic} aria-hidden="true" />} onClick={() => void act("Checkpoint saved", () => api.checkpoint(sb.id), onChange)} disabled={!running} />
       <ActionItem compact={compact} label={compact ? "Fork into a new container" : "Fork"} icon={<GitFork className={ic} aria-hidden="true" />} onClick={() => void act("Forked into a new container", () => api.fork(sb.id), onChange)} disabled={!running} />
+      {sb.agent && <ActionItem compact={compact} label={compact ? "Chat with the agent" : "Chat"} icon={<MessageSquare className={ic} aria-hidden="true" />} onClick={() => setChat(true)} disabled={!running} />}
       <ActionItem compact={compact} label="Terminate" icon={<Trash2 className={ic} aria-hidden="true" />} onClick={() => setConfirm(true)} destructive />
+      {sb.agent && <ChatPanel sandbox={chat ? sb : null} onClose={() => setChat(false)} onChange={onChange} />}
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}

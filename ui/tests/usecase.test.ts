@@ -139,7 +139,7 @@ test("End-to-End Use Case: PR #418 Automated Code Review & Security Swarm", asyn
   expect(resumedChild?.status).toBe('running');
 
   // 7. Agent Steering: Subtree Directive
-  const steerResult = steerAgent(userId, root.id, 'Prioritize token signature validation', 'subtree');
+  const steerResult = await steerAgent(userId, root.id, 'Prioritize token signature validation', 'subtree');
   expect(steerResult.affectedSandboxIds).toContain(root.id);
   expect(steerResult.affectedSandboxIds).toContain(secChild.id);
 

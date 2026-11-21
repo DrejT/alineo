@@ -179,6 +179,9 @@ CREATE TABLE IF NOT EXISTS vault_credentials (
 try {
   db.run(`ALTER TABLE sandboxes ADD COLUMN model_provider TEXT DEFAULT 'claude-3-5-sonnet'`);
 } catch {}
+try {
+  db.run(`ALTER TABLE sandboxes ADD COLUMN is_agent INTEGER NOT NULL DEFAULT 0`);
+} catch {}
 
 // Auto-seed default user if not exists
 const defaultUser = db.query(`SELECT id FROM users WHERE username = 'test'`).get() as any;

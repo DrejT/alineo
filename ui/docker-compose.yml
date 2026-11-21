@@ -12,6 +12,9 @@
 #   ALINEO_UI_PORT            host port (default 4610)
 #   OPENSANDBOX_URL           the OpenSandbox server (default http://host.docker.internal:8080)
 #   ALINEO_UI_MAX_SANDBOXES   how many sandboxes can exist at once (default 8)
+#   NVIDIA_API_KEY            turns on agents (chat and steering). Empty means plain sandboxes only.
+#                             The key is passed into each agent's sandbox, so anyone who can open a
+#                             sandbox can read it. Use a key you can revoke, and not on an open-signup host.
 services:
   ui:
     build:
@@ -27,5 +30,6 @@ services:
       PORT: "4610"
       OPENSANDBOX_URL: ${OPENSANDBOX_URL:-http://host.docker.internal:8080}
       ALINEO_UI_MAX_SANDBOXES: ${ALINEO_UI_MAX_SANDBOXES:-8}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
     volumes:
       - ./data:/data

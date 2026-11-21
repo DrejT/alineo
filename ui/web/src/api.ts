@@ -6,7 +6,7 @@ export interface Sandbox {
   parentId: string | null; depth: number; uptime: string; uptimeStart: number; egressPolicy: string;
   cpuLimitMilli: number; memLimitMi: number; cpuCurrentMilli: number; memCurrentMi: number; pid: number;
   checkpointId: string | null; checkpointAgo: string; checkpointTs: number | null;
-  mcpTools: string[]; modelProvider: string; summary: string;
+  mcpTools: string[]; modelProvider: string; agent: boolean; summary: string;
   recentExecs: { cmd: string; exit: number | string; dur: string; ts: string }[];
   logs: { type: string; text: string }[];
 }
@@ -70,6 +70,10 @@ export const api = {
   checkpoint: (id: string, tag?: string) => request<{ checkpointId: string }>("POST", `/api/sandboxes/${id}/checkpoint`, { tag }),
   exec: (id: string, command: string) => request<{ stdout: string; exitCode: number; durationMs: number }>("POST", `/api/sandboxes/${id}/exec`, { command }),
   steer: (id: string, directive: string, scope: string) => request<{ affectedSandboxIds: string[] }>("POST", `/api/sandboxes/${id}/steer`, { directive, scope }),
+  /** Steer, queue a follow-up, or stop. Reports, per agent, whether the message was delivered. */
+  steerAgent: (id: string, directive: string, scope: "node" | "subtree", mode: "steer" | "followUp" | "abort") =>
+    request<{ results: { sandboxId: string; delivered: boolean; reason?: string }[] }>("POST", `/api/sandboxes/${id}/steer`, { directive, scope, mode }),
+  models: () => request<{ models: { id: string; label: string }[]; agents: boolean }>("GET", "/api/models"),
 
   ledger: (type?: string) => request<LedgerEvent[]>("GET", `/api/ledger${type && type !== "all" ? q({ type }) : ""}`),
   replay: (seq: number) => request<{ replayedEvents: LedgerEvent[] }>("POST", "/api/ledger/replay", { seq }),
@@ -93,3 +97,42 @@ export const api = {
 
   cli: (command: string) => request<{ command: string; exitCode: number; output: string; durationMs: number }>("POST", "/api/cli/run", { command }),
 };
+
+export type AgentFrame =
+  | { type: "text"; text: string }
+  | { type: "tool_start"; id: string; tool: string; input: string }
+  | { type: "tool_end"; id: string; tool: string; output: string; isError: boolean }
+  | { type: "note"; text: string }
+  | { type: "done"; ms: number; chars: number }
+  | { type: "error"; message: string };
+
+/** Send a prompt to the sandbox's agent and call `onFrame` for each streamed frame. */
+export async function promptAgent(id: string, message: string, onFrame: (f: AgentFrame) => void, signal?: AbortSignal): Promise<void> {
+  const t = token();
+  const res = await fetch(`/api/sandboxes/${id}/agent/prompt`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+    body: JSON.stringify({ message }),
+    signal,
+  });
+  if (res.status === 401) { clearToken(); throw new AuthError("Session expired"); }
+  if (!res.ok || !res.body) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i: number;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const block = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      const line = block.split("\n").find((l) => l.startsWith("data: "));
+      if (line) { try { onFrame(JSON.parse(line.slice(6)) as AgentFrame); } catch { /* ignore a malformed frame */ } }
+    }
+  }
+}
