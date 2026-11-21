@@ -150,18 +150,22 @@ export async function* promptAgent(userId: string, sandboxId: string, message: s
         await new Promise((r) => setTimeout(r, 1000));
       }
       const text = scrub(lastAssistantText(await entry.agent.getMessages().catch(() => [])), model);
-      if (text) { chars += text.length; reply += text; yield { type: "text", text }; }
+      if (text) { chars += text.length; reply += text; lastSegment += text; yield { type: "text", text }; }
     }
     flushText();
     const ms = Date.now() - start;
-    if (chars === 0) {
-      recordEvent(userId, sandboxId, "error", "The agent ended the turn without a reply.");
+    // A turn is finished only if the agent wrote text after its last tool call. A turn that ends right after
+    // a tool result, or after narration such as "Let me check...", was cut short (a model error, a rate limit,
+    // a dropped connection). Calling it done would hand the user a half-finished run.
+    if (lastSegment.trim().length === 0) {
+      const none = chars === 0;
+      const note = none ? "The agent ended the turn without a reply." : "The agent stopped before giving a final reply.";
+      recordEvent(userId, sandboxId, "error", note);
       // A caller that will retry keeps the agent marked as working, so nobody sees a false failure.
-      if (!opts.keepWorking) setState(userId, sandboxId, "failed", "");
-      // Pi reports a provider failure as an empty turn. Say so instead of showing nothing.
-      yield { type: "error", message: "The agent ended the turn without a reply. Try again, or pick another model." };
+      if (!opts.keepWorking) setState(userId, sandboxId, "failed", none ? "" : clip(reply, 4000));
+      yield { type: "error", message: `${note} Try again, or pick another model.` };
     } else {
-      setState(userId, sandboxId, "done", clip((lastSegment.trim() || reply).trim(), 4000));
+      setState(userId, sandboxId, "done", clip(lastSegment.trim(), 4000));
       yield { type: "done", ms, chars };
     }
     log(userId, sandboxId, "exec_complete", `agent_reply (${ms}ms): ${clip(reply, 200)}`, Date.now());
