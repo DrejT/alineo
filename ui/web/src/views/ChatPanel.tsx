@@ -15,6 +15,11 @@ type Msg =
   | { kind: "steer"; label: string; text: string; results: { sandboxId: string; delivered: boolean; reason?: string }[] }
   | { kind: "error"; text: string };
 
+/** Cheap fingerprint of a transcript: changes when a row is added or a tool row gets its output. */
+function fingerprint(rows: TranscriptRow[]): string {
+  return `${rows.length}:${rows[rows.length - 1]?.id ?? 0}:${rows.reduce((n, r) => n + r.text.length, 0)}`;
+}
+
 /** Turn the server's saved rows into messages. The server keeps every agent's thread, including a background agent's. */
 function fromRows(rows: TranscriptRow[]): Msg[] {
   const out: Msg[] = [];
@@ -63,7 +68,11 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
   const [running, setRunning] = useState(false);
   const [withChildren, setWithChildren] = useState(false);
   const [children, setChildren] = useState<Sandbox[]>([]);
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // True while the reader is at the bottom. Only then do new messages scroll the thread down.
+  const stickRef = useRef(true);
+  // Fingerprint of the last transcript shown, so an unchanged poll does not redraw the thread.
+  const seenRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
 
   // Load the saved thread when the panel opens on a sandbox, and keep it current while no local prompt is streaming.
@@ -72,7 +81,16 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
   useEffect(() => {
     if (!id) return;
     let live = true;
-    const load = () => api.transcript(id).then((rows) => { if (live && !runningRef.current) setMsgs(fromRows(rows)); }).catch(() => {});
+    const load = () => api.transcript(id).then((rows) => {
+      if (!live || runningRef.current) return;
+      const key = fingerprint(rows);
+      if (key === seenRef.current) return;
+      seenRef.current = key;
+      setMsgs(fromRows(rows));
+    }).catch(() => {});
+    // A different agent starts at the bottom.
+    stickRef.current = true;
+    seenRef.current = "";
     setMsgs([]);
     void load();
     const t = setInterval(() => void load(), 2000);
@@ -95,7 +113,16 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
     return () => { live = false; };
   }, [id]);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [msgs]);
+  // Follow new messages only if the reader is already at the bottom. Scrolling up to read stays put.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
+  }, [msgs]);
+
+  function onScroll() {
+    const el = scrollRef.current;
+    if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
 
   function update(fn: (m: Msg[]) => Msg[]) {
     setMsgs(fn);
@@ -138,7 +165,7 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
       setRunning(false);
       abortRef.current = null;
       // Show what the server saved, which now includes this turn.
-      api.transcript(id).then((rows) => setMsgs(fromRows(rows))).catch(() => {});
+      api.transcript(id).then((rows) => { seenRef.current = fingerprint(rows); setMsgs(fromRows(rows)); }).catch(() => {});
       onChange();
     }
   }
@@ -195,7 +222,7 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-fd-border bg-fd-muted p-3">
+        <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-fd-border bg-fd-muted p-3">
           {!hasAgent ? (
             <p className="p-2 text-sm text-fd-muted-foreground">This sandbox has no agent. Spawn a new sandbox to chat: new sandboxes start with an agent.</p>
           ) : msgs.length === 0 ? (
@@ -232,7 +259,6 @@ export function ChatPanel({ sandbox, onClose, onChange }: { sandbox: Sandbox | n
                 );
               })}
               {running && <p className="text-xs text-fd-muted-foreground" aria-live="polite">Working…</p>}
-              <div ref={endRef} />
             </div>
           )}
         </div>
