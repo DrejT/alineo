@@ -209,9 +209,9 @@ export async function spawnSandbox(userId: string, params: {
   const model = resolveModel(params.modelProvider).id;
   const wantAgent = (params.agent ?? true) && AGENTS_ENABLED;
 
-  // An agent needs room for Pi and a model session, so it never gets less than this.
+  // An agent needs room for Pi, a model session and Chrome, so it never gets less than this.
   const agentCpu = Math.max(cpu, 1000);
-  const agentMem = Math.max(mem, 1024);
+  const agentMem = Math.max(mem, 1536);
   const handle = wantAgent
     ? await startAgent({ modelId: model, cpuMilli: agentCpu, memMi: agentMem })
     : await createHandle({ cpuMilli: cpu, memMi: mem, name: `${role}-${crypto.randomUUID().slice(0, 6)}` });

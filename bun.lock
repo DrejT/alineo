@@ -822,6 +822,7 @@
       "name": "@alineo-labs/control-plane-ui",
       "version": "1.0.0",
       "dependencies": {
+        "@alineo-labs/agent-browser": "workspace:*",
         "@alineo-labs/config-shared": "workspace:*",
         "@alineo-labs/sandbox": "workspace:*",
         "@alineo-labs/sqlite": "workspace:*",

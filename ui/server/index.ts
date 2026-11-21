@@ -36,7 +36,8 @@ import { steerAgent } from "./steer";
 import { promptAgent, transcript } from "./agents";
 import { handleSwarm, listRuns, getRun, startRun, stopRun } from "./swarm";
 import { publicModels } from "./models";
-import { AGENTS_ENABLED } from "./runtime";
+import { authorizeBrowser, browserSocket, type BrowserSocketData } from "./browser";
+import { AGENTS_ENABLED, agentImage, warmAgentImage } from "./runtime";
 import { executeOneCliCommand } from "./cli";
 
 const PORT = Number(process.env.PORT || (process.env.NODE_ENV === "test" ? 4699 : 4600));
@@ -87,12 +88,21 @@ function getAuthUser(req: Request): User | null {
   return null;
 }
 
-const server = Bun.serve({
+const server = Bun.serve<BrowserSocketData>({
   port: PORT,
   idleTimeout: 255,
-  async fetch(req) {
+  websocket: browserSocket,
+  async fetch(req, srv) {
     const url = new URL(req.url);
     const method = req.method;
+
+    // Live view of an agent's browser: a WebSocket, authorized by the token in the query.
+    const wsMatch = url.pathname.match(/^\/api\/sandboxes\/([^\/]+)\/browser$/);
+    if (wsMatch && req.headers.get("upgrade")?.toLowerCase() === "websocket") {
+      const data = authorizeBrowser(url, wsMatch[1]);
+      if (data instanceof Response) return data;
+      return srv.upgrade(req, { data }) ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
+    }
 
     if (method === "OPTIONS") return corsPreflight();
 
@@ -266,6 +276,9 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/models" && method === "GET") {
       return jsonResponse({ models: publicModels(), agents: AGENTS_ENABLED });
+    }
+    if (url.pathname === "/api/agents/image" && method === "GET") {
+      return jsonResponse(await agentImage());
     }
 
     // --- Agent runs ---
@@ -553,4 +566,6 @@ const server = Bun.serve({
 });
 
 console.log(`[alineo-control-plane] listening on http://localhost:${PORT}`);
+// Build the cached agent image in the background if it is missing, so no one waits for it later.
+void warmAgentImage();
 export default server;

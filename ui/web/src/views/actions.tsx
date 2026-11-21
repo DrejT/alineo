@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { Dialog, DialogBackdrop, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@ui-sdk/react/dialog";
-import { GitFork, MessageSquare, Pause, Play, Save, SquareTerminal, Trash2 } from "lucide-react";
+import { Globe, GitFork, MessageSquare, Pause, Play, Save, SquareTerminal, Trash2 } from "lucide-react";
 import { api, type Sandbox } from "../api";
 import { IconButton, act } from "../lib";
+import { BrowserView } from "./BrowserView";
 import { ChatPanel } from "./ChatPanel";
 
 export function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, onConfirm }: {
@@ -45,6 +46,7 @@ function ActionItem({ compact, label, icon, onClick, disabled, destructive }: {
 export function SandboxActions({ sb, onTerminal, onChange, compact }: { sb: Sandbox; onTerminal: (id: string) => void; onChange: () => void; compact?: boolean }) {
   const [confirm, setConfirm] = useState(false);
   const [chat, setChat] = useState(false);
+  const [browser, setBrowser] = useState(false);
   const running = sb.status === "running";
   const ic = "size-3.5";
   return (
@@ -56,7 +58,9 @@ export function SandboxActions({ sb, onTerminal, onChange, compact }: { sb: Sand
       <ActionItem compact={compact} label="Checkpoint" icon={<Save className={ic} aria-hidden="true" />} onClick={() => void act("Checkpoint saved", () => api.checkpoint(sb.id), onChange)} disabled={!running} />
       <ActionItem compact={compact} label={compact ? "Fork into a new container" : "Fork"} icon={<GitFork className={ic} aria-hidden="true" />} onClick={() => void act("Forked into a new container", () => api.fork(sb.id), onChange)} disabled={!running} />
       {sb.agent && <ActionItem compact={compact} label={compact ? "Chat with the agent" : "Chat"} icon={<MessageSquare className={ic} aria-hidden="true" />} onClick={() => setChat(true)} disabled={!running} />}
+      {sb.agent && <ActionItem compact={compact} label={compact ? "Watch the browser live" : "Browser"} icon={<Globe className={ic} aria-hidden="true" />} onClick={() => setBrowser(true)} disabled={!running} />}
       <ActionItem compact={compact} label="Terminate" icon={<Trash2 className={ic} aria-hidden="true" />} onClick={() => setConfirm(true)} destructive />
+      {sb.agent && <BrowserView sandbox={browser ? sb : null} onClose={() => setBrowser(false)} />}
       {sb.agent && <ChatPanel sandbox={chat ? sb : null} onClose={() => setChat(false)} onChange={onChange} />}
       <ConfirmDialog
         open={confirm}

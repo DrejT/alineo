@@ -161,6 +161,24 @@ do not share files. A worker hands work back as its final reply.
 `server/models.ts` holds only backends that passed a real Pi turn and 12 parallel requests. A swarm runs several
 agents at once, and NVIDIA's free tier answers 429 to some models under that load.
 
+## Agent browser and the cached image
+
+Every agent has a real Chrome and Pi's `browser_open`, `browser_snapshot`, `browser_click`, `browser_fill` and
+`browser_screenshot` tools. The Agents tree and the sandbox list have a **Watch the browser live** button
+(globe icon). It opens a watch-only view that streams the agent's screen in real time.
+
+How the stream gets to your tab: agent-browser serves a WebSocket inside the sandbox, behind OpenSandbox's proxy,
+which needs auth headers a browser cannot send. The server (`server/browser.ts`) opens that socket with the
+headers and relays each frame to `/api/sandboxes/:id/browser?token=...`. Nothing the viewer sends reaches the
+agent's browser.
+
+All of it (Pi, Chrome and its libraries, the agent-browser CLI, the Pi extension) is installed once into one
+cached snapshot, `dash-agent`. The model is not part of the cache key, so one snapshot serves every model. The
+server builds it in the background at start if it is missing (about 4 minutes the first time), and an agent
+then starts from it in about 4 seconds. `GET /api/agents/image` reports `ready`, `building`, `missing` or `error`.
+Changing a setup step in `server/runtime.ts` rebuilds it once. Allow about 2 GB of disk for it, and about 1.5 GB
+of memory per running agent.
+
 ## Frontend (React + UI SDK)
 
 The dashboard UI lives in `web/`. It is a Vite + React 19 app built with [UI SDK](https://ui-sdk.dev) (`@ui-sdk/react`) and

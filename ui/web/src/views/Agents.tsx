@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { Textarea } from "@ui-sdk/react/textarea";
-import { ChevronRight, MessageSquare, OctagonX, SquareTerminal } from "lucide-react";
+import { ChevronRight, Globe, MessageSquare, OctagonX, SquareTerminal } from "lucide-react";
 import { api, type Run, type RunNode, type Sandbox } from "../api";
 import { Badge, Card, Empty, IconButton, PageHeader, act, cx, shortId, usePoll } from "../lib";
 import { ConfirmDialog } from "./actions";
+import { BrowserView } from "./BrowserView";
 import { ChatPanel } from "./ChatPanel";
 import { Pick } from "./Sandboxes";
 
@@ -102,9 +103,9 @@ function Cell({ children, className }: { children?: React.ReactNode; className?:
 }
 
 /** One agent in a run, then its children. Defined at module scope so a poll does not remount it. */
-function NodeRows({ tree, depth, open, toggle, list, onChat, onTerminal }: {
+function NodeRows({ tree, depth, open, toggle, list, onChat, onTerminal, onBrowser }: {
   tree: Tree; depth: number; open: Set<string>; toggle: (id: string) => void; list: Sandbox[];
-  onChat: (id: string) => void; onTerminal: (id: string) => void;
+  onChat: (id: string) => void; onTerminal: (id: string) => void; onBrowser: (id: string) => void;
 }) {
   const n = tree.node;
   const live = list.find((s) => s.id === n.id);
@@ -132,18 +133,19 @@ function NodeRows({ tree, depth, open, toggle, list, onChat, onTerminal }: {
         <Cell>
           <div className="flex items-center gap-1.5">
             <IconButton label="Chat and steer this agent" onClick={() => onChat(n.id)} disabled={!canAct}><MessageSquare className="size-3.5" aria-hidden="true" /></IconButton>
+            <IconButton label="Watch the browser live" onClick={() => onBrowser(n.id)} disabled={!canAct}><Globe className="size-3.5" aria-hidden="true" /></IconButton>
             <IconButton label="Open terminal" onClick={() => onTerminal(n.id)} disabled={!canAct}><SquareTerminal className="size-3.5" aria-hidden="true" /></IconButton>
           </div>
         </Cell>
       </tr>
-      {isOpen && tree.kids.map((k) => <NodeRows key={k.node.id} tree={k} depth={depth + 1} open={open} toggle={toggle} list={list} onChat={onChat} onTerminal={onTerminal} />)}
+      {isOpen && tree.kids.map((k) => <NodeRows key={k.node.id} tree={k} depth={depth + 1} open={open} toggle={toggle} list={list} onChat={onChat} onTerminal={onTerminal} onBrowser={onBrowser} />)}
     </>
   );
 }
 
-function RunRows({ run, open, toggle, list, onChat, onTerminal, onStop }: {
+function RunRows({ run, open, toggle, list, onChat, onTerminal, onBrowser, onStop }: {
   run: Run; open: Set<string>; toggle: (id: string) => void; list: Sandbox[];
-  onChat: (id: string) => void; onTerminal: (id: string) => void; onStop: (run: Run) => void;
+  onChat: (id: string) => void; onTerminal: (id: string) => void; onBrowser: (id: string) => void; onStop: (run: Run) => void;
 }) {
   const isOpen = open.has(run.id);
   const trees = useMemo(() => buildTree(run.nodes), [run.nodes]);
@@ -177,7 +179,7 @@ function RunRows({ run, open, toggle, list, onChat, onTerminal, onStop }: {
       {isOpen && trees.length === 0 && (
         <tr><td colSpan={4} className="px-4 py-3 pl-12 text-sm text-fd-muted-foreground">{run.status === "starting" ? "Creating the master container…" : "No containers."}</td></tr>
       )}
-      {isOpen && trees.map((t) => <NodeRows key={t.node.id} tree={t} depth={1} open={open} toggle={toggle} list={list} onChat={onChat} onTerminal={onTerminal} />)}
+      {isOpen && trees.map((t) => <NodeRows key={t.node.id} tree={t} depth={1} open={open} toggle={toggle} list={list} onChat={onChat} onTerminal={onTerminal} onBrowser={onBrowser} />)}
     </>
   );
 }
@@ -187,6 +189,8 @@ export function Agents({ list, onTerminal, onChange }: { list: Sandbox[]; onTerm
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [chatId, setChatId] = useState<string | null>(null);
+  const [browserId, setBrowserId] = useState<string | null>(null);
+  const image = usePoll(api.agentImage, 4000);
   const [stopping, setStopping] = useState<Run | null>(null);
 
   // Open a run, and every agent in it, the first time it shows up. After that the user decides.
@@ -204,6 +208,13 @@ export function Agents({ list, onTerminal, onChange }: { list: Sandbox[]; onTerm
     <>
       <PageHeader title="Agents" sub="Give a goal to a master agent. It creates containers and agents to reach it. Steer any agent in the tree." />
       <div className="mt-5 flex flex-col gap-5">
+        {image.data && image.data.state !== "off" && image.data.state !== "ready" && (
+          <p role="status" className="rounded-lg border border-fd-border bg-fd-muted px-4 py-2.5 text-sm text-fd-muted-foreground">
+            {image.data.state === "building" ? "Preparing the agent image: Pi and a browser are being installed once and cached. The first goal waits for it, and later ones start in seconds."
+              : image.data.state === "error" ? `The agent image could not be built: ${image.data.detail ?? "unknown error"}`
+              : "The agent image is not built yet. It builds the first time a goal starts."}
+          </p>
+        )}
         <NewGoal onStarted={refresh} />
         <Card className="overflow-hidden">
           {runs.data === undefined ? <Empty title="Loading…" /> : data.length === 0 ? (
@@ -215,13 +226,14 @@ export function Agents({ list, onTerminal, onChange }: { list: Sandbox[]; onTerm
                   <tr>{["Goal and agents", "Status", "Task, then result", "Actions"].map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-fd-border">
-                  {data.map((r) => <RunRows key={r.id} run={r} open={open} toggle={toggle} list={list} onChat={setChatId} onTerminal={onTerminal} onStop={setStopping} />)}
+                  {data.map((r) => <RunRows key={r.id} run={r} open={open} toggle={toggle} list={list} onChat={setChatId} onTerminal={onTerminal} onBrowser={setBrowserId} onStop={setStopping} />)}
                 </tbody>
               </table>
             </div>
           )}
         </Card>
       </div>
+      <BrowserView sandbox={browserId ? list.find((s) => s.id === browserId) ?? null : null} onClose={() => setBrowserId(null)} />
       <ChatPanel sandbox={chatId ? list.find((s) => s.id === chatId) ?? null : null} onClose={() => setChatId(null)} onChange={refresh} />
       <ConfirmDialog
         open={stopping !== null}
