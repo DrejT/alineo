@@ -164,8 +164,8 @@ agents at once, and NVIDIA's free tier answers 429 to some models under that loa
 ## Agent browser and the cached image
 
 Every agent has a real Chrome and Pi's `browser_open`, `browser_snapshot`, `browser_click`, `browser_fill` and
-`browser_screenshot` tools. The Agents tree and the sandbox list have a **Watch the browser live** button
-(globe icon). It opens a watch-only view that streams the agent's screen in real time.
+`browser_screenshot` tools. Once an agent has called one of them, its row in the Agents tree and the sandbox list
+shows a **Watch the browser live** button (globe icon). Agents that have not used the browser do not show it. It opens a watch-only view that streams the agent's screen in real time.
 
 How the stream gets to your tab: agent-browser serves a WebSocket inside the sandbox, behind OpenSandbox's proxy,
 which needs auth headers a browser cannot send. The server (`server/browser.ts`) opens that socket with the
