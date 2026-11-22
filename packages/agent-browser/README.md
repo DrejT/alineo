@@ -6,7 +6,66 @@ snapshots with stable element refs, annotated screenshots — not coordinate-bas
 as five typed tool calls: `browser_open`, `browser_snapshot`, `browser_click`,
 `browser_fill`, `browser_screenshot`.
 
-Private package — not published to npm.
+```bash
+bun add @alineo-labs/agent-browser
+```
+
+It has three parts:
+
+- **A Pi extension** that gives an agent five browser tools (below).
+- **Command builders** for a deterministic workflow that drives the browser with no LLM
+  (`browser()`, `saveSession()`, `loadSession()`).
+- **Host-side helpers**: `browserSetupSteps()` to install Chrome, and `enableBrowserStream()`
+  for a live view.
+
+## Deterministic workflows
+
+`browser()` builds `agent-browser` commands for `@alineo-labs/workflow`'s `sb.exec()`. Every
+command passes `--json`, and every argument is shell-quoted. Nothing in the package names a
+site: URLs, selectors and the order of steps belong to the caller.
+
+```ts
+import { workflow } from "@alineo-labs/workflow";
+import { browser, browserOk, browserSetupSteps, saveSession } from "@alineo-labs/agent-browser";
+
+const b = browser();
+const { vars } = await workflow(client)
+  .sandbox({ image: "node:22-bookworm-slim", resources: { cpu: "2", memory: "2Gi" } }, (sb) => {
+    for (const step of browserSetupSteps()) sb.exec(step.run);
+    sb.exec(b.open("https://app.example.com/login"));
+    sb.exec(b.fill("#username", "me@example.com"));
+    sb.exec(b.fill("#password", "APP_PASSWORD")); // placeholder; see sb.setCredential
+    sb.exec(b.click("#submit"));
+    sb.exec(b.waitForUrl("**/dashboard", { timeoutMs: 15_000 }), {
+      as: "login",
+      parse: "json",
+      strict: false,
+    });
+    saveSession(sb, "session"); // vars.session: the cookies and storage, as bytes
+    sb.exec(b.download("#report", "/tmp/report.xlsx"));
+    sb.readFileBytes("/tmp/report.xlsx", "report");
+  })
+  .result();
+
+browserOk(vars.login); // true when the wait succeeded
+```
+
+A later run calls `loadSession(sb, bytes)` before it opens the site, and skips the login when
+a wait on a signed-in page succeeds.
+
+**Session bytes are a credential.** A cookie for a signed-in account can skip the password and
+any one-time code. Encrypt them before you store them. `saveSession` deletes the file from the
+sandbox after it reads it.
+
+**`browserSetupSteps()` pins agent-browser** to `AGENT_BROWSER_VERSION`, the last release this
+package was verified against. Pass `browserSetupSteps({ version })` to try another one.
+
+**Do not use agent-browser's `--allowed-domains` with sessions.** agent-browser rejects it
+together with `--state` and `state load`. Restrict the sandbox with `networkPolicy` instead.
+
+`tests/integration/workflow-browser-session.test.ts` runs this end to end against a local
+fixture site: log in, save the session, then download a binary file from a fresh sandbox
+without logging in.
 
 ---
 
@@ -51,11 +110,9 @@ libgbm1 fonts-noto-color-emoji fonts-noto-cjk fonts-freefont-ttf` — `browserSe
 > in `src/setup.ts` already runs both legs concurrently to work around this; use it rather
 > than reproducing the install steps by hand.
 
-Wiring the extension itself into a sandbox depends on how the package is distributed. A
-package published to npm can `cp` its extension file the way `alineo.ts` does; since
-`@alineo-labs/agent-browser` isn't published, a spec's own `setup` steps need to push
-`pi-extension/agent-browser.ts`'s source into the sandbox directly instead (no worked
-example ships in this repo yet).
+The package ships `pi-extension/agent-browser.ts` as source. A spec's `setup` steps can
+install the package and copy that file into the sandbox's Pi extensions folder, the way
+`alineo.ts` is installed.
 
 ### Tools
 

@@ -1,10 +1,11 @@
 import type { Sandbox, SandboxOptions } from "@alineo-labs/sandbox";
 import { SandboxBuilder, flushOps, type FlushContext } from "./sandbox-builder";
+import type { WorkflowEvent, WorkflowOptions } from "./events";
 
 export interface WorkflowResult {
   /** Concatenated stdout from all sandboxes in the workflow. */
   stdout: string;
-  /** Named values captured by `sb.readFile(path, as)`. */
+  /** Named values captured by `readFile`, `readFileBytes` and `exec(..., { as })`. */
   vars: Record<string, unknown>;
 }
 
@@ -43,10 +44,12 @@ type WorkflowStage =
  */
 export class WorkflowBuilder {
   private readonly _client: Sandbox;
+  private readonly _options: WorkflowOptions;
   private readonly _stages: WorkflowStage[] = [];
 
-  constructor(client: Sandbox) {
+  constructor(client: Sandbox, options: WorkflowOptions = {}) {
     this._client = client;
+    this._options = options;
   }
 
   /**
@@ -109,6 +112,36 @@ export class WorkflowBuilder {
   private async _execute(
     sink: { write(chunk: string): unknown } | undefined,
   ): Promise<WorkflowResult> {
+    const started = Date.now();
+    this._emit({ type: "workflow.started" });
+    try {
+      const result = await this._executeStages(sink);
+      this._emit({ type: "workflow.completed", durationMs: Date.now() - started });
+      return result;
+    } catch (err) {
+      this._emit({
+        type: "workflow.failed",
+        durationMs: Date.now() - started,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
+  }
+
+  private _emit(event: WorkflowEvent): void {
+    try {
+      this._options.onEvent?.(event);
+    } catch {
+      // A listener that throws must not fail the workflow.
+    }
+  }
+
+  /** One step counter for the whole run, so step indexes are unique across sandboxes. */
+  private readonly _steps = { next: 0 };
+
+  private async _executeStages(
+    sink: { write(chunk: string): unknown } | undefined,
+  ): Promise<WorkflowResult> {
     const combined: WorkflowResult = { stdout: "", vars: {} };
 
     for (const stage of this._stages) {
@@ -142,7 +175,14 @@ export class WorkflowBuilder {
 
     const sandbox = await this._client.sandbox(opts);
     try {
-      const ctx: FlushContext = { stdout: "", exitCode: 0, vars: {}, sink };
+      const ctx: FlushContext = {
+        stdout: "",
+        exitCode: 0,
+        vars: {},
+        sink,
+        onEvent: this._options.onEvent,
+        steps: this._steps,
+      };
       await flushOps(sandbox, sb._ops, ctx);
       return { stdout: ctx.stdout, vars: ctx.vars };
     } finally {
@@ -204,6 +244,6 @@ export class WorkflowBuilder {
  *   .pipe(process.stdout);
  * ```
  */
-export function workflow(client: Sandbox): WorkflowBuilder {
-  return new WorkflowBuilder(client);
+export function workflow(client: Sandbox, options: WorkflowOptions = {}): WorkflowBuilder {
+  return new WorkflowBuilder(client, options);
 }

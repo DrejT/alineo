@@ -30,6 +30,19 @@ function makeSandbox(execResults: Record<string, string> = {}) {
     deleteFile: vi.fn().mockResolvedValue(undefined),
     moveFile: vi.fn().mockResolvedValue(undefined),
     checkpoint: vi.fn().mockResolvedValue(undefined),
+    writeFileBytes: vi.fn().mockResolvedValue(undefined),
+    readFileBytes: vi.fn().mockResolvedValue(new Uint8Array([0x50, 0x4b, 0xff, 0x00])),
+    credentials: {
+      set: vi.fn().mockResolvedValue(undefined),
+      patch: vi.fn().mockResolvedValue(undefined),
+      remove: vi.fn().mockResolvedValue(undefined),
+      listBindings: vi.fn().mockResolvedValue([]),
+    },
+    egress: {
+      patch: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue({}),
+    },
   };
 }
 
@@ -258,5 +271,167 @@ describe("flushOps — retry primitive", () => {
 
     await expect(flushOps(sandbox, sb._ops, makeCtx())).rejects.toThrow("always fails");
     expect(sandbox.exec).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("SandboxBuilder — captured exec output", () => {
+  it("stores one command's own stdout, trimmed, under `as`", async () => {
+    const sandbox = makeSandbox({ "echo a": "first\n", "echo b": "second\n" });
+    const sb = new SandboxBuilder();
+    sb.exec("echo a").exec("echo b", { as: "b" });
+    const ctx = makeCtx();
+    await flushOps(sandbox, sb._ops, ctx);
+    expect(ctx.vars.b).toBe("second");
+    expect(ctx.stdout).toBe("first\nsecond\n");
+  });
+
+  it("parses JSON stdout when parse is json", async () => {
+    const sandbox = makeSandbox({ probe: '{"success":true,"data":{"url":"https://x/dash"}}' });
+    const sb = new SandboxBuilder();
+    sb.exec("probe", { as: "probe", parse: "json" });
+    const ctx = makeCtx();
+    await flushOps(sandbox, sb._ops, ctx);
+    expect(ctx.vars.probe).toEqual({ success: true, data: { url: "https://x/dash" } });
+  });
+
+  it("fails the step when JSON stdout does not parse", async () => {
+    const sandbox = makeSandbox({ probe: "not json" });
+    const sb = new SandboxBuilder();
+    sb.exec("probe", { as: "probe", parse: "json" });
+    await expect(flushOps(sandbox, sb._ops, makeCtx())).rejects.toThrow(/not valid JSON/);
+  });
+
+  it("does not pass workflow-only options to the sandbox", async () => {
+    const sandbox = makeSandbox();
+    const sb = new SandboxBuilder();
+    sb.exec("ls", { as: "x", parse: "text", name: "list", strict: false, cwd: "/tmp" });
+    await flushOps(sandbox, sb._ops, makeCtx());
+    expect(sandbox.exec).toHaveBeenCalledWith("ls", { strict: false, cwd: "/tmp" });
+  });
+
+  it("captures under `as` in pipe mode too", async () => {
+    const sandbox = makeSandbox({ "echo a": "piped\n" });
+    const sb = new SandboxBuilder();
+    sb.exec("echo a", { as: "a" });
+    const chunks: string[] = [];
+    const ctx = makeCtx({ sink: { write: (c: string) => chunks.push(c) } });
+    await flushOps(sandbox, sb._ops, ctx);
+    expect(ctx.vars.a).toBe("piped");
+    expect(chunks).toEqual(["piped\n"]);
+  });
+});
+
+describe("SandboxBuilder — bytes, credentials, egress", () => {
+  it("reads bytes into vars without decoding them", async () => {
+    const sandbox = makeSandbox();
+    const sb = new SandboxBuilder();
+    sb.readFileBytes("/tmp/report.xlsx", "report");
+    const ctx = makeCtx();
+    await flushOps(sandbox, sb._ops, ctx);
+    expect(ctx.vars.report).toEqual(new Uint8Array([0x50, 0x4b, 0xff, 0x00]));
+  });
+
+  it("writes bytes", async () => {
+    const sandbox = makeSandbox();
+    const bytes = new Uint8Array([1, 2, 3]);
+    const sb = new SandboxBuilder();
+    sb.writeFileBytes("/tmp/state.json", bytes);
+    await flushOps(sandbox, sb._ops, makeCtx());
+    expect(sandbox.writeFileBytes).toHaveBeenCalledWith("/tmp/state.json", bytes);
+  });
+
+  it("registers a credential and changes egress rules", async () => {
+    const sandbox = makeSandbox();
+    const binding = {
+      host: "seller.example.com",
+      injection: { type: "substitution" as const, placeholder: "PW", in: ["body" as const] },
+    };
+    const sb = new SandboxBuilder();
+    sb.setCredential("pw", "s3cret", binding)
+      .patchEgress([{ action: "allow", target: "cdn.example.com" }])
+      .deleteEgress(["cdn.example.com"]);
+    await flushOps(sandbox, sb._ops, makeCtx());
+    expect(sandbox.credentials.set).toHaveBeenCalledWith("pw", "s3cret", binding, undefined);
+    expect(sandbox.egress.patch).toHaveBeenCalledWith([
+      { action: "allow", target: "cdn.example.com" },
+    ]);
+    expect(sandbox.egress.delete).toHaveBeenCalledWith(["cdn.example.com"]);
+  });
+});
+
+describe("SandboxBuilder — step events", () => {
+  it("reports each leaf op, never the command text or values", async () => {
+    const sandbox = makeSandbox();
+    const events: unknown[] = [];
+    const sb = new SandboxBuilder();
+    sb.exec("fill #pw s3cret", { name: "login" })
+      .when(
+        () => true,
+        (s) => s.readFileBytes("/tmp/r", "r"),
+      )
+      .setCredential("pw", "s3cret", {
+        host: "x.example.com",
+        injection: { type: "header", name: "Authorization" },
+      });
+    await flushOps(sandbox, sb._ops, makeCtx({ onEvent: (e) => events.push(e) }));
+
+    expect(events.map((e) => (e as { type: string }).type)).toEqual([
+      "step.started",
+      "step.completed",
+      "step.started",
+      "step.completed",
+      "step.started",
+      "step.completed",
+    ]);
+    expect(events[0]).toEqual({ type: "step.started", index: 0, name: "login", kind: "exec" });
+    expect(events[1]).toMatchObject({ index: 0, name: "login", exitCode: 0 });
+    expect(events[2]).toMatchObject({ index: 1, name: "readFileBytes" });
+    expect(events[4]).toMatchObject({ index: 2, name: "setCredential" });
+    expect(JSON.stringify(events)).not.toContain("s3cret");
+  });
+
+  it("reports a failed step with its error and rethrows", async () => {
+    const sandbox = makeSandbox();
+    sandbox.readFileBytes.mockRejectedValueOnce(new Error("no such file"));
+    const events: Array<{ type: string; error?: string }> = [];
+    const sb = new SandboxBuilder();
+    sb.readFileBytes("/missing", "x");
+    await expect(
+      flushOps(sandbox, sb._ops, makeCtx({ onEvent: (e) => events.push(e) })),
+    ).rejects.toThrow("no such file");
+    expect(events[1]).toMatchObject({ type: "step.failed", error: "no such file" });
+  });
+
+  it("does not fail a step when the listener throws", async () => {
+    const sandbox = makeSandbox();
+    const sb = new SandboxBuilder();
+    sb.exec("ls");
+    await flushOps(
+      sandbox,
+      sb._ops,
+      makeCtx({
+        onEvent: () => {
+          throw new Error("listener broke");
+        },
+      }),
+    );
+    expect(sandbox.exec).toHaveBeenCalledOnce();
+  });
+
+  it("keeps step indexes unique across parallel forEach workers", async () => {
+    const sandbox = makeSandbox();
+    const indexes: number[] = [];
+    const sb = new SandboxBuilder();
+    sb.forEach([1, 2, 3, 4], (s, i) => s.exec(`echo ${String(i)}`), { concurrency: 2 });
+    await flushOps(
+      sandbox,
+      sb._ops,
+      makeCtx({
+        onEvent: (e) => {
+          if (e.type === "step.started") indexes.push(e.index);
+        },
+      }),
+    );
+    expect([...indexes].sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
   });
 });
