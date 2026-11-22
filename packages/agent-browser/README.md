@@ -57,6 +57,9 @@ a wait on a signed-in page succeeds.
 any one-time code. Encrypt them before you store them. `saveSession` deletes the file from the
 sandbox after it reads it.
 
+**`browserSetupSteps()` pins agent-browser** to `AGENT_BROWSER_VERSION`, the last release this
+package was verified against. Pass `browserSetupSteps({ version })` to try another one.
+
 **Do not use agent-browser's `--allowed-domains` with sessions.** agent-browser rejects it
 together with `--state` and `state load`. Restrict the sandbox with `networkPolicy` instead.
 

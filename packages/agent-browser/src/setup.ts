@@ -15,34 +15,56 @@ const CHROME_APT_PACKAGES =
   "fonts-freefont-ttf";
 
 /**
- * Setup steps that make agent-browser's browser tools usable inside a alineo sandbox: Chrome's
- * system dependencies, then agent-browser itself. Any spec whose agent will use the
- * `browser_*` tools (see `pi-extension/agent-browser.ts`) should splice these into its own
- * `setup` array — e.g. `setup: [...otherSteps, ...browserSetupSteps()]`.
- *
- * Both legs run concurrently in a single step rather than as two sequential ones: `apt-get`
- * installing Chrome's system libraries and `agent-browser install --with-deps` downloading the
- * Chrome binary are independent network operations — the browser doesn't need its runtime libs
- * present to be downloaded, only to later be launched — so running them back-to-back as separate
- * `setup` steps (as this used to do) wastes wall time serializing two things that don't depend on
- * each other. `factory.ts` only awaits one `sb.exec()` per step, so getting real concurrency here
- * requires backgrounding both within one step's shell command, not just declaring two steps.
+ * The agent-browser release `browserSetupSteps()` installs by default: the last one verified
+ * end to end against an OpenSandbox sandbox (`tests/integration/workflow-browser-session.test.ts`).
+ * Move it only after that test passes on the new release. An unpinned install picks up whatever
+ * is newest, and a new release has already changed how `install --with-deps` behaves once.
  */
-export function browserSetupSteps(): SetupStep[] {
+export const AGENT_BROWSER_VERSION = "0.43.0";
+
+/** Options for `browserSetupSteps()`. */
+export interface BrowserSetupOptions {
+  /** agent-browser version to install. Default: `AGENT_BROWSER_VERSION`. */
+  version?: string;
+}
+
+/**
+ * Setup steps that make agent-browser usable inside a alineo sandbox: Chrome's system
+ * dependencies, agent-browser itself, then the Chrome binary. Any spec whose agent will use the
+ * `browser_*` tools (see `pi-extension/agent-browser.ts`), or any workflow that drives the
+ * browser, runs these first — e.g. `setup: [...otherSteps, ...browserSetupSteps()]`.
+ *
+ * One step, three legs. `apt-get` (Chrome's system libraries) and `npm install -g agent-browser`
+ * run in parallel: npm does not touch dpkg, so they cannot conflict. `agent-browser install`
+ * (the Chrome download) runs after both.
+ *
+ * `agent-browser install` must not run in parallel with `apt-get`, and must not get
+ * `--with-deps`. Current agent-browser runs `apt-get` itself for `--with-deps`, as root with no
+ * `sudo`. Next to our own `apt-get`, the two fight for the dpkg lock and one fails with
+ * `Could not get lock /var/lib/dpkg/lock-frontend` (seen live, 2026-11-23). Older releases went
+ * through `sudo`, which does not exist in an OpenSandbox container, so that leg failed silently.
+ * That is why this package installs the library list itself.
+ */
+export function browserSetupSteps(opts: BrowserSetupOptions = {}): SetupStep[] {
+  const version = opts.version ?? AGENT_BROWSER_VERSION;
+  if (!/^[0-9A-Za-z][0-9A-Za-z.+-]*$/.test(version)) {
+    throw new Error(`browserSetupSteps: invalid agent-browser version ${JSON.stringify(version)}`);
+  }
   return [
     {
-      name: "Install Chrome's system dependencies and agent-browser concurrently (agent-browser install --with-deps shells out via sudo internally, which doesn't exist in this root-only container — it fails silently there, leaving Chrome unable to find libnspr4/libatk/etc. Installing the same package list directly, in parallel with agent-browser's own install/download, works around the sudo issue and overlaps the two slowest legs instead of running them back-to-back; verified against a live OpenSandbox sandbox)",
+      name: `Install Chrome's system dependencies and agent-browser@${version} in parallel, then download Chrome`,
       run:
         `(apt-get update && apt-get install -y ${CHROME_APT_PACKAGES}) &\n` +
         `apt_pid=$!\n` +
-        `(npm install -g agent-browser && agent-browser install --with-deps) &\n` +
-        `browser_pid=$!\n` +
+        `npm install -g agent-browser@${version} &\n` +
+        `npm_pid=$!\n` +
         `wait "$apt_pid"; apt_status=$?\n` +
-        `wait "$browser_pid"; browser_status=$?\n` +
-        `if [ "$apt_status" -ne 0 ] || [ "$browser_status" -ne 0 ]; then\n` +
-        `  echo "apt-get exited $apt_status, agent-browser install exited $browser_status" >&2\n` +
+        `wait "$npm_pid"; npm_status=$?\n` +
+        `if [ "$apt_status" -ne 0 ] || [ "$npm_status" -ne 0 ]; then\n` +
+        `  echo "apt-get exited $apt_status, npm install exited $npm_status" >&2\n` +
         `  exit 1\n` +
-        `fi`,
+        `fi\n` +
+        `agent-browser install`,
     },
   ];
 }

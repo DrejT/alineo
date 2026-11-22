@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  AGENT_BROWSER_VERSION,
   browser,
+  browserSetupSteps,
   browserOk,
   loadSession,
   parseBrowserResult,
@@ -105,5 +107,21 @@ describe("saveSession / loadSession", () => {
     expect(sb.ops[0]).toEqual(["writeFileBytes", "/tmp/x.json", bytes]);
     expect(sb.ops[1]?.[1]).toBe("agent-browser --json --session 's1' open 'about:blank'");
     expect(sb.ops[2]?.[1]).toBe("agent-browser --json --session 's1' state load '/tmp/x.json'");
+  });
+});
+
+describe("browserSetupSteps", () => {
+  test("installs the pinned version, and never runs install --with-deps", () => {
+    const [step] = browserSetupSteps();
+    expect(step?.run).toContain(`npm install -g agent-browser@${AGENT_BROWSER_VERSION} &`);
+    expect(step?.run).not.toContain("--with-deps");
+    expect(step?.run.trimEnd().endsWith("agent-browser install")).toBe(true);
+  });
+
+  test("takes another version, and rejects one that is not a plain version string", () => {
+    expect(browserSetupSteps({ version: "0.44.0-beta.1" })[0]?.run).toContain(
+      "agent-browser@0.44.0-beta.1 &",
+    );
+    expect(() => browserSetupSteps({ version: "1; rm -rf /" })).toThrow(/invalid/);
   });
 });
