@@ -1,5 +1,11 @@
 # @alineo-labs/postgres-memory
 
+## 0.2.5
+
+### Patch Changes
+
+- @alineo-labs/memory@0.3.1
+
 ## 0.2.4
 
 ### Patch Changes
