@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "types": ["bun-types"]
   },
-  "include": ["pi-extension", "src"]
+  "include": ["pi-extension", "src", "test"]
 }

@@ -6,6 +6,7 @@
     "test": "bun test --timeout 120000"
   },
   "dependencies": {
+    "@alineo-labs/agent-browser": "workspace:*",
     "@alineo-labs/sandbox": "workspace:*",
     "@alineo-labs/sqlite": "workspace:*",
     "@alineo-labs/workflow": "workspace:*",
