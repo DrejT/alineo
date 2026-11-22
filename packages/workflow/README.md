@@ -80,6 +80,50 @@ const { vars } = await workflow(client)
 console.log(vars.nodeVersion); // "v20.x.x"
 ```
 
+## Capture one command's output
+
+`as` stores that command's own stdout in `vars`. `parse: "json"` parses it. Workflow-only options are removed before the command reaches the sandbox.
+
+```ts
+sb.exec("agent-browser --json get url", { as: "page", parse: "json", strict: false });
+sb.when(
+  (ctx) => (ctx.vars.page as { success: boolean }).success,
+  (s) => s.exec("echo signed in"),
+);
+```
+
+## Binary files
+
+`readFile` decodes UTF-8, so it corrupts a spreadsheet or a zip. Use the byte ops for those.
+
+```ts
+sb.writeFileBytes("/tmp/state.json", savedBytes);
+sb.readFileBytes("/tmp/report.xlsx", "report"); // vars.report is a Uint8Array
+```
+
+## Credentials and egress
+
+The sandbox needs `credentialProxy: true` and a `networkPolicy`. The value stays on the host. The egress proxy injects it into matching requests.
+
+```ts
+sb.setCredential("portal-password", password, {
+  host: "seller.example.com",
+  injection: { type: "substitution", placeholder: "PORTAL_PASSWORD", in: ["body"] },
+});
+sb.patchEgress([{ action: "allow", target: "downloads.example.com" }]);
+sb.deleteEgress(["downloads.example.com"]);
+```
+
+## Step events
+
+`onEvent` reports `workflow.started`, `step.started`, `step.completed`, `step.failed`, `workflow.completed` and `workflow.failed`. A step is one leaf op. Events carry the step's index, `name` (from `exec(cmd, { name })`, or the op kind), duration and exit code. They never carry command text, file contents, credential values or `vars`, so you can store them as a run record.
+
+```ts
+await workflow(client, { onEvent: (e) => runLog.push(e) })
+  .sandbox(opts, (sb) => sb.exec("npm test", { name: "test" }))
+  .result();
+```
+
 ## Parallel sandboxes
 
 Run the same builder across multiple configs simultaneously:
