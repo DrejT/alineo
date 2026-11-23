@@ -22,6 +22,11 @@
  * Nothing here names a site. Site URLs, selectors and the order of steps belong to the caller.
  */
 
+import { inspectScript, type InspectOptions } from "./inspect";
+import { sessionApi } from "./session";
+import { harApi } from "./har";
+import { toBase64 } from "./serialize";
+
 /** agent-browser's `--json` output envelope. */
 export interface BrowserResult<T = unknown> {
   success: boolean;
@@ -42,6 +47,20 @@ export interface BrowserOptions {
   downloadPath?: string;
   /** agent-browser `--user-agent`. Keep it stable across runs that reuse one session. */
   userAgent?: string;
+  /** IANA timezone for the browser (`TZ`), e.g. `"Asia/Kolkata"`. Applies at browser launch. */
+  timezone?: string;
+  /** Browser UI and `navigator.language` locale (Chrome `--lang`), e.g. `"en-US"`. Applies at launch. */
+  locale?: string;
+  /** agent-browser's default action timeout (`AGENT_BROWSER_DEFAULT_TIMEOUT`), in milliseconds. */
+  timeoutMs?: number;
+  /** `--pin-tab`: fail with `tab_gone` instead of moving to another tab when the bound tab closes. */
+  pinTab?: boolean;
+  /** `--input-mode`. Default: agent-browser's own (`instant`). */
+  inputMode?: "instant" | "smooth" | "human";
+  /** Viewport that `b.setup()` sets. */
+  viewport?: { width: number; height: number };
+  /** URL patterns `b.setup()` blocks with `network route <pattern> --abort`. */
+  blockHosts?: string[];
 }
 
 /** Timeout for a command that waits, in milliseconds. */
@@ -60,19 +79,27 @@ export function shellQuote(value: string): string {
  * Selectors are anything agent-browser accepts: CSS (`#login`), or a ref from a snapshot (`@e3`).
  */
 export function browser(opts: BrowserOptions = {}) {
+  const envVars: string[] = [];
+  if (opts.timezone !== undefined) envVars.push(`TZ=${shellQuote(opts.timezone)}`);
+  if (opts.timeoutMs !== undefined) {
+    envVars.push(`AGENT_BROWSER_DEFAULT_TIMEOUT=${String(Math.round(opts.timeoutMs))}`);
+  }
   const globals = ["--json"];
   if (opts.session !== undefined) globals.push("--session", shellQuote(opts.session));
   if (opts.state !== undefined) globals.push("--state", shellQuote(opts.state));
   if (opts.downloadPath !== undefined)
     globals.push("--download-path", shellQuote(opts.downloadPath));
   if (opts.userAgent !== undefined) globals.push("--user-agent", shellQuote(opts.userAgent));
-  const prefix = `agent-browser ${globals.join(" ")}`;
+  if (opts.locale !== undefined) globals.push("--args", shellQuote(`--lang=${opts.locale}`));
+  if (opts.pinTab === true) globals.push("--pin-tab");
+  if (opts.inputMode !== undefined) globals.push("--input-mode", shellQuote(opts.inputMode));
+  const prefix = [...envVars, "agent-browser", ...globals].join(" ");
 
   const cmd = (...parts: string[]): string => `${prefix} ${parts.join(" ")}`;
   const timeout = (w: WaitOptions): string[] =>
     w.timeoutMs === undefined ? [] : ["--timeout", String(Math.round(w.timeoutMs))];
 
-  return {
+  const commands = {
     /** Navigate. Launches the browser on first use. */
     open: (url: string) => cmd("open", shellQuote(url)),
     /** Click an element. */
@@ -108,6 +135,31 @@ export function browser(opts: BrowserOptions = {}) {
     getUrl: () => cmd("get", "url"),
     /** Close the browser. */
     close: () => cmd("close"),
+    /** Run JavaScript in the page. The script is passed base64-encoded, so any script is safe. */
+    eval: (script: string) => cmd("eval", "-b", shellQuote(toBase64(script))),
+    /** Cookies of the running browser, as JSON. They are credentials: keep them in the sandbox. */
+    cookies: () => cmd("cookies"),
+    /** agent-browser version. */
+    version: () => `agent-browser --version`,
+  };
+
+  return {
+    ...commands,
+    /**
+     * Commands that pin the environment, run once before the first real navigation: launch on
+     * `about:blank`, set the viewport, then block `blockHosts`.
+     */
+    setup: (): string[] => [
+      cmd("open"),
+      ...(opts.viewport
+        ? [cmd("set", "viewport", String(opts.viewport.width), String(opts.viewport.height))]
+        : []),
+      ...(opts.blockHosts ?? []).map((p) => cmd("network", "route", shellQuote(p), "--abort")),
+    ],
+    /** Page structure as JSON, masked by default. See `InspectOptions`. */
+    inspect: (o: InspectOptions = {}) => cmd("eval", "-b", shellQuote(toBase64(inspectScript(o)))),
+    session: sessionApi(commands, opts),
+    har: harApi(cmd),
   };
 }
 
