@@ -21,7 +21,17 @@ export type SandboxLike = Pick<
   | "checkpoint"
   | "credentials"
   | "egress"
+  | "proxy"
 >;
+
+/**
+ * A host-side step: receives the live sandbox and the `vars` captured so far. See
+ * `SandboxBuilder.host`.
+ */
+export type HostStep = (
+  sandbox: SandboxLike,
+  vars: Record<string, unknown>,
+) => void | Promise<void>;
 
 /** Where a credential's value comes from; see `SandboxHandle.credentials.set`. */
 export type CredentialSource = Parameters<SandboxHandle["credentials"]["set"]>[3];
@@ -65,6 +75,7 @@ export type SandboxOp =
   | { kind: "deleteFile"; path: string }
   | { kind: "moveFile"; from: string; to: string }
   | { kind: "checkpoint"; name?: string }
+  | { kind: "host"; name: string; fn: HostStep }
   | { kind: "retry"; maxAttempts: number; fn: (sb: SandboxBuilder) => void; opts: RetryOptions }
   | {
       kind: "when";
@@ -216,6 +227,28 @@ export class SandboxBuilder {
   }
 
   /**
+   * Queue a step that runs on the host, not in the sandbox, with the live sandbox handle.
+   *
+   * The workflow creates and closes its sandboxes itself, so this is the one place a caller
+   * can reach the running sandbox: open a port through the proxy, hand a live view to a
+   * person, or read state between two queued commands. `fn` runs after every op queued before
+   * it and before every op queued after it. A thrown error fails the step like any other.
+   *
+   * `name` is the step name in `onEvent`. Events never carry what `fn` did or returned.
+   *
+   * @example
+   * ```ts
+   * sb.host("live view", async (sandbox) => {
+   *   onLive(await enableBrowserStream(sandbox));
+   * })
+   * ```
+   */
+  host(name: string, fn: HostStep): this {
+    this._ops.push({ kind: "host", name, fn });
+    return this;
+  }
+
+  /**
    * Retry an inner builder callback up to `maxAttempts` times on failure.
    *
    * @example
@@ -342,7 +375,8 @@ async function flushStep(sandbox: SandboxLike, op: StepOp, ctx: FlushContext): P
   }
   const counter = (ctx.steps ??= { next: 0 });
   const index = counter.next++;
-  const name = op.kind === "exec" && op.opts.name ? op.opts.name : op.kind;
+  const name =
+    op.kind === "exec" && op.opts.name ? op.opts.name : op.kind === "host" ? op.name : op.kind;
   const started = Date.now();
   emit(ctx, { type: "step.started", index, name, kind: op.kind });
   try {
@@ -457,6 +491,10 @@ async function runStep(sandbox: SandboxLike, op: StepOp, ctx: FlushContext): Pro
 
     case "checkpoint":
       await sandbox.checkpoint(op.name);
+      break;
+
+    case "host":
+      await op.fn(sandbox, ctx.vars);
       break;
   }
 }

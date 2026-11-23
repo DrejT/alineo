@@ -9,5 +9,7 @@ export type {
   ForEachOptions,
   WorkflowExecOptions,
   CredentialSource,
+  HostStep,
+  SandboxLike,
 } from "./sandbox-builder";
 export type { WorkflowEvent, WorkflowOptions } from "./events";

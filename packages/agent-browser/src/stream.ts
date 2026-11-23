@@ -1,4 +1,17 @@
 import type { SandboxHandle } from "@alineo-labs/core";
+import { shellQuote } from "./commands";
+
+/** The sandbox methods the stream helpers use. A `SandboxHandle` has both. */
+export type StreamSandbox = Pick<SandboxHandle, "exec" | "proxy">;
+
+/** Options shared by `enableBrowserStream` and `disableBrowserStream`. */
+export interface StreamSessionOptions {
+  /** agent-browser session name (`browser({ session })`). Each session has its own stream. */
+  session?: string;
+}
+
+const sessionFlag = (session: string | undefined): string =>
+  session === undefined ? "" : ` --session ${shellQuote(session)}`;
 
 /** Everything a caller needs to reach agent-browser's live-view WebSocket stream through
  * OpenSandbox's port proxy. */
@@ -43,7 +56,7 @@ function toWsUrl(httpUrl: string): string {
   return httpUrl;
 }
 
-async function proxyStream(sandbox: SandboxHandle, port: number): Promise<BrowserStreamInfo> {
+async function proxyStream(sandbox: StreamSandbox, port: number): Promise<BrowserStreamInfo> {
   const { url, headers } = await sandbox.proxy(port);
   return { url: toWsUrl(url), headers, port };
 }
@@ -101,7 +114,7 @@ const RELAY_LOGFILE = "/tmp/alineo-browser-stream-relay.log";
  * background job survives fine across separate tool calls).
  */
 async function ensureRelay(
-  sandbox: SandboxHandle,
+  sandbox: StreamSandbox,
   targetPort: number,
   relayPort: number,
 ): Promise<void> {
@@ -121,7 +134,10 @@ async function ensureRelay(
   await sandbox.exec(
     `setsid nohup node ${RELAY_SCRIPT_PATH} ${targetPort} ${relayPort} > ${RELAY_LOGFILE} 2>&1 < /dev/null & ` +
       `RELAY_PID=$!; disown; echo -n "$RELAY_PID" > ${RELAY_PIDFILE}; echo -n "${targetPort}" > ${RELAY_TARGETFILE}; ` +
-      `sleep 0.3`,
+      // Return only once the relay listens. A caller connects right after this returns, and a
+      // fixed sleep lost that race (connection refused, so the viewer never saw a frame).
+      `i=0; until grep -q "alineo browser-stream relay" ${RELAY_LOGFILE} 2>/dev/null; do ` +
+      `i=$((i+1)); [ "$i" -gt 100 ] && { echo "relay did not start" >&2; exit 1; }; sleep 0.1; done`,
   );
 }
 
@@ -152,16 +168,17 @@ async function ensureRelay(
  * comment for why a direct proxy to agent-browser's own (loopback-only) port doesn't work.
  */
 export async function enableBrowserStream(
-  sandbox: SandboxHandle,
-  opts: { port?: number; relayPort?: number } = {},
+  sandbox: StreamSandbox,
+  opts: StreamSessionOptions & { port?: number; relayPort?: number } = {},
 ): Promise<BrowserStreamInfo> {
-  const status = await sandbox.exec("agent-browser stream status --json");
+  const session = sessionFlag(opts.session);
+  const status = await sandbox.exec(`agent-browser${session} stream status --json`);
   let current = parseStreamResult(status.stdout);
 
   if (!current?.enabled) {
     const portFlag = opts.port ? ` --port ${opts.port}` : "";
     try {
-      const enabled = await sandbox.exec(`agent-browser stream enable${portFlag} --json`);
+      const enabled = await sandbox.exec(`agent-browser${session} stream enable${portFlag} --json`);
       current = parseStreamResult(enabled.stdout);
       if (!current) {
         throw new Error(
@@ -170,7 +187,7 @@ export async function enableBrowserStream(
       }
     } catch (err) {
       const recheck = parseStreamResult(
-        (await sandbox.exec("agent-browser stream status --json")).stdout,
+        (await sandbox.exec(`agent-browser${session} stream status --json`)).stdout,
       );
       if (!recheck?.enabled) throw err;
       current = recheck;
@@ -189,6 +206,9 @@ export async function enableBrowserStream(
  * for explicit cleanup only (e.g. before checkpointing a sandbox that shouldn't carry a bound
  * listener port into its snapshot).
  */
-export async function disableBrowserStream(sandbox: SandboxHandle): Promise<void> {
-  await sandbox.exec("agent-browser stream disable --json");
+export async function disableBrowserStream(
+  sandbox: StreamSandbox,
+  opts: StreamSessionOptions = {},
+): Promise<void> {
+  await sandbox.exec(`agent-browser${sessionFlag(opts.session)} stream disable --json`);
 }

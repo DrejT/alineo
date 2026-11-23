@@ -43,6 +43,7 @@ function makeSandbox(execResults: Record<string, string> = {}) {
       delete: vi.fn().mockResolvedValue(undefined),
       get: vi.fn().mockResolvedValue({}),
     },
+    proxy: vi.fn().mockResolvedValue({ url: "http://proxy/1", headers: {} }),
   };
 }
 
@@ -433,5 +434,45 @@ describe("SandboxBuilder — step events", () => {
       }),
     );
     expect([...indexes].sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe("host steps", () => {
+  it("runs between the ops around it, with the sandbox and the vars so far", async () => {
+    const sandbox = makeSandbox({ "echo a": "a" });
+    const order: string[] = [];
+    sandbox.exec.mockImplementation((cmd: string) => {
+      order.push(cmd);
+      return Promise.resolve({ stdout: cmd === "echo a" ? "a" : "", stderr: "", exitCode: 0 });
+    });
+    const sb = new SandboxBuilder();
+    sb.exec("echo a", { as: "first" });
+    sb.host("look", async (s, vars) => {
+      order.push(`host:${String(vars.first)}`);
+      await s.proxy(80);
+    });
+    sb.exec("echo b");
+    await flushOps(sandbox, sb._ops, makeCtx());
+    expect(order).toEqual(["echo a", "host:a", "echo b"]);
+    expect(sandbox.proxy).toHaveBeenCalledWith(80);
+  });
+
+  it("reports its own name and kind, and fails the step when it throws", async () => {
+    const sandbox = makeSandbox();
+    const events: Array<{ type: string; name?: string; kind?: string; error?: string }> = [];
+    const sb = new SandboxBuilder();
+    sb.host("live view", () => undefined);
+    sb.host("broken", () => {
+      throw new Error("no port");
+    });
+    await expect(
+      flushOps(sandbox, sb._ops, makeCtx({ onEvent: (e) => events.push(e) })),
+    ).rejects.toThrow("no port");
+    expect(events.map((e) => [e.type, e.name, e.kind])).toEqual([
+      ["step.started", "live view", "host"],
+      ["step.completed", "live view", "host"],
+      ["step.started", "broken", "host"],
+      ["step.failed", "broken", "host"],
+    ]);
   });
 });
