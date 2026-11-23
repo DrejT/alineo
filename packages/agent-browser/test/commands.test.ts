@@ -37,6 +37,9 @@ describe("browser()", () => {
       "agent-browser --json wait --url '**/dashboard' --timeout 30000",
     );
     expect(b.waitForText("Welcome")).toBe("agent-browser --json wait --text 'Welcome'");
+    expect(b.waitForFn("!location.hash.startsWith('#/login')", { timeoutMs: 1000 })).toBe(
+      "agent-browser --json wait --fn '!location.hash.startsWith('\\''#/login'\\'')' --timeout 1000",
+    );
     expect(b.waitForDownload("/tmp/r.xlsx", { timeoutMs: 5000 })).toBe(
       "agent-browser --json wait --download '/tmp/r.xlsx' --timeout 5000",
     );

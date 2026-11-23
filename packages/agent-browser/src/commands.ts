@@ -118,6 +118,12 @@ export function browser(opts: BrowserOptions = {}) {
     /** Wait until the page contains `text`. */
     waitForText: (text: string, w: WaitOptions = {}) =>
       cmd("wait", "--text", shellQuote(text), ...timeout(w)),
+    /**
+     * Wait until a JavaScript expression is truthy in the page, e.g.
+     * `!location.hash.startsWith("#/login")` for an app whose sign-in URL is only a hash route.
+     */
+    waitForFn: (expression: string, w: WaitOptions = {}) =>
+      cmd("wait", "--fn", shellQuote(expression), ...timeout(w)),
     /** Wait until an element exists. */
     waitForSelector: (selector: string, w: WaitOptions = {}) =>
       cmd("wait", shellQuote(selector), ...timeout(w)),

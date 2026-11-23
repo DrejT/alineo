@@ -71,11 +71,15 @@ describe("handover", () => {
     expect(wait.opts?.timeoutMs).toBe(630_000);
   });
 
-  test("waits on a selector or text when asked", () => {
+  test("waits on a selector, text or expression when asked", () => {
     const b = browser();
     for (const [until, expected] of [
       [{ selector: "#done" }, b.waitForSelector("#done", { timeoutMs: 1000 })],
       [{ text: "Welcome" }, b.waitForText("Welcome", { timeoutMs: 1000 })],
+      [
+        { fn: "!location.hash.startsWith('#/login')" },
+        b.waitForFn("!location.hash.startsWith('#/login')", { timeoutMs: 1000 }),
+      ],
     ] as const) {
       const sb = recorder();
       handover(sb, b, { until, timeoutMs: 1000, onLive: () => undefined });

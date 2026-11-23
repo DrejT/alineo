@@ -31,10 +31,18 @@ export interface HandoverCommands {
   waitForUrl(pattern: string, w?: WaitOptions): string;
   waitForSelector(selector: string, w?: WaitOptions): string;
   waitForText(text: string, w?: WaitOptions): string;
+  waitForFn(expression: string, w?: WaitOptions): string;
 }
 
-/** When the person is done: a URL glob, an element, or text on the page. */
-export type HandoverUntil = { url: string } | { selector: string } | { text: string };
+/**
+ * When the person is done: a URL glob, an element, text on the page, or a JavaScript
+ * expression that becomes truthy.
+ */
+export type HandoverUntil =
+  | { url: string }
+  | { selector: string }
+  | { text: string }
+  | { fn: string };
 
 export interface HandoverOptions {
   /** Step name prefix in `onEvent`. Default `"handover"`. */
@@ -66,7 +74,9 @@ export function handover(sb: HandoverBuilder, b: HandoverCommands, o: HandoverOp
       ? b.waitForUrl(o.until.url, w)
       : "selector" in o.until
         ? b.waitForSelector(o.until.selector, w)
-        : b.waitForText(o.until.text, w);
+        : "text" in o.until
+          ? b.waitForText(o.until.text, w)
+          : b.waitForFn(o.until.fn, w);
 
   sb.host(`${name}: live view`, async (sandbox) => {
     await o.onLive(await enableBrowserStream(sandbox, { session: o.session }));
