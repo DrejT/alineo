@@ -27,7 +27,7 @@ export function harSummary(cfg: HarSummaryConfig, fs: typeof NodeFs): string {
     cfg.firstParty.some((d) => host === d || host.endsWith(`.${d}`));
   const keysOf = (v: unknown, prefix = ""): string[] => {
     if (Array.isArray(v)) {
-      const first = v.find((x) => x && typeof x === "object");
+      const first: unknown = (v as unknown[]).find((x) => x && typeof x === "object");
       return first ? keysOf(first, `${prefix}[].`) : [prefix.replace(/\.$/, "") + "[]"];
     }
     if (v && typeof v === "object") {
@@ -164,7 +164,7 @@ export async function sessionRequest(
             : key
               ? undefined
               : v;
-        return flat ? (Array.isArray(x) ? x : []) : [x];
+        return flat ? (Array.isArray(x) ? (x as unknown[]) : []) : [x];
       });
     }
     return path.includes("[]") ? cur : cur[0];

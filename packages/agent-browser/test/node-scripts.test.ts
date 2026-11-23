@@ -293,10 +293,15 @@ describe("filterState", () => {
       ],
       [{ origin: "https://app.example.com" }, { origin: "https://accounts.google.com" }],
     );
-    const r = JSON.parse(filterState({ path: p, domains: ["example.com"] }, fs));
+    const r = JSON.parse(filterState({ path: p, domains: ["example.com"] }, fs)) as {
+      data: unknown;
+    };
     expect(r.data).toEqual({ cookies: 2, dropped: 1 });
-    const s = JSON.parse(readFileSync(p, "utf8"));
-    expect(s.cookies.map((c: { name: string }) => c.name)).toEqual(["a", "b"]);
+    const s = JSON.parse(readFileSync(p, "utf8")) as {
+      cookies: Array<{ name: string }>;
+      origins: unknown[];
+    };
+    expect(s.cookies.map((c) => c.name)).toEqual(["a", "b"]);
     expect(s.origins).toEqual([{ origin: "https://app.example.com" }]);
   });
 });
