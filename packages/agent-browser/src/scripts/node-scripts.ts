@@ -118,18 +118,30 @@ export function filterState(cfg: FilterStateConfig, fs: typeof NodeFs): string {
   });
 }
 
-/** A value read from a JSON file in the sandbox, at a path like `data.items[].id`. */
+/**
+ * A value read from a JSON file in the sandbox, at a path like `data.items[].id` or
+ * `content.0.id`. With `join`, an array result becomes one string (`"a,b"`).
+ */
 export interface FileRef {
-  $ref: { file: string; path: string };
+  $ref: { file: string; path: string; join?: string };
+}
+
+/** A value read from the session file's saved localStorage, for one origin and key. */
+export interface StorageRef {
+  $storage: { origin: string; key: string };
 }
 
 export interface SessionRequestConfig {
   /** Storage-state file written by `b.session.dump()` or `writeFileBytes`. */
   session: string;
   method: string;
+  /** May contain `{name}` placeholders, filled (URL-encoded) from `params`. */
   url: string;
+  /** Values for `{name}` placeholders in `url`. Each may be a literal or a ref. */
+  params?: Record<string, unknown>;
   query?: Record<string, unknown>;
-  headers?: Record<string, string>;
+  /** Header values: literals or refs. */
+  headers?: Record<string, unknown>;
   json?: unknown;
   form?: Record<string, unknown>;
   /** Write the response body here (bytes). */
@@ -169,12 +181,25 @@ export async function sessionRequest(
     }
     return path.includes("[]") ? cur : cur[0];
   };
+  // Uses `state`, assigned below before any call.
   const resolve = (v: unknown): unknown => {
     if (Array.isArray(v)) return v.map(resolve);
     if (v && typeof v === "object") {
       const ref = (v as Partial<FileRef>).$ref;
       if (ref && typeof ref.file === "string" && typeof ref.path === "string") {
-        return getPath(JSON.parse(fs.readFileSync(ref.file, "utf8")), ref.path);
+        const got = getPath(JSON.parse(fs.readFileSync(ref.file, "utf8")), ref.path);
+        if (got === undefined) throw new MissingValue(`no value at ${ref.path} in ${ref.file}`);
+        return typeof ref.join === "string" && Array.isArray(got)
+          ? got.map(String).join(ref.join)
+          : got;
+      }
+      const st = (v as Partial<StorageRef>).$storage;
+      if (st && typeof st.origin === "string" && typeof st.key === "string") {
+        const item = state.origins
+          ?.find((o) => o.origin === st.origin)
+          ?.localStorage?.find((i) => i.name === st.key);
+        if (!item) throw new MissingValue(`no localStorage ${st.key} for ${st.origin}`);
+        return item.value;
       }
       return Object.fromEntries(
         Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, resolve(x)]),
@@ -182,6 +207,7 @@ export async function sessionRequest(
     }
     return v;
   };
+  class MissingValue extends Error {}
   const site = (host: string): string => host.split(".").slice(-2).join(".");
 
   type Cookie = {
@@ -221,11 +247,21 @@ export async function sessionRequest(
       .join("; ");
 
   try {
-    const url = new URL(cfg.url);
+    const params = resolve(cfg.params ?? {}) as Record<string, unknown>;
+    const filled = cfg.url.replace(/\{(\w+)\}/g, (_, name: string) => {
+      if (!(name in params)) throw new MissingValue(`no value for {${name}} in url`);
+      return encodeURIComponent(String(params[name]));
+    });
+    const url = new URL(filled);
     for (const [k, raw] of Object.entries(resolve(cfg.query ?? {}) as Record<string, unknown>)) {
       for (const v of Array.isArray(raw) ? raw : [raw]) url.searchParams.append(k, String(v));
     }
-    const headers: Record<string, string> = { ...(cfg.headers ?? {}) };
+    const headers: Record<string, string> = Object.fromEntries(
+      Object.entries(resolve(cfg.headers ?? {}) as Record<string, unknown>).map(([k, x]) => [
+        k,
+        String(x),
+      ]),
+    );
     if (cfg.userAgent) headers["user-agent"] = cfg.userAgent;
     for (const [h, ref] of Object.entries(cfg.headerFromStorage ?? {})) {
       const [origin, key] = ref.split("|");
@@ -318,6 +354,7 @@ export async function sessionRequest(
       error: null,
     });
   } catch (err) {
+    if (err instanceof MissingValue) return fail("missing_value", err.message);
     return fail("request_failed", err instanceof Error ? err.message : String(err));
   } finally {
     if (cfg.deleteSession) {

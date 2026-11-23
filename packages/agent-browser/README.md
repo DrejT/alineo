@@ -125,7 +125,32 @@ b.session.request(
   something else, or a redirect to another site: log in again.
 - `ref(file, path)` reads a value from an earlier response inside the sandbox. `pick` returns
   values to the host instead.
-- `headerFromStorage` takes a header (e.g. a bearer token) from saved localStorage.
+- `fromStorage(origin, key)` reads a value from the session's saved localStorage, for example
+  an account id the app keeps there after login.
+- `url` may contain `{name}` placeholders, filled (URL-encoded) from `params`. `params`,
+  `headers`, `query`, `json` and `form` values may all be `ref(...)` or `fromStorage(...)`, so
+  ids the sandbox discovers never pass through the host.
+- `ref(file, path, { join: "," })` turns an array into one string. Paths take an index too:
+  `content.0.id`.
+- A ref or placeholder with no value fails with `code: "missing_value"`, before anything is sent.
+
+```ts
+b.session.request(sb, {
+  method: "POST",
+  url: "https://app.example.com/api/users/{userId}/places",
+  params: { userId: fromStorage("https://app.example.com", "userId") },
+  json: {},
+  out: "/tmp/places.json",
+});
+b.session.request(sb, {
+  method: "POST",
+  url: "https://app.example.com/api/report/download",
+  headers: { "x-place-id": ref("/tmp/places.json", "content.0.id") },
+  form: { placeIds: ref("/tmp/places.json", "content[].id", { join: "," }) },
+  out: "/tmp/report.xlsx",
+  expect: { magic: "PK" },
+});
+```
 
 ### Find the endpoints once
 
