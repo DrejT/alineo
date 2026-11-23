@@ -134,7 +134,10 @@ async function ensureRelay(
   await sandbox.exec(
     `setsid nohup node ${RELAY_SCRIPT_PATH} ${targetPort} ${relayPort} > ${RELAY_LOGFILE} 2>&1 < /dev/null & ` +
       `RELAY_PID=$!; disown; echo -n "$RELAY_PID" > ${RELAY_PIDFILE}; echo -n "${targetPort}" > ${RELAY_TARGETFILE}; ` +
-      `sleep 0.3`,
+      // Return only once the relay listens. A caller connects right after this returns, and a
+      // fixed sleep lost that race (connection refused, so the viewer never saw a frame).
+      `i=0; until grep -q "alineo browser-stream relay" ${RELAY_LOGFILE} 2>/dev/null; do ` +
+      `i=$((i+1)); [ "$i" -gt 100 ] && { echo "relay did not start" >&2; exit 1; }; sleep 0.1; done`,
   );
 }
 
