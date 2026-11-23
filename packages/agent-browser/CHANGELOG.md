@@ -1,5 +1,14 @@
 # @alineo-labs/agent-browser
 
+## 0.2.0
+
+### Minor Changes
+
+- 4fd2313: Add `b.inspect({ mask })` (page structure, masked by default), `browserEnv()` + `b.setup()` (pinned user agent, viewport, locale, timezone, timeout, tab, input mode, blocked analytics hosts), `b.har.start/stop/summary` (find a site's endpoints without recording values), and `b.session.dump/save/load/request` (call a site's API with the browser's session, from a session file inside the sandbox, with no browser running). `saveSession`/`loadSession` are deprecated in favour of `b.session.save`/`b.session.load`.
+- 93879a4: Publish the package to npm. Add `browser()` command builders for deterministic workflows, `browserOk`/`parseBrowserResult` for agent-browser's `--json` envelope, and `saveSession`/`loadSession` to move a signed-in browser session between sandboxes as bytes.
+
+  `browserSetupSteps()` now pins agent-browser (`AGENT_BROWSER_VERSION`, default `0.43.0`; override with `{ version }`), and no longer runs `agent-browser install --with-deps` next to its own `apt-get`. Current agent-browser runs `apt-get` itself for `--with-deps`, and the two failed on the dpkg lock.
+
 ## 0.1.4
 
 ### Patch Changes

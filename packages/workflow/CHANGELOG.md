@@ -1,5 +1,11 @@
 # @drej/workflow
 
+## 0.2.0
+
+### Minor Changes
+
+- 93879a4: Add `readFileBytes`/`writeFileBytes`, `setCredential`, `patchEgress`/`deleteEgress`, per-command output capture (`exec(cmd, { as, parse })`), and step events (`workflow(client, { onEvent })`). Events never carry command text, file contents or credential values.
+
 ## 0.1.8
 
 ### Patch Changes
