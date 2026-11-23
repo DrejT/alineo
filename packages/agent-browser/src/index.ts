@@ -4,7 +4,7 @@ export { enableBrowserStream, disableBrowserStream } from "./stream";
 export type { BrowserStreamInfo } from "./stream";
 export { browser, browserOk, parseBrowserResult, shellQuote } from "./commands";
 export type { BrowserCommands, BrowserOptions, BrowserResult, WaitOptions } from "./commands";
-export { saveSession, loadSession, ref } from "./session";
+export { saveSession, loadSession, ref, fromStorage } from "./session";
 export type {
   SessionBuilder,
   SessionOptions,
@@ -13,6 +13,8 @@ export type {
   SessionRequest,
   SessionExecOptions,
   FileRef,
+  StorageRef,
+  RequestValue,
 } from "./session";
 export { parseInspect, inspectOnFailure, DEFAULT_WORDS } from "./inspect";
 export type { InspectOptions, PageStructure, InspectBuilder } from "./inspect";

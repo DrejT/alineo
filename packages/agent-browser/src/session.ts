@@ -5,9 +5,13 @@ import {
   sessionRequest,
   type FileRef,
   type SessionRequestConfig,
+  type StorageRef,
 } from "./scripts/node-scripts";
 
-export type { FileRef };
+export type { FileRef, StorageRef };
+
+/** A request value: a literal, or a ref resolved inside the sandbox. */
+export type RequestValue = string | number | boolean | FileRef | StorageRef;
 
 /** Exec options the session helpers pass through (a subset of `WorkflowExecOptions`). */
 export interface SessionExecOptions {
@@ -49,19 +53,26 @@ export interface SessionOptions extends Pick<BrowserOptions, "session"> {
   path?: string;
 }
 
-/** A request for `b.session.request`. Values in `query`, `json` and `form` may be `ref(...)`s. */
+/**
+ * A request for `b.session.request`. Values in `params`, `query`, `headers`, `json` and `form`
+ * may be `ref(...)` or `fromStorage(...)`: they are resolved inside the sandbox, so values the
+ * sandbox discovers never pass through the host.
+ */
 export interface SessionRequest {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
+  /** May contain `{name}` placeholders, e.g. `https://app.example.com/api/users/{userId}/items`. */
   url: string;
+  /** Values for the `{name}` placeholders in `url`, URL-encoded when filled in. */
+  params?: Record<string, RequestValue>;
   /** Storage-state file in the sandbox. Default: the path `b.session.dump()` writes. */
   session?: string;
   query?: Record<string, unknown>;
-  headers?: Record<string, string>;
+  headers?: Record<string, RequestValue>;
   json?: unknown;
   form?: Record<string, unknown>;
   /** Write the response body to this sandbox path. A later request can `ref()` it if it is JSON. */
   out?: string;
-  /** Header values from saved localStorage: `{ authorization: { origin, key, prefix? } }`. */
+  /** Header values from saved localStorage. Same as `headers: { h: fromStorage(origin, key) }`. */
   headerFromStorage?: Record<string, { origin: string; key: string }>;
   /** Checks on the response. A failed check is not a success. */
   expect?: { contentType?: RegExp | string; magic?: string; minSize?: number };
@@ -74,9 +85,18 @@ export interface SessionRequest {
   timeoutMs?: number;
 }
 
-/** A value read inside the sandbox from a JSON file a previous request wrote with `out`. */
-export function ref(file: string, path: string): FileRef {
-  return { $ref: { file, path } };
+/**
+ * A value read inside the sandbox from a JSON file a previous request wrote with `out`.
+ * `path` uses dots, `[]` to flatten arrays and numbers for an index: `data[].id`, `content.0.id`.
+ * `join` turns an array result into one string, e.g. `{ join: "," }` → `"a,b"`.
+ */
+export function ref(file: string, path: string, o: { join?: string } = {}): FileRef {
+  return { $ref: { file, path, ...(o.join === undefined ? {} : { join: o.join }) } };
+}
+
+/** A value read inside the sandbox from the session file's saved localStorage. */
+export function fromStorage(origin: string, key: string): StorageRef {
+  return { $storage: { origin, key } };
 }
 
 const DEFAULT_STATE_PATH = "/tmp/alineo-browser-state.json";
@@ -145,6 +165,7 @@ export function sessionApi(
         session: req.session ?? DEFAULT_STATE_PATH,
         method: req.method,
         url: req.url,
+        params: req.params,
         query: req.query,
         headers: req.headers,
         json: req.json,

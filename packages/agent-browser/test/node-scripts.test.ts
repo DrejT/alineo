@@ -4,7 +4,7 @@ import { mkdtempSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { filterState, harSummary, sessionRequest } from "../src/scripts/node-scripts";
-import { browser, ref } from "../src/index";
+import { browser, fromStorage, ref } from "../src/index";
 
 const dir = mkdtempSync(join(tmpdir(), "ab-node-scripts-"));
 const XLSX = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0xff, 0x00, 0x80]);
@@ -45,6 +45,25 @@ beforeAll(() => {
             "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           },
         });
+      if (u.pathname.startsWith("/api/users/") && u.pathname.endsWith("/places")) {
+        return Response.json({
+          content: [
+            { id: "DV1", businessModel: "B2C" },
+            { id: "DV2", businessModel: "B2C" },
+          ],
+        });
+      }
+      if (u.pathname === "/api/form-download") {
+        const f = new URLSearchParams(body);
+        const ok =
+          f.get("pobIds") === "DV1,DV2" &&
+          req.headers.get("x-pob-id") === "DV1" &&
+          req.headers.get("businessmodel") === "B2C" &&
+          req.headers.get("x-tenant") === "T";
+        return ok
+          ? new Response(XLSX, { headers: { "content-type": "application/vnd.ms-excel" } })
+          : new Response("bad", { status: 400 });
+      }
       if (u.pathname === "/html")
         return new Response("<html>login</html>", { headers: { "content-type": "text/html" } });
       return new Response("not found", { status: 404 });
@@ -177,6 +196,55 @@ describe("sessionRequest", () => {
     });
     expect(r.success).toBe(true);
     expect(seen.at(-1)?.auth).toBe("Bearer abc");
+  });
+
+  test("fills url params from localStorage, headers from refs, and joins a ref for a form body", async () => {
+    const session = writeState(
+      "ajio-shape.json",
+      [good],
+      [{ origin: "https://app.example.com", localStorage: [{ name: "userId", value: "u 1/2" }] }],
+    );
+    const places = join(dir, "shape-places.json");
+    const first = await run({
+      session,
+      method: "POST",
+      url: `${base}/api/users/{userId}/places`,
+      params: { userId: fromStorage("https://app.example.com", "userId") },
+      json: {},
+      out: places,
+    });
+    expect(first.success).toBe(true);
+    // Encoded into one path segment.
+    expect(seen.at(-1)?.path).toBe("/api/users/u%201%2F2/places");
+
+    const second = await run({
+      session,
+      method: "POST",
+      url: `${base}/api/form-download`,
+      headers: {
+        "x-tenant": "T",
+        "x-pob-id": ref(places, "content.0.id"),
+        businessModel: ref(places, "content.0.businessModel"),
+      },
+      form: { pobIds: ref(places, "content[].id", { join: "," }) },
+      expect: { magic: "PK" },
+    });
+    expect(second).toMatchObject({ success: true, data: { status: 200 } });
+  });
+
+  test("a missing ref or placeholder value is missing_value, and nothing is sent", async () => {
+    const session = writeState("missing-value.json", [good]);
+    const before = seen.length;
+    const a = await run({ session, method: "GET", url: `${base}/api/users/{userId}/places` });
+    expect(a).toMatchObject({ success: false, code: "missing_value" });
+    const b = await run({
+      session,
+      method: "GET",
+      url: `${base}/api/users/{userId}/places`,
+      params: { userId: fromStorage("https://nope.example.com", "userId") },
+    });
+    expect(b).toMatchObject({ success: false, code: "missing_value" });
+    expect(seen.length).toBe(before);
   });
 
   test("a missing session file is no_session", async () => {
