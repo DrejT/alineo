@@ -1,7 +1,11 @@
 export { browserSetupSteps, AGENT_BROWSER_VERSION } from "./setup";
 export type { SetupStep, BrowserSetupOptions } from "./setup";
 export { enableBrowserStream, disableBrowserStream } from "./stream";
-export type { BrowserStreamInfo } from "./stream";
+export type { BrowserStreamInfo, StreamSandbox, StreamSessionOptions } from "./stream";
+export { handover } from "./handover";
+export type { HandoverBuilder, HandoverCommands, HandoverOptions, HandoverUntil } from "./handover";
+export { relayBrowserStream } from "./relay";
+export type { BrowserStreamRelay, RelayDownstream, RelayOptions, RelayUpstream } from "./relay";
 export { browser, browserOk, parseBrowserResult, shellQuote } from "./commands";
 export type { BrowserCommands, BrowserOptions, BrowserResult, WaitOptions } from "./commands";
 export { saveSession, loadSession, ref, fromStorage } from "./session";
