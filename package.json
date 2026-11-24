@@ -65,5 +65,10 @@
     "oxfmt": "^0.67.0",
     "oxlint": "^1.82.0",
     "oxlint-tsgolint": "^7.0.2001"
+  },
+  "overrides": {
+    "guarded-fetch": "0.2.0",
+    "katex": "0.18.11",
+    "postcss-selector-parser": "6.1.6"
   }
 }
