@@ -43,6 +43,9 @@
             "quiescent"
           ]
         },
+        "tenantId": {
+          "type": "string"
+        },
         "event": {
           "type": "string",
           "enum": [

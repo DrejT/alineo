@@ -18,6 +18,7 @@ import { driveTurn } from "./stream";
 import { withInbox } from "./notify";
 import { acquireAdmission } from "./admission";
 import { providerOf, errorFields } from "../util";
+import { getAgentRow } from "../state/projection";
 
 export interface CreateRunResult {
   runId: string;
@@ -26,7 +27,7 @@ export interface CreateRunResult {
   state: string;
 }
 
-export function createRun(body: CreateRunBody): CreateRunResult {
+export function createRun(body: CreateRunBody, tenantId: string | null = null): CreateRunResult {
   const runId = newRunId();
   const rootAgentId = newAgentId();
 
@@ -39,7 +40,11 @@ export function createRun(body: CreateRunBody): CreateRunResult {
   // Everything above is synchronous, no I/O — this whole function runs to completion before
   // any other request's handler gets a turn, so the row below is visible to the very next
   // GET /runs/:id even though the sandbox doesn't exist yet.
-  emit(runId, null, "run.started", { runId, closeWhen: body.closeWhen });
+  emit(runId, null, "run.started", {
+    runId,
+    closeWhen: body.closeWhen,
+    ...(tenantId !== null ? { tenantId } : {}),
+  });
   emit(runId, rootAgentId, "agent.spawned", {
     parentAgentId: null,
     runId,
@@ -83,6 +88,17 @@ export async function provisionRoot(
       spawnDepth: body.budget?.spawnDepth,
       maxAgents: body.budget?.maxAgents,
     });
+    if (getAgentRow(rootAgentId)?.ended_at != null) {
+      // Stopped (DELETE /runs/:id, the sweeper) while Alineo.start() was in flight. The run may
+      // already be closed, and nothing else will ever close this sandbox.
+      try {
+        await agent.close();
+      } catch {
+        /* ignore */
+      }
+      emit(runId, rootAgentId, "agent.released", { reason: "stopped-before-provisioned" });
+      return;
+    }
     register(rootAgentId, agent);
     emit(runId, rootAgentId, "agent.provisioned", {
       sandboxId: agent.sandboxId,
@@ -91,6 +107,7 @@ export async function provisionRoot(
 
     if (body.prompt) void driveTurn(rootAgentId, withInbox(rootAgentId, body.prompt));
   } catch (err) {
+    if (getAgentRow(rootAgentId)?.ended_at != null) return; // already ended (stopped)
     emit(runId, rootAgentId, "agent.ended", {
       outcome: "failed",
       endedAt: Date.now(),

@@ -24,6 +24,9 @@ export const RunStarted = defineEvent({
     // `.default` rather than a version bump: every run before this field existed behaved
     // exactly as "explicit", so an old row missing it folds correctly with no migration.
     closeWhen: z.enum(["explicit", "quiescent"]).default("explicit"),
+    // Optional, with no default: a run made with no authentication has no tenant, and an old row
+    // is the same. A deployer who turns authentication on reads a missing tenant as the default one.
+    tenantId: z.string().optional(),
   }),
 });
 

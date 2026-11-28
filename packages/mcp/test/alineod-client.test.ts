@@ -191,3 +191,117 @@ describe("AlineodClient.watchEvents", () => {
     expect(events).toEqual([{ id: 1, event: "run.started", data: { runId: "r1" } }]);
   });
 });
+
+describe("AlineodClient credentials", () => {
+  const headersOf = (init?: RequestInit) => new Headers(init?.headers);
+
+  it("sends no Authorization header when no key is set", async () => {
+    const saved = process.env.ALINEOD_API_KEY;
+    delete process.env.ALINEOD_API_KEY;
+    try {
+      let seen: RequestInit | undefined;
+      const fetchImpl = stubFetch(async (_url, init) => {
+        seen = init;
+        return new Response(JSON.stringify({ runs: [] }), { status: 200 });
+      });
+      await new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl }).listRuns();
+      expect(headersOf(seen).has("authorization")).toBe(false);
+    } finally {
+      if (saved !== undefined) process.env.ALINEOD_API_KEY = saved;
+    }
+  });
+
+  it("sends apiKey as a bearer token, with and without a body", async () => {
+    const seen: RequestInit[] = [];
+    const fetchImpl = stubFetch(async (_url, init) => {
+      seen.push(init ?? {});
+      return new Response(JSON.stringify({ runs: [] }), { status: 200 });
+    });
+    const client = new AlineodClient({
+      baseUrl: "http://test.local:4600",
+      fetchImpl,
+      apiKey: "k1",
+    });
+    await client.listRuns();
+    await client.createRun({ spec: { name: "x" } });
+    expect(headersOf(seen[0]).get("authorization")).toBe("Bearer k1");
+    expect(headersOf(seen[1]).get("authorization")).toBe("Bearer k1");
+    expect(headersOf(seen[1]).get("content-type")).toBe("application/json");
+  });
+
+  it("reads ALINEOD_API_KEY when no apiKey is passed", async () => {
+    const saved = process.env.ALINEOD_API_KEY;
+    process.env.ALINEOD_API_KEY = "from-env";
+    try {
+      let seen: RequestInit | undefined;
+      const fetchImpl = stubFetch(async (_url, init) => {
+        seen = init;
+        return new Response(JSON.stringify({ runs: [] }), { status: 200 });
+      });
+      await new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl }).listRuns();
+      expect(headersOf(seen).get("authorization")).toBe("Bearer from-env");
+    } finally {
+      if (saved === undefined) delete process.env.ALINEOD_API_KEY;
+      else process.env.ALINEOD_API_KEY = saved;
+    }
+  });
+
+  it("takes the header per call from `authorization`, ahead of apiKey", async () => {
+    let caller = "Bearer user-1";
+    const seen: string[] = [];
+    const fetchImpl = stubFetch(async (_url, init) => {
+      seen.push(headersOf(init).get("authorization") ?? "");
+      return new Response(JSON.stringify({ runs: [] }), { status: 200 });
+    });
+    const client = new AlineodClient({
+      baseUrl: "http://test.local:4600",
+      fetchImpl,
+      apiKey: "ignored",
+      authorization: () => caller,
+    });
+    await client.listRuns();
+    caller = "Bearer user-2";
+    await client.listRuns();
+    expect(seen).toEqual(["Bearer user-1", "Bearer user-2"]);
+  });
+
+  it("sends the credential on the event stream too", async () => {
+    let seen: RequestInit | undefined;
+    const fetchImpl = stubFetch(async (_url, init) => {
+      seen = init;
+      return new Response("", { status: 200 });
+    });
+    await new AlineodClient({
+      baseUrl: "http://test.local:4600",
+      fetchImpl,
+      apiKey: "k1",
+    }).watchEvents("r1", { maxWaitMs: 50 });
+    expect(headersOf(seen).get("authorization")).toBe("Bearer k1");
+    expect(headersOf(seen).get("last-event-id")).toBe("0");
+  });
+});
+
+describe("AlineodClient.listRuns", () => {
+  it("asks for /runs with no query by default", async () => {
+    let seenUrl = "";
+    const fetchImpl = stubFetch(async (url) => {
+      seenUrl = String(url);
+      return new Response(JSON.stringify({ runs: [] }), { status: 200 });
+    });
+    await new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl }).listRuns();
+    expect(seenUrl).toBe("http://test.local:4600/runs");
+  });
+
+  it("passes limit and state", async () => {
+    let seenUrl = "";
+    const fetchImpl = stubFetch(async (url) => {
+      seenUrl = String(url);
+      return new Response(JSON.stringify({ runs: [] }), { status: 200 });
+    });
+    await new AlineodClient({ baseUrl: "http://test.local:4600", fetchImpl }).listRuns({
+      limit: 5,
+      state: "open",
+    });
+    expect(seenUrl).toBe("http://test.local:4600/runs?limit=5&state=open");
+  });
+});

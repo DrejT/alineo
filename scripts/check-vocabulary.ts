@@ -338,7 +338,11 @@ let mcpToolCount = 0;
 {
   const source = await Bun.file(MCP_SERVER).text();
   const registrations = source.match(/\bregisterTool\(/g)?.length ?? 0;
-  const names = [...source.matchAll(/\bregisterTool\(\s*"([^"]+)"/g)].map((m) => m[1]!);
+  const registered = [...source.matchAll(/\bregisterTool\(\s*"([^"]+)"/g)].map((m) => m[1]!);
+  // `buildServer` registers the spec tools twice, once for the local server and once for the
+  // remote one (no local files, no Docker), so one name can appear in two places. The surface a
+  // client sees is the set of names, and that is what gets checked and counted.
+  const names = [...new Set(registered)];
   mcpToolCount = names.length;
 
   // A regex that matches nothing also reports no failures. Anchor both checks on a floor so
@@ -348,9 +352,9 @@ let mcpToolCount = 0;
     failures.push(`${MCP_SERVER}: no registerTool() calls found — has the file moved?`);
   }
 
-  if (names.length !== registrations) {
+  if (registered.length !== registrations) {
     failures.push(
-      `${MCP_SERVER}: found ${registrations} registerTool() calls but only ${names.length} ` +
+      `${MCP_SERVER}: found ${registrations} registerTool() calls but only ${registered.length} ` +
         `string-literal names. A tool registered under a computed name cannot be checked.`,
     );
   }

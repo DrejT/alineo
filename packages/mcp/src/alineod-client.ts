@@ -49,6 +49,7 @@ import type {
   BudgetOverride as BudgetOverrideSchema,
   CloseWhen as CloseWhenSchema,
   CreateRunResponse as CreateRunResponseSchema,
+  ListRunsResponse as ListRunsResponseSchema,
   ResultResponse as ResultResponseSchema,
   SpawnAgentResponse as SpawnAgentResponseSchema,
   TreeView as TreeViewSchema,
@@ -57,6 +58,7 @@ import type {
 export type BudgetOverride = z.infer<typeof BudgetOverrideSchema>;
 export type CloseWhen = z.infer<typeof CloseWhenSchema>;
 export type CreateRunResponse = z.infer<typeof CreateRunResponseSchema>;
+export type ListRunsResponse = z.infer<typeof ListRunsResponseSchema>;
 export type SpawnAgentResponse = z.infer<typeof SpawnAgentResponseSchema>;
 export type AgentDetail = z.infer<typeof AgentDetailSchema>;
 export type TreeView = z.infer<typeof TreeViewSchema>;
@@ -94,6 +96,17 @@ export interface AlineodSseEvent {
 export interface AlineodClientOptions {
   baseUrl?: string;
   fetchImpl?: typeof fetch;
+  /**
+   * A bearer token for an alineod that requires one. Defaults to `ALINEOD_API_KEY`. Unset sends
+   * no `Authorization` header, which is right for a local alineod with no authentication.
+   */
+  apiKey?: string;
+  /**
+   * The full `Authorization` header value to send on each request, read at call time. A server that
+   * serves this client to several users passes the caller's own header here, so the client holds no
+   * credential of its own. Wins over `apiKey`. Return `undefined` to send none.
+   */
+  authorization?: () => string | undefined;
 }
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:4600";
@@ -101,6 +114,7 @@ const DEFAULT_BASE_URL = "http://127.0.0.1:4600";
 export class AlineodClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly authorization: () => string | undefined;
 
   constructor(opts: AlineodClientOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? process.env.ALINEOD_URL ?? DEFAULT_BASE_URL).replace(
@@ -108,6 +122,14 @@ export class AlineodClient {
       "",
     );
     this.fetchImpl = opts.fetchImpl ?? fetch;
+    const apiKey = opts.apiKey ?? process.env.ALINEOD_API_KEY;
+    this.authorization = opts.authorization ?? (() => (apiKey ? `Bearer ${apiKey}` : undefined));
+  }
+
+  /** Headers every request carries, plus `extra`. */
+  private headers(extra: Record<string, string> = {}): Record<string, string> {
+    const authorization = this.authorization();
+    return authorization ? { ...extra, authorization } : extra;
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -115,7 +137,7 @@ export class AlineodClient {
     try {
       res = await this.fetchImpl(`${this.baseUrl}${path}`, {
         method,
-        headers: body !== undefined ? { "content-type": "application/json" } : undefined,
+        headers: this.headers(body !== undefined ? { "content-type": "application/json" } : {}),
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
     } catch (err) {
@@ -148,6 +170,14 @@ export class AlineodClient {
 
   createRun(body: CreateRunBody): Promise<CreateRunResponse> {
     return this.request("POST", "/runs", body);
+  }
+
+  listRuns(opts: { limit?: number; state?: "open" | "closed" } = {}): Promise<ListRunsResponse> {
+    const qs = new URLSearchParams();
+    if (opts.limit !== undefined) qs.set("limit", String(opts.limit));
+    if (opts.state !== undefined) qs.set("state", opts.state);
+    const query = qs.size > 0 ? `?${qs.toString()}` : "";
+    return this.request("GET", `/runs${query}`);
   }
 
   getRun(runId: string): Promise<TreeView> {
@@ -215,7 +245,7 @@ export class AlineodClient {
     let res: Response;
     try {
       res = await this.fetchImpl(`${this.baseUrl}/runs/${encodeURIComponent(runId)}/events`, {
-        headers: { "last-event-id": String(opts.sinceEventId ?? 0) },
+        headers: this.headers({ "last-event-id": String(opts.sinceEventId ?? 0) }),
         signal: controller.signal,
       });
     } catch (err) {

@@ -6,9 +6,11 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import pkg from "../package.json" with { type: "json" };
-import { AlineodClient, AlineodError } from "./alineod-client.js";
+import { AlineodClient, AlineodError, type AlineodClientOptions } from "./alineod-client.js";
 import { init } from "./init.js";
-import { addSpec, listSpecs, removeSpec } from "./specs.js";
+import { addSpec, getSpec, listSpecs, removeSpec } from "./specs.js";
+import { addRemoteSpec, MemorySpecStore, specForCaller, type SpecStore } from "./spec-store.js";
+import { PublicFetchError, type PublicFetchOptions } from "./public-fetch.js";
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
 
@@ -57,24 +59,52 @@ const AgentSpecInput = z
   .record(z.string(), z.unknown())
   .describe("An alineo AgentSpec object (validated server-side by alineod's own SDK call).");
 
-export function buildServer(
-  clientOpts: { baseUrl?: string; fetchImpl?: typeof fetch } = {},
-): McpServer {
+export interface BuildServerOptions extends AlineodClientOptions {
+  /**
+   * `local` (the default) is the stdio server on a user's own machine: `init` starts Docker, and
+   * `spec_add` reads local files and keeps specs in the user's `agentsDir`.
+   *
+   * `remote` is the server run for other people. There is no `init`. `spec_add` takes an inline
+   * spec or a public https URL, never a file path, and specs live in `specs`.
+   */
+  mode?: "local" | "remote";
+  /** Remote mode only: where specs are kept. Default is an in-memory store for this server object. */
+  specs?: SpecStore;
+  /** Remote mode only: limits for fetching a spec by URL. */
+  fetchOptions?: PublicFetchOptions;
+}
+
+export function buildServer(options: BuildServerOptions = {}): McpServer {
+  const { mode = "local", specs, fetchOptions, ...clientOpts } = options;
+  const remote = mode === "remote";
+  // A remote server with no store of its own keeps nothing between requests, so offering
+  // spec_list / spec_get / spec_remove would only let a caller add a spec and then fail to find it.
+  const persistent = remote && specs !== undefined;
+  const store = remote ? (specs ?? new MemorySpecStore()) : undefined;
   const client = new AlineodClient(clientOpts);
 
   const server = new McpServer(
     { name: "alineo-mcp", version: pkg.version },
     {
-      instructions:
-        "Orchestrate swarms of sandboxed coding agents via alineod, alineo's HTTP+SSE control " +
-        "daemon, plus local agent-spec management. Typical flow: init (once, to start " +
-        "OpenSandbox + alineod locally) → spec_add / spec_list to get an " +
-        "AgentSpec → run_start to start a swarm → agent_spawn to fan out " +
-        "children → agent_prompt / agent_steer to drive them → " +
-        "run_watch or run_get to observe progress → result_get to " +
-        "read a settled agent's output → agent_stop / run_stop to tear down. " +
-        "alineod must be reachable (default http://127.0.0.1:4600, override with ALINEOD_URL) " +
-        "for every run_*, agent_* and result_* tool; init starts it.",
+      instructions: remote
+        ? "Orchestrate swarms of sandboxed coding agents through a hosted alineod. Typical flow: " +
+          "spec_add (an inline spec, or a public https URL) validates an AgentSpec" +
+          (persistent
+            ? ", and spec_list / spec_get recall saved ones"
+            : " and returns it (this server keeps no specs)") +
+          " → run_start to start a swarm → agent_spawn to fan out children → " +
+          "agent_prompt / agent_steer to drive them → run_watch, run_get or run_list to observe " +
+          "progress → result_get to read a settled agent's output → agent_stop / run_stop to " +
+          "tear down. There is nothing to install or start: the daemon is already running."
+        : "Orchestrate swarms of sandboxed coding agents via alineod, alineo's HTTP+SSE control " +
+          "daemon, plus local agent-spec management. Typical flow: init (once, to start " +
+          "OpenSandbox + alineod locally) → spec_add / spec_list / spec_get to get an " +
+          "AgentSpec → run_start to start a swarm → agent_spawn to fan out " +
+          "children → agent_prompt / agent_steer to drive them → " +
+          "run_watch, run_get or run_list to observe progress → result_get to " +
+          "read a settled agent's output → agent_stop / run_stop to tear down. " +
+          "alineod must be reachable (default http://127.0.0.1:4600, override with ALINEOD_URL) " +
+          "for every run_*, agent_* and result_* tool; init starts it.",
     },
   );
 
@@ -101,6 +131,28 @@ export function buildServer(
     safe(async ({ spec, prompt, budget, closeWhen }) =>
       ok(await client.createRun({ spec, prompt, budget, closeWhen })),
     ),
+  );
+
+  server.registerTool(
+    "run_list",
+    {
+      title: "List runs",
+      description:
+        "GET /runs — your runs, newest first, with each run's root agent, state and start time. " +
+        "Use it to find a run id you no longer have. When the daemon requires authentication it " +
+        "lists only the runs that belong to you.",
+      inputSchema: z.object({
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(500)
+          .optional()
+          .describe("At most this many (default 100)."),
+        state: z.enum(["open", "closed"]).optional().describe("Only runs in this state."),
+      }),
+    },
+    safe(async ({ limit, state }) => ok(await client.listRuns({ limit, state }))),
   );
 
   server.registerTool(
@@ -314,18 +366,99 @@ export function buildServer(
 
   // ── alineo: local spec management + bootstrap ─────────────────────────────
 
-  server.registerTool(
-    "init",
-    {
-      title: "Start OpenSandbox + alineod locally",
-      description:
-        "Starts OpenSandbox and alineod in Docker (pulling images if needed) and writes " +
-        "alineo.config.json in the current directory if missing. Run this once before any " +
-        "run_*, agent_* or result_* tool if alineod isn't already running. Requires Docker.",
-      inputSchema: z.object({}),
-    },
-    safe(async () => ok(await init())),
-  );
+  if (!remote) {
+    server.registerTool(
+      "init",
+      {
+        title: "Start OpenSandbox + alineod locally",
+        description:
+          "Starts OpenSandbox and alineod in Docker (pulling images if needed) and writes " +
+          "alineo.config.json in the current directory if missing. Run this once before any " +
+          "run_*, agent_* or result_* tool if alineod isn't already running. Requires Docker.",
+        inputSchema: z.object({}),
+      },
+      safe(async () => ok(await init())),
+    );
+  }
+
+  if (store) {
+    // Remote mode: specs live in the store, and no tool touches the server's disk or network
+    // beyond a public https fetch.
+    server.registerTool(
+      "spec_add",
+      {
+        title: "Add an agent spec",
+        description:
+          (persistent
+            ? "Validates an AgentSpec and saves it. "
+            : "Validates an AgentSpec and returns it. It is NOT kept: this server stores no specs, " +
+              "so pass the returned object as `spec` to run_start / agent_spawn yourself. ") +
+          "Pass the spec itself in `spec`, or a public https URL to one in `url` (not both). " +
+          "registryDependencies are fetched the same way. Local file paths are not accepted." +
+          (persistent ? " Use the saved spec's object as `spec` in run_start / agent_spawn." : ""),
+        inputSchema: z.object({
+          spec: z.record(z.string(), z.unknown()).optional().describe("The AgentSpec object."),
+          url: z
+            .string()
+            .min(1)
+            .optional()
+            .describe("A public https:// URL to an AgentSpec JSON file."),
+          name: z.string().optional().describe("Save under this name instead of the spec's own."),
+        }),
+      },
+      safe(async ({ spec, url, name }) => {
+        try {
+          const added = await addRemoteSpec(store, { spec, url, name }, fetchOptions);
+          return ok({ ...added, spec: specForCaller(added.spec) });
+        } catch (err) {
+          // Fetch refusals are the caller's to see, not an internal failure.
+          if (err instanceof PublicFetchError)
+            return fail(new Error(`Could not fetch the spec: ${err.message}`));
+          throw err;
+        }
+      }),
+    );
+
+    if (persistent) {
+      server.registerTool(
+        "spec_list",
+        {
+          title: "List saved agent specs",
+          description: "Lists every AgentSpec saved with spec_add.",
+          inputSchema: z.object({}),
+        },
+        safe(async () => ok(await store.list())),
+      );
+
+      server.registerTool(
+        "spec_get",
+        {
+          title: "Get a saved agent spec",
+          description: "Returns one saved AgentSpec, ready to pass as `spec` to run_start.",
+          inputSchema: z.object({ name: z.string().min(1) }),
+        },
+        safe(async ({ name }) => {
+          const spec = await store.get(name);
+          if (!spec) throw new Error(`No agent spec named '${name}'.`);
+          return ok(specForCaller(spec));
+        }),
+      );
+
+      server.registerTool(
+        "spec_remove",
+        {
+          title: "Remove a saved agent spec",
+          description: "Deletes a saved AgentSpec by name.",
+          inputSchema: z.object({ name: z.string().min(1) }),
+        },
+        safe(async ({ name }) => {
+          if (!(await store.remove(name))) throw new Error(`No agent spec named '${name}'.`);
+          return ok(`Removed agent spec '${name}'.`);
+        }),
+      );
+    }
+    return server;
+  }
 
   server.registerTool(
     "spec_add",
@@ -357,6 +490,16 @@ export function buildServer(
       inputSchema: z.object({}),
     },
     safe(async () => ok(await listSpecs())),
+  );
+
+  server.registerTool(
+    "spec_get",
+    {
+      title: "Get a saved agent spec",
+      description: "Returns one locally saved AgentSpec, ready to pass as `spec` to run_start.",
+      inputSchema: z.object({ name: z.string().min(1) }),
+    },
+    safe(async ({ name }) => ok(await getSpec(name))),
   );
 
   server.registerTool(

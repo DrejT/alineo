@@ -3,7 +3,8 @@ title: HTTP API
 description: Every alineod route — runs, agents, control actions, and results.
 ---
 
-Base URL: `http://localhost:4600` by default. Request bodies are JSON. Errors are returned as
+Base URL: `http://localhost:4600` by default. Request bodies are JSON. When the daemon requires authentication, send
+`Authorization: Bearer <token>` on every request except `GET /health`. See [Security](/docs/alineod/deployment#security). Errors are returned as
 `{ "error": "<message>" }` with an appropriate status; an invalid body is `400` and names each failing field.
 When the failure has a stable error code, the body also carries it as `code`
 (`{ "error": "<message>", "code": "SANDBOX_NOT_RUNNING" }`). Branch on `code`, not on the message text.
@@ -12,10 +13,13 @@ A body without `code` means no code applies.
 | Code                     | Status | When                                                                                        |
 | ------------------------ | ------ | ------------------------------------------------------------------------------------------- |
 | `INVALID_ARGUMENT`       | 400    | The request body or a parameter failed validation.                                          |
-| `AGENT_NOT_FOUND`        | 404    | No agent with that id.                                                                      |
-| `RUN_NOT_FOUND`          | 404    | No run with that id.                                                                        |
+| `UNAUTHENTICATED`        | 401    | The daemon requires authentication and the request had no valid credential.                 |
+| `AGENT_NOT_FOUND`        | 404    | No agent with that id, or it belongs to another tenant.                                     |
+| `RUN_NOT_FOUND`          | 404    | No run with that id, or it belongs to another tenant.                                       |
 | `AGENT_NOT_LIVE`         | 409    | The agent exists but is not live in this daemon (ended, released, or the daemon restarted). |
 | `AGENT_BUSY`             | 409    | The agent is still finishing its previous turn. Retryable.                                  |
+| `LIMIT_EXCEEDED`         | 429    | A per-tenant limit stops the request: too many runs, live agents, or agents created lately. |
+| `TENANT_SUSPENDED`       | 403    | The operator has suspended this tenant. Reads and stopping still work.                      |
 | `CAPABILITY_UNSUPPORTED` | 501    | The daemon setup lacks what the route needs, for example memory when it is disabled.        |
 
 Sandbox and model failures use the codes in [Error codes](/docs/core/api-reference/errors#error-codes).
@@ -25,6 +29,7 @@ The body also carries `hint` when the code has one.
 | -------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET`    | `/health`                        | Liveness check.                                                                                                                                          |
 | `POST`   | `/runs`                          | Create a run and its root agent.                                                                                                                         |
+| `GET`    | `/runs`                          | List runs, newest first.                                                                                                                                 |
 | `GET`    | `/runs/:runId`                   | The run's spawn tree.                                                                                                                                    |
 | `DELETE` | `/runs/:runId`                   | Stop every live agent in the run.                                                                                                                        |
 | `GET`    | `/runs/:runId/events`            | The run's event stream (SSE).                                                                                                                            |
@@ -65,6 +70,27 @@ set, runs once it's ready.
 ```
 
 If provisioning fails, the root ends with outcome `failed` and the error appears on its `agent.ended` event.
+
+### GET /runs
+
+Lists runs, newest first. Query: `limit` (1 to 500, default 100) and `state` (`open` or `closed`). With
+authentication on, it lists only the caller's runs.
+
+```json
+{
+  "runs": [
+    {
+      "runId": "r_3f9c1a7e5b2d4c80",
+      "rootAgentId": "a_1b2c3d4e",
+      "state": "open",
+      "closeWhen": "explicit",
+      "createdAt": 1762851200000
+    }
+  ]
+}
+```
+
+`createdAt` is the time the root agent was created, in epoch milliseconds.
 
 ### GET /runs/:runId
 

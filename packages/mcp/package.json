@@ -18,6 +18,10 @@
   "exports": {
     ".": {
       "import": "./dist/index.mjs"
+    },
+    "./server": {
+      "types": "./dist/lib.d.mts",
+      "import": "./dist/lib.mjs"
     }
   },
   "publishConfig": {

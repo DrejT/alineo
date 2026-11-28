@@ -33,6 +33,14 @@ safe, replicas are not (see [Scaling](#scaling)).
 | `ALINEOD_REHYDRATE_CONCURRENCY`                | host vCPUs − 1 (at least 1)    | How many agents are reconnected or restored at once on boot. `1` restores one at a time. See [Back up and restore](/docs/alineod/restore).                                                                     |
 | `ALINEOD_INSTANCE_ID`                          | `default`                      | A stable name for this alineod, used as its folder in the backup bucket.                                                                                                                                       |
 | `ALINEOD_BACKUP_BUCKET` and `ALINEOD_BACKUP_*` | empty (off)                    | Off-box checkpoints and backups in an S3-compatible bucket. The full list is in [Back up and restore](/docs/alineod/restore#configure).                                                                        |
+| `ALINEOD_AUTH_TOKEN`                           | empty (off)                    | A shared secret. When set, every request except `GET /health` needs `Authorization: Bearer <token>`. See [Security](#security).                                                                                |
+| `ALINEOD_SPEC_ENV_ALLOW`                       | empty (no limit)               | Which `${NAME}` references a spec's `env` may use. A comma list of names or `PREFIX*`, or `none`. See [Security](#security).                                                                                   |
+| `ALINEOD_MAX_OPEN_RUNS`                        | `0` (no limit)                 | Most runs one tenant may have open at once. See [Limits and suspension](#limits-and-suspension).                                                                                                               |
+| `ALINEOD_MAX_LIVE_AGENTS`                      | `0` (no limit)                 | Most agents one tenant may have holding a sandbox at once.                                                                                                                                                     |
+| `ALINEOD_MAX_AGENTS_PER_WINDOW`                | `0` (no limit)                 | Most agents one tenant may create within `ALINEOD_AGENT_WINDOW_MS`.                                                                                                                                            |
+| `ALINEOD_AGENT_WINDOW_MS`                      | `86400000`                     | The rolling window for the limit above. One day.                                                                                                                                                               |
+| `ALINEOD_MAX_RUN_AGE_MS`                       | `0` (no limit)                 | An open run older than this is torn down.                                                                                                                                                                      |
+| `ALINEOD_SWEEP_INTERVAL_MS`                    | `30000`                        | How often the sweep looks for runs to tear down.                                                                                                                                                               |
 
 Every variable is declared in `apps/alineod/config.ts`, and a bad value is rejected at startup rather than silently
 becoming `NaN`.
@@ -49,6 +57,137 @@ Fixed limits, set in `apps/alineod/config.ts`:
 - Socket idle timeout: **255 s** (Bun's maximum — its ~10 s default would kill SSE and long-polls).
 - SSE heartbeat: every **10 s**.
 - `GET /agents/:id/result?wait=` is capped at **240 s**.
+
+## Security
+
+alineod has no login by default. It answers every request, so run it on a trusted interface (`127.0.0.1`, or a
+private network) unless you turn one of the options below on. Put your own TLS in front of it when it must be
+reachable over a network. It speaks plain HTTP.
+
+| Mode                        | How                                    | What it protects                                                                                  |
+| --------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| No authentication (default) | nothing to set                         | Nothing. Fine for one user on one machine.                                                        |
+| One shared secret           | `ALINEOD_AUTH_TOKEN`                   | Keeps out callers without the token. Everyone with it is one tenant and sees every run.           |
+| Several isolated tenants    | pass `authenticate` to `startDaemon()` | Each tenant sees only its own runs. A caller cannot tell another tenant's run from a missing one. |
+
+With authentication on, every route except `GET /health` answers `401` with `{ "error": ..., "code": "UNAUTHENTICATED" }`
+until the caller sends a valid credential. `GET /health` stays open so a load balancer can probe it.
+
+### Tenants
+
+An `authenticate` function cannot be set from the environment, so you write a small entry file of your own in place
+of `server.ts`. It calls `startDaemon()` from `src/daemon.ts`, which runs the same boot sequence as `server.ts` (the
+lease, the SDK ledger, memory, rehydrate, the HTTP app and the sweep). `authenticate` receives the request and returns
+`{ tenantId }`, or `null` to refuse it. It may be async. alineo does not store keys or users. You write that part:
+
+```ts
+import { startDaemon } from "./src/daemon";
+
+const daemon = await startDaemon({
+  authenticate: async (request) => {
+    const key = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+    const tenantId = key ? await lookupTenantByKey(key) : null; // your key store
+    return tenantId ? { tenantId } : null;
+  },
+});
+
+process.on("SIGTERM", () => {
+  daemon.stop();
+  process.exit(0);
+});
+```
+
+Every other setting still comes from the `ALINEOD_*` variables above. The
+[Hosted MCP for a Team](/docs/cookbooks/hosted-mcp) cookbook runs a complete entry file like this with two tenants.
+
+A run belongs to the tenant that created it. Everything under a run (its agents, results, events, inbox and memory)
+follows it. A request for a run or agent that belongs to another tenant gets the same `404` as one that does not
+exist. `GET /runs` lists only the caller's runs.
+
+Runs made before you turned authentication on, or with no authentication, belong to the `default` tenant. The
+`ALINEOD_AUTH_TOKEN` mode uses that tenant, so turning the token on does not hide existing runs. A named tenant
+cannot see them.
+
+For a named tenant, alineod puts the tenant in front of each spec's `resourceId` and `teamId` (`acme:researcher`), so two
+tenants who pick the same agent name do not share memory.
+
+A tenant id may not be empty or contain `:`, because the colon separates a tenant from its memory scope. alineod refuses
+a credential whose tenant id breaks this and logs an error, since the fault is in your `authenticate` function. For the
+same reason, a caller in the `default` tenant may not use `:` in a spec's `name`, `resourceId` or `teamId` once
+authentication is on. Otherwise it could write `acme:shared` and reach tenant `acme`'s memory.
+
+### Network isolation is part of the security model
+
+Two checks cannot be made complete inside alineod, so the network around it has to back them up:
+
+- **Spawns from inside a sandbox.** An agent that runs the `alineo spawn` command inside its sandbox uses the SDK
+  and does not call alineod's HTTP API. It does not go through `POST /runs/:runId/agents`, so alineod's tenant check,
+  `limitsFor` and `admitSpec` do not see it. The spec's `spawnDepth` and `maxAgents` still bound it. Do not let
+  sandboxes reach the OpenSandbox server or alineod. Block both with the sandbox egress policy and your firewall. What a
+  sandbox can reach depends on your setup, so test it on yours.
+- **Fetching a spec by URL (the remote MCP).** The MCP resolves a name, checks the addresses, and then `fetch` resolves
+  it again, so a hostile DNS server can answer differently the second time. Run the MCP server where it cannot reach
+  private addresses at all, such as a host or container with no route to your internal network.
+
+### Limits and suspension
+
+alineo ships limits and a kill switch and sets no numbers. Every limit is off until you set it, so nothing changes
+for a deployment that sets none. With authentication off, all callers count as one tenant.
+
+| Limit                           | Counts                                                                                                 | Refuses with              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------- |
+| `ALINEOD_MAX_OPEN_RUNS`         | Runs a tenant has open.                                                                                | `429 LIMIT_EXCEEDED`      |
+| `ALINEOD_MAX_LIVE_AGENTS`       | Agents holding a sandbox. A finished agent keeps its sandbox until its run closes, so it still counts. | `429 LIMIT_EXCEEDED`      |
+| `ALINEOD_MAX_AGENTS_PER_WINDOW` | Agents created in a rolling window, alive or not.                                                      | `429 LIMIT_EXCEEDED`      |
+| `ALINEOD_MAX_RUN_AGE_MS`        | Age of an open run. An older run is torn down, and the ledger is kept.                                 | (the sweep tears it down) |
+
+These limits cap sandboxes, which are most of the cost of running agents. alineod does not measure model tokens or
+money, so no limit caps those. Cap them at the model provider.
+
+The check and the create happen with no `await` between them, so concurrent requests cannot all pass a limit
+that has room for one.
+
+To give tenants different limits, or to suspend one, build a `Limits` and pass it to `startDaemon()`. The functions
+may be async:
+
+```ts
+import { startDaemon } from "./src/daemon";
+import { Limits } from "./src/limits";
+
+const limits = new Limits({
+  defaults: { maxOpenRuns: 3, maxLiveAgents: 10 },
+  limitsFor: async (tenantId) =>
+    (await plan(tenantId)) === "pro" ? { maxLiveAgents: 40 } : undefined,
+  isSuspended: async (tenantId) => await isBlocked(tenantId),
+});
+
+const daemon = await startDaemon({ authenticate, limits });
+```
+
+`limitsFor` is merged over `defaults` field by field. While `isSuspended` answers `true` for a tenant, its requests that
+start or continue work (create a run, spawn, prompt, steer, resume, write memory) get `403 TENANT_SUSPENDED`, and the
+sweep tears down its open runs. Reads, `stop`, `pause`, `await` and `DELETE /runs/:runId` still work. A `limitsFor`
+or `isSuspended` that throws refuses the request, so a broken switch fails closed. During the sweep, a function that
+throws leaves the run alone, so a broken policy function cannot tear runs down by accident.
+
+### Keep secrets out of specs
+
+alineod fills `${NAME}` in a spec's `env` from its own environment. Without a limit, anyone who can create a run can
+write `"env": { "X": "${SOME_SECRET_ALINEOD_HOLDS}" }` and read that secret inside their sandbox. This applies to a
+credential binding's `credential` value too.
+
+Set `ALINEOD_SPEC_ENV_ALLOW` (or pass `specEnvAllow` to `startDaemon()`) whenever people you do not trust can create
+runs. List the names a spec may read, for example `NVIDIA_API_KEY,OPENAI_*`. A trailing `*` matches a prefix. `none`
+allows no `${NAME}` at all, so a spec carries only literal values. A spec that breaks the rule is refused with `400`.
+
+An allowed name is still readable inside the sandbox when a spec uses it as a plain value, as in
+`{ "X": "${NVIDIA_API_KEY}" }`. That value becomes a container environment variable, and the agent, or code it runs,
+can print it. If your daemon pays for the model, do not hand tenants a plain-string key. Put the key on the allowlist
+and tell tenants to use a credential binding (`{ "credential": "${NVIDIA_API_KEY}", "host": ..., "injection": ... }`).
+A binding keeps the real value out of the sandbox and injects it into matching outbound requests only.
+
+The limit applies to `env` only. A shell command in a setup step runs inside the sandbox and cannot read alineod's
+environment.
 
 ## Logging
 

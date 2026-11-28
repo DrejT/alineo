@@ -85,6 +85,8 @@ try {
 | `RUN_NOT_FOUND`          | permanent  | no        | 404  | The daemon has no run with that id.                                                                 |
 | `AGENT_NOT_LIVE`         | permanent  | no        | 409  | The agent exists but is not live in this daemon, so it cannot take the call.                        |
 | `AGENT_BUSY`             | transient  | yes       | 409  | The agent is still finishing its previous turn.                                                     |
+| `LIMIT_EXCEEDED`         | transient  | yes       | 429  | A per-tenant limit set by the daemon's operator stops this request.                                 |
+| `TENANT_SUSPENDED`       | permanent  | no        | 403  | The daemon's operator has suspended this tenant. New work is refused.                               |
 | `INTERNAL`               | internal   | no        | 500  | A failure with no more specific code.                                                               |
 
 The same codes appear in the `code` field of an [alineod HTTP error](/docs/alineod/api-reference/http-api).

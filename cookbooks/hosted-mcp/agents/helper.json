@@ -1,0 +1,13 @@
+{
+  "$schema": "https://registry.alineo.tech/spec/agent.json",
+  "name": "helper",
+  "title": "Helper",
+  "description": "Answers one short question. Used to show a run end to end through the hosted MCP.",
+  "author": "alineo",
+  "harness": { "id": "pi", "version": "1.2.0" },
+  "model": { "provider": "nvidia", "id": "nvidia/nemotron-3.5-lightning-30b-a3b" },
+  "env": {
+    "NVIDIA_API_KEY": "${NVIDIA_API_KEY}"
+  },
+  "resources": { "cpu": "1000m", "memory": "2Gi" }
+}

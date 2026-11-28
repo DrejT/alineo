@@ -9,6 +9,7 @@
     "persistent-agent-memory",
     "credential-scoped-agent",
     "swarm-code-review",
-    "mcp-agent-swarm"
+    "mcp-agent-swarm",
+    "hosted-mcp"
   ]
 }

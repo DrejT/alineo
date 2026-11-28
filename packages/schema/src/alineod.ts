@@ -59,6 +59,18 @@ export const CreateRunResponse = z.object({
     ),
 });
 
+export const RunSummary = z.object({
+  runId: z.string(),
+  rootAgentId: z.string().nullable(),
+  state: z.enum(["open", "closed"]),
+  closeWhen: z.enum(["explicit", "quiescent"]),
+  createdAt: z.number().nullable().describe("Epoch ms the root agent was created."),
+});
+
+export const ListRunsResponse = z.object({
+  runs: z.array(RunSummary).describe("Newest first."),
+});
+
 // ── waits (spawn-time waitFor, POST /runs/:runId/await) ─────────────────────────
 
 export const WaitMode = z

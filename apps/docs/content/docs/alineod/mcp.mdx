@@ -170,6 +170,7 @@ findings, all through these tools.
 | Tool           | alineod route                   | What it does                                                      |
 | -------------- | ------------------------------- | ----------------------------------------------------------------- |
 | `run_start`    | `POST /runs`                    | Load the root agent from a spec, optionally drive a first prompt. |
+| `run_list`     | `GET /runs`                     | Your runs, newest first. Find a run id you no longer have.        |
 | `run_get`      | `GET /runs/:runId`              | The spawn tree: every agent with its parent and current state.    |
 | `run_stop`     | `DELETE /runs/:runId`           | Abort and close every live agent in the run.                      |
 | `run_watch`    | `GET /runs/:runId/events` (SSE) | Collect lifecycle and harness events for a bounded window.        |
@@ -189,6 +190,7 @@ findings, all through these tools.
 | `init`        | Start OpenSandbox and alineod locally in Docker.                   |
 | `spec_add`    | Fetch a spec from a URL or file, validate it, and save it locally. |
 | `spec_list`   | List saved specs.                                                  |
+| `spec_get`    | Return one saved spec, ready to pass as `spec` to `run_start`.     |
 | `spec_remove` | Delete a saved spec by name.                                       |
 
 <Callout type="info" title="Events are polled, not streamed">
@@ -207,11 +209,58 @@ gained since. These are available over HTTP only:
 - `GET /agents/:agentId/transcript`
 - The coordination routes: `await`, `notify-on`, and the inbox.
 
+## Serve it to other people
+
+`npx alineo-mcp` runs on one person's machine and trusts them: `init` starts Docker, and `spec_add` reads local files.
+To serve the MCP to other people, run it over streamable HTTP in **remote mode**:
+
+```bash
+ALINEOD_URL=https://alineod.internal:4600 npx -y alineo-mcp --http --port 4700
+```
+
+It listens on `127.0.0.1` by default (`--host` changes that). It speaks plain HTTP at `/mcp`, with `GET /health` open.
+Put your own TLS in front of it to expose it.
+
+Remote mode differs from the local server in four ways:
+
+- **It holds no credential.** Each request must carry an `Authorization` header, and the server forwards that header,
+  unchanged, to alineod. alineod's [authentication](/docs/alineod/deployment#security) decides who the caller is and
+  which runs they may see. A request with no header gets `401` here, so the endpoint is not an open door to an alineod
+  with no authentication. `--allow-anonymous` turns that check off when alineod does the checking.
+- **There is no `init`.** The daemon is already running.
+- **`spec_add` takes the spec itself in `spec`, or a public `https://` URL in `url`, never a file path.** The URL must
+  use port 443 and resolve only to public addresses. Redirects are checked at every hop, and the body is capped at
+  1 MiB. A URL that points at the server's own network is refused. `registryDependencies` are fetched the same way,
+  up to 20.
+- **Specs live in a `SpecStore`, not on the server's disk.** With no store passed, the server keeps nothing between
+  requests, so it offers `spec_add` as a validator only (it returns the spec, and you pass that object to `run_start`)
+  and leaves out `spec_list`, `spec_get` and `spec_remove`. Pass a store that persists, one per caller, to get all four.
+
+To embed it in your own program, import from `alineo-mcp/server`:
+
+```ts
+import { createHttpMcp } from "alineo-mcp/server";
+
+const mcp = createHttpMcp({
+  baseUrl: "https://alineod.internal:4600",
+  specsFor: (authorization) => storeFor(authorization), // your per-caller SpecStore
+});
+
+Bun.serve({ fetch: (request) => mcp.fetch(request) });
+```
+
+<Callout type="warn" title="One gap in the URL check">
+  The server resolves a spec URL's name, checks the addresses, and then `fetch` resolves it again. A
+  hostile DNS server can answer differently the second time. Run the server where it cannot reach
+  private addresses, as well.
+</Callout>
+
 ## Configuration
 
 | Setting              | Where                                                       | Default                 | Affects                                   |
 | -------------------- | ----------------------------------------------------------- | ----------------------- | ----------------------------------------- |
 | `ALINEOD_URL`        | env var on the `alineo-mcp` process                         | `http://127.0.0.1:4600` | Every `run_*`/`agent_*`/`result_*` tool.  |
+| `ALINEOD_API_KEY`    | env var on the `alineo-mcp` process                         | none                    | Sent as `Authorization: Bearer` when set. |
 | `alineo.config.json` | project file, or `~/.config/alineo/config.json` as fallback | written by `init`       | Where `spec_add` and friends store specs. |
 | Model provider key   | env var on the `alineo-mcp` process, e.g. `NVIDIA_API_KEY`  | none                    | Forwarded into alineod by `init`.         |
 
@@ -220,14 +269,17 @@ shows up in both.
 
 ## Troubleshooting
 
-| Symptom                                               | Cause                                                 | Fix                                                                                                |
-| ----------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `alineod error (network): Could not reach alineod...` | alineod is not running, or `ALINEOD_URL` is wrong.    | Call `init` (needs Docker), or check what is listening on the configured URL.                      |
-| `alineod error (404): no run ...` or `no agent ...`   | Wrong ID, or it was already deleted or stopped.       | Take the ID from the tool result that created it. `run_get` lists current agents.                  |
-| `alineod error (409): agent ... is not live`          | The agent's sandbox has already ended.                | Check `state` and `outcome` in `agent_get` before prompting again.                                 |
-| `init` fails at "Checking Docker..."                  | Docker is not installed or its daemon is not running. | Start Docker and retry.                                                                            |
-| A spawned agent never produces a result               | No model provider key reached alineod.                | Put the key in the client's `env` block before `init`, or in the alineod container's env.          |
-| The client shows no `alineo` tools                    | The server failed to start.                           | Run `npx -y alineo-mcp` in a terminal. It should wait silently for input, and errors go to stderr. |
+| Symptom                                               | Cause                                                        | Fix                                                                                                |
+| ----------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `alineod error (network): Could not reach alineod...` | alineod is not running, or `ALINEOD_URL` is wrong.           | Call `init` (needs Docker), or check what is listening on the configured URL.                      |
+| `alineod error (401): authentication required`        | alineod requires a token and none was sent, or it was wrong. | Set `ALINEOD_API_KEY` in the client's `env` block to the token that alineod expects.               |
+| `alineod error (429, LIMIT_EXCEEDED)`                 | A per-tenant limit on runs, live agents or agent creation.   | Stop an agent or close a run, or wait, then try again. The message names the limit.                |
+| `alineod error (403, TENANT_SUSPENDED)`               | The operator suspended your account.                         | Contact whoever runs the daemon. Reads and stopping still work.                                    |
+| `alineod error (404): no run ...` or `no agent ...`   | Wrong ID, or it was already deleted or stopped.              | Take the ID from the tool result that created it. `run_get` lists current agents.                  |
+| `alineod error (409): agent ... is not live`          | The agent's sandbox has already ended.                       | Check `state` and `outcome` in `agent_get` before prompting again.                                 |
+| `init` fails at "Checking Docker..."                  | Docker is not installed or its daemon is not running.        | Start Docker and retry.                                                                            |
+| A spawned agent never produces a result               | No model provider key reached alineod.                       | Put the key in the client's `env` block before `init`, or in the alineod container's env.          |
+| The client shows no `alineo` tools                    | The server failed to start.                                  | Run `npx -y alineo-mcp` in a terminal. It should wait silently for input, and errors go to stderr. |
 
 Every tool returns errors as a tool result with `isError` set instead of crashing the server, so a failed call
 is visible to the client and safe to retry.

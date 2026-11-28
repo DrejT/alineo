@@ -41,6 +41,61 @@ const ENV_VARS = {
     schema: z.coerce.number().int().positive().max(65535),
     default: 4600,
   }),
+  AUTH_TOKEN: defineEnv({
+    name: "ALINEOD_AUTH_TOKEN",
+    description:
+      "A shared secret. When set, every request except `GET /health` must send `Authorization: Bearer <token>`, or it gets a 401. Everyone who holds the token is one tenant, so this is authentication and not isolation. Leave it empty (the default) for no authentication, which is only safe when alineod listens on a trusted interface. A deployer who needs several isolated tenants passes an `authenticate` function to `startDaemon()` (src/daemon.ts) instead.",
+    schema: z.string(),
+    default: "",
+  }),
+  SPEC_ENV_ALLOW: defineEnv({
+    name: "ALINEOD_SPEC_ENV_ALLOW",
+    description:
+      "Which environment variables a spec may read with `${NAME}` in `AgentSpec.env`. alineod fills `${NAME}` from its own environment, so without a list any caller can write the name of a secret alineod holds into a spec and read it inside its sandbox. Give a comma list of exact names or prefixes ending in `*` (`NVIDIA_API_KEY,OPENAI_*`). `none` allows no `${NAME}` at all, so a spec carries only literal values. Empty (the default) puts no limit on specs, which is right when every caller is trusted. Set it whenever people you do not trust can create runs.",
+    schema: z.string(),
+    default: "",
+  }),
+  MAX_OPEN_RUNS: defineEnv({
+    name: "ALINEOD_MAX_OPEN_RUNS",
+    description:
+      "Most runs one tenant may have open at once. A request to create another gets a `429` with code `LIMIT_EXCEEDED`. With no authentication every caller counts as one tenant. `0` (the default) means no limit.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  MAX_LIVE_AGENTS: defineEnv({
+    name: "ALINEOD_MAX_LIVE_AGENTS",
+    description:
+      "Most agents one tenant may have holding a sandbox at once, across all its runs. A finished agent keeps its sandbox until its run closes, so it still counts. A request to create or spawn another gets a `429` with code `LIMIT_EXCEEDED`. `0` (the default) means no limit.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  MAX_AGENTS_PER_WINDOW: defineEnv({
+    name: "ALINEOD_MAX_AGENTS_PER_WINDOW",
+    description:
+      "Most agents one tenant may create within `ALINEOD_AGENT_WINDOW_MS`, whether or not they are still alive. This bounds how fast sandboxes are created, which is most of the cost of running agents. It does not count model tokens, which alineod does not measure. `0` (the default) means no limit.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  AGENT_WINDOW_MS: defineEnv({
+    name: "ALINEOD_AGENT_WINDOW_MS",
+    description: "The rolling window for `ALINEOD_MAX_AGENTS_PER_WINDOW`. Default one day.",
+    schema: ms,
+    default: 24 * 60 * 60_000,
+  }),
+  MAX_RUN_AGE_MS: defineEnv({
+    name: "ALINEOD_MAX_RUN_AGE_MS",
+    description:
+      "An open run older than this is torn down, as if a client had deleted it. The ledger is kept. `0` (the default) means runs live until a client closes them.",
+    schema: nonNegativeInt,
+    default: 0,
+  }),
+  SWEEP_INTERVAL_MS: defineEnv({
+    name: "ALINEOD_SWEEP_INTERVAL_MS",
+    description:
+      "How often alineod checks for runs past `ALINEOD_MAX_RUN_AGE_MS` and for suspended tenants whose runs must come down. The sweep runs only when a run-age limit or a suspension hook is set.",
+    schema: ms,
+    default: 30_000,
+  }),
   DB_PATH: defineEnv({
     name: "ALINEOD_DB_PATH",
     description:
@@ -287,6 +342,25 @@ const env = readEnvGroup(ENV_VARS, { onWarning: (message) => configWarnings.push
 
 /** HTTP + SSE listen port. */
 export const PORT = env.PORT;
+export const AUTH_TOKEN = env.AUTH_TOKEN;
+/**
+ * The spec env allowlist as the app takes it: `undefined` for no limit, `[]` for none, or the names.
+ */
+export const SPEC_ENV_ALLOW: readonly string[] | undefined = (() => {
+  const raw = env.SPEC_ENV_ALLOW.trim();
+  if (raw === "") return undefined;
+  if (raw.toLowerCase() === "none") return [];
+  return raw
+    .split(",")
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
+})();
+export const MAX_OPEN_RUNS = env.MAX_OPEN_RUNS;
+export const MAX_LIVE_AGENTS = env.MAX_LIVE_AGENTS;
+export const MAX_AGENTS_PER_WINDOW = env.MAX_AGENTS_PER_WINDOW;
+export const AGENT_WINDOW_MS = env.AGENT_WINDOW_MS;
+export const MAX_RUN_AGE_MS = env.MAX_RUN_AGE_MS;
+export const SWEEP_INTERVAL_MS = env.SWEEP_INTERVAL_MS;
 export const DB_PATH = env.DB_PATH;
 export const SDK_LEDGER_PATH = env.SDK_LEDGER_PATH;
 export const WORK_DIR = env.WORK_DIR;

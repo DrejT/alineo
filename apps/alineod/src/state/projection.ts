@@ -63,7 +63,7 @@ const upsertHandlePending = db.query(
 );
 
 const insertRun = db.query(
-  `INSERT INTO runs (run_id, close_when, state) VALUES ($runId, $closeWhen, 'open')
+  `INSERT INTO runs (run_id, close_when, state, tenant_id) VALUES ($runId, $closeWhen, 'open', $tenantId)
    ON CONFLICT(run_id) DO NOTHING`,
 );
 
@@ -106,6 +106,7 @@ export function apply(row: LedgerRow): void {
       insertRun.run({
         $runId: row.run_id,
         $closeWhen: (p.closeWhen as string) ?? "explicit",
+        $tenantId: (p.tenantId as string | undefined) ?? null,
       });
       break;
     case "run.closed":
@@ -327,12 +328,118 @@ export interface RunRow {
   close_when: "explicit" | "quiescent";
   state: "open" | "closed";
   closed_at: number | null;
+  /** The tenant that created the run. `null` for a run made with no authentication. */
+  tenant_id: string | null;
 }
 
 const qRun = db.query<RunRow, [string]>(`SELECT * FROM runs WHERE run_id = ?`);
 
 export function getRun(runId: string): RunRow | null {
   return qRun.get(runId) ?? null;
+}
+
+// What a tenant is using, for the limits in limits.ts. The tenant filter is the one `listRuns`
+// uses: `$tenant` null counts everyone (authentication off), and a run with no recorded tenant
+// counts as `$legacy`'s.
+const TENANT_FILTER = `($tenant IS NULL OR COALESCE(r.tenant_id, $legacy) = $tenant)`;
+// An agent holds a sandbox from when it starts provisioning until it is released. A finished
+// agent keeps its sandbox open (see `reconnectableTerminalAgents`), so "done" does not free it.
+// A spawn waiting on `waitFor` is `spawning` and has no sandbox yet, but it will take one the
+// moment its dependencies settle, so it counts. Leaving it out would let a tenant queue any number.
+const HOLDS_SANDBOX = `a.released_at IS NULL
+  AND COALESCE(a.outcome, '') NOT IN ('aborted', 'lost')
+  AND (a.sandbox_id IS NOT NULL OR a.state IN ('provisioning', 'spawning'))`;
+
+type CountParams = Record<string, string | number | null>;
+const qOpenRunCount = db.query<{ n: number }, CountParams>(
+  `SELECT COUNT(*) AS n FROM runs r WHERE r.state = 'open' AND ${TENANT_FILTER}`,
+);
+const qSandboxAgentCount = db.query<{ n: number }, CountParams>(
+  `SELECT COUNT(*) AS n FROM agents a JOIN runs r ON r.run_id = a.run_id
+   WHERE ${HOLDS_SANDBOX} AND ${TENANT_FILTER}`,
+);
+const qAgentsSinceCount = db.query<{ n: number }, CountParams>(
+  `SELECT COUNT(*) AS n FROM agents a JOIN runs r ON r.run_id = a.run_id
+   WHERE a.created_at >= $since AND ${TENANT_FILTER}`,
+);
+const qOpenRunsOldestFirst = db.query<
+  { run_id: string; tenant: string; created_at: number | null },
+  CountParams
+>(
+  `SELECT r.run_id, COALESCE(r.tenant_id, $legacy) AS tenant, MIN(a.created_at) AS created_at
+   FROM runs r LEFT JOIN agents a ON a.run_id = r.run_id
+   WHERE r.state = 'open' GROUP BY r.run_id ORDER BY created_at`,
+);
+
+export interface TenantScope {
+  /** `null` counts every run. */
+  tenant: string | null;
+  /** The tenant a run with no recorded tenant belongs to. */
+  legacyTenant: string;
+}
+
+const scopeParams = (scope: TenantScope): CountParams => ({
+  $tenant: scope.tenant,
+  $legacy: scope.legacyTenant,
+});
+
+export function countOpenRuns(scope: TenantScope): number {
+  return qOpenRunCount.get(scopeParams(scope))?.n ?? 0;
+}
+
+/** Agents that hold a sandbox right now. */
+export function countSandboxAgents(scope: TenantScope): number {
+  return qSandboxAgentCount.get(scopeParams(scope))?.n ?? 0;
+}
+
+/** Agents created at or after `sinceMs` (epoch ms). */
+export function countAgentsSince(scope: TenantScope, sinceMs: number): number {
+  return qAgentsSinceCount.get({ ...scopeParams(scope), $since: sinceMs })?.n ?? 0;
+}
+
+/** Every open run with its tenant and when its first agent was created. Oldest first. */
+export function openRunsWithAge(
+  legacyTenant: string,
+): Array<{ runId: string; tenant: string; createdAt: number | null }> {
+  return qOpenRunsOldestFirst
+    .all({ $legacy: legacyTenant })
+    .map((r) => ({ runId: r.run_id, tenant: r.tenant, createdAt: r.created_at }));
+}
+
+export interface RunListRow {
+  run_id: string;
+  close_when: "explicit" | "quiescent";
+  state: "open" | "closed";
+  root_id: string | null;
+  created_at: number | null;
+}
+
+const qListRuns = db.query<RunListRow, Record<string, string | number | null>>(
+  `SELECT r.run_id, r.close_when, r.state, a.agent_id AS root_id, a.created_at
+   FROM runs r
+   LEFT JOIN agents a ON a.run_id = r.run_id AND a.parent_agent_id IS NULL
+   WHERE ($tenant IS NULL OR COALESCE(r.tenant_id, $legacy) = $tenant)
+     AND ($state IS NULL OR r.state = $state)
+   ORDER BY a.created_at DESC, r.run_id
+   LIMIT $limit`,
+);
+
+/**
+ * Runs, newest first. `tenant: null` lists every run (authentication off). Otherwise only that
+ * tenant's, where a run with no recorded tenant counts as `legacyTenant`'s.
+ */
+export function listRuns(opts: {
+  tenant: string | null;
+  legacyTenant: string;
+  state: "open" | "closed" | null;
+  limit: number;
+}): RunListRow[] {
+  return qListRuns.all({
+    $tenant: opts.tenant,
+    $legacy: opts.legacyTenant,
+    $state: opts.state,
+    $limit: opts.limit,
+  });
 }
 
 /**
