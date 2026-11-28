@@ -38,6 +38,19 @@ export const setToken = (t: string) => { try { localStorage.setItem(TOKEN_KEY, t
 export const clearToken = () => { try { localStorage.removeItem(TOKEN_KEY); } catch { /* storage blocked */ } };
 export const hasToken = () => token() !== "";
 
+/**
+ * Google sign-in comes back as `/#auth_token=...` or `/#auth_error=...`. Store the token, clear the
+ * fragment so it does not stay in the address bar or history, and return the error message if any.
+ */
+export function consumeAuthRedirect(): string {
+  const m = window.location.hash.match(/^#(auth_token|auth_error)=(.*)$/);
+  if (!m) return "";
+  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  const value = decodeURIComponent(m[2] ?? "");
+  if (m[1] === "auth_token") { setToken(value); return ""; }
+  return value;
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const t = token();
@@ -62,6 +75,7 @@ export const api = {
   login: (identity: string, password: string) => request<{ token: string; user: User }>("POST", "/api/auth/login", { usernameOrEmail: identity, identity, password }),
   signup: (username: string, email: string, password: string) => request<{ token: string; user: User }>("POST", "/api/auth/signup", { username, email, password }),
   logout: () => request("POST", "/api/auth/logout"),
+  providers: () => request<{ password: boolean; google: boolean }>("GET", "/api/auth/providers"),
   status: () => request<Status>("GET", "/api/status"),
 
   sandboxes: () => request<Sandbox[]>("GET", "/api/sandboxes"),

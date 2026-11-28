@@ -9,6 +9,7 @@ import {
   getUser,
   type User,
 } from "./auth";
+import { GOOGLE_ENABLED, googleCallback, googleStart } from "./google-oauth";
 import {
   listSandboxes,
   getSandbox,
@@ -154,6 +155,13 @@ async function handle(req: Request, srv: Server<BrowserSocketData>): Promise<Res
         return jsonResponse({ error: err.message }, 401);
       }
     }
+
+    if (url.pathname === "/api/auth/providers" && method === "GET") {
+      return jsonResponse({ password: true, google: GOOGLE_ENABLED });
+    }
+
+    if (url.pathname === "/api/auth/google/start" && method === "GET") return googleStart(req);
+    if (url.pathname === "/api/auth/google/callback" && method === "GET") return googleCallback(req);
 
     if (url.pathname === "/api/auth/logout" && method === "POST") {
       const authHeader = req.headers.get("Authorization");

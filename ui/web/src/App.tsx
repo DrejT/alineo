@@ -4,7 +4,7 @@ import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@
 import { Dialog, DialogBackdrop, DialogContent, DialogTitle } from "@ui-sdk/react/dialog";
 import { Toast, ToastDescription, ToastRegion, ToastTitle } from "@ui-sdk/react/toast";
 import { Bot, Boxes, Brain, LayoutDashboard, LogOut, Menu, Plug, Plus, ScrollText, Search, ShieldCheck, SquareTerminal, X } from "lucide-react";
-import { api, clearToken, hasToken, type Sandbox } from "./api";
+import { api, clearToken, consumeAuthRedirect, hasToken, type Sandbox } from "./api";
 import { Badge, ErrorBoundary, IconButton, act, cx, toast, usePoll } from "./lib";
 import { Login, Logo } from "./views/Login";
 import { Overview } from "./views/Overview";
@@ -34,11 +34,14 @@ const fromHash = (): SectionId => {
   return (SECTIONS.find((s) => s.id === h)?.id ?? "overview") as SectionId;
 };
 
+// Runs once, before the first render, so a token from Google sign-in counts on the first check.
+const authRedirectError = consumeAuthRedirect();
+
 export function App() {
   const [authed, setAuthed] = useState(hasToken());
   return (
     <>
-      {authed ? <Shell onSignOut={() => setAuthed(false)} /> : <Login onDone={() => setAuthed(true)} />}
+      {authed ? <Shell onSignOut={() => setAuthed(false)} /> : <Login initialError={authRedirectError} onDone={() => setAuthed(true)} />}
       <ToastRegion toaster={toast}>
         {() => (
           <Toast>

@@ -182,6 +182,9 @@ try {
 try {
   db.run(`ALTER TABLE sandboxes ADD COLUMN is_agent INTEGER NOT NULL DEFAULT 0`);
 } catch {}
+// Google sign-in: the account's stable Google id. NULL for accounts that only use a password.
+try { db.run(`ALTER TABLE users ADD COLUMN google_sub TEXT`); } catch {}
+db.run(`CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL`);
 // Swarm runs: a goal, the master agent that pursues it, and every sandbox that agent spawns.
 for (const col of ["run_id TEXT", "task TEXT NOT NULL DEFAULT ''", "state TEXT NOT NULL DEFAULT 'idle'", "result TEXT NOT NULL DEFAULT ''"]) {
   try { db.run(`ALTER TABLE sandboxes ADD COLUMN ${col}`); } catch {}

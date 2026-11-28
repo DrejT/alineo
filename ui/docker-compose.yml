@@ -18,6 +18,11 @@
 #   ALINEO_UI_CALLBACK_URL    how an agent's sandbox reaches this server, for the Agents page. Default
 #                             http://172.17.0.1:<port>. Untested behind Caddy or on a custom network.
 #   ALINEO_UI_MAX_AGENTS      most agents at once, across all users (default 3). Each reserves 1.5 GB.
+#   GOOGLE_CLIENT_ID          a Google OAuth client of type "Web application". With GOOGLE_CLIENT_SECRET set
+#   GOOGLE_CLIENT_SECRET      too, the login page shows "Continue with Google". Empty turns it off.
+#   ALINEO_UI_PUBLIC_URL      the URL a browser uses for the dashboard, e.g. https://app.alineo.tech. Google
+#                             redirects to <this>/api/auth/google/callback, which must be an authorized
+#                             redirect URI on the OAuth client. Empty: built from the request's forwarded headers.
 #   ALINEO_UI_LOG_LEVEL       debug, info, warn or error (default info). debug adds one line per tool call.
 #   ALINEO_LOG_LEVEL          the same for the agent SDK's own log (default info).
 #   ALINEO_UI_RUN_AGENTS      default most containers per goal (5, and never above the cap above). ALINEO_UI_RUN_KEEP_MINUTES (10) is how
@@ -42,6 +47,9 @@ services:
       ALINEO_UI_LOG_LEVEL: ${ALINEO_UI_LOG_LEVEL:-info}
       ALINEO_LOG_LEVEL: ${ALINEO_LOG_LEVEL:-info}
       ALINEO_UI_CALLBACK_URL: ${ALINEO_UI_CALLBACK_URL:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ALINEO_UI_PUBLIC_URL: ${ALINEO_UI_PUBLIC_URL:-}
     # Keep the container log bounded. Each line is one JSON event; the same key events are also in the diag table.
     logging:
       driver: json-file

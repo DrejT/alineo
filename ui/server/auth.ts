@@ -171,3 +171,14 @@ export function getUser(userId: string): User | null {
     createdAt: row.created_at,
   };
 }
+
+/** A new 30-day session for a user who has already proved who they are (for example through Google). */
+export function createSession(userId: string): { token: string } {
+  const now = Date.now();
+  const token = "tok_" + randomBytes(24).toString("hex");
+  db.prepare(`
+    INSERT INTO sessions (token, user_id, created_at, expires_at)
+    VALUES (?, ?, ?, ?)
+  `).run(token, userId, now, now + 30 * 24 * 60 * 60 * 1000);
+  return { token };
+}
